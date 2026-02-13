@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTenant } from "@/lib/tenant-context"
-import { getRawMaterials, getFinishedProducts } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
 import { toast } from "sonner"
 
 interface NewInventoryDrawerProps {
@@ -73,8 +73,7 @@ const defaultNewProduct: NewProduct = {
 
 export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerProps) {
   const { currentTenant } = useTenant()
-  const rawMaterials = getRawMaterials(currentTenant.id)
-  const finishedProducts = getFinishedProducts(currentTenant.id)
+  const { rawMaterials, finishedProducts } = useStock()
   
   const [addProductOpen, setAddProductOpen] = useState(false)
   const [newProduct, setNewProduct] = useState<NewProduct>(defaultNewProduct)

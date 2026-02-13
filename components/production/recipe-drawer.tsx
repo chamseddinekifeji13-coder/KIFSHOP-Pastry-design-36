@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
-import { getRawMaterials, getCategories, type Recipe } from "@/lib/mock-data"
+import { getCategories, type Recipe } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
 import { toast } from "sonner"
 
 interface RecipeIngredient {
@@ -42,7 +43,7 @@ interface RecipeDrawerProps {
 
 export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) {
   const { currentTenant } = useTenant()
-  const rawMaterials = getRawMaterials(currentTenant.id)
+  const { rawMaterials } = useStock()
   const tenantCategories = getCategories(currentTenant.id)
 
   const isEditing = !!recipe

@@ -22,9 +22,8 @@ import { fr } from "date-fns/locale"
 
 export function InventoryView() {
   const { currentTenant } = useTenant()
+  const { rawMaterials, finishedProducts } = useStock()
   const sessions = getInventorySessions(currentTenant.id)
-  const rawMaterials = getRawMaterials(currentTenant.id)
-  const finishedProducts = getFinishedProducts(currentTenant.id)
   
   const [drawerOpen, setDrawerOpen] = useState(false)
 

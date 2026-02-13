@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useTenant } from "@/lib/tenant-context"
-import { getFinishedProducts } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
 import { toast } from "sonner"
 
 interface OrderItem {
@@ -38,7 +38,7 @@ interface NewOrderDrawerProps {
 
 export function NewOrderDrawer({ open, onOpenChange }: NewOrderDrawerProps) {
   const { currentTenant } = useTenant()
-  const products = getFinishedProducts(currentTenant.id)
+  const { finishedProducts: products } = useStock()
 
   const [customerName, setCustomerName] = useState("")
   const [customerPhone, setCustomerPhone] = useState("")
