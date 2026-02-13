@@ -33,21 +33,21 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protected routes - redirect to login if not authenticated
+  // Public routes that don't require authentication
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/store') ||
-    request.nextUrl.pathname === '/'
+  const isPublicRoute = request.nextUrl.pathname.startsWith('/store')
 
+  // Redirect unauthenticated users to login (except auth & public pages)
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in and trying to access auth pages, redirect to dashboard
+  // If user is logged in and trying to access auth pages, redirect to home (dashboard)
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 

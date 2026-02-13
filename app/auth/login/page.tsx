@@ -28,7 +28,7 @@ export default function LoginPage() {
         password,
       })
       if (error) throw error
-      router.push("/dashboard")
+      router.push("/")
       router.refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur de connexion")
