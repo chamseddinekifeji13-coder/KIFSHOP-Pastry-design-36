@@ -29,7 +29,7 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  // Gracefully handle auth check - don't block app if cookies are restricted
+  // Gracefully handle auth check
   let user = null
   try {
     const { data } = await supabase.auth.getUser()
@@ -40,14 +40,6 @@ export async function updateSession(request: NextRequest) {
   }
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/store')
-
-  // Redirect unauthenticated users to login (except auth & public pages)
-  if (!user && !isAuthRoute && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
-  }
 
   // If user is logged in and trying to access auth pages, redirect to home
   if (user && isAuthRoute) {
