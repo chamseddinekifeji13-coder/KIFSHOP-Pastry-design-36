@@ -29,11 +29,16 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Gracefully handle auth check - don't block app if cookies are restricted
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Auth check failed (e.g. cookies blocked in iframe) - allow access
+    return supabaseResponse
+  }
 
-  // Public routes that don't require authentication
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
   const isPublicRoute = request.nextUrl.pathname.startsWith('/store')
 
@@ -44,7 +49,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in and trying to access auth pages, redirect to home (dashboard)
+  // If user is logged in and trying to access auth pages, redirect to home
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
