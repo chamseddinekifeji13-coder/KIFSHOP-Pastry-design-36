@@ -87,8 +87,6 @@ export function OnboardingModal() {
     completeOnboarding()
   }
 
-  if (!showOnboarding) return null
-
   return (
     <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden" aria-describedby={undefined}>
