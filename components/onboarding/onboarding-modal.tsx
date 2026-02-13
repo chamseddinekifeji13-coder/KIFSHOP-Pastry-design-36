@@ -16,7 +16,10 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useOnboarding } from "@/lib/onboarding-context"
@@ -88,7 +91,10 @@ export function OnboardingModal() {
 
   return (
     <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden" aria-describedby={undefined}>
+        <VisuallyHidden>
+          <DialogTitle>{step?.title ?? "Onboarding"}</DialogTitle>
+        </VisuallyHidden>
         {/* Progress bar */}
         <div className="h-1 bg-muted">
           <div 
