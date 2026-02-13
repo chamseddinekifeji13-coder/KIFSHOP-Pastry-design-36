@@ -1,0 +1,109 @@
+"use client"
+
+import { useState } from "react"
+import { Package, Box, Gift, Plus } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { RawMaterialsTable } from "./raw-materials-table"
+import { FinishedProductsTable } from "./finished-products-table"
+import { StockMovementDrawer } from "./stock-movement-drawer"
+import { NewProductDrawer } from "./new-product-drawer"
+import { useTenant } from "@/lib/tenant-context"
+import { getRawMaterials, getFinishedProducts } from "@/lib/mock-data"
+
+export function StocksView() {
+  const { currentTenant } = useTenant()
+  const [selectedTab, setSelectedTab] = useState("raw")
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [newProductOpen, setNewProductOpen] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" } | null>(null)
+
+  const rawMaterials = getRawMaterials(currentTenant.id)
+  const finishedProducts = getFinishedProducts(currentTenant.id)
+
+  const handleItemClick = (id: string, name: string, type: "raw" | "finished") => {
+    setSelectedItem({ id, name, type })
+    setDrawerOpen(true)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Gestion des Stocks</h1>
+          <p className="text-muted-foreground">
+            Gérez vos matières premières, produits finis et emballages
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setNewProductOpen(true)} className="bg-transparent">
+            <Plus className="mr-2 h-4 w-4" />
+            Nouveau produit fini
+          </Button>
+          <Button onClick={() => {
+            setSelectedItem(null)
+            setDrawerOpen(true)
+          }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Mouvement stock
+          </Button>
+        </div>
+      </div>
+
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="raw" className="gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Matières Premières</span>
+            <span className="sm:hidden">MP</span>
+          </TabsTrigger>
+          <TabsTrigger value="finished" className="gap-2">
+            <Box className="h-4 w-4" />
+            <span className="hidden sm:inline">Produits Finis</span>
+            <span className="sm:hidden">PF</span>
+          </TabsTrigger>
+          <TabsTrigger value="packaging" className="gap-2">
+            <Gift className="h-4 w-4" />
+            <span className="hidden sm:inline">Emballages</span>
+            <span className="sm:hidden">Emb.</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="raw" className="mt-6">
+          <RawMaterialsTable
+            materials={rawMaterials}
+            onItemClick={(id, name) => handleItemClick(id, name, "raw")}
+          />
+        </TabsContent>
+
+        <TabsContent value="finished" className="mt-6">
+          <FinishedProductsTable
+            products={finishedProducts}
+            onItemClick={(id, name) => handleItemClick(id, name, "finished")}
+          />
+        </TabsContent>
+
+        <TabsContent value="packaging" className="mt-6">
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Gift className="h-12 w-12 text-muted-foreground/50" />
+            <h3 className="mt-4 text-lg font-semibold">Emballages</h3>
+            <p className="text-sm text-muted-foreground">
+              Gérez vos boîtes, plateaux et emballages ici
+            </p>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <StockMovementDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        item={selectedItem}
+      />
+
+      <NewProductDrawer
+        open={newProductOpen}
+        onOpenChange={setNewProductOpen}
+      />
+    </div>
+  )
+}
