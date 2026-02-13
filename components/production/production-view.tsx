@@ -23,14 +23,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useTenant } from "@/lib/tenant-context"
-import { getRecipes, getRawMaterials, type Recipe } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
+import { getRecipes, type Recipe } from "@/lib/mock-data"
 import { RecipeDrawer } from "./recipe-drawer"
 import { toast } from "sonner"
 
 export function ProductionView() {
   const { currentTenant } = useTenant()
+  const { rawMaterials, deductMaterials, addFinishedProduct } = useStock()
   const recipes = getRecipes(currentTenant.id)
-  const rawMaterials = getRawMaterials(currentTenant.id)
 
   const [selectedRecipe, setSelectedRecipe] = useState<string>("")
   const [quantity, setQuantity] = useState("")
@@ -62,14 +63,50 @@ export function ProductionView() {
   const canProduce = requiredMaterials.length > 0 && requiredMaterials.every(m => m.sufficient)
 
   const handleStartProduction = () => {
-    if (!canProduce) {
+    if (!canProduce || !selectedRecipeData || !quantity) {
       toast.error("Stock insuffisant pour lancer la production")
       return
     }
 
-    toast.success("Production lancée", {
-      description: `${quantity} ${selectedRecipeData?.yieldUnit} de ${selectedRecipeData?.name}`,
+    const qty = parseFloat(quantity)
+
+    // Build deduction list: quantity required per ingredient
+    const ingredientsToDeduct = selectedRecipeData.ingredients.map(ing => ({
+      materialId: ing.materialId,
+      quantity: parseFloat((ing.quantity * qty).toFixed(4)),
+    }))
+
+    // Deduct raw materials from stock
+    const success = deductMaterials(ingredientsToDeduct)
+
+    if (!success) {
+      toast.error("Erreur lors de la deduction du stock")
+      return
+    }
+
+    // Add finished product to stock
+    const totalYield = selectedRecipeData.yieldQuantity * qty
+    addFinishedProduct(
+      selectedRecipeData.name,
+      totalYield,
+      selectedRecipeData.yieldUnit,
+      selectedRecipeData.category
+    )
+
+    // Build summary of deducted materials
+    const deductedSummary = ingredientsToDeduct
+      .map(ing => {
+        const material = rawMaterials.find(m => m.id === ing.materialId)
+        return material ? `${material.name}: -${ing.quantity}${material.unit}` : ""
+      })
+      .filter(Boolean)
+      .join(", ")
+
+    toast.success("Production lancee avec succes", {
+      description: `${totalYield} ${selectedRecipeData.yieldUnit} de ${selectedRecipeData.name} ajoutees au stock. Matieres deduites: ${deductedSummary}`,
+      duration: 6000,
     })
+
     setDialogOpen(false)
     setSelectedRecipe("")
     setQuantity("")

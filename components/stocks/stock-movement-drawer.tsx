@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useStock } from "@/lib/stock-context"
 import { toast } from "sonner"
 
 interface StockMovementDrawerProps {
@@ -29,6 +30,7 @@ interface StockMovementDrawerProps {
 }
 
 export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementDrawerProps) {
+  const { addRawMaterialStock, removeRawMaterialStock, addFinishedProductStock, removeFinishedProductStock } = useStock()
   const [quantity, setQuantity] = useState("")
   const [reason, setReason] = useState("")
   const [location, setLocation] = useState("labo")
@@ -37,6 +39,30 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     if (!quantity) {
       toast.error("Veuillez entrer une quantité")
       return
+    }
+
+    const qty = parseFloat(quantity)
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Quantité invalide")
+      return
+    }
+
+    // Apply real stock changes if an item is selected
+    if (item) {
+      if (action === "add") {
+        if (item.type === "raw") {
+          addRawMaterialStock(item.id, qty)
+        } else {
+          addFinishedProductStock(item.id, qty)
+        }
+      } else if (action === "remove") {
+        if (item.type === "raw") {
+          removeRawMaterialStock(item.id, qty)
+        } else {
+          removeFinishedProductStock(item.id, qty)
+        }
+      }
+      // Transfer: remove from current location is handled as a UI-only action for now
     }
 
     const actionLabels = {

@@ -5,7 +5,8 @@ import React from "react"
 import { AlertTriangle, Wallet, CheckCircle, Package } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTenant } from "@/lib/tenant-context"
-import { getKPIs, getRawMaterials, getOrders } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
+import { getKPIs, getOrders } from "@/lib/mock-data"
 
 interface Alert {
   id: string
@@ -17,8 +18,8 @@ interface Alert {
 
 export function AlertsPanel() {
   const { currentTenant } = useTenant()
+  const { rawMaterials } = useStock()
   const kpis = getKPIs(currentTenant.id)
-  const rawMaterials = getRawMaterials(currentTenant.id)
   const orders = getOrders(currentTenant.id)
 
   const criticalMaterials = rawMaterials.filter(m => m.status === "critical")

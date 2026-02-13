@@ -9,17 +9,15 @@ import { FinishedProductsTable } from "./finished-products-table"
 import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
 import { useTenant } from "@/lib/tenant-context"
-import { getRawMaterials, getFinishedProducts } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
 
 export function StocksView() {
   const { currentTenant } = useTenant()
+  const { rawMaterials, finishedProducts } = useStock()
   const [selectedTab, setSelectedTab] = useState("raw")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" } | null>(null)
-
-  const rawMaterials = getRawMaterials(currentTenant.id)
-  const finishedProducts = getFinishedProducts(currentTenant.id)
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished") => {
     setSelectedItem({ id, name, type })
