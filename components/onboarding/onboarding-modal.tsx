@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -88,7 +90,8 @@ export function OnboardingModal() {
 
   return (
     <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden" aria-describedby={undefined}>
+        <DialogTitle className="sr-only">Assistant de configuration</DialogTitle>
         {/* Progress bar */}
         <div className="h-1 bg-muted">
           <div 

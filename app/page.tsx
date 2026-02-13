@@ -1,5 +1,20 @@
-import { AppShell } from "@/components/layout/app-shell"
-import { DashboardView } from "@/components/dashboard/dashboard-view"
+import dynamic from "next/dynamic"
+
+const AppShell = dynamic(() => import("@/components/layout/app-shell").then(m => ({ default: m.AppShell })), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="text-sm text-muted-foreground">Chargement...</p>
+      </div>
+    </div>
+  ),
+})
+
+const DashboardView = dynamic(() => import("@/components/dashboard/dashboard-view").then(m => ({ default: m.DashboardView })), {
+  ssr: false,
+})
 
 export default function Page() {
   return (
