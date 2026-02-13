@@ -14,6 +14,7 @@ import { useOnboarding } from "@/lib/onboarding-context"
 import { getCategories } from "@/lib/mock-data"
 import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
+import { TeamManagement } from "./team-management"
 
 export function SettingsView() {
   const { currentTenant, currentRole } = useTenant()
@@ -105,6 +106,9 @@ export function SettingsView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Team Management */}
+        <TeamManagement currentRole={currentRole} />
 
         {/* Categories */}
         <Card>

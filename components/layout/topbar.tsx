@@ -1,6 +1,8 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { Bell, ChevronDown, Menu } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,6 +19,13 @@ import { useTenant } from "@/lib/tenant-context"
 
 export function Topbar() {
   const { currentTenant, tenants, setCurrentTenant, currentRole, setCurrentRole } = useTenant()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+  }
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b bg-card px-4 md:px-6">
@@ -121,7 +130,7 @@ export function Topbar() {
             <DropdownMenuItem>Mon profil</DropdownMenuItem>
             <DropdownMenuItem>Paramètres</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
               Déconnexion
             </DropdownMenuItem>
           </DropdownMenuContent>

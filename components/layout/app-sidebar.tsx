@@ -15,7 +15,8 @@ import {
   Radio,
 } from "lucide-react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
 import {
   Sidebar,
@@ -72,7 +73,14 @@ const navigation = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { currentTenant, currentRole } = useTenant()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/auth/login")
+  }
 
   return (
     <Sidebar>
@@ -139,7 +147,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Déconnexion">
+            <SidebarMenuButton tooltip="Déconnexion" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               <span>Déconnexion</span>
             </SidebarMenuButton>
