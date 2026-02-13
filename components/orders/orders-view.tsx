@@ -15,7 +15,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useTenant } from "@/lib/tenant-context"
-import { getOrders, type Order } from "@/lib/mock-data"
+import { useOrders } from "@/lib/order-context"
+import { type Order } from "@/lib/mock-data"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
 
@@ -46,7 +47,7 @@ const sourceIcons: Record<string, typeof MessageCircle> = {
 
 export function OrdersView() {
   const { currentTenant } = useTenant()
-  const orders = getOrders(currentTenant.id)
+  const { orders, updateOrderStatus, updatePaymentStatus } = useOrders()
   const searchParams = useSearchParams()
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -76,19 +77,32 @@ export function OrdersView() {
   const handleStatusChange = (newStatus: Order["status"]) => {
     if (!selectedOrder) return
 
-    toast.success("Statut mis à jour", {
-      description: `Commande #${selectedOrder.id} -> ${statusConfig[newStatus].label}`,
+    updateOrderStatus(selectedOrder.id, newStatus)
+
+    const deductionMessage = newStatus === "livre"
+      ? " - Produits deduits du stock"
+      : ""
+
+    toast.success("Statut mis a jour", {
+      description: `Commande #${selectedOrder.id} -> ${statusConfig[newStatus].label}${deductionMessage}`,
     })
-    setSheetOpen(false)
+
+    setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null)
+    if (newStatus === "livre") {
+      setSheetOpen(false)
+    }
   }
 
   const handleEncaisser = () => {
     if (!selectedOrder) return
 
-    toast.success("Paiement enregistré", {
-      description: `${selectedOrder.total.toLocaleString("fr-TN")} TND encaissés`,
+    updatePaymentStatus(selectedOrder.id, "paid")
+
+    toast.success("Paiement enregistre", {
+      description: `${selectedOrder.total.toLocaleString("fr-TN")} TND encaisses`,
     })
-    setSheetOpen(false)
+
+    setSelectedOrder(prev => prev ? { ...prev, paymentStatus: "paid", deposit: prev.total } : null)
   }
 
   const getPaymentBadge = (status: Order["paymentStatus"]) => {

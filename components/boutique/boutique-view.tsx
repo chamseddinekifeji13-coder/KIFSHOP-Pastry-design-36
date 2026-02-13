@@ -9,14 +9,15 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTenant } from "@/lib/tenant-context"
-import { getCatalog, getOrders, type CatalogProduct } from "@/lib/mock-data"
+import { useOrders } from "@/lib/order-context"
+import { getCatalog, type CatalogProduct } from "@/lib/mock-data"
 import { toast } from "sonner"
 import { ProductEditDrawer } from "./product-edit-drawer"
 
 export function BoutiqueView() {
   const { currentTenant } = useTenant()
+  const { orders } = useOrders()
   const catalog = getCatalog(currentTenant.id)
-  const orders = getOrders(currentTenant.id)
 
   const [editProduct, setEditProduct] = useState<CatalogProduct | null>(null)
   const [editOpen, setEditOpen] = useState(false)

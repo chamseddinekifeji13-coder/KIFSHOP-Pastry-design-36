@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { useTenant } from "@/lib/tenant-context"
-import { getOrders, getSalesChannels } from "@/lib/mock-data"
+import { useOrders } from "@/lib/order-context"
+import { getSalesChannels } from "@/lib/mock-data"
 
 const channelIcons: Record<string, typeof MessageCircle> = {
   whatsapp: MessageCircle,
@@ -25,7 +26,7 @@ const channelLabels: Record<string, string> = {
 
 export function OnlineSalesWidget() {
   const { currentTenant } = useTenant()
-  const orders = getOrders(currentTenant.id)
+  const { orders } = useOrders()
   const channels = getSalesChannels(currentTenant.id)
 
   // Count orders by source (excluding comptoir)

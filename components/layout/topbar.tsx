@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, ChevronDown, Menu } from "lucide-react"
+import { ChevronDown, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useTenant } from "@/lib/tenant-context"
+import { OrderNotifications } from "@/components/orders/order-notifications"
 
 export function Topbar() {
   const { currentTenant, tenants, setCurrentTenant, currentRole, setCurrentRole } = useTenant()
@@ -89,13 +90,7 @@ export function Topbar() {
         </DropdownMenu>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-            3
-          </span>
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <OrderNotifications />
 
         {/* User Menu */}
         <DropdownMenu>

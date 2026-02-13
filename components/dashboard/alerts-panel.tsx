@@ -6,7 +6,8 @@ import { AlertTriangle, Wallet, CheckCircle, Package } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTenant } from "@/lib/tenant-context"
 import { useStock } from "@/lib/stock-context"
-import { getKPIs, getOrders } from "@/lib/mock-data"
+import { useOrders } from "@/lib/order-context"
+import { getKPIs } from "@/lib/mock-data"
 
 interface Alert {
   id: string
@@ -19,11 +20,12 @@ interface Alert {
 export function AlertsPanel() {
   const { currentTenant } = useTenant()
   const { rawMaterials } = useStock()
+  const { orders, unreadCount } = useOrders()
   const kpis = getKPIs(currentTenant.id)
-  const orders = getOrders(currentTenant.id)
 
   const criticalMaterials = rawMaterials.filter(m => m.status === "critical")
   const readyOrders = orders.filter(o => o.status === "pret")
+  const newOrders = orders.filter(o => o.status === "nouveau")
 
   const alerts: Alert[] = []
 
@@ -46,6 +48,17 @@ export function AlertsPanel() {
       icon: Wallet,
       title: "Trésorerie < 1000 TND",
       description: `Solde actuel: ${kpis.cashFlow.toLocaleString("fr-TN")} TND`,
+    })
+  }
+
+  // Add new incoming orders alert
+  if (unreadCount > 0) {
+    alerts.push({
+      id: "new-orders",
+      type: "warning",
+      icon: Package,
+      title: `${unreadCount} nouvelle${unreadCount > 1 ? "s" : ""} commande${unreadCount > 1 ? "s" : ""}`,
+      description: "Commandes recues via les canaux de vente",
     })
   }
 

@@ -18,7 +18,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { useTenant } from "@/lib/tenant-context"
-import { getSalesChannels, getOrders, type SalesChannel } from "@/lib/mock-data"
+import { useOrders } from "@/lib/order-context"
+import { getSalesChannels, type SalesChannel } from "@/lib/mock-data"
 import { toast } from "sonner"
 import { ChannelConfigDrawer } from "./channel-config-drawer"
 
@@ -48,8 +49,8 @@ const channelDescriptions: Record<string, string> = {
 
 export function ChannelsView() {
   const { currentTenant } = useTenant()
+  const { orders, simulationActive, setSimulationActive } = useOrders()
   const channels = getSalesChannels(currentTenant.id)
-  const orders = getOrders(currentTenant.id)
 
   const [configChannel, setConfigChannel] = useState<SalesChannel | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
@@ -134,6 +135,31 @@ export function ChannelsView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Automation Toggle */}
+      <Card className={simulationActive ? "border-primary/30 bg-primary/5" : ""}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${simulationActive ? "bg-primary/10" : "bg-muted"}`}>
+                <Zap className={`h-5 w-5 ${simulationActive ? "text-primary" : "text-muted-foreground"}`} />
+              </div>
+              <div>
+                <p className="font-medium text-sm">Automatisation des commandes</p>
+                <p className="text-xs text-muted-foreground">
+                  {simulationActive
+                    ? "Les commandes arrivent automatiquement depuis les canaux actifs"
+                    : "La reception automatique des commandes est desactivee"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={simulationActive}
+              onCheckedChange={setSimulationActive}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Channels Grid */}
       <div className="grid gap-4 md:grid-cols-2">

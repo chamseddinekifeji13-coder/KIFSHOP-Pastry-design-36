@@ -3,11 +3,17 @@
 import { Wallet, TrendingUp, AlertTriangle, ClipboardList } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { useTenant } from "@/lib/tenant-context"
+import { useOrders } from "@/lib/order-context"
 import { getKPIs } from "@/lib/mock-data"
 
 export function KPICards() {
   const { currentTenant } = useTenant()
+  const { orders } = useOrders()
   const kpis = getKPIs(currentTenant.id)
+
+  // Compute reactive order KPIs from the context
+  const pendingOrdersCount = orders.filter(o => o.status !== "livre").length
+  const readyOrdersCount = orders.filter(o => o.status === "pret").length
 
   const cards = [
     {
@@ -39,8 +45,8 @@ export function KPICards() {
     },
     {
       title: "Commandes en attente",
-      value: kpis.pendingOrdersCount.toString(),
-      subtitle: `${kpis.readyOrdersCount} prête${kpis.readyOrdersCount > 1 ? "s" : ""} à livrer`,
+      value: pendingOrdersCount.toString(),
+      subtitle: `${readyOrdersCount} prete${readyOrdersCount > 1 ? "s" : ""} a livrer`,
       icon: ClipboardList,
       iconBg: "bg-primary/10",
       iconColor: "text-primary",
