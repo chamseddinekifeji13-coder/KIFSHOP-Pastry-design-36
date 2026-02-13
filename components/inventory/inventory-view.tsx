@@ -14,7 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useTenant } from "@/lib/tenant-context"
-import { getInventorySessions, getRawMaterials, getFinishedProducts } from "@/lib/mock-data"
+import { useStock } from "@/lib/stock-context"
+import { getInventorySessions } from "@/lib/mock-data"
 import { NewInventoryDrawer } from "./new-inventory-drawer"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
