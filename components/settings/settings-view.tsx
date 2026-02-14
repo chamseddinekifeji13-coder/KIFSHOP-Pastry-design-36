@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CreditCard, Store, Printer, Bell, RotateCcw, Tags } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,14 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
-import { useOnboarding } from "@/lib/onboarding-context"
 import { getCategories } from "@/lib/mock-data"
 import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 
 export function SettingsView() {
   const { currentTenant, currentRole } = useTenant()
-  const { resetOnboarding } = useOnboarding()
   const categories = getCategories(currentTenant.id)
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
@@ -204,27 +202,7 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
-        {/* Onboarding */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Aide</CardTitle>
-            </div>
-            <CardDescription>Tutoriels et assistance</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Revoir le tutoriel</p>
-                <p className="text-xs text-muted-foreground">Relancer le guide de demarrage</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={resetOnboarding} className="bg-transparent">
-                Relancer
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
 
       <ShopConfigDrawer open={shopConfigOpen} onOpenChange={setShopConfigOpen} />
