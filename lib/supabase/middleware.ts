@@ -64,8 +64,9 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect logged-in users away from auth pages
-  if (user && isAuthRoute) {
+  // Redirect logged-in users away from auth pages (except reset-password)
+  const isResetPasswordRoute = pathname === '/auth/reset-password'
+  if (user && isAuthRoute && !isResetPasswordRoute) {
     const url = request.nextUrl.clone()
     const isSuperAdmin = user.user_metadata?.is_super_admin === true
     url.pathname = isSuperAdmin ? '/super-admin' : '/dashboard'
