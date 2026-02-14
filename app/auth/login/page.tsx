@@ -30,7 +30,7 @@ export default function LoginPage() {
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
@@ -41,7 +41,9 @@ export default function LoginPage() {
       return
     }
 
-    router.push("/dashboard")
+    // Redirect super admins to their dashboard
+    const isSuperAdmin = data.user?.user_metadata?.is_super_admin === true
+    router.push(isSuperAdmin ? "/super-admin" : "/dashboard")
     router.refresh()
   }
 

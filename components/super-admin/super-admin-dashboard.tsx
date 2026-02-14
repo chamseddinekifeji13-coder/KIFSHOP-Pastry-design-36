@@ -1,0 +1,182 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Building2, Users, CreditCard, Activity } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import {
+  getSuperAdminStats,
+  getAllTenants,
+  type SuperAdminStats,
+  type TenantOverview,
+} from "@/lib/super-admin/actions"
+
+const PLAN_LABELS: Record<string, string> = {
+  free: "Gratuit",
+  starter: "Starter",
+  pro: "Pro",
+  enterprise: "Enterprise",
+}
+
+const PLAN_COLORS: Record<string, string> = {
+  free: "secondary",
+  starter: "default",
+  pro: "default",
+  enterprise: "default",
+}
+
+export function SuperAdminDashboard() {
+  const [stats, setStats] = useState<SuperAdminStats | null>(null)
+  const [recentTenants, setRecentTenants] = useState<TenantOverview[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [statsData, tenantsData] = await Promise.all([
+          getSuperAdminStats(),
+          getAllTenants(),
+        ])
+        setStats(statsData)
+        setRecentTenants(tenantsData.slice(0, 5))
+      } catch (error) {
+        console.error("Error loading super admin data:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Chargement...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Patisseries
+            </CardTitle>
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalTenants || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats?.activeTenants || 0} actives
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Utilisateurs
+            </CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              sur tous les tenants
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Abonnements</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {stats?.planBreakdown.map((p) => (
+                <Badge
+                  key={p.plan}
+                  variant={
+                    PLAN_COLORS[p.plan] === "default"
+                      ? "default"
+                      : "secondary"
+                  }
+                  className="text-[10px]"
+                >
+                  {PLAN_LABELS[p.plan] || p.plan}: {p.count}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Statut</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-success">Operationnel</div>
+            <p className="text-xs text-muted-foreground">
+              tous les services actifs
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Tenants */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Patisseries recentes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recentTenants.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Aucune patisserie enregistree
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {recentTenants.map((tenant) => (
+                <div
+                  key={tenant.id}
+                  className="flex items-center justify-between rounded-md border p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold text-background"
+                      style={{ backgroundColor: tenant.primary_color }}
+                    >
+                      {tenant.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{tenant.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {tenant.user_count} utilisateur{tenant.user_count !== 1 ? "s" : ""} - Cree le{" "}
+                        {new Date(tenant.created_at).toLocaleDateString("fr-FR")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={tenant.is_active ? "default" : "secondary"}
+                      className="text-[10px]"
+                    >
+                      {tenant.is_active ? "Actif" : "Suspendu"}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {PLAN_LABELS[tenant.subscription_plan] || tenant.subscription_plan}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

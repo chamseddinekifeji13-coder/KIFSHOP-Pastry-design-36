@@ -42,18 +42,31 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
+  const isSuperAdminRoute = request.nextUrl.pathname.startsWith('/super-admin')
   const isPublicRoute = request.nextUrl.pathname === '/' || isAuthRoute
 
+  // Redirect unauthenticated users to login
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in and tries to access auth pages, redirect to dashboard
+  // Protect super-admin routes: only users with is_super_admin metadata
+  if (user && isSuperAdminRoute) {
+    const isSuperAdmin = user.user_metadata?.is_super_admin === true
+    if (!isSuperAdmin) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // If user is logged in and tries to access auth pages, redirect appropriately
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    const isSuperAdmin = user.user_metadata?.is_super_admin === true
+    url.pathname = isSuperAdmin ? '/super-admin' : '/dashboard'
     return NextResponse.redirect(url)
   }
 
