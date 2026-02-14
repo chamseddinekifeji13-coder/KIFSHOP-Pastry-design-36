@@ -1,9 +1,16 @@
-import { DashboardShell } from "@/components/layout/dashboard-shell"
+"use client"
+
+import { AppShell } from "@/components/layout/app-shell"
+import { RouteGuard } from "@/components/route-guard"
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return <DashboardShell>{children}</DashboardShell>
+  return (
+    <AppShell>
+      <RouteGuard>{children}</RouteGuard>
+    </AppShell>
+  )
 }
