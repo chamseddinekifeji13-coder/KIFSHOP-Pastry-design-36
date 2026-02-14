@@ -13,6 +13,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   caissier: "Caissier",
 }
 
+export const ALL_ROLES: UserRole[] = ["gerant", "vendeur", "magasinier", "achat", "caissier"]
+
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   gerant: ["/", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/parametres"],
@@ -42,7 +44,7 @@ export interface AppUser {
   initials: string
 }
 
-export const MOCK_USERS: AppUser[] = [
+const DEFAULT_USERS: AppUser[] = [
   { id: "u1", name: "Chamseddine", role: "gerant", initials: "CK" },
   { id: "u2", name: "Fatma", role: "vendeur", initials: "FA" },
   { id: "u3", name: "Sami", role: "vendeur", initials: "SA" },
@@ -65,9 +67,13 @@ export interface TenantState {
   currentTenant: Tenant
   currentUser: AppUser
   currentRole: UserRole
+  users: AppUser[]
   tenants: Tenant[]
   setCurrentTenant: (tenant: Tenant) => void
   setCurrentUser: (user: AppUser) => void
+  addUser: (user: Omit<AppUser, "id">) => void
+  updateUser: (id: string, updates: Partial<Omit<AppUser, "id">>) => void
+  removeUser: (id: string) => void
 }
 
 const tenants: Tenant[] = [
@@ -89,7 +95,27 @@ const TenantContext = createContext<TenantState | undefined>(undefined)
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [currentTenant, setCurrentTenant] = useState<Tenant>(tenants[0])
-  const [currentUser, setCurrentUser] = useState<AppUser>(MOCK_USERS[0])
+  const [users, setUsers] = useState<AppUser[]>(DEFAULT_USERS)
+  const [currentUser, setCurrentUser] = useState<AppUser>(DEFAULT_USERS[0])
+
+  const addUser = (user: Omit<AppUser, "id">) => {
+    const newUser: AppUser = { ...user, id: `u${Date.now()}` }
+    setUsers((prev) => [...prev, newUser])
+  }
+
+  const updateUser = (id: string, updates: Partial<Omit<AppUser, "id">>) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, ...updates } : u))
+    )
+    if (currentUser.id === id) {
+      setCurrentUser((prev) => ({ ...prev, ...updates }))
+    }
+  }
+
+  const removeUser = (id: string) => {
+    if (id === currentUser.id) return
+    setUsers((prev) => prev.filter((u) => u.id !== id))
+  }
 
   return (
     <TenantContext.Provider
@@ -97,9 +123,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         currentTenant,
         currentUser,
         currentRole: currentUser.role,
+        users,
         tenants,
         setCurrentTenant,
         setCurrentUser,
+        addUser,
+        updateUser,
+        removeUser,
       }}
     >
       {children}

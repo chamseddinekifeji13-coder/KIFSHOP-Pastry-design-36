@@ -16,7 +16,6 @@ import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   useTenant,
-  MOCK_USERS,
   ROLE_LABELS,
   canAccessRoute,
   getDefaultRoute,
@@ -33,12 +32,13 @@ export function Topbar() {
     currentUser,
     setCurrentUser,
     currentRole,
+    users,
   } = useTenant()
   const router = useRouter()
   const pathname = usePathname()
 
   function handleUserSwitch(userId: string) {
-    const user = MOCK_USERS.find((u) => u.id === userId)
+    const user = users.find((u) => u.id === userId)
     if (!user) return
     setCurrentUser(user)
     // If current page is not accessible for the new user, redirect
@@ -114,7 +114,7 @@ export function Topbar() {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Changer d{"'"}utilisateur</DropdownMenuLabel>
             {roleGroups.map((role) => {
-              const usersInRole = MOCK_USERS.filter((u) => u.role === role)
+              const usersInRole = users.filter((u) => u.role === role)
               if (usersInRole.length === 0) return null
               return (
                 <div key={role}>

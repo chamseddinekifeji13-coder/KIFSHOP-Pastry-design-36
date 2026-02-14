@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CreditCard, Store, Printer, Bell, Tags } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,12 +13,15 @@ import { useTenant } from "@/lib/tenant-context"
 import { getCategories } from "@/lib/mock-data"
 import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
+import { UsersDrawer } from "./users-drawer"
+import { ROLE_LABELS } from "@/lib/tenant-context"
 
 export function SettingsView() {
-  const { currentTenant, currentRole } = useTenant()
+  const { currentTenant, currentRole, users } = useTenant()
   const categories = getCategories(currentTenant.id)
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [usersOpen, setUsersOpen] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -141,6 +144,40 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
+        {/* Users Management - Gerant only */}
+        {currentRole === "gerant" && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Utilisateurs</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setUsersOpen(true)} className="bg-transparent">
+                  Gerer
+                </Button>
+              </div>
+              <CardDescription>Profils et acces des utilisateurs</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {(["gerant", "vendeur", "magasinier", "achat", "caissier"] as const).map((role) => {
+                  const count = users.filter((u) => u.role === role).length
+                  return (
+                    <div key={role} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{ROLE_LABELS[role]}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                {users.length} utilisateurs au total
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Printer Settings */}
         <Card>
           <CardHeader>
@@ -207,6 +244,7 @@ export function SettingsView() {
 
       <ShopConfigDrawer open={shopConfigOpen} onOpenChange={setShopConfigOpen} />
       <CategoriesDrawer open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+      <UsersDrawer open={usersOpen} onOpenChange={setUsersOpen} />
     </div>
   )
 }
