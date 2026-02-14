@@ -1,6 +1,7 @@
 "use client"
 
-import { Bell, ChevronDown, Menu } from "lucide-react"
+import { Bell, ChevronDown, Menu, Users } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,10 +14,38 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { useTenant } from "@/lib/tenant-context"
+import {
+  useTenant,
+  MOCK_USERS,
+  ROLE_LABELS,
+  canAccessRoute,
+  getDefaultRoute,
+  type UserRole,
+} from "@/lib/tenant-context"
+
+const roleGroups: UserRole[] = ["gerant", "vendeur", "magasinier", "achat", "caissier"]
 
 export function Topbar() {
-  const { currentTenant, tenants, setCurrentTenant, currentRole, setCurrentRole } = useTenant()
+  const {
+    currentTenant,
+    tenants,
+    setCurrentTenant,
+    currentUser,
+    setCurrentUser,
+    currentRole,
+  } = useTenant()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  function handleUserSwitch(userId: string) {
+    const user = MOCK_USERS.find((u) => u.id === userId)
+    if (!user) return
+    setCurrentUser(user)
+    // If current page is not accessible for the new user, redirect
+    if (!canAccessRoute(user.role, pathname)) {
+      router.push(getDefaultRoute(user.role))
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b bg-card px-4 md:px-6">
@@ -70,21 +99,49 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Role Toggle (for demo) */}
+        {/* User / Role Selector (for demo) */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent">
-              Rôle: {currentRole === "admin" ? "Admin" : "Staff"}
+            <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent gap-2">
+              <Users className="h-3.5 w-3.5" />
+              <span className="max-w-[120px] truncate">{currentUser.name}</span>
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                {ROLE_LABELS[currentRole]}
+              </Badge>
               <ChevronDown className="ml-1 h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setCurrentRole("admin")}>
-              Admin
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setCurrentRole("staff")}>
-              Staff
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Changer d{"'"}utilisateur</DropdownMenuLabel>
+            {roleGroups.map((role) => {
+              const usersInRole = MOCK_USERS.filter((u) => u.role === role)
+              if (usersInRole.length === 0) return null
+              return (
+                <div key={role}>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal">
+                    {ROLE_LABELS[role]}
+                  </DropdownMenuLabel>
+                  {usersInRole.map((user) => (
+                    <DropdownMenuItem
+                      key={user.id}
+                      onClick={() => handleUserSwitch(user.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                        {user.initials}
+                      </div>
+                      <span>{user.name}</span>
+                      {currentUser.id === user.id && (
+                        <Badge variant="secondary" className="ml-auto text-[10px]">
+                          Actif
+                        </Badge>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              )
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -103,7 +160,7 @@ export function Topbar() {
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                  AK
+                  {currentUser.initials}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -111,18 +168,18 @@ export function Topbar() {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>
               <div className="flex flex-col">
-                <span>Ahmed Karim</span>
+                <span>{currentUser.name}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  ahmed@kifshop.tn
+                  {ROLE_LABELS[currentRole]}
                 </span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Mon profil</DropdownMenuItem>
-            <DropdownMenuItem>Paramètres</DropdownMenuItem>
+            <DropdownMenuItem>Parametres</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive">
-              Déconnexion
+              Deconnexion
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -343,3 +343,62 @@ export function getKPIs(tenantId: string) {
     grossMargin: todayRevenue - todayExpenses,
   }
 }
+
+// ─── Approvisionnement (Fournisseurs & Commandes Achat) ──────
+export interface Supplier {
+  id: string
+  tenantId: string
+  name: string
+  contact: string
+  phone: string
+  email: string
+  products: string[]
+  status: "actif" | "inactif"
+}
+
+export interface PurchaseOrder {
+  id: string
+  tenantId: string
+  supplierId: string
+  supplierName: string
+  items: { name: string; quantity: number; unit: string; unitPrice: number }[]
+  total: number
+  status: "brouillon" | "envoyee" | "confirmee" | "livree" | "annulee"
+  createdAt: string
+  expectedDelivery?: string
+  deliveredAt?: string
+}
+
+export const masmoudiSuppliers: Supplier[] = [
+  { id: "sup1", tenantId: "masmoudi", name: "Minoterie du Nord", contact: "Ali Ben Salem", phone: "+216 71 300 100", email: "contact@minoterie-nord.tn", products: ["Semoule fine", "Farine patissiere"], status: "actif" },
+  { id: "sup2", tenantId: "masmoudi", name: "Ferme Miel Kroumirie", contact: "Hedi Kchaou", phone: "+216 98 500 200", email: "hedi@miel-kroumirie.tn", products: ["Miel", "Eau de fleur d'oranger"], status: "actif" },
+  { id: "sup3", tenantId: "masmoudi", name: "Dattes Tozeur Premium", contact: "Sonia Jebali", phone: "+216 76 400 300", email: "sonia@dattes-tozeur.tn", products: ["Dattes Deglet", "Dattes Allig"], status: "actif" },
+  { id: "sup4", tenantId: "masmoudi", name: "Import Fruits Secs", contact: "Mehdi Trabelsi", phone: "+216 71 600 400", email: "mehdi@import-fs.tn", products: ["Amandes", "Pistaches", "Noix"], status: "actif" },
+  { id: "sup5", tenantId: "masmoudi", name: "Beurre & Lait SA", contact: "Rania Mhiri", phone: "+216 71 700 500", email: "rania@beurrelait.tn", products: ["Beurre"], status: "inactif" },
+]
+
+export const delicesSuppliers: Supplier[] = [
+  { id: "dsup1", tenantId: "delices", name: "Ferme Miel Kroumirie", contact: "Hedi Kchaou", phone: "+216 98 500 200", email: "hedi@miel-kroumirie.tn", products: ["Miel de montagne"], status: "actif" },
+  { id: "dsup2", tenantId: "delices", name: "Dattes Tozeur Premium", contact: "Sonia Jebali", phone: "+216 76 400 300", email: "sonia@dattes-tozeur.tn", products: ["Dattes Allig"], status: "actif" },
+  { id: "dsup3", tenantId: "delices", name: "Emballages Tunisie", contact: "Walid Chahed", phone: "+216 71 800 600", email: "walid@emballages.tn", products: ["Pots en verre 250ml", "Coffrets cadeau"], status: "actif" },
+]
+
+export const masmoudiPurchaseOrders: PurchaseOrder[] = [
+  { id: "po1", tenantId: "masmoudi", supplierId: "sup1", supplierName: "Minoterie du Nord", items: [{ name: "Semoule fine", quantity: 50, unit: "kg", unitPrice: 3.5 }], total: 175, status: "livree", createdAt: "2026-01-28", expectedDelivery: "2026-01-30", deliveredAt: "2026-01-30" },
+  { id: "po2", tenantId: "masmoudi", supplierId: "sup4", supplierName: "Import Fruits Secs", items: [{ name: "Amandes", quantity: 10, unit: "kg", unitPrice: 45 }, { name: "Pistaches", quantity: 5, unit: "kg", unitPrice: 80 }], total: 850, status: "confirmee", createdAt: "2026-02-01", expectedDelivery: "2026-02-05" },
+  { id: "po3", tenantId: "masmoudi", supplierId: "sup2", supplierName: "Ferme Miel Kroumirie", items: [{ name: "Miel", quantity: 20, unit: "kg", unitPrice: 18 }], total: 360, status: "envoyee", createdAt: "2026-02-02", expectedDelivery: "2026-02-07" },
+  { id: "po4", tenantId: "masmoudi", supplierId: "sup3", supplierName: "Dattes Tozeur Premium", items: [{ name: "Dattes Deglet", quantity: 15, unit: "kg", unitPrice: 12 }], total: 180, status: "brouillon", createdAt: "2026-02-02" },
+]
+
+export const delicesPurchaseOrders: PurchaseOrder[] = [
+  { id: "dpo1", tenantId: "delices", supplierId: "dsup1", supplierName: "Ferme Miel Kroumirie", items: [{ name: "Miel de montagne", quantity: 30, unit: "kg", unitPrice: 22 }], total: 660, status: "livree", createdAt: "2026-01-25", expectedDelivery: "2026-01-28", deliveredAt: "2026-01-27" },
+  { id: "dpo2", tenantId: "delices", supplierId: "dsup3", supplierName: "Emballages Tunisie", items: [{ name: "Pots en verre 250ml", quantity: 100, unit: "pcs", unitPrice: 1.2 }], total: 120, status: "confirmee", createdAt: "2026-02-01", expectedDelivery: "2026-02-04" },
+]
+
+export function getSuppliers(tenantId: string): Supplier[] {
+  return tenantId === "masmoudi" ? masmoudiSuppliers : delicesSuppliers
+}
+
+export function getPurchaseOrders(tenantId: string): PurchaseOrder[] {
+  return tenantId === "masmoudi" ? masmoudiPurchaseOrders : delicesPurchaseOrders
+}

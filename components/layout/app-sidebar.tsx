@@ -8,11 +8,10 @@ import {
   Wallet,
   Settings,
   LogOut,
-  Shield,
-  User,
   ClipboardCheck,
   Store,
   Radio,
+  Truck,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -30,23 +29,29 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar"
-import { useTenant } from "@/lib/tenant-context"
+import { useTenant, canAccessRoute, ROLE_LABELS } from "@/lib/tenant-context"
 import { Badge } from "@/components/ui/badge"
 
 const navigation = [
   {
-    title: "Général",
+    title: "General",
     items: [
       { title: "Tableau de bord", href: "/", icon: LayoutDashboard },
     ],
   },
   {
-    title: "Opérations",
+    title: "Operations",
     items: [
       { title: "Stocks", href: "/stocks", icon: Package },
       { title: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { title: "Production", href: "/production", icon: ChefHat },
       { title: "Commandes", href: "/commandes", icon: ShoppingCart },
+    ],
+  },
+  {
+    title: "Achats",
+    items: [
+      { title: "Approvisionnement", href: "/approvisionnement", icon: Truck },
     ],
   },
   {
@@ -59,20 +64,28 @@ const navigation = [
   {
     title: "Finance",
     items: [
-      { title: "Trésorerie", href: "/tresorerie", icon: Wallet },
+      { title: "Tresorerie", href: "/tresorerie", icon: Wallet },
     ],
   },
   {
     title: "Administration",
     items: [
-      { title: "Paramètres", href: "/parametres", icon: Settings },
+      { title: "Parametres", href: "/parametres", icon: Settings },
     ],
   },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { currentTenant, currentRole } = useTenant()
+  const { currentTenant, currentUser, currentRole } = useTenant()
+
+  // Filter navigation groups based on user role
+  const filteredNavigation = navigation
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccessRoute(currentRole, item.href)),
+    }))
+    .filter((group) => group.items.length > 0)
 
   return (
     <Sidebar>
@@ -88,22 +101,14 @@ export function AppSidebar() {
             <span className="font-semibold text-sm leading-tight">
               {currentTenant.name}
             </span>
-            <Badge
-              variant={currentRole === "admin" ? "default" : "secondary"}
-              className="mt-1 w-fit text-[10px] px-1.5 py-0"
-            >
-              {currentRole === "admin" ? (
-                <>
-                  <Shield className="mr-1 h-2.5 w-2.5" />
-                  Admin
-                </>
-              ) : (
-                <>
-                  <User className="mr-1 h-2.5 w-2.5" />
-                  Staff
-                </>
-              )}
-            </Badge>
+            <div className="flex items-center gap-1.5 mt-1">
+              <Badge
+                variant="secondary"
+                className="w-fit text-[10px] px-1.5 py-0"
+              >
+                {ROLE_LABELS[currentRole]}
+              </Badge>
+            </div>
           </div>
         </div>
       </SidebarHeader>
@@ -111,7 +116,7 @@ export function AppSidebar() {
       <SidebarSeparator />
 
       <SidebarContent>
-        {navigation.map((group) => (
+        {filteredNavigation.map((group) => (
           <SidebarGroup key={group.title}>
             <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -139,9 +144,20 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Déconnexion">
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                {currentUser.initials}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium">{currentUser.name}</span>
+                <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[currentRole]}</span>
+              </div>
+            </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton tooltip="Deconnexion">
               <LogOut className="h-4 w-4" />
-              <span>Déconnexion</span>
+              <span>Deconnexion</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

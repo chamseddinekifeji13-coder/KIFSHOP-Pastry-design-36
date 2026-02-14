@@ -57,7 +57,7 @@ export function SettingsView() {
                 <span className="font-medium">01/03/2026</span>
               </div>
             </div>
-            {currentRole === "admin" && (
+            {currentRole === "gerant" && (
               <Button variant="outline" className="w-full bg-transparent">
                 Gérer l{"'"}abonnement
               </Button>
@@ -86,7 +86,7 @@ export function SettingsView() {
                 <p className="font-medium">{currentTenant.name}</p>
                 <p className="text-sm text-muted-foreground">ID: {currentTenant.id}</p>
               </div>
-              {currentRole === "admin" && (
+              {currentRole === "gerant" && (
                 <Button variant="outline" size="sm" onClick={() => setShopConfigOpen(true)} className="bg-transparent">
                   Modifier
                 </Button>
@@ -98,7 +98,7 @@ export function SettingsView() {
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="tax-rate">Taux TVA (%)</Label>
-                <Input id="tax-rate" defaultValue="19" disabled={currentRole !== "admin"} />
+                <Input id="tax-rate" defaultValue="19" disabled={currentRole !== "gerant"} />
               </div>
             </div>
           </CardContent>
@@ -112,7 +112,7 @@ export function SettingsView() {
                 <Tags className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">Categories de produits</CardTitle>
               </div>
-              {currentRole === "admin" && (
+              {currentRole === "gerant" && (
                 <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)} className="bg-transparent">
                   Gerer
                 </Button>
@@ -156,14 +156,14 @@ export function SettingsView() {
                 <p className="font-medium text-sm">Impression automatique</p>
                 <p className="text-xs text-muted-foreground">Imprimer le ticket après chaque vente</p>
               </div>
-              <Switch defaultChecked disabled={currentRole !== "admin"} />
+              <Switch defaultChecked disabled={currentRole !== "gerant"} />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-sm">Inclure le logo</p>
                 <p className="text-xs text-muted-foreground">Afficher le logo sur les tickets</p>
               </div>
-              <Switch defaultChecked disabled={currentRole !== "admin"} />
+              <Switch defaultChecked disabled={currentRole !== "gerant"} />
             </div>
           </CardContent>
         </Card>
