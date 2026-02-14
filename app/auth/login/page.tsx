@@ -24,8 +24,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  console.log("[v0] LoginPage rendered, SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING")
-
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
