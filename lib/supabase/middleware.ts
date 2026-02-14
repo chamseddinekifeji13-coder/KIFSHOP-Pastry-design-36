@@ -11,6 +11,7 @@ export async function updateSession(request: NextRequest) {
 
   // If Supabase is not configured, let the request pass through
   if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[v0] Supabase env vars missing, skipping auth middleware')
     return supabaseResponse
   }
 
@@ -42,9 +43,11 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-    const isSuperAdminRoute = request.nextUrl.pathname.startsWith('/super-admin')
-    const isPublicRoute = request.nextUrl.pathname === '/' || isAuthRoute
+    const pathname = request.nextUrl.pathname
+    const isAuthRoute = pathname.startsWith('/auth')
+    const isSuperAdminRoute = pathname.startsWith('/super-admin')
+    const isApiRoute = pathname.startsWith('/api')
+    const isPublicRoute = isAuthRoute || isApiRoute
 
     // Redirect unauthenticated users to login
     if (!user && !isPublicRoute) {
@@ -71,7 +74,7 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
   } catch (e) {
-    console.error("[v0] Supabase middleware error:", e)
+    console.error('[v0] Supabase middleware error:', e)
     // On error, let the request pass through rather than crashing
   }
 
