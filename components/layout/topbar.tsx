@@ -22,7 +22,7 @@ import {
   type UserRole,
 } from "@/lib/tenant-context"
 
-const roleGroups: UserRole[] = ["gerant", "vendeur", "magasinier", "achat", "caissier"]
+const roleGroups: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier"]
 
 export function Topbar() {
   const {
@@ -33,6 +33,8 @@ export function Topbar() {
     setCurrentUser,
     currentRole,
     users,
+    authUser,
+    signOut,
   } = useTenant()
   const router = useRouter()
   const pathname = usePathname()
@@ -169,6 +171,11 @@ export function Topbar() {
             <DropdownMenuLabel>
               <div className="flex flex-col">
                 <span>{currentUser.name}</span>
+                {authUser?.email && (
+                  <span className="text-xs font-normal text-muted-foreground truncate">
+                    {authUser.email}
+                  </span>
+                )}
                 <span className="text-xs font-normal text-muted-foreground">
                   {ROLE_LABELS[currentRole]}
                 </span>
@@ -178,7 +185,7 @@ export function Topbar() {
             <DropdownMenuItem>Mon profil</DropdownMenuItem>
             <DropdownMenuItem>Parametres</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={() => signOut()}>
               Deconnexion
             </DropdownMenuItem>
           </DropdownMenuContent>
