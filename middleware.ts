@@ -1,19 +1,17 @@
-import { type NextRequest } from "next/server"
-import { updateSession } from "@/lib/supabase/middleware"
+import { type NextRequest, NextResponse } from "next/server"
 
 export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+  try {
+    const { updateSession } = await import("@/lib/supabase/middleware")
+    return await updateSession(request)
+  } catch (e) {
+    console.error("[v0] Middleware import/execution error:", e)
+    return NextResponse.next()
+  }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (sw.js, manifest.json, icons)
-     */
     "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

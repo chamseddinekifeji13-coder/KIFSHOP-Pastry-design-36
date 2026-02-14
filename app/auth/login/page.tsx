@@ -18,6 +18,7 @@ import {
 import { Loader2 } from "lucide-react"
 
 export default function LoginPage() {
+  console.log("[v0] LoginPage render start")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)

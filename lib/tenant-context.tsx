@@ -3,7 +3,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import type { User } from "@supabase/supabase-js"
+
+// Minimal type for Supabase auth user (avoids direct @supabase/supabase-js import)
+type AuthUser = {
+  id: string
+  email?: string
+  user_metadata?: Record<string, unknown>
+}
 
 // ─── User Roles ───────────────────────────────────────────────
 export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "owner"
@@ -67,7 +73,7 @@ export interface TenantState {
   currentRole: UserRole
   users: AppUser[]
   tenants: Tenant[]
-  authUser: User | null
+  authUser: AuthUser | null
   isLoading: boolean
   setCurrentTenant: (tenant: Tenant) => void
   setCurrentUser: (user: AppUser) => void
@@ -105,7 +111,7 @@ const TenantContext = createContext<TenantState | undefined>(undefined)
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
-  const [authUser, setAuthUser] = useState<User | null>(null)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [currentTenant, setCurrentTenant] = useState<Tenant>(FALLBACK_TENANT)
   const [users, setUsers] = useState<AppUser[]>([FALLBACK_USER])
   const [currentUser, setCurrentUser] = useState<AppUser>(FALLBACK_USER)
