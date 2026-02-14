@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   LayoutDashboard,
   Package,
@@ -31,12 +32,13 @@ import {
 } from "@/components/ui/sidebar"
 import { useTenant, canAccessRoute, ROLE_LABELS } from "@/lib/tenant-context"
 import { Badge } from "@/components/ui/badge"
+import { Loader2 } from "lucide-react"
 
 const navigation = [
   {
     title: "General",
     items: [
-      { title: "Tableau de bord", href: "/", icon: LayoutDashboard },
+      { title: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
@@ -77,7 +79,13 @@ const navigation = [
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { currentTenant, currentUser, currentRole } = useTenant()
+  const { currentTenant, currentUser, currentRole, authUser, signOut, isLoading } = useTenant()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setSigningOut(true)
+    await signOut()
+  }
 
   // Filter navigation groups based on user role
   const filteredNavigation = navigation
@@ -145,19 +153,22 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
                 {currentUser.initials}
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-medium">{currentUser.name}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-medium truncate">{currentUser.name}</span>
+                {authUser?.email && (
+                  <span className="text-[10px] text-muted-foreground truncate">{authUser.email}</span>
+                )}
                 <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[currentRole]}</span>
               </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Deconnexion">
-              <LogOut className="h-4 w-4" />
-              <span>Deconnexion</span>
+            <SidebarMenuButton tooltip="Deconnexion" onClick={handleSignOut} disabled={signingOut}>
+              {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              <span>{signingOut ? "Deconnexion..." : "Deconnexion"}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

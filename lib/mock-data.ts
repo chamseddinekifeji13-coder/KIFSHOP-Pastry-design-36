@@ -402,3 +402,140 @@ export function getSuppliers(tenantId: string): Supplier[] {
 export function getPurchaseOrders(tenantId: string): PurchaseOrder[] {
   return tenantId === "masmoudi" ? masmoudiPurchaseOrders : delicesPurchaseOrders
 }
+
+// ─── Historique des Prix d'Achat ──────────────────────────────
+export interface PriceHistoryEntry {
+  id: string
+  tenantId: string
+  rawMaterialName: string
+  supplierId: string
+  supplierName: string
+  unitPrice: number
+  quantity: number
+  unit: string
+  date: string
+  purchaseOrderId?: string
+  note?: string
+}
+
+export interface BestPriceByProduct {
+  rawMaterialName: string
+  unit: string
+  bestPrice: number
+  bestSupplierId: string
+  bestSupplierName: string
+  avgPrice: number
+  lastPrice: number
+  lastSupplierName: string
+  lastDate: string
+  priceVariation: number // percentage change from previous to last
+  entriesCount: number
+}
+
+export const masmoudiPriceHistory: PriceHistoryEntry[] = [
+  // Amandes
+  { id: "ph1", tenantId: "masmoudi", rawMaterialName: "Amandes", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 45, quantity: 10, unit: "kg", date: "2026-02-01", purchaseOrderId: "po2" },
+  { id: "ph2", tenantId: "masmoudi", rawMaterialName: "Amandes", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 42, quantity: 15, unit: "kg", date: "2026-01-15" },
+  { id: "ph3", tenantId: "masmoudi", rawMaterialName: "Amandes", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 48, quantity: 8, unit: "kg", date: "2025-12-20" },
+  { id: "ph4", tenantId: "masmoudi", rawMaterialName: "Amandes", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 50, quantity: 5, unit: "kg", date: "2025-12-01" },
+  { id: "ph5", tenantId: "masmoudi", rawMaterialName: "Amandes", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 44, quantity: 12, unit: "kg", date: "2025-11-10" },
+  // Pistaches
+  { id: "ph6", tenantId: "masmoudi", rawMaterialName: "Pistaches", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 80, quantity: 5, unit: "kg", date: "2026-02-01", purchaseOrderId: "po2" },
+  { id: "ph7", tenantId: "masmoudi", rawMaterialName: "Pistaches", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 75, quantity: 3, unit: "kg", date: "2026-01-10" },
+  { id: "ph8", tenantId: "masmoudi", rawMaterialName: "Pistaches", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 82, quantity: 4, unit: "kg", date: "2025-12-05" },
+  // Miel
+  { id: "ph9", tenantId: "masmoudi", rawMaterialName: "Miel", supplierId: "sup2", supplierName: "Ferme Miel Kroumirie", unitPrice: 18, quantity: 20, unit: "kg", date: "2026-02-02", purchaseOrderId: "po3" },
+  { id: "ph10", tenantId: "masmoudi", rawMaterialName: "Miel", supplierId: "sup2", supplierName: "Ferme Miel Kroumirie", unitPrice: 17.5, quantity: 25, unit: "kg", date: "2026-01-05" },
+  { id: "ph11", tenantId: "masmoudi", rawMaterialName: "Miel", supplierId: "sup2", supplierName: "Ferme Miel Kroumirie", unitPrice: 19, quantity: 15, unit: "kg", date: "2025-12-10" },
+  { id: "ph12", tenantId: "masmoudi", rawMaterialName: "Miel", supplierId: "sup3", supplierName: "Dattes Tozeur Premium", unitPrice: 20, quantity: 10, unit: "kg", date: "2025-11-20" },
+  // Semoule fine
+  { id: "ph13", tenantId: "masmoudi", rawMaterialName: "Semoule fine", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 3.5, quantity: 50, unit: "kg", date: "2026-01-28", purchaseOrderId: "po1" },
+  { id: "ph14", tenantId: "masmoudi", rawMaterialName: "Semoule fine", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 3.2, quantity: 50, unit: "kg", date: "2026-01-10" },
+  { id: "ph15", tenantId: "masmoudi", rawMaterialName: "Semoule fine", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 3.0, quantity: 100, unit: "kg", date: "2025-12-15" },
+  { id: "ph16", tenantId: "masmoudi", rawMaterialName: "Semoule fine", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 3.4, quantity: 50, unit: "kg", date: "2025-11-25" },
+  // Dattes Deglet
+  { id: "ph17", tenantId: "masmoudi", rawMaterialName: "Dattes Deglet", supplierId: "sup3", supplierName: "Dattes Tozeur Premium", unitPrice: 12, quantity: 15, unit: "kg", date: "2026-02-02", purchaseOrderId: "po4" },
+  { id: "ph18", tenantId: "masmoudi", rawMaterialName: "Dattes Deglet", supplierId: "sup3", supplierName: "Dattes Tozeur Premium", unitPrice: 11, quantity: 20, unit: "kg", date: "2026-01-12" },
+  { id: "ph19", tenantId: "masmoudi", rawMaterialName: "Dattes Deglet", supplierId: "sup3", supplierName: "Dattes Tozeur Premium", unitPrice: 11.5, quantity: 15, unit: "kg", date: "2025-12-08" },
+  { id: "ph20", tenantId: "masmoudi", rawMaterialName: "Dattes Deglet", supplierId: "sup4", supplierName: "Import Fruits Secs", unitPrice: 13, quantity: 10, unit: "kg", date: "2025-11-15" },
+  // Beurre
+  { id: "ph21", tenantId: "masmoudi", rawMaterialName: "Beurre", supplierId: "sup5", supplierName: "Beurre & Lait SA", unitPrice: 14, quantity: 20, unit: "kg", date: "2026-01-20" },
+  { id: "ph22", tenantId: "masmoudi", rawMaterialName: "Beurre", supplierId: "sup5", supplierName: "Beurre & Lait SA", unitPrice: 13.5, quantity: 15, unit: "kg", date: "2025-12-18" },
+  { id: "ph23", tenantId: "masmoudi", rawMaterialName: "Beurre", supplierId: "sup5", supplierName: "Beurre & Lait SA", unitPrice: 12.8, quantity: 25, unit: "kg", date: "2025-11-28" },
+  // Eau de fleur d'oranger
+  { id: "ph24", tenantId: "masmoudi", rawMaterialName: "Eau de fleur d'oranger", supplierId: "sup2", supplierName: "Ferme Miel Kroumirie", unitPrice: 8, quantity: 5, unit: "L", date: "2026-01-15" },
+  { id: "ph25", tenantId: "masmoudi", rawMaterialName: "Eau de fleur d'oranger", supplierId: "sup2", supplierName: "Ferme Miel Kroumirie", unitPrice: 7.5, quantity: 10, unit: "L", date: "2025-12-01" },
+  // Feuilles Filo
+  { id: "ph26", tenantId: "masmoudi", rawMaterialName: "Feuilles Filo", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 0.8, quantity: 100, unit: "pcs", date: "2026-01-25" },
+  { id: "ph27", tenantId: "masmoudi", rawMaterialName: "Feuilles Filo", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 0.75, quantity: 100, unit: "pcs", date: "2025-12-20" },
+  { id: "ph28", tenantId: "masmoudi", rawMaterialName: "Feuilles Filo", supplierId: "sup1", supplierName: "Minoterie du Nord", unitPrice: 0.7, quantity: 200, unit: "pcs", date: "2025-11-15" },
+]
+
+export const delicesPriceHistory: PriceHistoryEntry[] = [
+  // Miel de montagne
+  { id: "dph1", tenantId: "delices", rawMaterialName: "Miel de montagne", supplierId: "dsup1", supplierName: "Ferme Miel Kroumirie", unitPrice: 22, quantity: 30, unit: "kg", date: "2026-01-25", purchaseOrderId: "dpo1" },
+  { id: "dph2", tenantId: "delices", rawMaterialName: "Miel de montagne", supplierId: "dsup1", supplierName: "Ferme Miel Kroumirie", unitPrice: 21, quantity: 20, unit: "kg", date: "2026-01-05" },
+  { id: "dph3", tenantId: "delices", rawMaterialName: "Miel de montagne", supplierId: "dsup1", supplierName: "Ferme Miel Kroumirie", unitPrice: 20.5, quantity: 25, unit: "kg", date: "2025-12-10" },
+  // Dattes Allig
+  { id: "dph4", tenantId: "delices", rawMaterialName: "Dattes Allig", supplierId: "dsup2", supplierName: "Dattes Tozeur Premium", unitPrice: 10, quantity: 30, unit: "kg", date: "2026-01-20" },
+  { id: "dph5", tenantId: "delices", rawMaterialName: "Dattes Allig", supplierId: "dsup2", supplierName: "Dattes Tozeur Premium", unitPrice: 9.5, quantity: 25, unit: "kg", date: "2025-12-15" },
+  // Pots en verre 250ml
+  { id: "dph6", tenantId: "delices", rawMaterialName: "Pots en verre 250ml", supplierId: "dsup3", supplierName: "Emballages Tunisie", unitPrice: 1.2, quantity: 100, unit: "pcs", date: "2026-02-01", purchaseOrderId: "dpo2" },
+  { id: "dph7", tenantId: "delices", rawMaterialName: "Pots en verre 250ml", supplierId: "dsup3", supplierName: "Emballages Tunisie", unitPrice: 1.1, quantity: 150, unit: "pcs", date: "2025-12-20" },
+  // Figues sechees
+  { id: "dph8", tenantId: "delices", rawMaterialName: "Figues sechees", supplierId: "dsup2", supplierName: "Dattes Tozeur Premium", unitPrice: 15, quantity: 10, unit: "kg", date: "2026-01-10" },
+  { id: "dph9", tenantId: "delices", rawMaterialName: "Figues sechees", supplierId: "dsup2", supplierName: "Dattes Tozeur Premium", unitPrice: 14.5, quantity: 8, unit: "kg", date: "2025-12-05" },
+  // Noix
+  { id: "dph10", tenantId: "delices", rawMaterialName: "Noix", supplierId: "dsup2", supplierName: "Dattes Tozeur Premium", unitPrice: 35, quantity: 5, unit: "kg", date: "2026-01-15" },
+  { id: "dph11", tenantId: "delices", rawMaterialName: "Noix", supplierId: "dsup2", supplierName: "Dattes Tozeur Premium", unitPrice: 33, quantity: 5, unit: "kg", date: "2025-12-01" },
+]
+
+export function getPriceHistory(tenantId: string): PriceHistoryEntry[] {
+  return tenantId === "masmoudi" ? masmoudiPriceHistory : delicesPriceHistory
+}
+
+export function getBestPricesByProduct(tenantId: string): BestPriceByProduct[] {
+  const history = getPriceHistory(tenantId)
+  const grouped = new Map<string, PriceHistoryEntry[]>()
+
+  history.forEach((entry) => {
+    const key = entry.rawMaterialName
+    if (!grouped.has(key)) grouped.set(key, [])
+    grouped.get(key)!.push(entry)
+  })
+
+  const results: BestPriceByProduct[] = []
+
+  grouped.forEach((entries, rawMaterialName) => {
+    const sorted = [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    const bestEntry = [...entries].sort((a, b) => a.unitPrice - b.unitPrice)[0]
+    const avgPrice = entries.reduce((sum, e) => sum + e.unitPrice, 0) / entries.length
+    const lastEntry = sorted[0]
+    const previousEntry = sorted[1]
+    const priceVariation = previousEntry
+      ? ((lastEntry.unitPrice - previousEntry.unitPrice) / previousEntry.unitPrice) * 100
+      : 0
+
+    results.push({
+      rawMaterialName,
+      unit: bestEntry.unit,
+      bestPrice: bestEntry.unitPrice,
+      bestSupplierId: bestEntry.supplierId,
+      bestSupplierName: bestEntry.supplierName,
+      avgPrice: Math.round(avgPrice * 100) / 100,
+      lastPrice: lastEntry.unitPrice,
+      lastSupplierName: lastEntry.supplierName,
+      lastDate: lastEntry.date,
+      priceVariation: Math.round(priceVariation * 10) / 10,
+      entriesCount: entries.length,
+    })
+  })
+
+  return results.sort((a, b) => a.rawMaterialName.localeCompare(b.rawMaterialName))
+}
+
+export function getPriceHistoryForProduct(tenantId: string, rawMaterialName: string): PriceHistoryEntry[] {
+  return getPriceHistory(tenantId)
+    .filter((e) => e.rawMaterialName === rawMaterialName)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Truck, Users, FileText, Phone, Mail, Plus } from "lucide-react"
+import { Truck, Users, FileText, Phone, Mail, Plus, History, Trophy } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -15,7 +15,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useTenant } from "@/lib/tenant-context"
-import { getSuppliers, getPurchaseOrders, type Supplier, type PurchaseOrder } from "@/lib/mock-data"
+import {
+  getSuppliers,
+  getPurchaseOrders,
+  getPriceHistory,
+  getBestPricesByProduct,
+  getPriceHistoryForProduct,
+  type Supplier,
+  type PurchaseOrder,
+} from "@/lib/mock-data"
+import { PriceHistoryTable } from "./price-history-table"
+import { BestPricesView } from "./best-prices-view"
 
 const statusConfig: Record<PurchaseOrder["status"], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   brouillon: { label: "Brouillon", variant: "outline" },
@@ -35,6 +45,8 @@ export function ApprovisionnementView() {
 
   const suppliers = getSuppliers(currentTenant.id)
   const purchaseOrders = getPurchaseOrders(currentTenant.id)
+  const priceHistory = getPriceHistory(currentTenant.id)
+  const bestPrices = getBestPricesByProduct(currentTenant.id)
 
   const activeSuppliers = suppliers.filter((s) => s.status === "actif").length
   const pendingOrders = purchaseOrders.filter((o) => o.status !== "livree" && o.status !== "annulee").length
@@ -58,7 +70,7 @@ export function ApprovisionnementView() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Fournisseurs actifs</CardTitle>
@@ -89,11 +101,21 @@ export function ApprovisionnementView() {
             <p className="text-xs text-muted-foreground">commandes non livrees</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Produits suivis</CardTitle>
+            <History className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bestPrices.length}</div>
+            <p className="text-xs text-muted-foreground">{priceHistory.length} prix enregistres</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="orders">
             <FileText className="mr-2 h-4 w-4" />
             Commandes Achat
@@ -101,6 +123,14 @@ export function ApprovisionnementView() {
           <TabsTrigger value="suppliers">
             <Users className="mr-2 h-4 w-4" />
             Fournisseurs
+          </TabsTrigger>
+          <TabsTrigger value="bestprices">
+            <Trophy className="mr-2 h-4 w-4" />
+            Meilleurs Prix
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            <History className="mr-2 h-4 w-4" />
+            Historique Prix
           </TabsTrigger>
         </TabsList>
 
@@ -193,6 +223,20 @@ export function ApprovisionnementView() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="bestprices" className="mt-4">
+          <BestPricesView
+            bestPrices={bestPrices}
+            getHistoryForProduct={(name) => getPriceHistoryForProduct(currentTenant.id, name)}
+          />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <PriceHistoryTable
+            entries={priceHistory}
+            suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
+          />
         </TabsContent>
       </Tabs>
     </div>
