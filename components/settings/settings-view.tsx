@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CreditCard, Store, Printer, Bell, RotateCcw, Tags } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,17 +10,18 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
-import { useOnboarding } from "@/lib/onboarding-context"
 import { getCategories } from "@/lib/mock-data"
 import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
+import { UsersDrawer } from "./users-drawer"
+import { ROLE_LABELS } from "@/lib/tenant-context"
 
 export function SettingsView() {
-  const { currentTenant, currentRole } = useTenant()
-  const { resetOnboarding } = useOnboarding()
+  const { currentTenant, currentRole, users } = useTenant()
   const categories = getCategories(currentTenant.id)
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [usersOpen, setUsersOpen] = useState(false)
 
   return (
     <div className="space-y-6">
@@ -59,7 +60,7 @@ export function SettingsView() {
                 <span className="font-medium">01/03/2026</span>
               </div>
             </div>
-            {currentRole === "admin" && (
+            {currentRole === "gerant" && (
               <Button variant="outline" className="w-full bg-transparent">
                 Gérer l{"'"}abonnement
               </Button>
@@ -88,7 +89,7 @@ export function SettingsView() {
                 <p className="font-medium">{currentTenant.name}</p>
                 <p className="text-sm text-muted-foreground">ID: {currentTenant.id}</p>
               </div>
-              {currentRole === "admin" && (
+              {currentRole === "gerant" && (
                 <Button variant="outline" size="sm" onClick={() => setShopConfigOpen(true)} className="bg-transparent">
                   Modifier
                 </Button>
@@ -100,7 +101,7 @@ export function SettingsView() {
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="tax-rate">Taux TVA (%)</Label>
-                <Input id="tax-rate" defaultValue="19" disabled={currentRole !== "admin"} />
+                <Input id="tax-rate" defaultValue="19" disabled={currentRole !== "gerant"} />
               </div>
             </div>
           </CardContent>
@@ -114,7 +115,7 @@ export function SettingsView() {
                 <Tags className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">Categories de produits</CardTitle>
               </div>
-              {currentRole === "admin" && (
+              {currentRole === "gerant" && (
                 <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)} className="bg-transparent">
                   Gerer
                 </Button>
@@ -143,6 +144,40 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
+        {/* Users Management - Gerant only */}
+        {currentRole === "gerant" && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Utilisateurs</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setUsersOpen(true)} className="bg-transparent">
+                  Gerer
+                </Button>
+              </div>
+              <CardDescription>Profils et acces des utilisateurs</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {(["gerant", "vendeur", "magasinier", "achat", "caissier"] as const).map((role) => {
+                  const count = users.filter((u) => u.role === role).length
+                  return (
+                    <div key={role} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{ROLE_LABELS[role]}</span>
+                      <span className="font-medium">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                {users.length} utilisateurs au total
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Printer Settings */}
         <Card>
           <CardHeader>
@@ -158,14 +193,14 @@ export function SettingsView() {
                 <p className="font-medium text-sm">Impression automatique</p>
                 <p className="text-xs text-muted-foreground">Imprimer le ticket après chaque vente</p>
               </div>
-              <Switch defaultChecked disabled={currentRole !== "admin"} />
+              <Switch defaultChecked disabled={currentRole !== "gerant"} />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-sm">Inclure le logo</p>
                 <p className="text-xs text-muted-foreground">Afficher le logo sur les tickets</p>
               </div>
-              <Switch defaultChecked disabled={currentRole !== "admin"} />
+              <Switch defaultChecked disabled={currentRole !== "gerant"} />
             </div>
           </CardContent>
         </Card>
@@ -204,31 +239,12 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
-        {/* Onboarding */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <RotateCcw className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Aide</CardTitle>
-            </div>
-            <CardDescription>Tutoriels et assistance</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Revoir le tutoriel</p>
-                <p className="text-xs text-muted-foreground">Relancer le guide de demarrage</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={resetOnboarding} className="bg-transparent">
-                Relancer
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+
       </div>
 
       <ShopConfigDrawer open={shopConfigOpen} onOpenChange={setShopConfigOpen} />
       <CategoriesDrawer open={categoriesOpen} onOpenChange={setCategoriesOpen} />
+      <UsersDrawer open={usersOpen} onOpenChange={setUsersOpen} />
     </div>
   )
 }

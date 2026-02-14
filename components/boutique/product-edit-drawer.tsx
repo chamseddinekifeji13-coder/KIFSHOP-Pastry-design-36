@@ -42,6 +42,8 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
   const [isPublished, setIsPublished] = useState(false)
   const [tags, setTags] = useState("")
 
+  const isAddMode = !product
+
   useEffect(() => {
     if (product) {
       setName(product.name)
@@ -53,6 +55,16 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
       setCategory(product.category)
       setIsPublished(product.isPublished)
       setTags(product.tags.join(", "))
+    } else {
+      setName("")
+      setDescription("")
+      setPrice("")
+      setUnit("piece")
+      setMinOrder("1")
+      setWeight("")
+      setCategory("")
+      setIsPublished(false)
+      setTags("")
     }
   }, [product])
 
@@ -61,7 +73,7 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
       toast.error("Nom et prix sont obligatoires")
       return
     }
-    toast.success("Produit mis a jour", { description: name })
+    toast.success(isAddMode ? "Produit ajoute" : "Produit mis a jour", { description: name })
     onOpenChange(false)
   }
 
@@ -69,8 +81,8 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Modifier le produit</SheetTitle>
-          <SheetDescription>Modifier les informations du produit catalogue</SheetDescription>
+          <SheetTitle>{isAddMode ? "Ajouter un produit" : "Modifier le produit"}</SheetTitle>
+          <SheetDescription>{isAddMode ? "Remplir les informations du nouveau produit" : "Modifier les informations du produit catalogue"}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-5">

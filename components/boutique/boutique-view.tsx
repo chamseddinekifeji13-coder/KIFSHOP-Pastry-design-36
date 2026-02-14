@@ -20,6 +20,7 @@ export function BoutiqueView() {
 
   const [editProduct, setEditProduct] = useState<CatalogProduct | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
 
   const publishedCount = catalog.filter(p => p.isPublished).length
   const onlineOrders = orders.filter(o => o.source === "web" || o.source === "whatsapp" || o.source === "messenger" || o.source === "instagram")
@@ -62,7 +63,7 @@ export function BoutiqueView() {
             <Share2 className="mr-2 h-4 w-4" />
             Partager le catalogue
           </Button>
-          <Button>
+          <Button onClick={() => { setEditProduct(null); setAddOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
             Ajouter un produit
           </Button>
@@ -129,7 +130,12 @@ export function BoutiqueView() {
               <Button variant="outline" size="sm" className="bg-transparent" onClick={handleShareCatalog}>
                 Copier le lien
               </Button>
-              <Button variant="outline" size="sm" className="bg-transparent">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-transparent"
+                onClick={() => window.open(`/store/${currentTenant.id}`, "_blank")}
+              >
                 Voir la boutique
               </Button>
             </div>
@@ -220,6 +226,11 @@ export function BoutiqueView() {
         product={editProduct}
         open={editOpen}
         onOpenChange={setEditOpen}
+      />
+      <ProductEditDrawer
+        product={null}
+        open={addOpen}
+        onOpenChange={setAddOpen}
       />
     </div>
   )
