@@ -39,6 +39,9 @@ export default function SignUpPage() {
     }
 
     const supabase = createClient()
+
+    // Pass tenant_name + display_name via metadata
+    // The database trigger (handle_new_user) will create both the tenant and tenant_users row
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -47,8 +50,9 @@ export default function SignUpPage() {
           process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
           `${window.location.origin}/dashboard`,
         data: {
+          tenant_name: shopName,
           display_name: displayName,
-          shop_name: shopName,
+          role: "owner",
         },
       },
     })
@@ -59,42 +63,11 @@ export default function SignUpPage() {
       return
     }
 
-    // If email confirmation is not required, create tenant immediately
+    // If email confirmation is not required (auto-confirmed), redirect directly
     if (data.session) {
-      try {
-        // Create the tenant
-        const { data: tenant, error: tenantError } = await supabase
-          .from("tenants")
-          .insert({
-            name: shopName,
-            slug: shopName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
-            primary_color: "#4A7C59",
-            subscription_plan: "free",
-          })
-          .select("id")
-          .single()
-
-        if (tenantError) throw tenantError
-
-        // Link user to tenant
-        const { error: linkError } = await supabase.from("tenant_users").insert({
-          tenant_id: tenant.id,
-          user_id: data.user!.id,
-          role: "owner",
-          display_name: displayName,
-        })
-
-        if (linkError) throw linkError
-
-        router.push("/dashboard")
-        router.refresh()
-        return
-      } catch (err) {
-        console.error("Setup error:", err)
-        setError("Compte cree mais erreur lors de la configuration. Veuillez vous reconnecter.")
-        setLoading(false)
-        return
-      }
+      router.push("/dashboard")
+      router.refresh()
+      return
     }
 
     // If email confirmation is required, show success message
