@@ -1,16 +1,14 @@
-"use client"
+import dynamic from "next/dynamic"
 
-import { AppShell } from "@/components/layout/app-shell"
-import { RouteGuard } from "@/components/route-guard"
+const DashboardShell = dynamic(
+  () => import("@/components/layout/dashboard-shell").then((m) => m.DashboardShell),
+  { ssr: false }
+)
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <AppShell>
-      <RouteGuard>{children}</RouteGuard>
-    </AppShell>
-  )
+  return <DashboardShell>{children}</DashboardShell>
 }
