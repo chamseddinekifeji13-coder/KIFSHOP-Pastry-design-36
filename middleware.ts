@@ -5,7 +5,8 @@ export async function middleware(request: NextRequest) {
     const { updateSession } = await import("@/lib/supabase/middleware")
     return await updateSession(request)
   } catch (e) {
-    console.error("[v0] Middleware import/execution error:", e)
+    // If Supabase middleware fails, let the request pass through
+    console.error("[v0] Middleware error:", e)
     return NextResponse.next()
   }
 }
