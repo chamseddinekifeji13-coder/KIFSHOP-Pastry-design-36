@@ -36,7 +36,13 @@ export default function LoginPage() {
     })
 
     if (error) {
-      setError("Email ou mot de passe incorrect.")
+      if (error.message === "Email not confirmed") {
+        setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception (et les spams) pour le lien de confirmation.")
+      } else if (error.message === "Invalid login credentials") {
+        setError("Email ou mot de passe incorrect.")
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
       return
     }
@@ -78,7 +84,15 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Link
+                href="/auth/forgot-password"
+                className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+              >
+                Mot de passe oublie ?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"

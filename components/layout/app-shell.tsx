@@ -3,21 +3,38 @@
 import React from "react"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { TenantProvider } from "@/lib/tenant-context"
+import { TenantProvider, useTenant } from "@/lib/tenant-context"
 import { AppSidebar } from "./app-sidebar"
 import { Topbar } from "./topbar"
 import { Toaster } from "@/components/ui/sonner"
+import { SubscriptionBanner } from "./subscription-banner"
+import { SuspensionOverlay } from "./suspension-overlay"
 
 interface AppShellProps {
   children: React.ReactNode
 }
 
-export function AppShell({ children }: AppShellProps) {
+function AppShellContent({ children }: { children: React.ReactNode }) {
+  const { isLoading } = useTenant()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+          <p className="text-sm text-muted-foreground">Chargement...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <TenantProvider>
+    <>
+      <SuspensionOverlay />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
+          <SubscriptionBanner />
           <Topbar />
           <main className="flex-1 overflow-auto p-4 md:p-6">
             {children}
@@ -25,6 +42,14 @@ export function AppShell({ children }: AppShellProps) {
         </SidebarInset>
         <Toaster position="top-right" />
       </SidebarProvider>
+    </>
+  )
+}
+
+export function AppShell({ children }: AppShellProps) {
+  return (
+    <TenantProvider>
+      <AppShellContent>{children}</AppShellContent>
     </TenantProvider>
   )
 }
