@@ -177,11 +177,43 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           .single()
 
         if (tenantData) {
+          // Get subscription with plan limits
+          const { data: subData } = await supabase
+            .from("subscriptions")
+            .select("status, trial_ends_at, current_period_end, plan_id")
+            .eq("tenant_id", tenantData.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single()
+
+          let planLimits = { maxSalesChannels: 1, maxWarehouses: 1, maxUsers: 3 }
+          if (subData?.plan_id) {
+            const { data: planData } = await supabase
+              .from("subscription_plans")
+              .select("max_sales_channels, max_warehouses, max_users")
+              .eq("id", subData.plan_id)
+              .single()
+            if (planData) {
+              planLimits = {
+                maxSalesChannels: planData.max_sales_channels,
+                maxWarehouses: planData.max_warehouses,
+                maxUsers: planData.max_users,
+              }
+            }
+          }
+
           const tenant: Tenant = {
             id: tenantData.id,
             name: tenantData.name,
             logo: tenantData.name.charAt(0).toUpperCase(),
             primaryColor: tenantData.primary_color || "#4A7C59",
+            subscription: {
+              status: (subData?.status as TenantSubscription["status"]) || (tenantData.subscription_status as TenantSubscription["status"]) || "trial",
+              plan: tenantData.subscription_plan || null,
+              trialEndsAt: subData?.trial_ends_at || tenantData.trial_ends_at || null,
+              currentPeriodEnd: subData?.current_period_end || null,
+              ...planLimits,
+            },
           }
           setCurrentTenant(tenant)
           setTenants([tenant])
@@ -269,6 +301,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  // Compute subscription state
+  const sub = currentTenant.subscription
+  const isSuspended = sub.status === "suspended"
+  const isTrialExpired = sub.status === "trial" && sub.trialEndsAt
+    ? new Date(sub.trialEndsAt) < new Date()
+    : false
+  const trialDaysLeft = sub.status === "trial" && sub.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(sub.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0
+
   return (
     <TenantContext.Provider
       value={{
@@ -279,6 +321,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         tenants,
         authUser,
         isLoading,
+        isSuspended,
+        isTrialExpired,
+        trialDaysLeft,
         setCurrentTenant,
         setCurrentUser,
         addUser,

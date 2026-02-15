@@ -7,6 +7,8 @@ import { TenantProvider, useTenant } from "@/lib/tenant-context"
 import { AppSidebar } from "./app-sidebar"
 import { Topbar } from "./topbar"
 import { Toaster } from "@/components/ui/sonner"
+import { SubscriptionBanner } from "./subscription-banner"
+import { SuspensionOverlay } from "./suspension-overlay"
 
 interface AppShellProps {
   children: React.ReactNode
@@ -27,16 +29,20 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <Topbar />
-        <main className="flex-1 overflow-auto p-4 md:p-6">
-          {children}
-        </main>
-      </SidebarInset>
-      <Toaster position="top-right" />
-    </SidebarProvider>
+    <>
+      <SuspensionOverlay />
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <SubscriptionBanner />
+          <Topbar />
+          <main className="flex-1 overflow-auto p-4 md:p-6">
+            {children}
+          </main>
+        </SidebarInset>
+        <Toaster position="top-right" />
+      </SidebarProvider>
+    </>
   )
 }
 
