@@ -36,7 +36,13 @@ export default function LoginPage() {
     })
 
     if (error) {
-      setError("Email ou mot de passe incorrect.")
+      if (error.message === "Email not confirmed") {
+        setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception (et les spams) pour le lien de confirmation.")
+      } else if (error.message === "Invalid login credentials") {
+        setError("Email ou mot de passe incorrect.")
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
       return
     }
