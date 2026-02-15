@@ -8,6 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, X, Trash2,
   Building2, User, RotateCcw, FileWarning, Check, XCircle,
+  FileText, Download, Printer, Eye,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,11 @@ import {
   type ReturnItem, reasonLabels, statusLabels as returnStatusLabels,
   refundMethodLabels,
 } from "@/lib/orders/returns-actions"
+import {
+  generateDocument, getOrderInvoices, fetchInvoices,
+  type Invoice, type DocumentType,
+} from "@/lib/orders/invoice-actions"
+import { InvoicePreview } from "./invoice-preview"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
@@ -140,6 +146,13 @@ export function OrdersView() {
   const [returnNotes, setReturnNotes] = useState("")
   const [returnItems, setReturnItems] = useState<{ idx: number; qty: number }[]>([])
 
+  // Invoice / Document state
+  const [orderDocuments, setOrderDocuments] = useState<Invoice[]>([])
+  const [documentsLoading, setDocumentsLoading] = useState(false)
+  const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
+
   const isDemoTenant = currentTenant.id === "demo"
 
   // SWR fetcher for orders
@@ -160,6 +173,13 @@ export function OrdersView() {
   const { data: customerCredits = [], mutate: mutateCredits, isLoading: creditsLoading } = useSWR(
     isDemoTenant ? null : ["credits", currentTenant.id],
     () => fetchCustomerCredits(currentTenant.id),
+    { revalidateOnFocus: false }
+  )
+
+  // SWR for all invoices/documents
+  const { data: allDocuments = [], mutate: mutateDocuments, isLoading: documentsListLoading } = useSWR(
+    isDemoTenant ? null : ["invoices", currentTenant.id],
+    () => fetchInvoices(currentTenant.id),
     { revalidateOnFocus: false }
   )
 
@@ -198,12 +218,20 @@ export function OrdersView() {
     setReturnsLoading(false)
   }, [])
 
+  const loadDocuments = useCallback(async (orderId: string) => {
+    setDocumentsLoading(true)
+    const docs = await getOrderInvoices(orderId)
+    setOrderDocuments(docs)
+    setDocumentsLoading(false)
+  }, [])
+
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
     setSheetOpen(true)
     loadHistory(order.id)
     loadCollections(order.id)
     loadReturns(order.id)
+    loadDocuments(order.id)
   }
 
   const handleStatusChange = async (newStatus: Order["status"], note?: string) => {
@@ -388,6 +416,82 @@ export function OrdersView() {
     setActionLoading(false)
   }
 
+  // ─── Document Handlers ─────────────────────────────────────
+
+  const handleGenerateDocument = async (type: DocumentType) => {
+    if (!selectedOrder || generatingDoc) return
+    setGeneratingDoc(type)
+
+    const doc = await generateDocument(selectedOrder, currentTenant.id, type)
+    if (doc) {
+      const label = type === "invoice" ? "Facture" : "Bon de livraison"
+      toast.success(`${label} genere`, { description: doc.documentNumber })
+      loadDocuments(selectedOrder.id)
+      mutateDocuments()
+    } else {
+      toast.error("Erreur lors de la generation du document")
+    }
+    setGeneratingDoc(null)
+  }
+
+  const handlePrintDocument = (invoice: Invoice) => {
+    setPreviewInvoice(invoice)
+    setPreviewOpen(true)
+    setTimeout(() => {
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) return
+      const previewEl = document.getElementById("invoice-print-area")
+      if (!previewEl) return
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${invoice.documentNumber}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>${previewEl.innerHTML}</body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
+    }, 300)
+  }
+
+  const handleDownloadPdf = async (invoice: Invoice) => {
+    setPreviewInvoice(invoice)
+    setPreviewOpen(true)
+    // Use dynamic import for html2canvas + jspdf
+    try {
+      const [html2canvasModule, jsPDFModule] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ])
+      const html2canvas = html2canvasModule.default
+      const { jsPDF } = jsPDFModule
+
+      setTimeout(async () => {
+        const el = document.getElementById("invoice-print-area")
+        if (!el) return
+        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" })
+        const imgData = canvas.toDataURL("image/png")
+        const pdf = new jsPDF("p", "mm", "a4")
+        const pdfWidth = pdf.internal.pageSize.getWidth()
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+        pdf.save(`${invoice.documentNumber}.pdf`)
+        setPreviewOpen(false)
+      }, 500)
+    } catch {
+      toast.error("Erreur lors du telechargement PDF")
+      setPreviewOpen(false)
+    }
+  }
+
   const getPaymentBadge = (status: Order["paymentStatus"]) => {
     switch (status) {
       case "paid":
@@ -489,6 +593,12 @@ export function OrdersView() {
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
                   {customerCredits.filter(c => c.status === "active" || c.status === "partially_used").length}
                 </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="documents">
+              Documents
+              {allDocuments.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{allDocuments.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>
@@ -748,6 +858,76 @@ export function OrdersView() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Factures & Bons de livraison ({allDocuments.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {documentsListLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : allDocuments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>Aucun document genere</p>
+                    <p className="text-xs mt-1">Ouvrez une commande pour generer une facture ou un bon de livraison.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {allDocuments.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="rounded-lg border p-4 space-y-2 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant={doc.type === "invoice" ? "default" : "secondary"} className="text-[10px]">
+                              {doc.type === "invoice" ? "Facture" : "Bon de livraison"}
+                            </Badge>
+                            <span className="font-mono text-sm font-medium">{doc.documentNumber}</span>
+                          </div>
+                          <span className="font-semibold text-sm">{doc.total.toLocaleString("fr-TN")} TND</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-muted-foreground">
+                            {doc.customerName} - {new Date(doc.issuedAt).toLocaleDateString("fr-TN")}
+                            {doc.issuedByName && ` - par ${doc.issuedByName}`}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              onClick={() => handlePrintDocument(doc)}
+                              title="Imprimer"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7"
+                              onClick={() => handleDownloadPdf(doc)}
+                              title="Telecharger PDF"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       )}
 
@@ -932,6 +1112,100 @@ export function OrdersView() {
                           </div>
                         )
                       })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Documents Section */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Documents
+                    </h4>
+                    <div className="flex gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={!!generatingDoc}
+                        onClick={() => handleGenerateDocument("invoice")}
+                      >
+                        {generatingDoc === "invoice" ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <FileText className="mr-1 h-3 w-3" />
+                        )}
+                        Facture
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={!!generatingDoc}
+                        onClick={() => handleGenerateDocument("delivery_note")}
+                      >
+                        {generatingDoc === "delivery_note" ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <Truck className="mr-1 h-3 w-3" />
+                        )}
+                        Bon de livraison
+                      </Button>
+                    </div>
+                  </div>
+
+                  {documentsLoading ? (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : orderDocuments.length > 0 && (
+                    <div className="rounded-lg border divide-y">
+                      {orderDocuments.map((doc) => (
+                        <div key={doc.id} className="p-3 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={doc.type === "invoice" ? "default" : "secondary"} className="text-[10px]">
+                                {doc.type === "invoice" ? "Facture" : "BL"}
+                              </Badge>
+                              <span className="text-xs font-mono font-medium">{doc.documentNumber}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => { setPreviewInvoice(doc); setPreviewOpen(true) }}
+                                title="Apercu"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => handlePrintDocument(doc)}
+                                title="Imprimer"
+                              >
+                                <Printer className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() => handleDownloadPdf(doc)}
+                                title="PDF"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(doc.issuedAt).toLocaleDateString("fr-TN")} - {doc.total.toLocaleString("fr-TN")} TND
+                            {doc.issuedByName && ` - par ${doc.issuedByName}`}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1487,6 +1761,45 @@ export function OrdersView() {
               Confirmer le retour
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              {previewInvoice?.type === "invoice" ? "Facture" : "Bon de livraison"} - {previewInvoice?.documentNumber}
+            </DialogTitle>
+            <DialogDescription>
+              Apercu du document
+            </DialogDescription>
+          </DialogHeader>
+          {previewInvoice && (
+            <div className="space-y-4">
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrintDocument(previewInvoice)}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Imprimer
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleDownloadPdf(previewInvoice)}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Telecharger PDF
+                </Button>
+              </div>
+              <div id="invoice-print-area" className="border rounded-lg overflow-hidden">
+                <InvoicePreview invoice={previewInvoice} />
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

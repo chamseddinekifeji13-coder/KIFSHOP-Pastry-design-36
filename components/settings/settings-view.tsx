@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,12 @@ import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
 import { ROLE_LABELS } from "@/lib/tenant-context"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  getInvoiceSettings, saveInvoiceSettings,
+  type InvoiceSettings,
+} from "@/lib/orders/invoice-actions"
+import { toast } from "sonner"
 
 export function SettingsView() {
   const { currentTenant, currentRole, users } = useTenant()
@@ -22,6 +28,43 @@ export function SettingsView() {
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [usersOpen, setUsersOpen] = useState(false)
+
+  // Invoice settings
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings | null>(null)
+  const [invoiceLoading, setInvoiceLoading] = useState(true)
+  const [invoiceSaving, setInvoiceSaving] = useState(false)
+
+  const loadInvoiceSettings = useCallback(async () => {
+    if (currentTenant.id === "demo") return
+    setInvoiceLoading(true)
+    const settings = await getInvoiceSettings(currentTenant.id)
+    setInvoiceSettings(settings)
+    setInvoiceLoading(false)
+  }, [currentTenant.id])
+
+  useEffect(() => {
+    loadInvoiceSettings()
+  }, [loadInvoiceSettings])
+
+  const handleSaveInvoiceSettings = async () => {
+    if (!invoiceSettings) return
+    setInvoiceSaving(true)
+    const ok = await saveInvoiceSettings(currentTenant.id, {
+      taxEnabled: invoiceSettings.taxEnabled,
+      taxRate: invoiceSettings.taxRate,
+      taxLabel: invoiceSettings.taxLabel,
+      invoicePrefix: invoiceSettings.invoicePrefix,
+      deliveryNotePrefix: invoiceSettings.deliveryNotePrefix,
+      footerText: invoiceSettings.footerText,
+      showPricesOnDeliveryNote: invoiceSettings.showPricesOnDeliveryNote,
+    })
+    if (ok) {
+      toast.success("Parametres de facturation enregistres")
+    } else {
+      toast.error("Erreur lors de la sauvegarde")
+    }
+    setInvoiceSaving(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -96,14 +139,6 @@ export function SettingsView() {
               )}
             </div>
 
-            <Separator />
-
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="tax-rate">Taux TVA (%)</Label>
-                <Input id="tax-rate" defaultValue="19" disabled={currentRole !== "gerant"} />
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -177,6 +212,138 @@ export function SettingsView() {
             </CardContent>
           </Card>
         )}
+
+        {/* Invoice & Billing Settings */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Facturation & Documents</CardTitle>
+            </div>
+            <CardDescription>Configuration des factures et bons de livraison</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {invoiceLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : invoiceSettings ? (
+              <div className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* TVA Section */}
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <h4 className="font-medium text-sm">TVA / Taxe</h4>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Activer la TVA</p>
+                        <p className="text-xs text-muted-foreground">Afficher HT, TVA et TTC sur les factures</p>
+                      </div>
+                      <Switch
+                        checked={invoiceSettings.taxEnabled}
+                        onCheckedChange={(v) => setInvoiceSettings({ ...invoiceSettings, taxEnabled: v })}
+                        disabled={currentRole !== "gerant"}
+                      />
+                    </div>
+                    {invoiceSettings.taxEnabled && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Libelle</Label>
+                          <Input
+                            value={invoiceSettings.taxLabel}
+                            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, taxLabel: e.target.value })}
+                            disabled={currentRole !== "gerant"}
+                            placeholder="TVA"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Taux (%)</Label>
+                          <Input
+                            type="number"
+                            value={invoiceSettings.taxRate}
+                            onChange={(e) => setInvoiceSettings({ ...invoiceSettings, taxRate: parseFloat(e.target.value) || 0 })}
+                            disabled={currentRole !== "gerant"}
+                            placeholder="19"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Numbering Section */}
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <h4 className="font-medium text-sm">Numerotation</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Prefixe facture</Label>
+                        <Input
+                          value={invoiceSettings.invoicePrefix}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, invoicePrefix: e.target.value })}
+                          disabled={currentRole !== "gerant"}
+                          placeholder="FAC"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Ex: {invoiceSettings.invoicePrefix}-{new Date().getFullYear()}-{String(invoiceSettings.invoiceCounter + 1).padStart(4, "0")}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Prefixe bon de livraison</Label>
+                        <Input
+                          value={invoiceSettings.deliveryNotePrefix}
+                          onChange={(e) => setInvoiceSettings({ ...invoiceSettings, deliveryNotePrefix: e.target.value })}
+                          disabled={currentRole !== "gerant"}
+                          placeholder="BL"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          Ex: {invoiceSettings.deliveryNotePrefix}-{new Date().getFullYear()}-{String(invoiceSettings.deliveryNoteCounter + 1).padStart(4, "0")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                      <div>Factures emises: <span className="font-medium text-foreground">{invoiceSettings.invoiceCounter}</span></div>
+                      <div>BL emis: <span className="font-medium text-foreground">{invoiceSettings.deliveryNoteCounter}</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer & Options */}
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Pied de page (factures & BL)</Label>
+                    <Textarea
+                      value={invoiceSettings.footerText}
+                      onChange={(e) => setInvoiceSettings({ ...invoiceSettings, footerText: e.target.value })}
+                      disabled={currentRole !== "gerant"}
+                      rows={2}
+                      placeholder="Merci pour votre confiance."
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Prix sur bon de livraison</p>
+                        <p className="text-xs text-muted-foreground">Afficher les prix unitaires et totaux sur le BL</p>
+                      </div>
+                      <Switch
+                        checked={invoiceSettings.showPricesOnDeliveryNote}
+                        onCheckedChange={(v) => setInvoiceSettings({ ...invoiceSettings, showPricesOnDeliveryNote: v })}
+                        disabled={currentRole !== "gerant"}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {currentRole === "gerant" && (
+                  <Button onClick={handleSaveInvoiceSettings} disabled={invoiceSaving}>
+                    {invoiceSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Enregistrer les parametres
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Connectez votre boutique pour configurer la facturation.</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Printer Settings */}
         <Card>
