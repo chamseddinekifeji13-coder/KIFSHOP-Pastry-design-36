@@ -124,33 +124,40 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     async function loadUserData() {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        console.log("[v0] 1. Auth getUser result:", { userId: user?.id, email: user?.email, authError: authError?.message })
         if (!user) {
+          console.log("[v0] 2. No user found - will show demo mode")
           setIsLoading(false)
           return
         }
         setAuthUser(user)
 
         // Get the user's tenant link
-        const { data: tenantUser } = await supabase
+        const { data: tenantUser, error: tuError } = await supabase
           .from("tenant_users")
           .select("tenant_id, role, display_name")
           .eq("user_id", user.id)
           .limit(1)
           .single()
 
+        console.log("[v0] 3. tenant_users query:", { tenantUser, error: tuError?.message, code: tuError?.code })
+
         if (!tenantUser) {
+          console.log("[v0] 4. No tenant_users entry - will show demo mode")
           // User exists in auth but no tenant link yet
           setIsLoading(false)
           return
         }
 
         // Get tenant data
-        const { data: tenantData } = await supabase
+        const { data: tenantData, error: tError } = await supabase
           .from("tenants")
           .select("*")
           .eq("id", tenantUser.tenant_id)
           .single()
+
+        console.log("[v0] 5. tenants query:", { tenantData, error: tError?.message })
 
         if (tenantData) {
           const tenant: Tenant = {
