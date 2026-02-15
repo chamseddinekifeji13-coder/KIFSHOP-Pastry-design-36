@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Building2, Users, CreditCard, Activity } from "lucide-react"
+import { Building2, Users, CreditCard, Clock, AlertTriangle, DollarSign } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -12,17 +12,17 @@ import {
 } from "@/lib/super-admin/actions"
 
 const PLAN_LABELS: Record<string, string> = {
+  trial: "Essai",
+  basic: "Basic",
+  premium: "Premium",
   free: "Gratuit",
-  starter: "Starter",
-  pro: "Pro",
-  enterprise: "Enterprise",
 }
 
-const PLAN_COLORS: Record<string, string> = {
-  free: "secondary",
-  starter: "default",
-  pro: "default",
-  enterprise: "default",
+const STATUS_LABELS: Record<string, string> = {
+  trial: "Essai",
+  active: "Actif",
+  expired: "Expire",
+  suspended: "Suspendu",
 }
 
 export function SuperAdminDashboard() {
@@ -59,12 +59,10 @@ export function SuperAdminDashboard() {
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Patisseries
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Patisseries</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -77,9 +75,7 @@ export function SuperAdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Utilisateurs
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Utilisateurs</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -92,38 +88,54 @@ export function SuperAdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Abonnements</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">En essai</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-1.5">
-              {stats?.planBreakdown.map((p) => (
-                <Badge
-                  key={p.plan}
-                  variant={
-                    PLAN_COLORS[p.plan] === "default"
-                      ? "default"
-                      : "secondary"
-                  }
-                  className="text-[10px]"
-                >
-                  {PLAN_LABELS[p.plan] || p.plan}: {p.count}
-                </Badge>
-              ))}
-            </div>
+            <div className="text-2xl font-bold">{stats?.trialTenants || 0}</div>
+            <p className="text-xs text-muted-foreground">periode de grace</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Statut</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Suspendus</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">Operationnel</div>
-            <p className="text-xs text-muted-foreground">
-              tous les services actifs
-            </p>
+            <div className="text-2xl font-bold">{stats?.suspendedTenants || 0}</div>
+            <p className="text-xs text-muted-foreground">a traiter</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Revenu mensuel</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.monthlyRevenue || 0} TND</div>
+            <p className="text-xs text-muted-foreground">abonnements actifs</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Abonnements</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1.5">
+              {stats?.statusBreakdown.map((s) => (
+                <Badge
+                  key={s.status}
+                  variant={s.status === "active" ? "default" : "secondary"}
+                  className="text-[10px]"
+                >
+                  {STATUS_LABELS[s.status] || s.status}: {s.count}
+                </Badge>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -170,6 +182,11 @@ export function SuperAdminDashboard() {
                     <Badge variant="outline" className="text-[10px]">
                       {PLAN_LABELS[tenant.subscription_plan] || tenant.subscription_plan}
                     </Badge>
+                    {tenant.subscription_status === "trial" && tenant.trial_ends_at && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Essai: {new Date(tenant.trial_ends_at).toLocaleDateString("fr-FR")}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}

@@ -49,10 +49,17 @@ import {
 } from "@/lib/super-admin/actions"
 
 const PLAN_LABELS: Record<string, string> = {
+  trial: "Essai",
+  basic: "Basic",
+  premium: "Premium",
   free: "Gratuit",
-  starter: "Starter",
-  pro: "Pro",
-  enterprise: "Enterprise",
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  trial: "Essai",
+  active: "Actif",
+  expired: "Expire",
+  suspended: "Suspendu",
 }
 
 export function TenantsList() {
@@ -150,6 +157,7 @@ export function TenantsList() {
                   <TableRow>
                     <TableHead>Patisserie</TableHead>
                     <TableHead>Plan</TableHead>
+                    <TableHead>Abonnement</TableHead>
                     <TableHead>Utilisateurs</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Date creation</TableHead>
@@ -180,6 +188,14 @@ export function TenantsList() {
                       <TableCell>
                         <Badge variant="outline" className="text-[10px]">
                           {PLAN_LABELS[tenant.subscription_plan] || tenant.subscription_plan}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={tenant.subscription_status === "active" ? "default" : tenant.subscription_status === "suspended" ? "destructive" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {STATUS_LABELS[tenant.subscription_status] || tenant.subscription_status}
                         </Badge>
                       </TableCell>
                       <TableCell>

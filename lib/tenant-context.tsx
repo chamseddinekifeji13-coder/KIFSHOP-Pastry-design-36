@@ -59,12 +59,24 @@ export interface AppUser {
   email?: string
 }
 
+// ─── Subscription ─────────────────────────────────────────────
+export interface TenantSubscription {
+  status: "trial" | "active" | "expired" | "suspended"
+  plan: string | null
+  trialEndsAt: string | null
+  currentPeriodEnd: string | null
+  maxSalesChannels: number
+  maxWarehouses: number
+  maxUsers: number
+}
+
 // ─── Tenant ───────────────────────────────────────────────────
 export interface Tenant {
   id: string
   name: string
   logo: string
   primaryColor: string
+  subscription: TenantSubscription
 }
 
 export interface TenantState {
@@ -75,6 +87,9 @@ export interface TenantState {
   tenants: Tenant[]
   authUser: AuthUser | null
   isLoading: boolean
+  isSuspended: boolean
+  isTrialExpired: boolean
+  trialDaysLeft: number
   setCurrentTenant: (tenant: Tenant) => void
   setCurrentUser: (user: AppUser) => void
   addUser: (user: Omit<AppUser, "id">) => void
@@ -89,6 +104,15 @@ const FALLBACK_TENANT: Tenant = {
   name: "Mode Demo",
   logo: "D",
   primaryColor: "#4A7C59",
+  subscription: {
+    status: "trial",
+    plan: null,
+    trialEndsAt: null,
+    currentPeriodEnd: null,
+    maxSalesChannels: 1,
+    maxWarehouses: 1,
+    maxUsers: 3,
+  },
 }
 
 const FALLBACK_USER: AppUser = {

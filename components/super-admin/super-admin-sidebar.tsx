@@ -8,6 +8,8 @@ import {
   LogOut,
   Shield,
   Loader2,
+  CreditCard,
+  Settings,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -38,7 +40,14 @@ const navigation = [
     title: "Gestion",
     items: [
       { title: "Patisseries", href: "/super-admin/tenants", icon: Building2 },
+      { title: "Abonnements", href: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Utilisateurs", href: "/super-admin/users", icon: Users },
+    ],
+  },
+  {
+    title: "Configuration",
+    items: [
+      { title: "Parametres", href: "/super-admin/settings", icon: Settings },
     ],
   },
 ]
