@@ -6,7 +6,8 @@ import useSWR from "swr"
 import {
   Plus, MessageCircle, Globe, Store, Phone, CreditCard,
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
-  ArrowRight, AlertCircle, Loader2,
+  ArrowRight, AlertCircle, Loader2, Banknote, Wallet, X, Trash2,
+  Building2, User,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,12 +16,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet"
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
 import {
-  fetchOrders, updateOrderStatus, updatePaymentStatus,
-  getOrderStatusHistory,
-  type Order, type StatusHistoryEntry,
+  fetchOrders, updateOrderStatus,
+  getOrderStatusHistory, getPaymentCollections,
+  recordPaymentCollection, deletePaymentCollection,
+  type Order, type StatusHistoryEntry, type PaymentCollection,
+  type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
@@ -60,6 +72,28 @@ const historyLabels: Record<string, string> = {
   "paiement-partiel": "Acompte enregistre",
 }
 
+const paymentMethodLabels: Record<PaymentMethod, string> = {
+  cash: "Especes",
+  card: "Carte bancaire",
+  bank_transfer: "Virement bancaire",
+  check: "Cheque",
+  cod_courier: "Contre-remboursement",
+}
+
+const collectedByLabels: Record<CollectedBy, string> = {
+  direct: "Encaissement direct",
+  courier: "Via livreur",
+  online: "En ligne",
+}
+
+const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
+  cash: Banknote,
+  card: CreditCard,
+  bank_transfer: Building2,
+  check: Wallet,
+  cod_courier: Truck,
+}
+
 export function OrdersView() {
   const { currentTenant } = useTenant()
   const searchParams = useSearchParams()
@@ -70,6 +104,17 @@ export function OrdersView() {
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+
+  // Payment collection state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [collections, setCollections] = useState<PaymentCollection[]>([])
+  const [collectionsLoading, setCollectionsLoading] = useState(false)
+  const [payAmount, setPayAmount] = useState("")
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("cash")
+  const [payCollectedBy, setPayCollectedBy] = useState<CollectedBy>("direct")
+  const [payCollectorName, setPayCollectorName] = useState("")
+  const [payReference, setPayReference] = useState("")
+  const [payNotes, setPayNotes] = useState("")
 
   const isDemoTenant = currentTenant.id === "demo"
 
@@ -101,10 +146,18 @@ export function OrdersView() {
     setHistoryLoading(false)
   }, [])
 
+  const loadCollections = useCallback(async (orderId: string) => {
+    setCollectionsLoading(true)
+    const data = await getPaymentCollections(orderId)
+    setCollections(data)
+    setCollectionsLoading(false)
+  }, [])
+
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
     setSheetOpen(true)
     loadHistory(order.id)
+    loadCollections(order.id)
   }
 
   const handleStatusChange = async (newStatus: Order["status"], note?: string) => {
@@ -132,26 +185,70 @@ export function OrdersView() {
     setActionLoading(false)
   }
 
-  const handleEncaisser = async () => {
+  const openPaymentDialog = () => {
+    if (!selectedOrder) return
+    const remaining = selectedOrder.total - selectedOrder.deposit
+    setPayAmount(remaining > 0 ? remaining.toString() : "")
+    setPayMethod("cash")
+    setPayCollectedBy("direct")
+    setPayCollectorName("")
+    setPayReference("")
+    setPayNotes("")
+    setPaymentDialogOpen(true)
+  }
+
+  const handleRecordPayment = async () => {
+    if (!selectedOrder || actionLoading) return
+    const amount = parseFloat(payAmount)
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Montant invalide")
+      return
+    }
+    setActionLoading(true)
+
+    const ok = await recordPaymentCollection({
+      orderId: selectedOrder.id,
+      tenantId: currentTenant.id,
+      amount,
+      paymentMethod: payMethod,
+      collectedBy: payCollectedBy,
+      collectorName: payCollectorName || undefined,
+      reference: payReference || undefined,
+      notes: payNotes || undefined,
+    })
+
+    if (ok) {
+      const newDeposit = selectedOrder.deposit + amount
+      const newStatus = newDeposit >= selectedOrder.total ? "paid" : "partial"
+      toast.success("Encaissement enregistre", {
+        description: `${amount.toLocaleString("fr-TN")} TND - ${paymentMethodLabels[payMethod]}`,
+      })
+      setSelectedOrder({ ...selectedOrder, paymentStatus: newStatus, deposit: newDeposit })
+      setPaymentDialogOpen(false)
+      mutate()
+      loadHistory(selectedOrder.id)
+      loadCollections(selectedOrder.id)
+    } else {
+      toast.error("Erreur lors de l'encaissement")
+    }
+    setActionLoading(false)
+  }
+
+  const handleDeleteCollection = async (collection: PaymentCollection) => {
     if (!selectedOrder || actionLoading) return
     setActionLoading(true)
 
-    const ok = await updatePaymentStatus(
-      selectedOrder.id,
-      currentTenant.id,
-      "paid",
-      selectedOrder.total
-    )
-
+    const ok = await deletePaymentCollection(collection.id, selectedOrder.id, currentTenant.id)
     if (ok) {
-      toast.success("Paiement enregistre", {
-        description: `${selectedOrder.total.toLocaleString("fr-TN")} TND encaisses`,
-      })
-      setSelectedOrder({ ...selectedOrder, paymentStatus: "paid", deposit: selectedOrder.total })
+      toast.success("Encaissement supprime")
+      const newDeposit = Math.max(0, selectedOrder.deposit - collection.amount)
+      const newStatus = newDeposit >= selectedOrder.total ? "paid" : newDeposit > 0 ? "partial" : "unpaid"
+      setSelectedOrder({ ...selectedOrder, paymentStatus: newStatus as Order["paymentStatus"], deposit: newDeposit })
       mutate()
+      loadCollections(selectedOrder.id)
       loadHistory(selectedOrder.id)
     } else {
-      toast.error("Erreur lors de l'encaissement")
+      toast.error("Erreur lors de la suppression")
     }
     setActionLoading(false)
   }
@@ -406,7 +503,15 @@ export function OrdersView() {
 
                 {/* Payment */}
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Paiement</h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Paiement</h4>
+                    {selectedOrder.paymentStatus !== "paid" && (
+                      <Button size="sm" variant="outline" onClick={openPaymentDialog}>
+                        <Banknote className="mr-1.5 h-3.5 w-3.5" />
+                        Encaisser
+                      </Button>
+                    )}
+                  </div>
                   <div className="rounded-lg border p-3 space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total</span>
@@ -414,8 +519,8 @@ export function OrdersView() {
                     </div>
                     {selectedOrder.deposit > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Acompte verse</span>
-                        <span>{selectedOrder.deposit.toLocaleString("fr-TN")} TND</span>
+                        <span className="text-muted-foreground">Encaisse</span>
+                        <span className="text-primary font-medium">{selectedOrder.deposit.toLocaleString("fr-TN")} TND</span>
                       </div>
                     )}
                     {selectedOrder.paymentStatus !== "paid" && (
@@ -427,6 +532,66 @@ export function OrdersView() {
                       </div>
                     )}
                   </div>
+
+                  {/* Payment Collections List */}
+                  {collectionsLoading ? (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : collections.length > 0 && (
+                    <div className="rounded-lg border divide-y">
+                      {collections.map((c) => {
+                        const MethodIcon = paymentMethodIcons[c.paymentMethod] || Banknote
+                        return (
+                          <div key={c.id} className="p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <MethodIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-sm font-medium">
+                                  {c.amount.toLocaleString("fr-TN")} TND
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {paymentMethodLabels[c.paymentMethod]}
+                                </Badge>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => handleDeleteCollection(c)}
+                                  disabled={actionLoading}
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              {c.collectedBy === "courier" ? (
+                                <Truck className="h-3 w-3" />
+                              ) : c.collectedBy === "online" ? (
+                                <Globe className="h-3 w-3" />
+                              ) : (
+                                <Store className="h-3 w-3" />
+                              )}
+                              <span>{collectedByLabels[c.collectedBy]}</span>
+                              {c.collectorName && <span>- {c.collectorName}</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(c.collectedAt).toLocaleString("fr-TN")}
+                              {c.recordedByName && ` - par ${c.recordedByName}`}
+                            </div>
+                            {c.reference && (
+                              <div className="text-xs text-muted-foreground">Ref: {c.reference}</div>
+                            )}
+                            {c.notes && (
+                              <div className="text-xs text-muted-foreground italic">{c.notes}</div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Status Timeline */}
@@ -499,8 +664,8 @@ export function OrdersView() {
                   {selectedOrder.status === "pret" && (
                     <>
                       {selectedOrder.paymentStatus !== "paid" && (
-                        <Button className="w-full" disabled={actionLoading} onClick={handleEncaisser}>
-                          {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                        <Button className="w-full" disabled={actionLoading} onClick={openPaymentDialog}>
+                          {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Banknote className="mr-2 h-4 w-4" />}
                           Encaisser {(selectedOrder.total - selectedOrder.deposit).toLocaleString("fr-TN")} TND
                         </Button>
                       )}
@@ -529,8 +694,8 @@ export function OrdersView() {
                   {selectedOrder.status === "en-livraison" && (
                     <>
                       {selectedOrder.paymentStatus !== "paid" && (
-                        <Button className="w-full" disabled={actionLoading} onClick={handleEncaisser}>
-                          <CreditCard className="mr-2 h-4 w-4" />
+                        <Button className="w-full" disabled={actionLoading} onClick={openPaymentDialog}>
+                          <Banknote className="mr-2 h-4 w-4" />
                           Encaisser {(selectedOrder.total - selectedOrder.deposit).toLocaleString("fr-TN")} TND
                         </Button>
                       )}
@@ -551,6 +716,143 @@ export function OrdersView() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Payment Collection Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enregistrer un encaissement</DialogTitle>
+            <DialogDescription>
+              {selectedOrder && (
+                <>
+                  Commande de {selectedOrder.customerName} - Reste: {(selectedOrder.total - selectedOrder.deposit).toLocaleString("fr-TN")} TND
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Montant (TND)</Label>
+              <Input
+                type="number"
+                step="0.001"
+                value={payAmount}
+                onChange={(e) => setPayAmount(e.target.value)}
+                placeholder="0.000"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Mode de paiement</Label>
+              <Select value={payMethod} onValueChange={(v) => setPayMethod(v as PaymentMethod)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">
+                    <div className="flex items-center gap-2">
+                      <Banknote className="h-4 w-4" /> Especes
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="card">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" /> Carte bancaire
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="bank_transfer">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" /> Virement bancaire
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="check">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4" /> Cheque
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="cod_courier">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4" /> Contre-remboursement (livreur)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Encaisse par</Label>
+              <Select value={payCollectedBy} onValueChange={(v) => setPayCollectedBy(v as CollectedBy)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="direct">
+                    <div className="flex items-center gap-2">
+                      <Store className="h-4 w-4" /> Direct (patisserie)
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="courier">
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-4 w-4" /> Via livreur
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="online">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" /> En ligne
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {payCollectedBy === "courier" && (
+              <div className="space-y-2">
+                <Label>Nom du livreur</Label>
+                <Input
+                  value={payCollectorName}
+                  onChange={(e) => setPayCollectorName(e.target.value)}
+                  placeholder="Ex: Ahmed - Aramex"
+                />
+              </div>
+            )}
+
+            {(payMethod === "bank_transfer" || payMethod === "check") && (
+              <div className="space-y-2">
+                <Label>{payMethod === "check" ? "Numero du cheque" : "Reference virement"}</Label>
+                <Input
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                  placeholder={payMethod === "check" ? "N du cheque" : "Ref. virement"}
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Notes (optionnel)</Label>
+              <Textarea
+                value={payNotes}
+                onChange={(e) => setPayNotes(e.target.value)}
+                placeholder="Remarques sur l'encaissement..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleRecordPayment} disabled={actionLoading}>
+              {actionLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Banknote className="mr-2 h-4 w-4" />
+              )}
+              Confirmer l{"'"}encaissement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* New Order Drawer */}
       <NewOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />

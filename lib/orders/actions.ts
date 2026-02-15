@@ -45,6 +45,36 @@ export interface StatusHistoryEntry {
   createdAt: string
 }
 
+export type PaymentMethod = "cash" | "card" | "bank_transfer" | "check" | "cod_courier"
+export type CollectedBy = "direct" | "courier" | "online"
+
+export interface PaymentCollection {
+  id: string
+  orderId: string
+  tenantId: string
+  amount: number
+  paymentMethod: PaymentMethod
+  collectedBy: CollectedBy
+  collectorName: string | null
+  reference: string | null
+  notes: string | null
+  collectedAt: string
+  recordedByName: string | null
+  createdAt: string
+}
+
+export interface CreatePaymentCollectionData {
+  orderId: string
+  tenantId: string
+  amount: number
+  paymentMethod: PaymentMethod
+  collectedBy: CollectedBy
+  collectorName?: string
+  reference?: string
+  notes?: string
+  collectedAt?: string
+}
+
 export interface CreateOrderData {
   tenantId: string
   customerName: string
@@ -374,6 +404,181 @@ export async function getOrderStatusHistory(orderId: string): Promise<StatusHist
     note: h.note,
     createdAt: h.created_at,
   }))
+}
+
+// ─── Payment Collections ──────────────────────────────────────
+
+export async function getPaymentCollections(orderId: string): Promise<PaymentCollection[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select("*")
+    .eq("order_id", orderId)
+    .order("collected_at", { ascending: true })
+
+  if (error) {
+    console.error("Error fetching payment collections:", error.message)
+    return []
+  }
+
+  return (data || []).map((p) => ({
+    id: p.id,
+    orderId: p.order_id,
+    tenantId: p.tenant_id,
+    amount: Number(p.amount),
+    paymentMethod: p.payment_method as PaymentMethod,
+    collectedBy: p.collected_by as CollectedBy,
+    collectorName: p.collector_name,
+    reference: p.reference,
+    notes: p.notes,
+    collectedAt: p.collected_at,
+    recordedByName: p.recorded_by_name,
+    createdAt: p.created_at,
+  }))
+}
+
+export async function recordPaymentCollection(
+  data: CreatePaymentCollectionData
+): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Insert payment collection record
+  const { error } = await supabase.from("payment_collections").insert({
+    order_id: data.orderId,
+    tenant_id: data.tenantId,
+    amount: data.amount,
+    payment_method: data.paymentMethod,
+    collected_by: data.collectedBy,
+    collector_name: data.collectorName || null,
+    reference: data.reference || null,
+    notes: data.notes || null,
+    collected_at: data.collectedAt || new Date().toISOString(),
+    recorded_by: user?.id || null,
+    recorded_by_name: user?.user_metadata?.display_name || user?.email || null,
+  })
+
+  if (error) {
+    console.error("Error recording payment:", error.message)
+    return false
+  }
+
+  // Calculate total collected for this order
+  const { data: allCollections } = await supabase
+    .from("payment_collections")
+    .select("amount")
+    .eq("order_id", data.orderId)
+
+  const totalCollected = (allCollections || []).reduce((sum, p) => sum + Number(p.amount), 0)
+
+  // Get order total to determine payment status
+  const { data: order } = await supabase
+    .from("orders")
+    .select("total")
+    .eq("id", data.orderId)
+    .single()
+
+  const orderTotal = Number(order?.total || 0)
+
+  let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
+  if (totalCollected >= orderTotal) paymentStatus = "paid"
+  else if (totalCollected > 0) paymentStatus = "partial"
+
+  // Update order payment status and deposit
+  await supabase
+    .from("orders")
+    .update({
+      payment_status: paymentStatus,
+      deposit: totalCollected,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", data.orderId)
+
+  // Build descriptive note for history
+  const methodLabels: Record<PaymentMethod, string> = {
+    cash: "Especes",
+    card: "Carte bancaire",
+    bank_transfer: "Virement bancaire",
+    check: "Cheque",
+    cod_courier: "Contre-remboursement (livreur)",
+  }
+  const collectedByLabels: Record<CollectedBy, string> = {
+    direct: "Encaissement direct",
+    courier: "Via livreur",
+    online: "En ligne",
+  }
+
+  const noteText = [
+    `${data.amount} TND encaisse`,
+    methodLabels[data.paymentMethod],
+    collectedByLabels[data.collectedBy],
+    data.collectorName ? `par ${data.collectorName}` : null,
+    data.reference ? `(Ref: ${data.reference})` : null,
+  ].filter(Boolean).join(" - ")
+
+  // Record in status history
+  await supabase.from("order_status_history").insert({
+    order_id: data.orderId,
+    tenant_id: data.tenantId,
+    from_status: null,
+    to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
+    changed_by: user?.id || null,
+    changed_by_name: user?.user_metadata?.display_name || user?.email || null,
+    note: noteText,
+  })
+
+  return true
+}
+
+export async function deletePaymentCollection(
+  collectionId: string,
+  orderId: string,
+  tenantId: string
+): Promise<boolean> {
+  const supabase = createClient()
+
+  // Delete the collection
+  const { error } = await supabase
+    .from("payment_collections")
+    .delete()
+    .eq("id", collectionId)
+
+  if (error) {
+    console.error("Error deleting payment collection:", error.message)
+    return false
+  }
+
+  // Recalculate totals
+  const { data: remaining } = await supabase
+    .from("payment_collections")
+    .select("amount")
+    .eq("order_id", orderId)
+
+  const totalCollected = (remaining || []).reduce((sum, p) => sum + Number(p.amount), 0)
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("total")
+    .eq("id", orderId)
+    .single()
+
+  const orderTotal = Number(order?.total || 0)
+
+  let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
+  if (totalCollected >= orderTotal) paymentStatus = "paid"
+  else if (totalCollected > 0) paymentStatus = "partial"
+
+  await supabase
+    .from("orders")
+    .update({
+      payment_status: paymentStatus,
+      deposit: totalCollected,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+
+  return true
 }
 
 // ─── Delete Order ─────────────────────────────────────────────
