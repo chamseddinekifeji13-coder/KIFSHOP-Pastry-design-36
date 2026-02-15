@@ -43,7 +43,6 @@ export interface OrderReturn {
   // Joined from order
   orderCustomerName?: string
   orderTotal?: number
-  orderNumber?: string
 }
 
 export interface CustomerCredit {
@@ -105,7 +104,7 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
     .from("order_returns")
     .select(`
       *,
-      orders!inner(customer_name, total, order_number)
+      orders!inner(customer_name, total)
     `)
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
@@ -123,7 +122,7 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
       .select("*")
       .eq("return_id", r.id)
 
-    const order = r.orders as { customer_name: string; total: number; order_number?: string } | null
+    const order = r.orders as { customer_name: string; total: number } | null
 
     returns.push({
       id: r.id,
@@ -143,7 +142,6 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
       createdAt: r.created_at,
       orderCustomerName: order?.customer_name || "",
       orderTotal: order ? Number(order.total) : 0,
-      orderNumber: order?.order_number || "",
       items: (items || []).map((i) => ({
         orderItemId: i.order_item_id,
         productName: i.product_name,
