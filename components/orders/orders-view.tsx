@@ -7,7 +7,7 @@ import {
   Plus, MessageCircle, Globe, Store, Phone, CreditCard,
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, X, Trash2,
-  Building2, User,
+  Building2, User, RotateCcw, FileWarning, Check, XCircle,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,14 @@ import {
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
+import {
+  createReturn, getOrderReturns, processReturn,
+  fetchReturns, fetchCustomerCredits,
+  type OrderReturn, type CustomerCredit, type ReturnType, type ReturnReason, type RefundMethod,
+  type ReturnItem, reasonLabels, statusLabels as returnStatusLabels,
+  refundMethodLabels,
+} from "@/lib/orders/returns-actions"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
 
@@ -70,6 +78,11 @@ const historyLabels: Record<string, string> = {
   livre: "Livree / Vendue",
   "paiement-complet": "Paiement complet",
   "paiement-partiel": "Acompte enregistre",
+  "retour-total": "Retour total demande",
+  "retour-partial": "Retour partiel demande",
+  "retour-approved": "Retour approuve",
+  "retour-rejected": "Retour rejete",
+  "retour-completed": "Retour finalise",
 }
 
 const paymentMethodLabels: Record<PaymentMethod, string> = {
@@ -116,12 +129,37 @@ export function OrdersView() {
   const [payReference, setPayReference] = useState("")
   const [payNotes, setPayNotes] = useState("")
 
+  // Return state
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false)
+  const [orderReturns, setOrderReturns] = useState<OrderReturn[]>([])
+  const [returnsLoading, setReturnsLoading] = useState(false)
+  const [returnType, setReturnType] = useState<ReturnType>("total")
+  const [returnReason, setReturnReason] = useState<ReturnReason>("damaged")
+  const [returnReasonDetails, setReturnReasonDetails] = useState("")
+  const [returnRefundMethod, setReturnRefundMethod] = useState<RefundMethod>("cash_refund")
+  const [returnNotes, setReturnNotes] = useState("")
+  const [returnItems, setReturnItems] = useState<{ idx: number; qty: number }[]>([])
+
   const isDemoTenant = currentTenant.id === "demo"
 
   // SWR fetcher for orders
   const { data: orders = [], mutate, isLoading } = useSWR(
     isDemoTenant ? null : ["orders", currentTenant.id],
     () => fetchOrders(currentTenant.id),
+    { revalidateOnFocus: false }
+  )
+
+  // SWR for all returns
+  const { data: allReturns = [], mutate: mutateReturns, isLoading: returnsListLoading } = useSWR(
+    isDemoTenant ? null : ["returns", currentTenant.id],
+    () => fetchReturns(currentTenant.id),
+    { revalidateOnFocus: false }
+  )
+
+  // SWR for customer credits
+  const { data: customerCredits = [], mutate: mutateCredits, isLoading: creditsLoading } = useSWR(
+    isDemoTenant ? null : ["credits", currentTenant.id],
+    () => fetchCustomerCredits(currentTenant.id),
     { revalidateOnFocus: false }
   )
 
@@ -153,11 +191,19 @@ export function OrdersView() {
     setCollectionsLoading(false)
   }, [])
 
+  const loadReturns = useCallback(async (orderId: string) => {
+    setReturnsLoading(true)
+    const data = await getOrderReturns(orderId)
+    setOrderReturns(data)
+    setReturnsLoading(false)
+  }, [])
+
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
     setSheetOpen(true)
     loadHistory(order.id)
     loadCollections(order.id)
+    loadReturns(order.id)
   }
 
   const handleStatusChange = async (newStatus: Order["status"], note?: string) => {
@@ -253,6 +299,95 @@ export function OrdersView() {
     setActionLoading(false)
   }
 
+  // ─── Return Handlers ───────────────────────────────────────
+
+  const openReturnDialog = () => {
+    if (!selectedOrder) return
+    setReturnType("total")
+    setReturnReason("damaged")
+    setReturnReasonDetails("")
+    setReturnRefundMethod("cash_refund")
+    setReturnNotes("")
+    setReturnItems([])
+    setReturnDialogOpen(true)
+  }
+
+  const toggleReturnItem = (idx: number, checked: boolean) => {
+    if (checked) {
+      const item = selectedOrder?.items[idx]
+      if (item) setReturnItems([...returnItems, { idx, qty: item.quantity }])
+    } else {
+      setReturnItems(returnItems.filter((i) => i.idx !== idx))
+    }
+  }
+
+  const updateReturnItemQty = (idx: number, qty: number) => {
+    setReturnItems(returnItems.map((i) => (i.idx === idx ? { ...i, qty } : i)))
+  }
+
+  const handleCreateReturn = async () => {
+    if (!selectedOrder || actionLoading) return
+    setActionLoading(true)
+
+    const items: ReturnItem[] =
+      returnType === "partial"
+        ? returnItems.map((ri) => {
+            const item = selectedOrder.items[ri.idx]
+            return {
+              orderItemId: item.id,
+              productName: item.name,
+              quantityReturned: ri.qty,
+              unitPrice: item.price,
+              subtotal: ri.qty * item.price,
+            }
+          })
+        : []
+
+    const ok = await createReturn({
+      orderId: selectedOrder.id,
+      tenantId: currentTenant.id,
+      returnType,
+      reason: returnReason,
+      reasonDetails: returnReasonDetails || undefined,
+      refundMethod: returnRefundMethod,
+      items: returnType === "partial" ? items : undefined,
+      notes: returnNotes || undefined,
+    })
+
+    if (ok) {
+      toast.success("Retour enregistre", {
+        description: `Retour ${returnType === "total" ? "total" : "partiel"} - ${reasonLabels[returnReason]}`,
+      })
+      setReturnDialogOpen(false)
+      mutate()
+      mutateReturns()
+      loadHistory(selectedOrder.id)
+      loadReturns(selectedOrder.id)
+    } else {
+      toast.error("Erreur lors de la creation du retour")
+    }
+    setActionLoading(false)
+  }
+
+  const handleProcessReturn = async (returnId: string, action: "approved" | "rejected" | "completed") => {
+    if (!selectedOrder || actionLoading) return
+    setActionLoading(true)
+
+    const ok = await processReturn(returnId, currentTenant.id, action)
+    if (ok) {
+      const labels = { approved: "approuve", rejected: "rejete", completed: "finalise" }
+      toast.success(`Retour ${labels[action]}`)
+      loadReturns(selectedOrder.id)
+      loadHistory(selectedOrder.id)
+      mutate()
+      mutateReturns()
+      if (action === "completed") mutateCredits()
+    } else {
+      toast.error("Erreur lors du traitement")
+    }
+    setActionLoading(false)
+  }
+
   const getPaymentBadge = (status: Order["paymentStatus"]) => {
     switch (status) {
       case "paid":
@@ -342,6 +477,20 @@ export function OrdersView() {
           <TabsList>
             <TabsTrigger value="kanban">Kanban</TabsTrigger>
             <TabsTrigger value="list">Liste</TabsTrigger>
+            <TabsTrigger value="retours">
+              Retours
+              {allReturns.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{allReturns.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="avoirs">
+              Avoirs
+              {customerCredits.filter(c => c.status === "active" || c.status === "partially_used").length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {customerCredits.filter(c => c.status === "active" || c.status === "partially_used").length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
@@ -402,6 +551,199 @@ export function OrdersView() {
                       </div>
                     </div>
                   ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Retours Tab */}
+          <TabsContent value="retours" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4" />
+                  Historique des retours ({allReturns.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {returnsListLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : allReturns.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <RotateCcw className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>Aucun retour enregistre</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {allReturns.map((ret) => (
+                      <div
+                        key={ret.id}
+                        className="rounded-lg border p-4 space-y-2 hover:bg-muted/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">{ret.orderCustomerName}</span>
+                            <Badge variant={
+                              ret.status === "completed" ? "default" :
+                              ret.status === "approved" ? "secondary" :
+                              ret.status === "rejected" ? "destructive" : "outline"
+                            } className="text-[10px]">
+                              {returnStatusLabels[ret.status]}
+                            </Badge>
+                            <Badge variant="outline" className="text-[10px]">
+                              {ret.returnType === "total" ? "Total" : "Partiel"}
+                            </Badge>
+                          </div>
+                          <span className="font-semibold text-sm">
+                            {ret.refundAmount.toLocaleString("fr-TN")} TND
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <span>{reasonLabels[ret.reason]}</span>
+                          {ret.refundMethod && <span>{refundMethodLabels[ret.refundMethod]}</span>}
+                          <span>{new Date(ret.createdAt).toLocaleDateString("fr-TN")}</span>
+                        </div>
+
+                        {ret.items.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {ret.items.map((item, i) => (
+                              <Badge key={i} variant="secondary" className="text-[10px]">
+                                {item.quantityReturned}x {item.productName}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {ret.status === "pending" && (
+                          <div className="flex gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              disabled={actionLoading}
+                              onClick={() => handleProcessReturn(ret.id, "approved")}
+                            >
+                              <Check className="mr-1 h-3 w-3" />
+                              Approuver
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs text-destructive"
+                              disabled={actionLoading}
+                              onClick={() => handleProcessReturn(ret.id, "rejected")}
+                            >
+                              <XCircle className="mr-1 h-3 w-3" />
+                              Rejeter
+                            </Button>
+                          </div>
+                        )}
+                        {ret.status === "approved" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={actionLoading}
+                            onClick={() => handleProcessReturn(ret.id, "completed")}
+                          >
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Finaliser
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Avoirs Tab */}
+          <TabsContent value="avoirs" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileWarning className="h-4 w-4" />
+                  Avoirs clients ({customerCredits.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {creditsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : customerCredits.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileWarning className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>Aucun avoir pour le moment</p>
+                    <p className="text-xs mt-1">Les avoirs sont generes automatiquement lors de la finalisation des retours avec option {"\""}Avoir{"\""}.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {customerCredits.map((credit) => {
+                      const remaining = credit.amount - credit.usedAmount
+                      return (
+                        <div
+                          key={credit.id}
+                          className="rounded-lg border p-4 space-y-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{credit.customerName}</span>
+                              <Badge variant={
+                                credit.status === "active" ? "default" :
+                                credit.status === "partially_used" ? "secondary" :
+                                credit.status === "fully_used" ? "outline" : "destructive"
+                              } className="text-[10px]">
+                                {credit.status === "active" ? "Actif" :
+                                 credit.status === "partially_used" ? "Partiellement utilise" :
+                                 credit.status === "fully_used" ? "Epuise" :
+                                 credit.status === "cancelled" ? "Annule" : credit.status}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4">
+                            <div className="flex-1 space-y-1">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Montant initial</span>
+                                <span className="font-medium">{credit.amount.toLocaleString("fr-TN")} TND</span>
+                              </div>
+                              {credit.usedAmount > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-muted-foreground">Utilise</span>
+                                  <span>{credit.usedAmount.toLocaleString("fr-TN")} TND</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Reste</span>
+                                <span className={`font-semibold ${remaining > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                                  {remaining.toLocaleString("fr-TN")} TND
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {credit.customerPhone && (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" /> {credit.customerPhone}
+                              </span>
+                            )}
+                            <span>{new Date(credit.createdAt).toLocaleDateString("fr-TN")}</span>
+                            {credit.createdByName && <span>par {credit.createdByName}</span>}
+                          </div>
+
+                          {credit.notes && (
+                            <p className="text-xs text-muted-foreground italic">{credit.notes}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -594,6 +936,104 @@ export function OrdersView() {
                   )}
                 </div>
 
+                {/* Returns Section */}
+                {returnsLoading ? (
+                  <div className="flex items-center justify-center py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : orderReturns.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <RotateCcw className="h-4 w-4" />
+                      Retours ({orderReturns.length})
+                    </h4>
+                    <div className="rounded-lg border divide-y">
+                      {orderReturns.map((ret) => (
+                        <div key={ret.id} className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant={
+                                ret.status === "completed" ? "default" :
+                                ret.status === "approved" ? "secondary" :
+                                ret.status === "rejected" ? "destructive" : "outline"
+                              } className="text-[10px]">
+                                {returnStatusLabels[ret.status]}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px]">
+                                {ret.returnType === "total" ? "Total" : "Partiel"}
+                              </Badge>
+                            </div>
+                            <span className="text-sm font-medium">
+                              {ret.refundAmount.toLocaleString("fr-TN")} TND
+                            </span>
+                          </div>
+
+                          <div className="text-xs text-muted-foreground space-y-0.5">
+                            <p><span className="font-medium">Motif:</span> {reasonLabels[ret.reason]}</p>
+                            {ret.reasonDetails && <p className="italic">{ret.reasonDetails}</p>}
+                            {ret.refundMethod && (
+                              <p><span className="font-medium">Remboursement:</span> {refundMethodLabels[ret.refundMethod]}</p>
+                            )}
+                            <p>{new Date(ret.createdAt).toLocaleString("fr-TN")}
+                              {ret.createdByName && ` - par ${ret.createdByName}`}
+                            </p>
+                          </div>
+
+                          {/* Partial return items */}
+                          {ret.items.length > 0 && (
+                            <div className="rounded border bg-muted/30 p-2 space-y-1">
+                              {ret.items.map((item, i) => (
+                                <div key={i} className="flex justify-between text-xs">
+                                  <span>{item.quantityReturned}x {item.productName}</span>
+                                  <span>{item.subtotal.toLocaleString("fr-TN")} TND</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Actions for pending returns */}
+                          {ret.status === "pending" && (
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs"
+                                disabled={actionLoading}
+                                onClick={() => handleProcessReturn(ret.id, "approved")}
+                              >
+                                <Check className="mr-1 h-3 w-3" />
+                                Approuver
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 h-7 text-xs text-destructive"
+                                disabled={actionLoading}
+                                onClick={() => handleProcessReturn(ret.id, "rejected")}
+                              >
+                                <XCircle className="mr-1 h-3 w-3" />
+                                Rejeter
+                              </Button>
+                            </div>
+                          )}
+                          {ret.status === "approved" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-7 text-xs"
+                              disabled={actionLoading}
+                              onClick={() => handleProcessReturn(ret.id, "completed")}
+                            >
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Finaliser le retour
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Status Timeline */}
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium flex items-center gap-2">
@@ -708,7 +1148,27 @@ export function OrdersView() {
                         <CheckCircle2 className="mr-2 h-4 w-4" />
                         Confirmer la livraison
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full text-destructive"
+                        disabled={actionLoading}
+                        onClick={openReturnDialog}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Enregistrer un retour
+                      </Button>
                     </>
+                  )}
+                  {selectedOrder.status === "livre" && (
+                    <Button
+                      variant="outline"
+                      className="w-full text-destructive"
+                      disabled={actionLoading}
+                      onClick={openReturnDialog}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Enregistrer un retour
+                    </Button>
                   )}
                 </div>
               </div>
@@ -849,6 +1309,182 @@ export function OrdersView() {
                 <Banknote className="mr-2 h-4 w-4" />
               )}
               Confirmer l{"'"}encaissement
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Return Dialog */}
+      <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5" />
+              Enregistrer un retour
+            </DialogTitle>
+            <DialogDescription>
+              {selectedOrder && (
+                <>Commande de {selectedOrder.customerName} - {selectedOrder.total.toLocaleString("fr-TN")} TND</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Return Type */}
+            <div className="space-y-2">
+              <Label>Type de retour</Label>
+              <Select value={returnType} onValueChange={(v) => { setReturnType(v as ReturnType); setReturnItems([]) }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="total">Retour total (toute la commande)</SelectItem>
+                  <SelectItem value="partial">Retour partiel (articles specifiques)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Partial Return - Item Selection */}
+            {returnType === "partial" && selectedOrder && (
+              <div className="space-y-2">
+                <Label>Articles a retourner</Label>
+                <div className="rounded-lg border divide-y">
+                  {selectedOrder.items.map((item, idx) => {
+                    const selected = returnItems.find((ri) => ri.idx === idx)
+                    return (
+                      <div key={idx} className="p-3 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={!!selected}
+                            onCheckedChange={(checked) => toggleReturnItem(idx, !!checked)}
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.quantity}x a {item.price.toLocaleString("fr-TN")} TND
+                            </p>
+                          </div>
+                        </div>
+                        {selected && (
+                          <div className="ml-8 flex items-center gap-2">
+                            <Label className="text-xs">Qte retournee:</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={item.quantity}
+                              value={selected.qty}
+                              onChange={(e) => updateReturnItemQty(idx, Math.min(item.quantity, Math.max(1, parseInt(e.target.value) || 1)))}
+                              className="w-20 h-7 text-sm"
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              = {(selected.qty * item.price).toLocaleString("fr-TN")} TND
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {returnItems.length > 0 && (
+                  <div className="text-sm font-medium text-right">
+                    Total retour: {returnItems.reduce((sum, ri) => {
+                      const item = selectedOrder.items[ri.idx]
+                      return sum + ri.qty * item.price
+                    }, 0).toLocaleString("fr-TN")} TND
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Reason */}
+            <div className="space-y-2">
+              <Label>Motif du retour</Label>
+              <Select value={returnReason} onValueChange={(v) => setReturnReason(v as ReturnReason)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="damaged">Produit endommage</SelectItem>
+                  <SelectItem value="wrong_order">Erreur de commande</SelectItem>
+                  <SelectItem value="client_absent">Client absent</SelectItem>
+                  <SelectItem value="client_refused">Client a refuse</SelectItem>
+                  <SelectItem value="quality">Probleme de qualite</SelectItem>
+                  <SelectItem value="expired">Produit perime</SelectItem>
+                  <SelectItem value="other">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {returnReason === "other" && (
+              <div className="space-y-2">
+                <Label>Precisions sur le motif</Label>
+                <Input
+                  value={returnReasonDetails}
+                  onChange={(e) => setReturnReasonDetails(e.target.value)}
+                  placeholder="Decrivez la raison du retour..."
+                />
+              </div>
+            )}
+
+            {/* Refund Method */}
+            <div className="space-y-2">
+              <Label>Mode de remboursement</Label>
+              <Select value={returnRefundMethod} onValueChange={(v) => setReturnRefundMethod(v as RefundMethod)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash_refund">
+                    <div className="flex items-center gap-2">
+                      <Banknote className="h-4 w-4" /> Remboursement en especes
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="bank_refund">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" /> Remboursement bancaire
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="credit_note">
+                    <div className="flex items-center gap-2">
+                      <FileWarning className="h-4 w-4" /> Avoir (credit client)
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {returnRefundMethod === "credit_note" && (
+                <p className="text-xs text-muted-foreground">
+                  Un avoir sera genere automatiquement pour le client lors de la finalisation du retour.
+                </p>
+              )}
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label>Notes (optionnel)</Label>
+              <Textarea
+                value={returnNotes}
+                onChange={(e) => setReturnNotes(e.target.value)}
+                placeholder="Remarques supplementaires..."
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCreateReturn}
+              disabled={actionLoading || (returnType === "partial" && returnItems.length === 0)}
+            >
+              {actionLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="mr-2 h-4 w-4" />
+              )}
+              Confirmer le retour
             </Button>
           </DialogFooter>
         </DialogContent>
