@@ -86,7 +86,10 @@ export const delicesCategories: ProductCategory[] = [
   { id: "dc4", tenantId: "delices", name: "Fruits Secs", color: "#CD853F" },
 ]
 
+const DEMO_TENANTS = ["masmoudi", "delices", "demo"]
+
 export function getCategories(tenantId: string): ProductCategory[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiCategories : delicesCategories
 }
 
@@ -201,6 +204,7 @@ export const delicesInventorySessions: InventorySession[] = [
 ]
 
 export function getInventorySessions(tenantId: string): InventorySession[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiInventorySessions : delicesInventorySessions
 }
 
@@ -235,6 +239,7 @@ export const delicesCatalog: CatalogProduct[] = [
 ]
 
 export function getCatalog(tenantId: string): CatalogProduct[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiCatalog : delicesCatalog
 }
 
@@ -266,6 +271,7 @@ export const delicesChannels: SalesChannel[] = [
 ]
 
 export function getSalesChannels(tenantId: string): SalesChannel[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiChannels : delicesChannels
 }
 
@@ -292,26 +298,32 @@ export const delicesRevenue = [
 
 // Helper functions to get data by tenant
 export function getRawMaterials(tenantId: string): RawMaterial[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiRawMaterials : delicesRawMaterials
 }
 
 export function getFinishedProducts(tenantId: string): FinishedProduct[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiFinishedProducts : delicesFinishedProducts
 }
 
 export function getOrders(tenantId: string): Order[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiOrders : delicesOrders
 }
 
 export function getTransactions(tenantId: string): Transaction[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiTransactions : delicesTransactions
 }
 
 export function getRecipes(tenantId: string): Recipe[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiRecipes : delicesRecipes
 }
 
 export function getRevenueData(tenantId: string) {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiRevenue : delicesRevenue
 }
 
@@ -332,7 +344,7 @@ export function getKPIs(tenantId: string) {
   const readyOrders = orders.filter(o => o.status === "pret")
   
   return {
-    cashFlow: totalInflow - totalOutflow + (tenantId === "masmoudi" ? 3580 : 1200),
+    cashFlow: totalInflow - totalOutflow + (tenantId === "masmoudi" ? 3580 : tenantId === "delices" ? 1200 : 0),
     todayRevenue,
     todayExpenses,
     todayTransactions: todayTransactions.filter(t => t.type === "inflow").length,
@@ -396,10 +408,12 @@ export const delicesPurchaseOrders: PurchaseOrder[] = [
 ]
 
 export function getSuppliers(tenantId: string): Supplier[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiSuppliers : delicesSuppliers
 }
 
 export function getPurchaseOrders(tenantId: string): PurchaseOrder[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiPurchaseOrders : delicesPurchaseOrders
 }
 
@@ -491,6 +505,7 @@ export const delicesPriceHistory: PriceHistoryEntry[] = [
 ]
 
 export function getPriceHistory(tenantId: string): PriceHistoryEntry[] {
+  if (!DEMO_TENANTS.includes(tenantId)) return []
   return tenantId === "masmoudi" ? masmoudiPriceHistory : delicesPriceHistory
 }
 
