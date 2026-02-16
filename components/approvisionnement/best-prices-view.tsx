@@ -28,7 +28,15 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import type { BestPriceByProduct, PriceHistoryEntry } from "@/lib/mock-data"
+interface PriceHistoryEntry {
+  id: string; date: string; supplierId: string; supplierName: string
+  rawMaterial: string; price: number; unit: string; quantity: number
+}
+
+interface BestPriceByProduct {
+  rawMaterial: string; bestPrice: number; bestSupplier: string
+  unit: string; avgPrice: number; priceCount: number
+}
 
 interface BestPricesViewProps {
   bestPrices: BestPriceByProduct[]

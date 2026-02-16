@@ -20,7 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { PriceHistoryEntry } from "@/lib/mock-data"
+interface PriceHistoryEntry {
+  id: string; date: string; supplierId: string; supplierName: string
+  rawMaterial: string; price: number; unit: string; quantity: number
+}
 
 interface PriceHistoryTableProps {
   entries: PriceHistoryEntry[]

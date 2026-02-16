@@ -15,8 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { CatalogProduct } from "@/lib/mock-data"
 import { toast } from "sonner"
+
+interface CatalogProduct {
+  id: string; name: string; category: string; price: number
+  image?: string; isPublished?: boolean; description?: string
+}
 
 interface ProductEditDrawerProps {
   product: CatalogProduct | null

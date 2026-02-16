@@ -36,22 +36,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { getCatalog, type CatalogProduct } from "@/lib/mock-data"
+import { useFinishedProducts } from "@/hooks/use-tenant-data"
 import { toast, Toaster } from "sonner"
+
+interface CatalogProduct {
+  id: string; name: string; category: string; price: number
+  image?: string; isPublished?: boolean; description?: string
+}
 
 interface CartItem {
   product: CatalogProduct
   quantity: number
 }
 
-const tenantInfo: Record<string, { name: string; logo: string; color: string; phone: string; whatsapp: string }> = {
-  masmoudi: { name: "Patisserie Masmoudi", logo: "M", color: "#4A7C59", phone: "+216 71 234 567", whatsapp: "+216 98 123 456" },
-  delices: { name: "Delices du Sud", logo: "D", color: "#D4A373", phone: "+216 71 555 666", whatsapp: "+216 55 987 654" },
-}
-
 export function StorefrontView({ tenantId }: { tenantId: string }) {
-  const catalog = getCatalog(tenantId).filter(p => p.isPublished)
-  const info = tenantInfo[tenantId]
+  const { data: products = [] } = useFinishedProducts()
+  const catalog: CatalogProduct[] = products.map((p: any) => ({
+    id: p.id, name: p.name, category: p.category || "", price: p.price || 0,
+    image: "", isPublished: true, description: "",
+  }))
+  const info = { name: "KIFSHOP", logo: "K", color: "#4A7C59", phone: "", whatsapp: "" }
 
   const [cart, setCart] = useState<CartItem[]>([])
   const [cartOpen, setCartOpen] = useState(false)

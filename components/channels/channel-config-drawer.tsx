@@ -14,7 +14,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import type { SalesChannel } from "@/lib/mock-data"
+interface SalesChannel {
+  id: string; name: string; type: string; isActive: boolean; orderCount: number
+  config?: Record<string, string>
+}
 import { toast } from "sonner"
 
 const channelIcons: Record<string, typeof MessageCircle> = {

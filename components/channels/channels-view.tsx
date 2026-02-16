@@ -18,7 +18,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { useTenant } from "@/lib/tenant-context"
-import { getSalesChannels, getOrders, type SalesChannel } from "@/lib/mock-data"
+import { useOrders } from "@/hooks/use-tenant-data"
+interface SalesChannel {
+  id: string; name: string; type: string; isActive: boolean; orderCount: number
+  config?: Record<string, string>
+}
 import { toast } from "sonner"
 import { ChannelConfigDrawer } from "./channel-config-drawer"
 
@@ -48,8 +52,14 @@ const channelDescriptions: Record<string, string> = {
 
 export function ChannelsView() {
   const { currentTenant } = useTenant()
-  const channels = getSalesChannels(currentTenant.id)
-  const orders = getOrders(currentTenant.id)
+  const { data: orders = [] } = useOrders()
+  const channels: SalesChannel[] = [
+    { id: "whatsapp", name: "WhatsApp", type: "whatsapp", isActive: true, orderCount: orders.filter((o: any) => o.source === "whatsapp").length },
+    { id: "phone", name: "Telephone", type: "phone", isActive: true, orderCount: orders.filter((o: any) => o.source === "phone").length },
+    { id: "web", name: "Boutique en ligne", type: "web", isActive: true, orderCount: orders.filter((o: any) => o.source === "web").length },
+    { id: "instagram", name: "Instagram", type: "instagram", isActive: false, orderCount: 0 },
+    { id: "messenger", name: "Messenger", type: "messenger", isActive: false, orderCount: 0 },
+  ]
 
   const [configChannel, setConfigChannel] = useState<SalesChannel | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
