@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -23,7 +23,34 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
+  const [checking, setChecking] = useState(true)
   const router = useRouter()
+
+  // Handle hash fragment tokens (Supabase implicit flow) and verify session
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function checkSession() {
+      // If there's a hash fragment with access_token, Supabase client handles it automatically
+      const hash = window.location.hash
+      if (hash && hash.includes("access_token")) {
+        // Supabase JS client auto-detects hash tokens on init
+        // Give it a moment to process
+        await new Promise((r) => setTimeout(r, 500))
+      }
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setSessionReady(true)
+      } else {
+        setError("Session expiree ou lien invalide. Veuillez redemander un lien de reinitialisation.")
+      }
+      setChecking(false)
+    }
+
+    checkSession()
+  }, [])
 
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault()
@@ -81,6 +108,46 @@ export default function ResetPasswordPage() {
           >
             Acceder au tableau de bord
           </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
+
+  if (checking) {
+    return (
+      <Card className="w-full max-w-sm">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">Verification de votre session...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!sessionReady && error) {
+    return (
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+            <ArrowLeft className="h-6 w-6" />
+          </div>
+          <CardTitle className="text-xl font-bold text-balance">
+            Lien invalide
+          </CardTitle>
+          <CardDescription>
+            {error}
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="flex flex-col gap-3">
+          <Link href="/auth/forgot-password" className="w-full">
+            <Button className="w-full">Redemander un lien</Button>
+          </Link>
+          <Link href="/auth/login" className="w-full">
+            <Button variant="ghost" className="w-full">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour a la connexion
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     )
