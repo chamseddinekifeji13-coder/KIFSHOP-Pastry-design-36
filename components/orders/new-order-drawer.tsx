@@ -47,7 +47,7 @@ interface NewOrderDrawerProps {
 }
 
 export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawerProps) {
-  const { currentTenant } = useTenant()
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -75,7 +75,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
 
   // Fetch products from Supabase
   useEffect(() => {
-    if (!open || currentTenant.id === "demo") return
+    if (!open || tenantLoading || currentTenant.id === "demo") return
 
     async function loadProducts() {
       setLoadingProducts(true)
