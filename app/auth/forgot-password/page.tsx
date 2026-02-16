@@ -27,13 +27,31 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+      })
 
-    if (error) {
-      setError("Une erreur est survenue. Veuillez reessayer.")
+      console.log("[v0] resetPasswordForEmail error:", error)
+
+      if (error) {
+        if (error.message?.includes("rate") || error.status === 429) {
+          setError("Trop de tentatives. Veuillez attendre quelques minutes avant de reessayer.")
+        } else if (error.message?.includes("not found") || error.message?.includes("User not found")) {
+          // Don't reveal if email exists or not for security, show success anyway
+          setSuccess(true)
+          setLoading(false)
+          return
+        } else {
+          setError(`Erreur: ${error.message || "Veuillez reessayer."}`)
+        }
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      console.log("[v0] resetPasswordForEmail catch:", err)
+      setError("Erreur de connexion. Verifiez votre connexion internet.")
       setLoading(false)
       return
     }
