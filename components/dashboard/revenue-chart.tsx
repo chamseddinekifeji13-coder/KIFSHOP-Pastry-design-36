@@ -15,7 +15,21 @@ export function RevenueChart() {
   }, [currentTenant.id])
 
   const totalRevenue = data.reduce((sum, d) => sum + d.revenue, 0)
-  const avgRevenue = Math.round(totalRevenue / data.length)
+  const avgRevenue = data.length > 0 ? Math.round(totalRevenue / data.length) : 0
+
+  if (data.length === 0) {
+    return (
+      <Card className="col-span-full lg:col-span-2">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold">CA des 7 derniers jours</CardTitle>
+          <CardDescription>Total: 0 TND | Moyenne: 0 TND/jour</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-16">
+          <p className="text-sm text-muted-foreground">Aucune donnee de vente pour le moment</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="col-span-full lg:col-span-2">
