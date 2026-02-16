@@ -100,7 +100,7 @@ export interface TenantState {
 
 // ─── Fallback data for offline / demo ─────────────────────────
 const FALLBACK_TENANT: Tenant = {
-  id: "demo",
+  id: "__fallback__",
   name: "Mode Demo",
   logo: "D",
   primaryColor: "#4A7C59",

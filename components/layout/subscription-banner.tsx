@@ -10,7 +10,7 @@ export function SubscriptionBanner() {
   const sub = currentTenant.subscription
 
   // Don't show if active subscription or demo
-  if (sub.status === "active" || currentTenant.id === "demo") return null
+  if (sub.status === "active" || currentTenant.id === "__fallback__") return null
   if (dismissed && !isSuspended && !isTrialExpired) return null
 
   // Suspended - cannot dismiss

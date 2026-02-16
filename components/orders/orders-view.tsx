@@ -153,7 +153,7 @@ export function OrdersView() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
 
-  const isDemoTenant = !tenantLoading && currentTenant.id === "demo"
+  const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
   // SWR fetcher for orders
   const { data: orders = [], mutate, isLoading } = useSWR(

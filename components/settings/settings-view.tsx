@@ -35,7 +35,7 @@ export function SettingsView() {
   const [invoiceSaving, setInvoiceSaving] = useState(false)
 
   const loadInvoiceSettings = useCallback(async () => {
-    if (tenantLoading || currentTenant.id === "demo") return
+    if (tenantLoading || currentTenant.id === "__fallback__") return
     setInvoiceLoading(true)
     const settings = await getInvoiceSettings(currentTenant.id)
     setInvoiceSettings(settings)

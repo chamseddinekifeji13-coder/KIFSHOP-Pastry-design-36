@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 export function SuspensionOverlay() {
   const { isSuspended, signOut, currentTenant } = useTenant()
 
-  if (!isSuspended || currentTenant.id === "demo") return null
+  if (!isSuspended || currentTenant.id === "__fallback__") return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm">
