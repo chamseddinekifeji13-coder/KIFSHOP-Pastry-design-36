@@ -149,39 +149,32 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     async function loadUserData() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
-        console.log("[v0] Auth user:", user?.id, user?.email)
         if (!user) {
-          console.log("[v0] No auth user found, staying in demo mode")
           setIsLoading(false)
           return
         }
         setAuthUser(user)
 
         // Get the user's tenant link
-        const { data: tenantUser, error: tuError } = await supabase
+        const { data: tenantUser } = await supabase
           .from("tenant_users")
           .select("tenant_id, role, display_name")
           .eq("user_id", user.id)
           .limit(1)
           .single()
 
-        console.log("[v0] Tenant user:", tenantUser, "Error:", tuError)
-
         if (!tenantUser) {
-          console.log("[v0] No tenant_users record found for user", user.id)
           // User exists in auth but no tenant link yet
           setIsLoading(false)
           return
         }
 
         // Get tenant data
-        const { data: tenantData, error: tError } = await supabase
+        const { data: tenantData } = await supabase
           .from("tenants")
           .select("*")
           .eq("id", tenantUser.tenant_id)
           .single()
-
-        console.log("[v0] Tenant data:", tenantData?.id, tenantData?.name, "Error:", tError)
 
         if (tenantData) {
           // Get subscription with plan limits
