@@ -151,6 +151,56 @@ export async function createFinishedProduct(tenantId: string, data: {
     isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at }
 }
 
+// Alias for backward compatibility
+export const addFinishedProduct = createFinishedProduct
+
+// ─── Recipes ──────────────────────────────────────────────────
+
+export interface RecipeIngredient {
+  rawMaterialId: string
+  quantity: number
+  unit: string
+}
+
+export async function addRecipe(tenantId: string, data: {
+  name: string; finishedProductId?: string; category?: string;
+  yieldQuantity: number; yieldUnit: string; instructions?: string;
+  ingredients: RecipeIngredient[]
+}): Promise<boolean> {
+  const supabase = createClient()
+  const { data: recipe, error } = await supabase.from("recipes").insert({
+    tenant_id: tenantId,
+    name: data.name,
+    finished_product_id: data.finishedProductId || null,
+    category: data.category || null,
+    yield_quantity: data.yieldQuantity,
+    yield_unit: data.yieldUnit,
+    instructions: data.instructions || null,
+  }).select("id").single()
+
+  if (error || !recipe) {
+    console.error("Error creating recipe:", error?.message)
+    return false
+  }
+
+  // Insert ingredients
+  if (data.ingredients.length > 0) {
+    const rows = data.ingredients.map(i => ({
+      recipe_id: recipe.id,
+      raw_material_id: i.rawMaterialId,
+      quantity: i.quantity,
+      unit: i.unit,
+    }))
+    const { error: ingError } = await supabase.from("recipe_ingredients").insert(rows)
+    if (ingError) {
+      console.error("Error adding recipe ingredients:", ingError.message)
+      return false
+    }
+  }
+
+  return true
+}
+
 // ─── Categories ───────────────────────────────────────────────
 
 export async function fetchCategories(tenantId: string): Promise<Category[]> {

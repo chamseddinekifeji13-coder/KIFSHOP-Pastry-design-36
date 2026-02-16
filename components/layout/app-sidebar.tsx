@@ -13,6 +13,7 @@ import {
   Store,
   Radio,
   Truck,
+  UserPlus,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -48,6 +49,7 @@ const navigation = [
       { title: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { title: "Production", href: "/production", icon: ChefHat },
       { title: "Commandes", href: "/commandes", icon: ShoppingCart },
+      { title: "Prospects", href: "/prospects", icon: UserPlus },
     ],
   },
   {
