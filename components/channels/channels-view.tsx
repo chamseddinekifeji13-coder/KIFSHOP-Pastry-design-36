@@ -32,6 +32,7 @@ const channelIcons: Record<string, typeof MessageCircle> = {
   phone: Phone,
   web: Globe,
   instagram: Instagram,
+  tiktok: Globe,
 }
 
 const channelColors: Record<string, string> = {
@@ -40,6 +41,7 @@ const channelColors: Record<string, string> = {
   phone: "bg-orange-500",
   web: "bg-primary",
   instagram: "bg-pink-500",
+  tiktok: "bg-gray-900",
 }
 
 const channelDescriptions: Record<string, string> = {
@@ -48,6 +50,7 @@ const channelDescriptions: Record<string, string> = {
   phone: "Enregistrez les commandes recues par telephone dans le systeme",
   web: "Boutique en ligne integree avec lien partageable",
   instagram: "Recevez les commandes via Instagram DM avec redirection WhatsApp",
+  tiktok: "Recevez les commandes via TikTok Shop ou les DMs TikTok",
 }
 
 export function ChannelsView() {
@@ -57,7 +60,8 @@ export function ChannelsView() {
     { id: "whatsapp", name: "WhatsApp", type: "whatsapp", isActive: true, orderCount: orders.filter((o: any) => o.source === "whatsapp").length },
     { id: "phone", name: "Telephone", type: "phone", isActive: true, orderCount: orders.filter((o: any) => o.source === "phone").length },
     { id: "web", name: "Boutique en ligne", type: "web", isActive: true, orderCount: orders.filter((o: any) => o.source === "web").length },
-    { id: "instagram", name: "Instagram", type: "instagram", isActive: false, orderCount: 0 },
+    { id: "instagram", name: "Instagram", type: "instagram", isActive: false, orderCount: orders.filter((o: any) => o.source === "instagram").length },
+    { id: "tiktok", name: "TikTok", type: "tiktok", isActive: false, orderCount: orders.filter((o: any) => o.source === "tiktok").length },
     { id: "messenger", name: "Messenger", type: "messenger", isActive: false, orderCount: 0 },
   ]
 

@@ -7,10 +7,10 @@ import Link from "next/link"
 import { useOrders } from "@/hooks/use-tenant-data"
 
 const channelIcons: Record<string, typeof MessageCircle> = {
-  whatsapp: MessageCircle, messenger: MessageCircle, phone: Phone, web: Globe, instagram: Instagram,
+  whatsapp: MessageCircle, messenger: MessageCircle, phone: Phone, web: Globe, instagram: Instagram, tiktok: Globe,
 }
 const channelLabels: Record<string, string> = {
-  whatsapp: "WhatsApp", messenger: "Messenger", phone: "Telephone", web: "Site Web", instagram: "Instagram",
+  whatsapp: "WhatsApp", messenger: "Messenger", phone: "Telephone", web: "Site Web", instagram: "Instagram", tiktok: "TikTok",
 }
 
 export function OnlineSalesWidget() {

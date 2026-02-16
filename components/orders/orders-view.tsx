@@ -73,6 +73,7 @@ const sourceIcons: Record<string, typeof MessageCircle> = {
   phone: Phone,
   web: Globe,
   instagram: Instagram,
+  tiktok: Globe,
   comptoir: Store,
 }
 

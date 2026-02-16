@@ -253,8 +253,9 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
                       <SelectItem value="phone">Telephone</SelectItem>
                       <SelectItem value="whatsapp">WhatsApp</SelectItem>
                       <SelectItem value="messenger">Messenger</SelectItem>
-                      <SelectItem value="instagram">Instagram</SelectItem>
-                      <SelectItem value="web">Site Web</SelectItem>
+  <SelectItem value="instagram">Instagram</SelectItem>
+  <SelectItem value="tiktok">TikTok</SelectItem>
+  <SelectItem value="web">Site Web</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -28,7 +28,7 @@ export function BoutiqueView() {
   const [addOpen, setAddOpen] = useState(false)
 
   const publishedCount = catalog.filter(p => p.isPublished).length
-  const onlineOrders = orders.filter((o: any) => o.source === "web" || o.source === "whatsapp" || o.source === "messenger" || o.source === "instagram")
+  const onlineOrders = orders.filter((o: any) => o.source === "web" || o.source === "whatsapp" || o.source === "messenger" || o.source === "instagram" || o.source === "tiktok")
   const onlineRevenue = onlineOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
 
   const handleTogglePublish = (product: any) => {
