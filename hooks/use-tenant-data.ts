@@ -1,6 +1,7 @@
 import useSWR from "swr"
 import { useTenant } from "@/lib/tenant-context"
 import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging } from "@/lib/stocks/actions"
+import { fetchProspects, fetchDueReminders } from "@/lib/prospects/actions"
 import { fetchTransactions } from "@/lib/treasury/actions"
 import { fetchSuppliers, fetchPurchaseOrders } from "@/lib/approvisionnement/actions"
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
@@ -72,4 +73,19 @@ export function useInventorySessions() {
 
 export function useOrders() {
   return useTenantQuery("orders", fetchOrders)
+}
+
+export function useProspects() {
+  return useTenantQuery("prospects", fetchProspects)
+}
+
+export function useDueReminders() {
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const tenantId = currentTenant.id
+  const isFallback = tenantId === "__fallback__"
+  return useSWR(
+    !tenantLoading && !isFallback ? `due-reminders-${tenantId}` : null,
+    () => fetchDueReminders(tenantId),
+    { revalidateOnFocus: true, refreshInterval: 60000, dedupingInterval: 10000 }
+  )
 }
