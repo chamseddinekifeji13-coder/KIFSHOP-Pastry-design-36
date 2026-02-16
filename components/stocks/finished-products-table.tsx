@@ -2,15 +2,8 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import type { FinishedProduct } from "@/lib/mock-data"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { FinishedProduct } from "@/lib/stocks/actions"
 
 interface FinishedProductsTableProps {
   products: FinishedProduct[]
@@ -18,6 +11,17 @@ interface FinishedProductsTableProps {
 }
 
 export function FinishedProductsTable({ products, onItemClick }: FinishedProductsTableProps) {
+  if (products.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <p className="text-sm font-medium">Aucun produit fini</p>
+          <p className="text-xs text-muted-foreground mt-1">Ajoutez vos produits via le bouton Nouveau produit fini</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardContent className="p-0">
@@ -26,30 +30,18 @@ export function FinishedProductsTable({ products, onItemClick }: FinishedProduct
             <TableHeader>
               <TableRow>
                 <TableHead>Produit</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Quantité</TableHead>
-                <TableHead className="text-right">Prix unitaire</TableHead>
+                <TableHead>Quantite</TableHead>
+                <TableHead className="text-right">Prix vente</TableHead>
+                <TableHead className="text-right">Prix revient</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {products.map((product) => (
-                <TableRow
-                  key={product.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => onItemClick(product.id, product.name)}
-                >
-                  <TableCell>
-                    <span className="font-medium">{product.name}</span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{product.category}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {product.quantity} {product.unit}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {product.price.toLocaleString("fr-TN")} TND
-                  </TableCell>
+                <TableRow key={product.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(product.id, product.name)}>
+                  <TableCell><span className="font-medium">{product.name}</span></TableCell>
+                  <TableCell>{product.currentStock} {product.unit}</TableCell>
+                  <TableCell className="text-right font-medium">{product.sellingPrice.toLocaleString("fr-TN")} TND</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{product.costPrice.toLocaleString("fr-TN")} TND</TableCell>
                 </TableRow>
               ))}
             </TableBody>
