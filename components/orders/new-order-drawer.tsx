@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Minus, Trash2, Loader2, ShoppingBag, User, Truck, CreditCard, StickyNote } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Plus, Minus, Trash2, Loader2, ShoppingBag, User, Truck, CreditCard, StickyNote, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +14,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useTenant } from "@/lib/tenant-context"
 import { createOrder } from "@/lib/orders/actions"
 import { createClient } from "@/lib/supabase/client"
@@ -57,6 +67,8 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   const [deposit, setDeposit] = useState("")
   const [notes, setNotes] = useState("")
   const [deliveryDate, setDeliveryDate] = useState("")
+  const [duplicateWarning, setDuplicateWarning] = useState<{ show: boolean; existingOrder?: { id: string; createdAt: string; total: number } }>({ show: false })
+  const submitLockRef = useRef(false)
 
   const couriers = [
     { id: "aramex", name: "Aramex", defaultCost: 8 },
@@ -144,24 +156,34 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     setDeliveryDate("")
   }
 
-  const handleSubmit = async () => {
-    if (!customerName.trim()) {
-      toast.error("Veuillez entrer le nom du client")
-      return
-    }
-    if (items.length === 0) {
-      toast.error("Veuillez ajouter au moins un article")
-      return
-    }
-    if (deliveryType === "delivery" && !customerAddress.trim()) {
-      toast.error("Veuillez entrer l'adresse de livraison")
-      return
-    }
-    if (deliveryType === "delivery" && !courier) {
-      toast.error("Veuillez selectionner un transporteur")
-      return
-    }
+  // Check for duplicate orders: same customer + similar total + same day
+  const checkDuplicate = async (): Promise<{ id: string; createdAt: string; total: number } | null> => {
+    const supabase = createClient()
+    const today = new Date()
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
 
+    const { data } = await supabase
+      .from("orders")
+      .select("id, created_at, total")
+      .eq("tenant_id", currentTenant.id)
+      .eq("customer_name", customerName.trim())
+      .gte("created_at", startOfDay)
+      .order("created_at", { ascending: false })
+      .limit(5)
+
+    if (!data || data.length === 0) return null
+
+    // Check if any existing order has the same total (strong indicator of duplicate)
+    const match = data.find(o => Math.abs(Number(o.total) - total) < 0.01)
+    if (match) return { id: match.id, createdAt: match.created_at, total: Number(match.total) }
+
+    return null
+  }
+
+  const performCreate = async () => {
+    // Hard lock to prevent any concurrent submissions
+    if (submitLockRef.current) return
+    submitLockRef.current = true
     setSubmitting(true)
 
     const result = await createOrder({
@@ -185,6 +207,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     })
 
     setSubmitting(false)
+    submitLockRef.current = false
 
     if (result) {
       toast.success("Commande creee", {
@@ -196,6 +219,43 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     } else {
       toast.error("Erreur lors de la creation de la commande")
     }
+  }
+
+  const handleSubmit = async () => {
+    // Guard: prevent double submission
+    if (submitting || submitLockRef.current) return
+
+    if (!customerName.trim()) {
+      toast.error("Veuillez entrer le nom du client")
+      return
+    }
+    if (items.length === 0) {
+      toast.error("Veuillez ajouter au moins un article")
+      return
+    }
+    if (deliveryType === "delivery" && !customerAddress.trim()) {
+      toast.error("Veuillez entrer l'adresse de livraison")
+      return
+    }
+    if (deliveryType === "delivery" && !courier) {
+      toast.error("Veuillez selectionner un transporteur")
+      return
+    }
+
+    setSubmitting(true)
+
+    // Check for potential duplicate
+    const duplicate = await checkDuplicate()
+
+    if (duplicate) {
+      setSubmitting(false)
+      setDuplicateWarning({ show: true, existingOrder: duplicate })
+      return
+    }
+
+    // No duplicate found, proceed
+    setSubmitting(false)
+    await performCreate()
   }
 
   return (
@@ -500,6 +560,42 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
           </Button>
         </div>
       </SheetContent>
+
+      {/* Duplicate Warning Dialog */}
+      <AlertDialog open={duplicateWarning.show} onOpenChange={(open) => !open && setDuplicateWarning({ show: false })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <AlertDialogTitle>Commande similaire detectee</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                Une commande pour <strong>{customerName.trim()}</strong> avec le meme montant
+                ({duplicateWarning.existingOrder?.total.toLocaleString("fr-TN")} TND) a deja ete creee aujourd&apos;hui
+                a {duplicateWarning.existingOrder?.createdAt ? new Date(duplicateWarning.existingOrder.createdAt).toLocaleTimeString("fr-TN", { hour: "2-digit", minute: "2-digit" }) : ""}.
+              </span>
+              <span className="block text-sm">
+                Voulez-vous quand meme creer cette commande ?
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Non, annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={async () => {
+                setDuplicateWarning({ show: false })
+                await performCreate()
+              }}
+            >
+              Oui, creer quand meme
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   )
 }
