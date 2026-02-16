@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, X, Save, Users, Pencil, Check } from "lucide-react"
+import { Plus, Trash2, X, Users, Pencil, Check, UserPlus, Shield, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,7 +10,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
@@ -22,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
 import { useTenant, ALL_ROLES, ROLE_LABELS, type UserRole } from "@/lib/tenant-context"
 import { toast } from "sonner"
 
@@ -37,6 +35,14 @@ const ROLE_COLORS: Record<UserRole, string> = {
   magasinier: "bg-emerald-100 text-emerald-800 border-emerald-200",
   achat: "bg-purple-100 text-purple-800 border-purple-200",
   caissier: "bg-rose-100 text-rose-800 border-rose-200",
+}
+
+const ROLE_AVATAR_COLORS: Record<UserRole, string> = {
+  gerant: "bg-amber-100 text-amber-700",
+  vendeur: "bg-blue-100 text-blue-700",
+  magasinier: "bg-emerald-100 text-emerald-700",
+  achat: "bg-purple-100 text-purple-700",
+  caissier: "bg-rose-100 text-rose-700",
 }
 
 function generateInitials(name: string): string {
@@ -105,57 +111,79 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Gestion des utilisateurs</SheetTitle>
-          <SheetDescription>
-            Ajoutez, modifiez ou supprimez les utilisateurs et leurs profils d{"'"}acces
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0">
+        {/* Header Banner */}
+        <div className="bg-gradient-to-br from-violet-50 to-purple-50 border-b px-6 pt-6 pb-5">
+          <SheetHeader className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600 shadow-sm">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <SheetTitle className="text-lg">Gestion des utilisateurs</SheetTitle>
+                <SheetDescription className="text-xs mt-0.5">
+                  {users.length} membre{users.length !== 1 ? "s" : ""} dans votre equipe
+                </SheetDescription>
+              </div>
+            </div>
+          </SheetHeader>
+        </div>
 
-        <div className="space-y-6 py-6">
-          {/* Add new user */}
-          <div className="rounded-lg border p-4 space-y-3">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-              Ajouter un utilisateur
-            </Label>
+        <div className="p-6 space-y-6">
+          {/* Add new user section */}
+          <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <UserPlus className="h-4 w-4 text-violet-500" />
+              Ajouter un membre
+            </div>
 
             <div className="space-y-3">
-              <Input
-                placeholder="Nom de l'utilisateur"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAdd()
-                }}
-              />
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Nom complet</Label>
+                <Input
+                  placeholder="Ex: Ahmed Ben Ali"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAdd()
+                  }}
+                  className="transition-all focus:ring-2 focus:ring-violet-200"
+                />
+              </div>
               <div className="flex gap-2">
-                <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ALL_ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {ROLE_LABELS[role]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleAdd} className="shrink-0">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter
-                </Button>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Profil d{"'"}acces</Label>
+                  <Select value={newRole} onValueChange={(v) => setNewRole(v as UserRole)}>
+                    <SelectTrigger className="transition-all focus:ring-2 focus:ring-violet-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    onClick={handleAdd}
+                    className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Ajouter
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Users list grouped by role */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                Utilisateurs ({users.length})
-              </Label>
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <Shield className="h-4 w-4 text-violet-500" />
+              Equipe par profil
             </div>
 
             {groupedUsers.map((group) => (
@@ -170,20 +198,23 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                 </div>
 
                 {group.users.length > 0 ? (
-                  <div className="rounded-lg border divide-y">
+                  <div className="rounded-xl border divide-y shadow-sm overflow-hidden">
                     {group.users.map((user) => (
-                      <div key={user.id} className="flex items-center gap-3 p-3">
+                      <div
+                        key={user.id}
+                        className="flex items-center gap-3 p-3 transition-colors hover:bg-muted/30"
+                      >
                         {editingId === user.id ? (
                           <>
                             <Avatar className="h-8 w-8 shrink-0">
-                              <AvatarFallback className="text-xs bg-muted">
+                              <AvatarFallback className={`text-xs font-semibold ${ROLE_AVATAR_COLORS[editRole]}`}>
                                 {generateInitials(editName || user.name)}
                               </AvatarFallback>
                             </Avatar>
                             <Input
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="h-8 text-sm flex-1"
+                              className="h-8 text-sm flex-1 focus:ring-2 focus:ring-violet-200"
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") saveEdit()
                                 if (e.key === "Escape") setEditingId(null)
@@ -205,7 +236,7 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-primary shrink-0"
+                              className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 shrink-0"
                               onClick={saveEdit}
                             >
                               <Check className="h-3.5 w-3.5" />
@@ -222,7 +253,7 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                         ) : (
                           <>
                             <Avatar className="h-8 w-8 shrink-0">
-                              <AvatarFallback className="text-xs bg-muted">
+                              <AvatarFallback className={`text-xs font-semibold ${ROLE_AVATAR_COLORS[user.role]}`}>
                                 {user.initials}
                               </AvatarFallback>
                             </Avatar>
@@ -230,14 +261,14 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                               <p className="text-sm font-medium truncate">{user.name}</p>
                             </div>
                             {user.id === currentUser.id && (
-                              <Badge variant="secondary" className="text-xs shrink-0">
-                                Actif
+                              <Badge className="text-[10px] bg-violet-100 text-violet-700 border-violet-200 shrink-0">
+                                Vous
                               </Badge>
                             )}
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50 shrink-0"
                               onClick={() => startEdit(user)}
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -245,7 +276,7 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                               onClick={() => handleRemove(user.id, user.name)}
                               disabled={user.id === currentUser.id}
                             >
@@ -257,20 +288,35 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground pl-2">
-                    Aucun utilisateur pour ce profil
-                  </p>
+                  <div className="rounded-xl border border-dashed p-3 text-center">
+                    <p className="text-xs text-muted-foreground">
+                      Aucun utilisateur pour ce profil
+                    </p>
+                  </div>
                 )}
               </div>
             ))}
           </div>
+
+          {/* Info tip */}
+          <div className="flex items-start gap-2 rounded-xl bg-violet-50/50 border border-violet-100 p-3">
+            <Sparkles className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-violet-700">
+              Chaque profil d{"'"}acces definit les pages et actions disponibles pour l{"'"}utilisateur dans votre patisserie.
+            </p>
+          </div>
         </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-transparent">
+        {/* Footer */}
+        <div className="sticky bottom-0 border-t bg-background/95 backdrop-blur-sm p-4">
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => onOpenChange(false)}
+          >
             Fermer
           </Button>
-        </SheetFooter>
+        </div>
       </SheetContent>
     </Sheet>
   )

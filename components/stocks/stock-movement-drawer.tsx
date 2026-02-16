@@ -1,14 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Minus, ArrowLeftRight } from "lucide-react"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+import { Plus, Minus, ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, Package } from "lucide-react"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,18 +29,18 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
 
   const handleSubmit = (action: "add" | "remove" | "transfer") => {
     if (!quantity) {
-      toast.error("Veuillez entrer une quantité")
+      toast.error("Veuillez entrer une quantite")
       return
     }
 
     const actionLabels = {
-      add: "Entrée de stock",
+      add: "Entree de stock",
       remove: "Sortie de stock",
       transfer: "Transfert",
     }
 
-    toast.success(`${actionLabels[action]} enregistré`, {
-      description: `${quantity} unités ${item ? `de ${item.name}` : ""}`,
+    toast.success(`${actionLabels[action]} enregistre`, {
+      description: `${quantity} unites ${item ? `de ${item.name}` : ""}`,
     })
 
     setQuantity("")
@@ -56,145 +50,159 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>
-            {item ? `Mouvement: ${item.name}` : "Nouveau mouvement de stock"}
-          </SheetTitle>
-          <SheetDescription>
-            Enregistrez une entrée, sortie ou transfert de stock
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col gap-0 [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        {/* Header Banner */}
+        <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+              <Package className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">
+                {item ? `Mouvement: ${item.name}` : "Mouvement de stock"}
+              </h2>
+              <p className="text-sm text-primary-foreground/70">Entree, sortie ou transfert</p>
+            </div>
+          </div>
+        </div>
 
-        <div className="mt-6">
+        {/* Body */}
+        <div className="flex-1 px-6 py-6">
           <Tabs defaultValue="add">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="add" className="gap-1.5">
-                <Plus className="h-3.5 w-3.5" />
-                Entrée
+            <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/70 p-1">
+              <TabsTrigger value="add" className="gap-1.5 rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <ArrowDownToLine className="h-3.5 w-3.5" />
+                Entree
               </TabsTrigger>
-              <TabsTrigger value="remove" className="gap-1.5">
-                <Minus className="h-3.5 w-3.5" />
+              <TabsTrigger value="remove" className="gap-1.5 rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                <ArrowUpFromLine className="h-3.5 w-3.5" />
                 Sortie
               </TabsTrigger>
-              <TabsTrigger value="transfer" className="gap-1.5">
+              <TabsTrigger value="transfer" className="gap-1.5 rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <ArrowLeftRight className="h-3.5 w-3.5" />
                 Transfert
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="add" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity-add">Quantité</Label>
-                <Input
-                  id="quantity-add"
-                  type="number"
-                  placeholder="0"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
+            <TabsContent value="add" className="mt-5 space-y-4">
+              <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Quantite</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 text-lg font-semibold text-center h-12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Motif</Label>
+                  <Select value={reason} onValueChange={setReason}>
+                    <SelectTrigger className="bg-muted/50 border-0">
+                      <SelectValue placeholder="Selectionner un motif" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="purchase">Achat fournisseur</SelectItem>
+                      <SelectItem value="production">Production</SelectItem>
+                      <SelectItem value="return">Retour client</SelectItem>
+                      <SelectItem value="adjustment">Ajustement inventaire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Destination</Label>
+                  <Select value={location} onValueChange={setLocation}>
+                    <SelectTrigger className="bg-muted/50 border-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="labo">Laboratoire</SelectItem>
+                      <SelectItem value="reserve">Reserve</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="reason-add">Motif</Label>
-                <Select value={reason} onValueChange={setReason}>
-                  <SelectTrigger id="reason-add">
-                    <SelectValue placeholder="Sélectionner un motif" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="purchase">Achat fournisseur</SelectItem>
-                    <SelectItem value="production">Production</SelectItem>
-                    <SelectItem value="return">Retour client</SelectItem>
-                    <SelectItem value="adjustment">Ajustement inventaire</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location-add">Destination</Label>
-                <Select value={location} onValueChange={setLocation}>
-                  <SelectTrigger id="location-add">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="labo">Laboratoire</SelectItem>
-                    <SelectItem value="reserve">Réserve</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full" onClick={() => handleSubmit("add")}>
+              <Button className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-11" onClick={() => handleSubmit("add")}>
                 <Plus className="mr-2 h-4 w-4" />
-                Enregistrer l{"'"}entrée
+                {"Enregistrer l'entree"}
               </Button>
             </TabsContent>
 
-            <TabsContent value="remove" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity-remove">Quantité</Label>
-                <Input
-                  id="quantity-remove"
-                  type="number"
-                  placeholder="0"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
+            <TabsContent value="remove" className="mt-5 space-y-4">
+              <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Quantite</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-destructive/30 text-lg font-semibold text-center h-12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Motif</Label>
+                  <Select value={reason} onValueChange={setReason}>
+                    <SelectTrigger className="bg-muted/50 border-0">
+                      <SelectValue placeholder="Selectionner un motif" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sale">Vente</SelectItem>
+                      <SelectItem value="production">Utilisation production</SelectItem>
+                      <SelectItem value="waste">Perte/Perime</SelectItem>
+                      <SelectItem value="adjustment">Ajustement inventaire</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="reason-remove">Motif</Label>
-                <Select value={reason} onValueChange={setReason}>
-                  <SelectTrigger id="reason-remove">
-                    <SelectValue placeholder="Sélectionner un motif" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sale">Vente</SelectItem>
-                    <SelectItem value="production">Utilisation production</SelectItem>
-                    <SelectItem value="waste">Perte/Périmé</SelectItem>
-                    <SelectItem value="adjustment">Ajustement inventaire</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full" variant="destructive" onClick={() => handleSubmit("remove")}>
+              <Button className="w-full rounded-xl h-11" variant="destructive" onClick={() => handleSubmit("remove")}>
                 <Minus className="mr-2 h-4 w-4" />
                 Enregistrer la sortie
               </Button>
             </TabsContent>
 
-            <TabsContent value="transfer" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity-transfer">Quantité</Label>
-                <Input
-                  id="quantity-transfer"
-                  type="number"
-                  placeholder="0"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <TabsContent value="transfer" className="mt-5 space-y-4">
+              <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 <div className="space-y-2">
-                  <Label>De</Label>
-                  <Select defaultValue="reserve">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="reserve">Réserve</SelectItem>
-                      <SelectItem value="labo">Laboratoire</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-xs font-medium">Quantite</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 text-lg font-semibold text-center h-12"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <Label>Vers</Label>
-                  <Select defaultValue="labo">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="labo">Laboratoire</SelectItem>
-                      <SelectItem value="reserve">Réserve</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">De</Label>
+                    <Select defaultValue="reserve">
+                      <SelectTrigger className="bg-muted/50 border-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="reserve">Reserve</SelectItem>
+                        <SelectItem value="labo">Laboratoire</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <ArrowLeftRight className="h-4 w-4 text-muted-foreground mb-2.5" />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Vers</Label>
+                    <Select defaultValue="labo">
+                      <SelectTrigger className="bg-muted/50 border-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="labo">Laboratoire</SelectItem>
+                        <SelectItem value="reserve">Reserve</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-              <Button className="w-full" variant="secondary" onClick={() => handleSubmit("transfer")}>
+              <Button className="w-full rounded-xl h-11 bg-secondary hover:bg-secondary/90 text-secondary-foreground" onClick={() => handleSubmit("transfer")}>
                 <ArrowLeftRight className="mr-2 h-4 w-4" />
                 Effectuer le transfert
               </Button>
