@@ -26,6 +26,7 @@ import {
 } from "@/lib/mock-data"
 import { PriceHistoryTable } from "./price-history-table"
 import { BestPricesView } from "./best-prices-view"
+import { NewPurchaseOrderDrawer } from "./new-purchase-order-drawer"
 
 const statusConfig: Record<PurchaseOrder["status"], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   brouillon: { label: "Brouillon", variant: "outline" },
@@ -42,9 +43,12 @@ function formatDate(date: string) {
 export function ApprovisionnementView() {
   const { currentTenant } = useTenant()
   const [selectedTab, setSelectedTab] = useState("orders")
+  const [newOrderOpen, setNewOrderOpen] = useState(false)
+  const [localOrders, setLocalOrders] = useState<PurchaseOrder[]>([])
 
   const suppliers = getSuppliers(currentTenant.id)
-  const purchaseOrders = getPurchaseOrders(currentTenant.id)
+  const mockOrders = getPurchaseOrders(currentTenant.id)
+  const purchaseOrders = [...mockOrders, ...localOrders]
   const priceHistory = getPriceHistory(currentTenant.id)
   const bestPrices = getBestPricesByProduct(currentTenant.id)
 
@@ -63,7 +67,7 @@ export function ApprovisionnementView() {
             Gerez vos fournisseurs et commandes d{"'"}achat
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setNewOrderOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Nouvelle commande
         </Button>
@@ -239,6 +243,14 @@ export function ApprovisionnementView() {
           />
         </TabsContent>
       </Tabs>
+
+      <NewPurchaseOrderDrawer
+        open={newOrderOpen}
+        onOpenChange={setNewOrderOpen}
+        suppliers={suppliers}
+        tenantId={currentTenant.id}
+        onOrderCreated={(order) => setLocalOrders((prev) => [order, ...prev])}
+      />
     </div>
   )
 }
