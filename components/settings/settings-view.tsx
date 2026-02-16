@@ -23,7 +23,7 @@ import {
 import { toast } from "sonner"
 
 export function SettingsView() {
-  const { currentTenant, currentRole, users } = useTenant()
+  const { currentTenant, currentRole, users, isLoading: tenantLoading } = useTenant()
   const categories = getCategories(currentTenant.id)
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
@@ -35,7 +35,7 @@ export function SettingsView() {
   const [invoiceSaving, setInvoiceSaving] = useState(false)
 
   const loadInvoiceSettings = useCallback(async () => {
-    if (currentTenant.id === "demo") return
+    if (tenantLoading || currentTenant.id === "demo") return
     setInvoiceLoading(true)
     const settings = await getInvoiceSettings(currentTenant.id)
     setInvoiceSettings(settings)

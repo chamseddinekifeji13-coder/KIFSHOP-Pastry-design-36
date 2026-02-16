@@ -114,7 +114,7 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
 }
 
 export function OrdersView() {
-  const { currentTenant } = useTenant()
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
   const searchParams = useSearchParams()
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -153,7 +153,7 @@ export function OrdersView() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
 
-  const isDemoTenant = currentTenant.id === "demo"
+  const isDemoTenant = !tenantLoading && currentTenant.id === "demo"
 
   // SWR fetcher for orders
   const { data: orders = [], mutate, isLoading } = useSWR(
@@ -544,6 +544,15 @@ export function OrdersView() {
           </div>
         </CardContent>
       </Card>
+    )
+  }
+
+  if (tenantLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Chargement...</p>
+      </div>
     )
   }
 
