@@ -102,7 +102,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
                 channel.type === "whatsapp" ? "+216 XX XXX XXX" :
                 channel.type === "messenger" ? "fb.com/votre-page" :
                 channel.type === "instagram" ? "@votre_compte" :
-                "https://kifshop.tn/..."
+                "https://votre-site.vercel.app/..."
               }
             />
           </div>
@@ -151,7 +151,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
               <p className="text-xs text-muted-foreground">Messages pre-configures pour repondre rapidement</p>
               <div className="space-y-2">
                 {[
-                  "Voici notre catalogue: kifshop.tn/masmoudi",
+                  "Voici notre catalogue: consultez notre site!",
                   "Votre commande est en preparation!",
                   "Votre commande est prete au retrait.",
                   "Livraison prevue aujourd'hui entre 14h-18h.",
