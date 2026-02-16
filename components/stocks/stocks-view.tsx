@@ -6,18 +6,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { RawMaterialsTable } from "./raw-materials-table"
 import { FinishedProductsTable } from "./finished-products-table"
+import { PackagingTable } from "./packaging-table"
 import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
-import { useRawMaterials, useFinishedProducts } from "@/hooks/use-tenant-data"
+import { NewPackagingDrawer } from "./new-packaging-drawer"
+import { useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
 
 export function StocksView() {
   const [selectedTab, setSelectedTab] = useState("raw")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [newProductOpen, setNewProductOpen] = useState(false)
+  const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" } | null>(null)
 
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
+  const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished") => {
     setSelectedItem({ id, name, type })
@@ -32,10 +36,17 @@ export function StocksView() {
           <p className="text-muted-foreground">Gerez vos matieres premieres, produits finis et emballages</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setNewProductOpen(true)} className="bg-transparent">
-            <Plus className="mr-2 h-4 w-4" />
-            Nouveau produit fini
-          </Button>
+          {selectedTab === "packaging" ? (
+            <Button variant="outline" onClick={() => setNewPackagingOpen(true)} className="bg-transparent">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvel emballage
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => setNewProductOpen(true)} className="bg-transparent">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau produit fini
+            </Button>
+          )}
           <Button onClick={() => { setSelectedItem(null); setDrawerOpen(true) }}>
             <Plus className="mr-2 h-4 w-4" />
             Mouvement stock
@@ -67,16 +78,27 @@ export function StocksView() {
         </TabsContent>
 
         <TabsContent value="packaging" className="mt-6">
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Gift className="h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-semibold">Emballages</h3>
-            <p className="text-sm text-muted-foreground">Gerez vos boites, plateaux et emballages ici</p>
-          </div>
+          {pkgLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (packaging || []).length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Gift className="h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 text-lg font-semibold">Aucun emballage</h3>
+              <p className="text-sm text-muted-foreground mt-1">Ajoutez vos boites, plateaux et sachets</p>
+              <Button className="mt-4 bg-[#D4A373] hover:bg-[#c4956a] text-white" onClick={() => setNewPackagingOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Ajouter un emballage
+              </Button>
+            </div>
+          ) : (
+            <PackagingTable items={packaging || []} onItemClick={(id, name) => handleItemClick(id, name, "raw")} />
+          )}
         </TabsContent>
       </Tabs>
 
-      <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} onSuccess={() => { mutateRM(); mutateFP() }} />
+      <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} onSuccess={() => { mutateRM(); mutateFP(); mutatePkg() }} />
       <NewProductDrawer open={newProductOpen} onOpenChange={setNewProductOpen} onSuccess={() => { mutateRM(); mutateFP() }} />
+      <NewPackagingDrawer open={newPackagingOpen} onOpenChange={setNewPackagingOpen} onSuccess={() => mutatePkg()} />
     </div>
   )
 }

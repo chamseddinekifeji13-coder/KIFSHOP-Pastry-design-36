@@ -173,6 +173,63 @@ export async function createCategory(tenantId: string, name: string, color?: str
   return { id: row.id, tenantId: row.tenant_id, name: row.name, color: row.color }
 }
 
+// ─── Packaging ────────────────────────────────────────────────
+
+export interface Packaging {
+  id: string
+  tenantId: string
+  name: string
+  type: string
+  description: string | null
+  unit: string
+  currentStock: number
+  minStock: number
+  price: number
+  createdAt: string
+}
+
+export async function fetchPackaging(tenantId: string): Promise<Packaging[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("packaging")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("name")
+  if (error) { console.error("Error fetching packaging:", error.message); return [] }
+  return (data || []).map((p) => ({
+    id: p.id, tenantId: p.tenant_id, name: p.name, type: p.type,
+    description: p.description, unit: p.unit,
+    currentStock: Number(p.current_stock), minStock: Number(p.min_stock),
+    price: Number(p.price), createdAt: p.created_at,
+  }))
+}
+
+export async function createPackaging(tenantId: string, data: {
+  name: string; type: string; unit: string; currentStock: number;
+  minStock: number; price: number; description?: string
+}): Promise<Packaging | null> {
+  const supabase = createClient()
+  const { data: row, error } = await supabase.from("packaging").insert({
+    tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
+    current_stock: data.currentStock, min_stock: data.minStock,
+    price: data.price, description: data.description || null,
+  }).select().single()
+  if (error || !row) { console.error("Error creating packaging:", error?.message); return null }
+  return {
+    id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type,
+    description: row.description, unit: row.unit,
+    currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
+    price: Number(row.price), createdAt: row.created_at,
+  }
+}
+
+export async function deletePackaging(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("packaging").delete().eq("id", id)
+  if (error) { console.error("Error deleting packaging:", error.message); return false }
+  return true
+}
+
 // ─── Stock Movements ──────────────────────────────────────────
 
 export async function fetchStockMovements(tenantId: string, limit = 50): Promise<StockMovement[]> {
