@@ -1,19 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Save, X, Plus } from "lucide-react"
+import { Plus, X, Save, ClipboardCheck, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   Table,
   TableBody,
@@ -75,34 +68,24 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
   const { currentTenant } = useTenant()
   const rawMaterials = getRawMaterials(currentTenant.id)
   const finishedProducts = getFinishedProducts(currentTenant.id)
-  
+
   const [addProductOpen, setAddProductOpen] = useState(false)
   const [newProduct, setNewProduct] = useState<NewProduct>(defaultNewProduct)
   const [activeTab, setActiveTab] = useState<"mp" | "pf">("mp")
-  
+
   const [counts, setCounts] = useState<CountItem[]>(() => [
     ...rawMaterials.map(m => ({
-      id: m.id,
-      name: m.name,
-      type: "mp" as const,
-      theoreticalQty: m.quantity,
-      physicalQty: "",
-      unit: m.unit,
-      note: ""
+      id: m.id, name: m.name, type: "mp" as const,
+      theoreticalQty: m.quantity, physicalQty: "", unit: m.unit, note: ""
     })),
     ...finishedProducts.map(p => ({
-      id: p.id,
-      name: p.name,
-      type: "pf" as const,
-      theoreticalQty: p.quantity,
-      physicalQty: "",
-      unit: p.unit,
-      note: ""
+      id: p.id, name: p.name, type: "pf" as const,
+      theoreticalQty: p.quantity, physicalQty: "", unit: p.unit, note: ""
     }))
   ])
 
   const updateCount = (id: string, field: "physicalQty" | "note", value: string) => {
-    setCounts(prev => prev.map(item => 
+    setCounts(prev => prev.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     ))
   }
@@ -120,16 +103,12 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
       toast.error("Veuillez saisir au moins un comptage")
       return
     }
-
     const discrepancies = filledCounts.filter(c => {
       const disc = getDiscrepancy(c)
       return disc !== null && disc !== 0
     }).length
-
     toast.success(`Inventaire enregistre: ${filledCounts.length} articles, ${discrepancies} ecart(s)`)
     onOpenChange(false)
-    
-    // Reset counts
     setCounts(prev => prev.map(item => ({ ...item, physicalQty: "", note: "" })))
   }
 
@@ -142,25 +121,13 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
   }
 
   const handleAddProduct = () => {
-    if (!newProduct.name.trim()) {
-      toast.error("Veuillez saisir un nom de produit")
-      return
-    }
-    if (!newProduct.physicalQty) {
-      toast.error("Veuillez saisir la quantite comptee")
-      return
-    }
-
+    if (!newProduct.name.trim()) { toast.error("Veuillez saisir un nom de produit"); return }
+    if (!newProduct.physicalQty) { toast.error("Veuillez saisir la quantite comptee"); return }
     const newItem: CountItem = {
-      id: `new-${Date.now()}`,
-      name: newProduct.name,
-      type: newProduct.type,
-      theoreticalQty: 0, // Nouveau produit = pas de stock theorique
-      physicalQty: newProduct.physicalQty,
-      unit: newProduct.unit,
-      note: "Nouveau produit ajoute lors de l'inventaire"
+      id: `new-${Date.now()}`, name: newProduct.name, type: newProduct.type,
+      theoreticalQty: 0, physicalQty: newProduct.physicalQty,
+      unit: newProduct.unit, note: "Nouveau produit ajoute lors de l'inventaire"
     }
-
     setCounts(prev => [...prev, newItem])
     setAddProductOpen(false)
     setNewProduct(defaultNewProduct)
@@ -182,27 +149,27 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
         {items.map((item) => {
           const discrepancy = getDiscrepancy(item)
           return (
-            <TableRow key={item.id}>
+            <TableRow key={item.id} className="group">
               <TableCell className="font-medium">
                 <div>{item.name}</div>
                 <div className="text-xs text-muted-foreground">{item.unit}</div>
               </TableCell>
-              <TableCell className="text-right">{item.theoreticalQty}</TableCell>
+              <TableCell className="text-right tabular-nums">{item.theoreticalQty}</TableCell>
               <TableCell className="text-right">
                 <Input
                   type="number"
                   step="0.01"
                   value={item.physicalQty}
                   onChange={(e) => updateCount(item.id, "physicalQty", e.target.value)}
-                  className="w-20 text-right"
+                  className="w-20 text-right bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
                   placeholder="-"
                 />
               </TableCell>
               <TableCell className="text-right">
                 {discrepancy !== null && (
-                  <Badge 
+                  <Badge
                     variant={discrepancy === 0 ? "secondary" : "destructive"}
-                    className={discrepancy === 0 ? "" : discrepancy > 0 ? "bg-success text-success-foreground" : ""}
+                    className={`rounded-full text-xs ${discrepancy === 0 ? "bg-primary/10 text-primary border-0" : discrepancy > 0 ? "bg-success/10 text-success border-0" : ""}`}
                   >
                     {discrepancy > 0 ? "+" : ""}{discrepancy.toFixed(2)}
                   </Badge>
@@ -212,7 +179,7 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
                 <Input
                   value={item.note}
                   onChange={(e) => updateCount(item.id, "note", e.target.value)}
-                  className="w-32"
+                  className="w-32 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
                   placeholder="Note..."
                 />
               </TableCell>
@@ -225,105 +192,92 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Nouvel inventaire</SheetTitle>
-          <SheetDescription>
-            Saisissez les quantites physiques comptees pour chaque article
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="py-6">
-          <div className="mb-4 p-3 bg-muted rounded-lg">
-            <div className="flex items-center justify-between text-sm">
-              <span>Date: <strong>{new Date().toLocaleDateString("fr-FR")}</strong></span>
-              <span>Boutique: <strong>{currentTenant.name}</strong></span>
+      <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        {/* Header Banner */}
+        <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+              <ClipboardCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Nouvel inventaire</h2>
+              <p className="text-sm text-primary-foreground/70">Saisissez les quantites physiques comptees</p>
             </div>
           </div>
+          <div className="flex items-center gap-6 mt-4 text-sm text-primary-foreground/70">
+            <span>Date: <strong className="text-primary-foreground">{new Date().toLocaleDateString("fr-FR")}</strong></span>
+            <span>Boutique: <strong className="text-primary-foreground">{currentTenant.name}</strong></span>
+          </div>
+        </div>
 
+        {/* Body */}
+        <div className="flex-1 px-6 py-6">
           <Tabs defaultValue="mp" value={activeTab} onValueChange={(v) => setActiveTab(v as "mp" | "pf")} className="w-full">
-            <div className="flex items-center justify-between mb-2">
-              <TabsList className="grid w-auto grid-cols-2">
-                <TabsTrigger value="mp">
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="rounded-xl bg-muted/70 p-1">
+                <TabsTrigger value="mp" className="rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
+                  <Package className="h-3.5 w-3.5" />
                   MP ({mpItems.length})
                 </TabsTrigger>
-                <TabsTrigger value="pf">
+                <TabsTrigger value="pf" className="rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
                   PF ({pfItems.length})
                 </TabsTrigger>
               </TabsList>
-              <Button variant="outline" size="sm" onClick={handleOpenAddProduct} className="bg-transparent">
-                <Plus className="mr-2 h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={handleOpenAddProduct} className="rounded-lg h-8 text-xs">
+                <Plus className="mr-1.5 h-3 w-3" />
                 Ajouter un produit
               </Button>
             </div>
-            <TabsContent value="mp" className="mt-4">
-              {renderTable(mpItems)}
-            </TabsContent>
-            <TabsContent value="pf" className="mt-4">
-              {renderTable(pfItems)}
-            </TabsContent>
+            <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+              <TabsContent value="mp" className="mt-0">
+                {renderTable(mpItems)}
+              </TabsContent>
+              <TabsContent value="pf" className="mt-0">
+                {renderTable(pfItems)}
+              </TabsContent>
+            </div>
           </Tabs>
         </div>
 
-        <SheetFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="bg-transparent">
-            <X className="mr-2 h-4 w-4" />
+        {/* Footer */}
+        <div className="border-t bg-muted/30 px-6 py-4 flex gap-3">
+          <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={handleSubmit}>
             <Save className="mr-2 h-4 w-4" />
-            Enregistrer l'inventaire
+            {"Enregistrer l'inventaire"}
           </Button>
-        </SheetFooter>
+        </div>
       </SheetContent>
 
-      {/* Dialog pour ajouter un nouveau produit */}
       <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-xl">
           <DialogHeader>
             <DialogTitle>Ajouter un nouveau produit</DialogTitle>
-            <DialogDescription>
-              Ce produit sera ajoute a votre inventaire et au catalogue
-            </DialogDescription>
+            <DialogDescription>Ce produit sera ajoute a votre inventaire</DialogDescription>
           </DialogHeader>
-
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="product-name">Nom du produit</Label>
-              <Input
-                id="product-name"
-                value={newProduct.name}
-                onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Ex: Pistaches, Gateau au chocolat..."
-              />
+              <Label className="text-xs font-medium">Nom du produit</Label>
+              <Input value={newProduct.name} onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Ex: Pistaches, Gateau au chocolat..." className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="product-type">Type</Label>
-                <Select
-                  value={newProduct.type}
-                  onValueChange={(v) => setNewProduct(prev => ({ ...prev, type: v as "mp" | "pf" }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Label className="text-xs font-medium">Type</Label>
+                <Select value={newProduct.type} onValueChange={(v) => setNewProduct(prev => ({ ...prev, type: v as "mp" | "pf" }))}>
+                  <SelectTrigger className="bg-muted/50 border-0"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mp">Matiere Premiere</SelectItem>
                     <SelectItem value="pf">Produit Fini</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="grid gap-2">
-                <Label htmlFor="product-unit">Unite</Label>
-                <Select
-                  value={newProduct.unit}
-                  onValueChange={(v) => setNewProduct(prev => ({ ...prev, unit: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Label className="text-xs font-medium">Unite</Label>
+                <Select value={newProduct.unit} onValueChange={(v) => setNewProduct(prev => ({ ...prev, unit: v }))}>
+                  <SelectTrigger className="bg-muted/50 border-0"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="kg">Kilogramme (kg)</SelectItem>
                     <SelectItem value="g">Gramme (g)</SelectItem>
@@ -335,25 +289,16 @@ export function NewInventoryDrawer({ open, onOpenChange }: NewInventoryDrawerPro
                 </Select>
               </div>
             </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="product-qty">Quantite comptee</Label>
-              <Input
-                id="product-qty"
-                type="number"
-                step="0.01"
-                value={newProduct.physicalQty}
+              <Label className="text-xs font-medium">Quantite comptee</Label>
+              <Input type="number" step="0.01" value={newProduct.physicalQty}
                 onChange={(e) => setNewProduct(prev => ({ ...prev, physicalQty: e.target.value }))}
-                placeholder="0"
-              />
+                placeholder="0" className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
             </div>
           </div>
-
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddProductOpen(false)} className="bg-transparent">
-              Annuler
-            </Button>
-            <Button onClick={handleAddProduct}>
+            <Button variant="outline" onClick={() => setAddProductOpen(false)} className="rounded-xl">Annuler</Button>
+            <Button onClick={handleAddProduct} className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground">
               <Plus className="mr-2 h-4 w-4" />
               Ajouter
             </Button>
