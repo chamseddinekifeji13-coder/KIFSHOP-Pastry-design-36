@@ -5,8 +5,8 @@ const OFFLINE_URL = '/offline.html';
 const PRECACHE_ASSETS = [
   '/',
   '/offline.html',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/icon-192x192.jpg',
+  '/icons/icon-512x512.jpg'
 ];
 
 // Install event - cache essential assets
