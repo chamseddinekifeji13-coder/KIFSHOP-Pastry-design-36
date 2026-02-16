@@ -48,6 +48,7 @@ export function NewPurchaseOrderDrawer({
   tenantId,
 }: NewPurchaseOrderDrawerProps) {
   const [supplierId, setSupplierId] = useState("")
+  const [supplierName, setSupplierName] = useState("")
   const [expectedDelivery, setExpectedDelivery] = useState("")
   const [items, setItems] = useState<OrderItem[]>([
     { name: "", quantity: 1, unit: "kg", unitPrice: 0 },
@@ -80,13 +81,15 @@ export function NewPurchaseOrderDrawer({
 
   function resetForm() {
     setSupplierId("")
+    setSupplierName("")
     setExpectedDelivery("")
     setItems([{ name: "", quantity: 1, unit: "kg", unitPrice: 0 }])
   }
 
   async function handleSubmit() {
-    if (!supplierId) {
-      toast.error("Selectionnez un fournisseur")
+    const resolvedName = selectedSupplier?.name || supplierName.trim()
+    if (!supplierId && !resolvedName) {
+      toast.error("Indiquez un fournisseur")
       return
     }
 
@@ -98,11 +101,12 @@ export function NewPurchaseOrderDrawer({
 
     setSaving(true)
 
+    const finalSupplierName = selectedSupplier?.name || supplierName.trim()
     const newOrder: PurchaseOrder = {
       id: `po-${Date.now()}`,
       tenantId,
-      supplierId,
-      supplierName: selectedSupplier?.name || "",
+      supplierId: supplierId || `manual-${Date.now()}`,
+      supplierName: finalSupplierName,
       items: validItems,
       total: validItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0),
       status: "brouillon",
@@ -113,7 +117,7 @@ export function NewPurchaseOrderDrawer({
     try {
       onOrderCreated(newOrder)
       toast.success("Commande d'achat creee", {
-        description: `${newOrder.id.toUpperCase()} - ${selectedSupplier?.name}`,
+        description: `${newOrder.id.toUpperCase()} - ${finalSupplierName}`,
       })
       resetForm()
       onOpenChange(false)
@@ -133,27 +137,29 @@ export function NewPurchaseOrderDrawer({
         </SheetHeader>
 
         <div className="space-y-6 py-6">
-          {/* Supplier Selection */}
+          {/* Supplier Selection or Manual Input */}
           <div className="space-y-2">
             <Label>Fournisseur *</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selectionnez un fournisseur" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeSuppliers.length === 0 ? (
-                  <div className="p-2 text-sm text-muted-foreground text-center">
-                    Aucun fournisseur actif
-                  </div>
-                ) : (
-                  activeSuppliers.map((s) => (
+            {activeSuppliers.length > 0 ? (
+              <Select value={supplierId} onValueChange={(v) => { setSupplierId(v); setSupplierName(""); }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selectionnez un fournisseur" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeSuppliers.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
                     </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                placeholder="Nom du fournisseur (ex: Boulangerie Centrale)"
+                value={supplierName}
+                onChange={(e) => setSupplierName(e.target.value)}
+              />
+            )}
           </div>
 
           {/* Expected Delivery */}
