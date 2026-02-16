@@ -75,7 +75,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
 
   // Fetch products from Supabase
   useEffect(() => {
-    if (!open || tenantLoading || currentTenant.id === "demo") return
+    if (!open || tenantLoading || currentTenant.id === "__fallback__") return
 
     async function loadProducts() {
       setLoadingProducts(true)
