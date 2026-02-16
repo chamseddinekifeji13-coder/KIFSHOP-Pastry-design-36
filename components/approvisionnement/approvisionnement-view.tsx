@@ -27,6 +27,7 @@ import {
 import { PriceHistoryTable } from "./price-history-table"
 import { BestPricesView } from "./best-prices-view"
 import { NewPurchaseOrderDrawer } from "./new-purchase-order-drawer"
+import { NewSupplierDrawer } from "./new-supplier-drawer"
 
 const statusConfig: Record<PurchaseOrder["status"], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   brouillon: { label: "Brouillon", variant: "outline" },
@@ -44,9 +45,12 @@ export function ApprovisionnementView() {
   const { currentTenant } = useTenant()
   const [selectedTab, setSelectedTab] = useState("orders")
   const [newOrderOpen, setNewOrderOpen] = useState(false)
+  const [newSupplierOpen, setNewSupplierOpen] = useState(false)
   const [localOrders, setLocalOrders] = useState<PurchaseOrder[]>([])
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>([])
 
-  const suppliers = getSuppliers(currentTenant.id)
+  const mockSuppliers = getSuppliers(currentTenant.id)
+  const suppliers = [...mockSuppliers, ...localSuppliers]
   const mockOrders = getPurchaseOrders(currentTenant.id)
   const purchaseOrders = [...mockOrders, ...localOrders]
   const priceHistory = getPriceHistory(currentTenant.id)
@@ -192,6 +196,27 @@ export function ApprovisionnementView() {
         </TabsContent>
 
         <TabsContent value="suppliers" className="mt-4">
+          <div className="mb-4 flex justify-end">
+            <Button onClick={() => setNewSupplierOpen(true)} variant="outline">
+              <Plus className="mr-2 h-4 w-4" />
+              Ajouter un fournisseur
+            </Button>
+          </div>
+          {suppliers.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Users className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                <p className="text-sm font-medium">Aucun fournisseur</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ajoutez votre premier fournisseur pour commencer
+                </p>
+                <Button className="mt-4 bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" onClick={() => setNewSupplierOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Ajouter un fournisseur
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {suppliers.map((supplier) => (
               <Card key={supplier.id}>
@@ -227,6 +252,7 @@ export function ApprovisionnementView() {
               </Card>
             ))}
           </div>
+          )}
         </TabsContent>
 
         <TabsContent value="bestprices" className="mt-4">
@@ -250,6 +276,13 @@ export function ApprovisionnementView() {
         suppliers={suppliers}
         tenantId={currentTenant.id}
         onOrderCreated={(order) => setLocalOrders((prev) => [order, ...prev])}
+      />
+
+      <NewSupplierDrawer
+        open={newSupplierOpen}
+        onOpenChange={setNewSupplierOpen}
+        tenantId={currentTenant.id}
+        onSupplierCreated={(supplier) => setLocalSuppliers((prev) => [supplier, ...prev])}
       />
     </div>
   )
