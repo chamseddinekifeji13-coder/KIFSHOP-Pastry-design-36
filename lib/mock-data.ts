@@ -252,10 +252,10 @@ export interface SalesChannel {
 }
 
 export const masmoudiChannels: SalesChannel[] = [
-  { id: "ch1", tenantId: "masmoudi", type: "whatsapp", name: "WhatsApp Business", enabled: true, contact: "+216 98 123 456", autoReply: "Merci pour votre message! Notre equipe vous repondra dans les plus brefs delais. Consultez notre catalogue: kifshop.tn/masmoudi", ordersCount: 45, revenue: 3200 },
+  { id: "ch1", tenantId: "masmoudi", type: "whatsapp", name: "WhatsApp Business", enabled: true, contact: "+216 98 123 456", autoReply: "Merci pour votre message! Notre equipe vous repondra dans les plus brefs delais. Consultez notre catalogue en ligne", ordersCount: 45, revenue: 3200 },
   { id: "ch2", tenantId: "masmoudi", type: "messenger", name: "Messenger", enabled: true, contact: "fb.com/patisserie.masmoudi", autoReply: "Bienvenue chez Patisserie Masmoudi! Envoyez-nous votre commande ou consultez notre catalogue en ligne.", ordersCount: 28, revenue: 1850 },
   { id: "ch3", tenantId: "masmoudi", type: "phone", name: "Telephone", enabled: true, contact: "+216 71 234 567", ordersCount: 62, revenue: 5400 },
-  { id: "ch4", tenantId: "masmoudi", type: "web", name: "Site Web", enabled: false, contact: "kifshop.tn/masmoudi", ordersCount: 12, revenue: 980 },
+  { id: "ch4", tenantId: "masmoudi", type: "web", name: "Site Web", enabled: false, contact: "votre-site.vercel.app/masmoudi", ordersCount: 12, revenue: 980 },
   { id: "ch5", tenantId: "masmoudi", type: "instagram", name: "Instagram", enabled: true, contact: "@patisserie_masmoudi", autoReply: "Merci pour votre DM! Pour commander, envoyez-nous un message WhatsApp au +216 98 123 456", ordersCount: 15, revenue: 720 },
 ]
 

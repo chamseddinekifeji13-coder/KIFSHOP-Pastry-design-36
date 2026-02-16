@@ -38,7 +38,8 @@ export function BoutiqueView() {
   }
 
   const handleShareCatalog = () => {
-    const url = `kifshop.tn/${currentTenant.id}`
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+    const url = `${baseUrl}/boutique/${currentTenant.id}`
     navigator.clipboard.writeText(url).then(() => {
       toast.success("Lien copie dans le presse-papier", { description: url })
     }).catch(() => {
@@ -123,7 +124,7 @@ export function BoutiqueView() {
               </div>
               <div>
                 <p className="text-sm font-medium">Lien du catalogue public</p>
-                <p className="text-xs text-muted-foreground font-mono">kifshop.tn/{currentTenant.id}</p>
+                <p className="text-xs text-muted-foreground font-mono">{typeof window !== "undefined" ? window.location.host : ""}/boutique/{currentTenant.id}</p>
               </div>
             </div>
             <div className="flex gap-2">
