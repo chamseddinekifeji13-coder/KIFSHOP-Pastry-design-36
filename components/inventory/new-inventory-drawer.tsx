@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Save, ClipboardCheck, Package, Check, AlertTriangle } from "lucide-react"
+import { Plus, Save, ClipboardCheck, Package, Check, AlertTriangle, RotateCcw, Trash2, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -73,6 +73,23 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
 
   const updateCount = (id: string, field: "physicalQty" | "note", value: string) => {
     setCounts(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))
+  }
+
+  const resetCount = (id: string) => {
+    setCounts(prev => prev.map(item => item.id === id ? { ...item, physicalQty: "", note: "" } : item))
+  }
+
+  const deleteCount = (id: string) => {
+    // Only allow deleting manually added items (id starts with "new-")
+    if (id.startsWith("new-")) {
+      setCounts(prev => prev.filter(item => item.id !== id))
+      toast.success("Ligne supprimee")
+    }
+  }
+
+  const resetAllCounts = () => {
+    setCounts(prev => prev.map(item => ({ ...item, physicalQty: "", note: "" })))
+    toast.success("Toutes les saisies ont ete reintialisees")
   }
 
   const getDiscrepancy = (item: CountItem) => {
@@ -168,6 +185,8 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
     toast.success(`"${newProduct.name}" ajoute`)
   }
 
+  const filledCount = (items: CountItem[]) => items.filter(c => c.physicalQty !== "").length
+
   const renderTable = (items: CountItem[]) => (
     <Table>
       <TableHeader>
@@ -177,23 +196,32 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
           <TableHead className="text-right">Physique</TableHead>
           <TableHead className="text-right">Ecart</TableHead>
           <TableHead>Note</TableHead>
+          <TableHead className="w-16 text-center">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {items.length === 0 ? (
-          <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Aucun article. Ajoutez des produits dans Stocks d{"'"}abord.</TableCell></TableRow>
+          <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Aucun article. Ajoutez des produits dans Stocks d{"'"}abord.</TableCell></TableRow>
         ) : items.map((item) => {
           const discrepancy = getDiscrepancy(item)
+          const isModified = item.physicalQty !== ""
+          const isManual = item.id.startsWith("new-")
           return (
-            <TableRow key={item.id}>
+            <TableRow key={item.id} className={isModified ? "bg-primary/5" : ""}>
               <TableCell className="font-medium">
-                <div>{item.name}</div>
+                <div className="flex items-center gap-1.5">
+                  {item.name}
+                  {isManual && <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-600">Manuel</Badge>}
+                </div>
                 <div className="text-xs text-muted-foreground">{item.unit}</div>
               </TableCell>
               <TableCell className="text-right tabular-nums">{item.theoreticalQty}</TableCell>
               <TableCell className="text-right">
-                <Input type="number" step="0.01" value={item.physicalQty} onChange={(e) => updateCount(item.id, "physicalQty", e.target.value)}
-                  className="w-20 text-right bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" placeholder="-" />
+                <div className="relative inline-flex items-center">
+                  <Input type="number" step="0.01" value={item.physicalQty} onChange={(e) => updateCount(item.id, "physicalQty", e.target.value)}
+                    className="w-24 text-right bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 pr-7" placeholder="-" />
+                  <Pencil className="absolute right-2 h-3 w-3 text-muted-foreground/40 pointer-events-none" />
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 {discrepancy !== null && (
@@ -206,6 +234,20 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
               <TableCell>
                 <Input value={item.note} onChange={(e) => updateCount(item.id, "note", e.target.value)}
                   className="w-32 bg-muted/50 border-0" placeholder="Note..." />
+              </TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-1">
+                  {isModified && (
+                    <button onClick={() => resetCount(item.id)} title="Reinitialiser" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {isManual && (
+                    <button onClick={() => deleteCount(item.id)} title="Supprimer" className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </TableCell>
             </TableRow>
           )
@@ -236,12 +278,23 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
             <Tabs defaultValue="mp" value={activeTab} onValueChange={(v) => setActiveTab(v as "mp" | "pf")} className="w-full">
               <div className="flex items-center justify-between mb-4">
                 <TabsList className="rounded-xl bg-muted/70 p-1">
-                  <TabsTrigger value="mp" className="rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5"><Package className="h-3.5 w-3.5" /> MP ({mpItems.length})</TabsTrigger>
-                  <TabsTrigger value="pf" className="rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">PF ({pfItems.length})</TabsTrigger>
+                  <TabsTrigger value="mp" className="rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
+                    <Package className="h-3.5 w-3.5" /> MP ({filledCount(mpItems)}/{mpItems.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="pf" className="rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm gap-1.5">
+                    PF ({filledCount(pfItems)}/{pfItems.length})
+                  </TabsTrigger>
                 </TabsList>
-                <Button variant="outline" size="sm" onClick={() => { setNewProduct(p => ({ ...p, type: activeTab })); setAddProductOpen(true) }} className="rounded-lg h-8 text-xs">
-                  <Plus className="mr-1.5 h-3 w-3" /> Ajouter un produit
-                </Button>
+                <div className="flex items-center gap-2">
+                  {counts.some(c => c.physicalQty !== "") && (
+                    <Button variant="ghost" size="sm" onClick={resetAllCounts} className="rounded-lg h-8 text-xs text-muted-foreground hover:text-destructive">
+                      <RotateCcw className="mr-1.5 h-3 w-3" /> Tout reinitialiser
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => { setNewProduct(p => ({ ...p, type: activeTab })); setAddProductOpen(true) }} className="rounded-lg h-8 text-xs">
+                    <Plus className="mr-1.5 h-3 w-3" /> Ajouter un produit
+                  </Button>
+                </div>
               </div>
               <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
                 <TabsContent value="mp" className="mt-0">{renderTable(mpItems)}</TabsContent>
