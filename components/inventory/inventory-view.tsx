@@ -122,7 +122,7 @@ export function InventoryView() {
         </CardContent>
       </Card>
 
-      <NewInventoryDrawer open={drawerOpen} onOpenChange={setDrawerOpen} onSuccess={() => mutateSessions()} />
+      <NewInventoryDrawer open={drawerOpen} onOpenChange={setDrawerOpen} onSuccess={() => { mutateSessions() }} />
     </div>
   )
 }
