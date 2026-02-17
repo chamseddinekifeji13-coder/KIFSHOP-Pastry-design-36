@@ -52,10 +52,12 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
   const [discrepancyItems, setDiscrepancyItems] = useState<CountItem[]>([])
 
   const [counts, setCounts] = useState<CountItem[]>([])
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
 
   // Rebuild counts when materials change or drawer opens
   useEffect(() => {
     if (open) {
+      setExcluded(new Set())
       setCounts([
         ...rawMaterials.map((m: any) => ({
           id: m.id, name: m.name, type: "mp" as const,
@@ -80,16 +82,23 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
   }
 
   const deleteCount = (id: string) => {
-    // Only allow deleting manually added items (id starts with "new-")
     if (id.startsWith("new-")) {
       setCounts(prev => prev.filter(item => item.id !== id))
-      toast.success("Ligne supprimee")
+    } else {
+      setExcluded(prev => new Set(prev).add(id))
     }
+    toast.success("Ligne retiree de l'inventaire")
+  }
+
+  const restoreCount = (id: string) => {
+    setExcluded(prev => { const next = new Set(prev); next.delete(id); return next })
+    toast.success("Ligne restauree")
   }
 
   const resetAllCounts = () => {
     setCounts(prev => prev.map(item => ({ ...item, physicalQty: "", note: "" })))
-    toast.success("Toutes les saisies ont ete reintialisees")
+    setExcluded(new Set())
+    toast.success("Toutes les saisies ont ete reinitialisees")
   }
 
   const getDiscrepancy = (item: CountItem) => {
@@ -100,7 +109,7 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
   }
 
   const handleSubmit = async () => {
-    const filledCounts = counts.filter(c => c.physicalQty !== "")
+    const filledCounts = activeCounts.filter(c => c.physicalQty !== "")
     if (filledCounts.length === 0) { toast.error("Veuillez saisir au moins un comptage"); return }
 
     setSaving(true)
@@ -170,8 +179,10 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
     onSuccess?.()
   }
 
-  const mpItems = counts.filter(c => c.type === "mp")
-  const pfItems = counts.filter(c => c.type === "pf")
+  const activeCounts = counts.filter(c => !excluded.has(c.id))
+  const excludedCounts = counts.filter(c => excluded.has(c.id))
+  const mpItems = activeCounts.filter(c => c.type === "mp")
+  const pfItems = activeCounts.filter(c => c.type === "pf")
 
   const handleAddProduct = () => {
     if (!newProduct.name.trim()) { toast.error("Veuillez saisir un nom"); return }
@@ -238,15 +249,13 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-1">
                   {isModified && (
-                    <button onClick={() => resetCount(item.id)} title="Reinitialiser" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={() => resetCount(item.id)} title="Reinitialiser la saisie" className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                       <RotateCcw className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  {isManual && (
-                    <button onClick={() => deleteCount(item.id)} title="Supprimer" className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <button onClick={() => deleteCount(item.id)} title="Retirer de l'inventaire" className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </TableCell>
             </TableRow>
@@ -265,7 +274,7 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"><ClipboardCheck className="h-5 w-5" /></div>
               <div>
                 <h2 className="text-lg font-semibold">Nouvel inventaire</h2>
-                <p className="text-sm text-primary-foreground/70">Saisissez les quantites physiques comptees</p>
+                <p className="text-sm text-primary-foreground/70">Comptez et corrigez les quantites physiques</p>
               </div>
             </div>
             <div className="flex items-center gap-6 mt-4 text-sm text-primary-foreground/70">
@@ -300,6 +309,28 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
                 <TabsContent value="mp" className="mt-0">{renderTable(mpItems)}</TabsContent>
                 <TabsContent value="pf" className="mt-0">{renderTable(pfItems)}</TabsContent>
               </div>
+
+              {excludedCounts.length > 0 && (
+                <div className="mt-3 rounded-xl border border-dashed border-amber-300 bg-amber-50/50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-medium text-amber-700">
+                      {excludedCounts.length} ligne(s) retiree(s) de l{"'"}inventaire
+                    </p>
+                    <Button variant="ghost" size="sm" className="h-6 text-xs text-amber-700 hover:text-amber-900 hover:bg-amber-100"
+                      onClick={() => { setExcluded(new Set()); toast.success("Toutes les lignes restaurees") }}>
+                      Tout restaurer
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {excludedCounts.map(item => (
+                      <button key={item.id} onClick={() => restoreCount(item.id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-white border border-amber-200 px-2.5 py-0.5 text-xs text-amber-700 hover:bg-amber-100 transition-colors">
+                        <Plus className="h-3 w-3" /> {item.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Tabs>
           </div>
 
