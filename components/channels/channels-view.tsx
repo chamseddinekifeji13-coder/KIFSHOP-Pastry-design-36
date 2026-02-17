@@ -112,7 +112,7 @@ export function ChannelsView() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Canaux de vente</h1>
         <p className="text-muted-foreground">
-          Gerez vos canaux de vente en ligne : telephone, WhatsApp, Messenger, Instagram
+          Gerez vos canaux de vente en ligne : telephone, WhatsApp, Messenger, Instagram.
         </p>
       </div>
 
