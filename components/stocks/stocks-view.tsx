@@ -10,6 +10,7 @@ import { PackagingTable } from "./packaging-table"
 import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
+import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
 
 export function StocksView() {
@@ -17,6 +18,7 @@ export function StocksView() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
+  const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" } | null>(null)
 
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
@@ -36,7 +38,12 @@ export function StocksView() {
           <p className="text-muted-foreground">Gerez vos matieres premieres, produits finis et emballages.</p>
         </div>
         <div className="flex gap-2">
-          {selectedTab === "packaging" ? (
+          {selectedTab === "raw" ? (
+            <Button variant="outline" onClick={() => setNewRawMaterialOpen(true)} className="bg-transparent">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle matiere premiere
+            </Button>
+          ) : selectedTab === "packaging" ? (
             <Button variant="outline" onClick={() => setNewPackagingOpen(true)} className="bg-transparent">
               <Plus className="mr-2 h-4 w-4" />
               Nouvel emballage
@@ -65,7 +72,7 @@ export function StocksView() {
           {rmLoading ? (
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            <RawMaterialsTable materials={rawMaterials || []} onItemClick={(id, name) => handleItemClick(id, name, "raw")} />
+            <RawMaterialsTable materials={rawMaterials || []} onItemClick={(id, name) => handleItemClick(id, name, "raw")} onAdd={() => setNewRawMaterialOpen(true)} />
           )}
         </TabsContent>
 
@@ -99,6 +106,7 @@ export function StocksView() {
       <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} onSuccess={() => { mutateRM(); mutateFP(); mutatePkg() }} />
       <NewProductDrawer open={newProductOpen} onOpenChange={setNewProductOpen} onSuccess={() => { mutateRM(); mutateFP() }} />
       <NewPackagingDrawer open={newPackagingOpen} onOpenChange={setNewPackagingOpen} onSuccess={() => mutatePkg()} />
+      <NewRawMaterialDrawer open={newRawMaterialOpen} onOpenChange={setNewRawMaterialOpen} onSuccess={() => mutateRM()} />
     </div>
   )
 }

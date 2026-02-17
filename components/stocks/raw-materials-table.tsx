@@ -1,8 +1,9 @@
 "use client"
 
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle, FlaskConical, Plus } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { RawMaterial } from "@/lib/stocks/actions"
@@ -10,9 +11,10 @@ import type { RawMaterial } from "@/lib/stocks/actions"
 interface RawMaterialsTableProps {
   materials: RawMaterial[]
   onItemClick: (id: string, name: string) => void
+  onAdd?: () => void
 }
 
-export function RawMaterialsTable({ materials, onItemClick }: RawMaterialsTableProps) {
+export function RawMaterialsTable({ materials, onItemClick, onAdd }: RawMaterialsTableProps) {
   const getStatus = (m: RawMaterial) => {
     if (m.minStock > 0 && m.currentStock <= m.minStock) return "critical"
     return "in-stock"
@@ -22,8 +24,17 @@ export function RawMaterialsTable({ materials, onItemClick }: RawMaterialsTableP
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
+            <FlaskConical className="h-6 w-6 text-muted-foreground" />
+          </div>
           <p className="text-sm font-medium">Aucune matiere premiere</p>
-          <p className="text-xs text-muted-foreground mt-1">Ajoutez des matieres premieres via un mouvement de stock</p>
+          <p className="text-xs text-muted-foreground mt-1">Ajoutez vos ingredients : farine, sucre, beurre, oeufs...</p>
+          {onAdd && (
+            <Button className="mt-4 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white" onClick={onAdd}>
+              <Plus className="mr-2 h-4 w-4" />
+              Ajouter une matiere premiere
+            </Button>
+          )}
         </CardContent>
       </Card>
     )
