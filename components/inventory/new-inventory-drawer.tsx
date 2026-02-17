@@ -274,7 +274,7 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"><ClipboardCheck className="h-5 w-5" /></div>
               <div>
                 <h2 className="text-lg font-semibold">Nouvel inventaire</h2>
-                <p className="text-sm text-primary-foreground/70">Saisissez les quantites physiques comptees</p>
+                <p className="text-sm text-primary-foreground/70">Comptez et corrigez les quantites physiques</p>
               </div>
             </div>
             <div className="flex items-center gap-6 mt-4 text-sm text-primary-foreground/70">
