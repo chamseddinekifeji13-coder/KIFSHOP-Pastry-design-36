@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Eye, EyeOff, Pencil, Plus, Link2, Share2, ShoppingBag, TrendingUp } from "lucide-react"
+import { Eye, EyeOff, Pencil, Plus, Link2, Share2, ShoppingBag, TrendingUp, ImageIcon } from "lucide-react"
 import Image from "next/image"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,12 +15,16 @@ import { ProductEditDrawer } from "./product-edit-drawer"
 
 export function BoutiqueView() {
   const { currentTenant } = useTenant()
-  const { data: products = [] } = useFinishedProducts()
+  const { data: products = [], mutate } = useFinishedProducts()
   const { data: orders = [] } = useOrders()
 
   const catalog = products.map((p: any) => ({
-    id: p.id, name: p.name, category: p.category, price: p.price,
-    image: "", isPublished: true, description: p.description || "",
+    id: p.id, name: p.name, category: p.category || "Sans categorie",
+    price: p.sellingPrice || p.price || 0,
+    image: p.imageUrl || "", imageUrl: p.imageUrl || "",
+    isPublished: p.isPublished ?? true, description: p.description || "",
+    unit: p.unit || "piece", weight: p.weight || "",
+    minOrder: p.minOrder || 1, tags: p.tags || [],
   }))
 
   const [editProduct, setEditProduct] = useState<any>(null)
@@ -168,13 +172,20 @@ export function BoutiqueView() {
                 .map(product => (
                   <Card key={product.id} className="overflow-hidden">
                     <div className="relative aspect-[4/3] bg-muted">
-                      <Image
-                        src={product.image}
-                        alt={product.name}
-                        fill
-                        className="object-cover"
-                        crossOrigin="anonymous"
-                      />
+                      {product.imageUrl ? (
+                        <Image
+                          src={product.imageUrl}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                          crossOrigin="anonymous"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/40">
+                          <ImageIcon className="h-10 w-10" />
+                          <span className="text-xs mt-1">Pas de photo</span>
+                        </div>
+                      )}
                       <div className="absolute top-2 right-2 flex gap-1">
                         {product.isPublished ? (
                           <Badge className="bg-primary text-primary-foreground">Publie</Badge>
@@ -182,7 +193,7 @@ export function BoutiqueView() {
                           <Badge variant="secondary">Masque</Badge>
                         )}
                       </div>
-                      {product.tags.includes("populaire") && (
+                      {product.tags?.includes("populaire") && (
                         <Badge className="absolute top-2 left-2 bg-secondary text-secondary-foreground">Populaire</Badge>
                       )}
                     </div>
@@ -231,12 +242,12 @@ export function BoutiqueView() {
       <ProductEditDrawer
         product={editProduct}
         open={editOpen}
-        onOpenChange={setEditOpen}
+        onOpenChange={(open) => { setEditOpen(open); if (!open) mutate() }}
       />
       <ProductEditDrawer
         product={null}
         open={addOpen}
-        onOpenChange={setAddOpen}
+        onOpenChange={(open) => { setAddOpen(open); if (!open) mutate() }}
       />
     </div>
   )

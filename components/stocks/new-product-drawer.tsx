@@ -131,8 +131,13 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
       resetForm()
       onOpenChange(false)
-    } catch {
-      toast.error("Erreur lors de la creation du produit")
+    } catch (err: any) {
+      const msg = err?.message || ""
+      if (msg.startsWith("DUPLICATE:")) {
+        toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+      } else {
+        toast.error("Erreur lors de la creation du produit")
+      }
     } finally {
       setSaving(false)
     }

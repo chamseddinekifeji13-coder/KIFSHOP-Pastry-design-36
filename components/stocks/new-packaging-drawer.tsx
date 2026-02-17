@@ -74,8 +74,13 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
       } else {
         toast.error("Erreur lors de la creation")
       }
-    } catch {
-      toast.error("Erreur inattendue")
+    } catch (err: any) {
+      const msg = err?.message || ""
+      if (msg.startsWith("DUPLICATE:")) {
+        toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+      } else {
+        toast.error("Erreur inattendue")
+      }
     } finally {
       setSaving(false)
     }

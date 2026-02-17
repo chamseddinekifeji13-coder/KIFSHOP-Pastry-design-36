@@ -54,6 +54,22 @@ export async function createSupplier(tenantId: string, data: {
   name: string; contactName?: string; phone?: string; email?: string; products?: string[]
 }): Promise<Supplier | null> {
   const supabase = createClient()
+  // Check for duplicate supplier by name
+  const { data: existing } = await supabase
+    .from("suppliers").select("id, name").eq("tenant_id", tenantId)
+    .ilike("name", data.name.trim()).limit(1)
+  if (existing && existing.length > 0) {
+    throw new Error(`DUPLICATE:Le fournisseur "${existing[0].name}" existe deja`)
+  }
+  // Check for duplicate supplier by phone
+  if (data.phone) {
+    const { data: phoneMatch } = await supabase
+      .from("suppliers").select("id, name, phone").eq("tenant_id", tenantId)
+      .eq("phone", data.phone.trim()).limit(1)
+    if (phoneMatch && phoneMatch.length > 0) {
+      throw new Error(`DUPLICATE:Un fournisseur avec ce numero existe deja: "${phoneMatch[0].name}"`)
+    }
+  }
   const { data: row, error } = await supabase.from("suppliers").insert({
     tenant_id: tenantId, name: data.name, contact_name: data.contactName || null,
     phone: data.phone || null, email: data.email || null, products: data.products || [],
