@@ -24,7 +24,7 @@ export interface Order {
   deliveryType: "pickup" | "delivery"
   courier?: string
   trackingNumber?: string
-  source: "whatsapp" | "messenger" | "phone" | "web" | "instagram" | "comptoir"
+  source: "whatsapp" | "messenger" | "phone" | "web" | "instagram" | "tiktok" | "comptoir"
   paymentStatus: "paid" | "unpaid" | "partial"
   createdAt: string
   deliveryDate?: string

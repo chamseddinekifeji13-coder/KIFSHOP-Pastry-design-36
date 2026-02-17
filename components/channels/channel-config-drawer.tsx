@@ -14,7 +14,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import type { SalesChannel } from "@/lib/mock-data"
+interface SalesChannel {
+  id: string; name: string; type: string; isActive: boolean; orderCount: number
+  config?: Record<string, string>
+}
 import { toast } from "sonner"
 
 const channelIcons: Record<string, typeof MessageCircle> = {
@@ -23,6 +26,7 @@ const channelIcons: Record<string, typeof MessageCircle> = {
   phone: Phone,
   web: Globe,
   instagram: Instagram,
+  tiktok: Globe,
 }
 
 const channelColors: Record<string, { bg: string; icon: string; accent: string; border: string }> = {
@@ -31,6 +35,7 @@ const channelColors: Record<string, { bg: string; icon: string; accent: string; 
   phone: { bg: "from-amber-50 to-orange-50", icon: "bg-amber-100 text-amber-600", accent: "bg-amber-600 hover:bg-amber-700", border: "border-amber-100" },
   web: { bg: "from-cyan-50 to-teal-50", icon: "bg-cyan-100 text-cyan-600", accent: "bg-cyan-600 hover:bg-cyan-700", border: "border-cyan-100" },
   instagram: { bg: "from-pink-50 to-rose-50", icon: "bg-pink-100 text-pink-600", accent: "bg-pink-600 hover:bg-pink-700", border: "border-pink-100" },
+  tiktok: { bg: "from-gray-50 to-slate-50", icon: "bg-gray-100 text-gray-800", accent: "bg-gray-800 hover:bg-gray-900", border: "border-gray-100" },
 }
 
 interface ChannelConfigDrawerProps {
@@ -118,6 +123,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
                  channel.type === "whatsapp" ? "Numero WhatsApp Business" :
                  channel.type === "messenger" ? "Lien de la page Facebook" :
                  channel.type === "instagram" ? "Nom d'utilisateur Instagram" :
+                 channel.type === "tiktok" ? "Nom d'utilisateur TikTok" :
                  "URL du site web"}
               </Label>
               <div className="relative">
@@ -131,6 +137,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
                     channel.type === "whatsapp" ? "+216 XX XXX XXX" :
                     channel.type === "messenger" ? "fb.com/votre-page" :
                     channel.type === "instagram" ? "@votre_compte" :
+                    channel.type === "tiktok" ? "@votre_tiktok" :
                     "https://votre-site.com"
                   }
                 />
@@ -139,7 +146,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
           </div>
 
           {/* Auto-reply for messaging channels */}
-          {(channel.type === "whatsapp" || channel.type === "messenger" || channel.type === "instagram") && (
+          {(channel.type === "whatsapp" || channel.type === "messenger" || channel.type === "instagram" || channel.type === "tiktok") && (
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Zap className="h-4 w-4 text-amber-500" />

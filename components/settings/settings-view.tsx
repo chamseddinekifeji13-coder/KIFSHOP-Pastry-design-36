@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
-import { getCategories } from "@/lib/mock-data"
+import { useCategories } from "@/hooks/use-tenant-data"
 import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
@@ -24,7 +24,7 @@ import { toast } from "sonner"
 
 export function SettingsView() {
   const { currentTenant, currentRole, users, isLoading: tenantLoading } = useTenant()
-  const categories = getCategories(currentTenant.id)
+  const { data: categories = [] } = useCategories()
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [usersOpen, setUsersOpen] = useState(false)

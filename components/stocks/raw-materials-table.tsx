@@ -1,18 +1,11 @@
 "use client"
 
-import { MapPin, AlertTriangle, Clock } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import type { RawMaterial } from "@/lib/mock-data"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { RawMaterial } from "@/lib/stocks/actions"
 
 interface RawMaterialsTableProps {
   materials: RawMaterial[]
@@ -20,33 +13,20 @@ interface RawMaterialsTableProps {
 }
 
 export function RawMaterialsTable({ materials, onItemClick }: RawMaterialsTableProps) {
-  const getStatusBadge = (status: RawMaterial["status"]) => {
-    switch (status) {
-      case "in-stock":
-        return <Badge variant="default" className="bg-primary">En stock</Badge>
-      case "critical":
-        return <Badge variant="destructive">Critique</Badge>
-      case "expiring":
-        return <Badge className="bg-warning text-warning-foreground">Proche expiration</Badge>
-      default:
-        return null
-    }
+  const getStatus = (m: RawMaterial) => {
+    if (m.minStock > 0 && m.currentStock <= m.minStock) return "critical"
+    return "in-stock"
   }
 
-  const getStockPercentage = (quantity: number, threshold: number) => {
-    const maxStock = threshold * 3
-    return Math.min((quantity / maxStock) * 100, 100)
-  }
-
-  const getProgressColor = (status: RawMaterial["status"]) => {
-    switch (status) {
-      case "critical":
-        return "bg-destructive"
-      case "expiring":
-        return "bg-warning"
-      default:
-        return "bg-primary"
-    }
+  if (materials.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <p className="text-sm font-medium">Aucune matiere premiere</p>
+          <p className="text-xs text-muted-foreground mt-1">Ajoutez des matieres premieres via un mouvement de stock</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -57,58 +37,45 @@ export function RawMaterialsTable({ materials, onItemClick }: RawMaterialsTableP
             <TableHeader>
               <TableRow>
                 <TableHead>Article</TableHead>
-                <TableHead>Quantité</TableHead>
-                <TableHead className="hidden md:table-cell">Localisation</TableHead>
+                <TableHead>Quantite</TableHead>
                 <TableHead className="hidden sm:table-cell">Niveau</TableHead>
+                <TableHead>Prix/Unite</TableHead>
                 <TableHead>Statut</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {materials.map((material) => (
-                <TableRow
-                  key={material.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => onItemClick(material.id, material.name)}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {material.status === "critical" && (
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
+              {materials.map((material) => {
+                const status = getStatus(material)
+                const maxStock = Math.max(material.minStock * 3, material.currentStock)
+                const pct = maxStock > 0 ? Math.min((material.currentStock / maxStock) * 100, 100) : 0
+                return (
+                  <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(material.id, material.name)}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {status === "critical" && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                        <span className="font-medium">{material.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={status === "critical" ? "text-destructive font-semibold" : ""}>
+                        {material.currentStock} {material.unit}
+                      </span>
+                      {material.minStock > 0 && (
+                        <span className="text-muted-foreground text-xs block">Seuil: {material.minStock} {material.unit}</span>
                       )}
-                      {material.status === "expiring" && (
-                        <Clock className="h-4 w-4 text-warning" />
-                      )}
-                      <span className="font-medium">{material.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={material.status === "critical" ? "text-destructive font-semibold" : ""}>
-                      {material.quantity} {material.unit}
-                    </span>
-                    <span className="text-muted-foreground text-xs block">
-                      Seuil: {material.safetyThreshold} {material.unit}
-                    </span>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                      {material.location === "labo" ? "Labo" : "Réserve"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <div className="w-24">
-                      <Progress
-                        value={getStockPercentage(material.quantity, material.safetyThreshold)}
-                        className="h-2"
-                        indicatorClassName={getProgressColor(material.status)}
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(material.status)}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <div className="w-24">
+                        <Progress value={pct} className="h-2" indicatorClassName={status === "critical" ? "bg-destructive" : "bg-primary"} />
+                      </div>
+                    </TableCell>
+                    <TableCell>{material.pricePerUnit.toLocaleString("fr-TN")} TND</TableCell>
+                    <TableCell>
+                      {status === "critical" ? <Badge variant="destructive">Critique</Badge> : <Badge variant="default" className="bg-primary">En stock</Badge>}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </div>

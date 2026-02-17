@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useTenant } from "@/lib/tenant-context"
-import { getCategories, type ProductCategory } from "@/lib/mock-data"
+import { useCategories } from "@/hooks/use-tenant-data"
 import { toast } from "sonner"
 
 interface CategoriesDrawerProps {
@@ -31,7 +31,7 @@ interface EditableCategory {
 
 export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) {
   const { currentTenant } = useTenant()
-  const existingCategories = getCategories(currentTenant.id)
+  const { data: existingCategories = [] } = useCategories()
 
   const [categories, setCategories] = useState<EditableCategory[]>([])
   const [newName, setNewName] = useState("")

@@ -9,30 +9,35 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTenant } from "@/lib/tenant-context"
-import { getCatalog, getOrders, type CatalogProduct } from "@/lib/mock-data"
+import { useFinishedProducts, useOrders } from "@/hooks/use-tenant-data"
 import { toast } from "sonner"
 import { ProductEditDrawer } from "./product-edit-drawer"
 
 export function BoutiqueView() {
   const { currentTenant } = useTenant()
-  const catalog = getCatalog(currentTenant.id)
-  const orders = getOrders(currentTenant.id)
+  const { data: products = [] } = useFinishedProducts()
+  const { data: orders = [] } = useOrders()
 
-  const [editProduct, setEditProduct] = useState<CatalogProduct | null>(null)
+  const catalog = products.map((p: any) => ({
+    id: p.id, name: p.name, category: p.category, price: p.price,
+    image: "", isPublished: true, description: p.description || "",
+  }))
+
+  const [editProduct, setEditProduct] = useState<any>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
 
   const publishedCount = catalog.filter(p => p.isPublished).length
-  const onlineOrders = orders.filter(o => o.source === "web" || o.source === "whatsapp" || o.source === "messenger" || o.source === "instagram")
-  const onlineRevenue = onlineOrders.reduce((sum, o) => sum + o.total, 0)
+  const onlineOrders = orders.filter((o: any) => o.source === "web" || o.source === "whatsapp" || o.source === "messenger" || o.source === "instagram" || o.source === "tiktok")
+  const onlineRevenue = onlineOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
 
-  const handleTogglePublish = (product: CatalogProduct) => {
+  const handleTogglePublish = (product: any) => {
     toast.success(product.isPublished ? "Produit masque" : "Produit publie", {
       description: product.name,
     })
   }
 
-  const handleEdit = (product: CatalogProduct) => {
+  const handleEdit = (product: any) => {
     setEditProduct(product)
     setEditOpen(true)
   }

@@ -1,8 +1,11 @@
 "use client"
 
-import { Bell, ChevronDown, Menu, Users } from "lucide-react"
+import { Bell, BellOff, ChevronDown, Menu, Users, UserPlus } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useDueReminders } from "@/hooks/use-tenant-data"
+import { dismissReminder } from "@/lib/prospects/actions"
+import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +41,13 @@ export function Topbar() {
   } = useTenant()
   const router = useRouter()
   const pathname = usePathname()
+  const { data: reminders = [], mutate: mutateReminders } = useDueReminders()
+
+  async function handleDismissReminder(id: string) {
+    await dismissReminder(id)
+    mutateReminders()
+    toast.success("Rappel ignore")
+  }
 
   function handleUserSwitch(userId: string) {
     const user = users.find((u) => u.id === userId)
@@ -147,14 +157,65 @@ export function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-            3
-          </span>
-          <span className="sr-only">Notifications</span>
-        </Button>
+        {/* Notifications / Prospect Reminders */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              {reminders.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-medium text-white animate-pulse">
+                  {reminders.length}
+                </span>
+              )}
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Rappels prospects</span>
+              {reminders.length > 0 && (
+                <Badge variant="secondary" className="text-[10px]">{reminders.length}</Badge>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {reminders.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Aucun rappel en attente
+              </div>
+            ) : (
+              <>
+                {reminders.slice(0, 5).map((r) => (
+                  <DropdownMenuItem key={r.id} className="flex items-start gap-3 p-3 cursor-pointer" onClick={() => router.push("/prospects")}>
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 mt-0.5">
+                      <UserPlus className="h-3.5 w-3.5 text-amber-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{r.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {r.phone || "Pas de telephone"} - Relancer maintenant
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); handleDismissReminder(r.id) }}>
+                      <BellOff className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuItem>
+                ))}
+                {reminders.length > 5 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-center text-xs text-muted-foreground justify-center" onClick={() => router.push("/prospects")}>
+                      Voir les {reminders.length - 5} autres rappels
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="justify-center text-xs font-medium text-[#4A7C59]" onClick={() => router.push("/prospects")}>
+              Voir tous les prospects
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* User Menu */}
         <DropdownMenu>
