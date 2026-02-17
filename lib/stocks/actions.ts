@@ -111,33 +111,84 @@ export async function updateRawMaterial(id: string, data: Partial<{
   return true
 }
 
-export async function deleteRawMaterial(id: string): Promise<boolean> {
+// ─── Inventory ────────────────────────────────────────────────
+
+export interface InventoryCountItem {
+  id: string; name: string; type: "mp" | "pf"
+  theoreticalQty: number; physicalQty: number; unit: string; note: string
+}
+
+export async function saveInventorySession(tenantId: string, counts: InventoryCountItem[]): Promise<string | null> {
   const supabase = createClient()
-  const { error } = await supabase.from("raw_materials").delete().eq("id", id)
-  if (error) { console.error("Error deleting raw material:", error.message); return false }
+  const { data: { user } } = await supabase.auth.getUser()
+  const discrepancies = counts.filter(c => c.physicalQty !== c.theoreticalQty).length
+
+  const { data: session, error } = await supabase.from("inventory_sessions").insert({
+    tenant_id: tenantId, status: discrepancies > 0 ? "en-cours" : "valide",
+    items_count: counts.length, discrepancies, created_by: user?.id || null,
+    completed_at: discrepancies === 0 ? new Date().toISOString() : null,
+  }).select("id").single()
+
+  if (error || !session) { console.error("Error saving inventory session:", error?.message); return null }
+
+  const rows = counts.map(c => ({
+    session_id: session.id, item_type: c.type === "mp" ? "raw_material" : "finished_product",
+    raw_material_id: c.type === "mp" ? c.id : null,
+    finished_product_id: c.type === "pf" ? c.id : null,
+    item_name: c.name, theoretical_qty: c.theoreticalQty,
+    physical_qty: c.physicalQty, unit: c.unit,
+    discrepancy: c.physicalQty - c.theoreticalQty, note: c.note || null,
+  }))
+  await supabase.from("inventory_counts").insert(rows)
+  return session.id
+}
+
+export async function fetchInventoryCounts(sessionId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase.from("inventory_counts").select("*").eq("session_id", sessionId)
+  if (error) { console.error("Error fetching inventory counts:", error.message); return [] }
+  return (data || []).map(c => ({
+    id: c.id, sessionId: c.session_id, itemType: c.item_type,
+    rawMaterialId: c.raw_material_id, finishedProductId: c.finished_product_id,
+    itemName: c.item_name, theoreticalQty: Number(c.theoretical_qty),
+    physicalQty: Number(c.physical_qty), unit: c.unit,
+    discrepancy: Number(c.discrepancy), note: c.note,
+  }))
+}
+
+export async function applyInventoryCorrections(tenantId: string, sessionId: string, corrections: {
+  itemId: string; itemType: "raw_material" | "finished_product"; physicalQty: number; unit: string
+}[]): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  for (const c of corrections) {
+    const table = c.itemType === "raw_material" ? "raw_materials" : "finished_products"
+    const { data: item } = await supabase.from(table).select("current_stock").eq("id", c.itemId).single()
+    const currentStock = Number(item?.current_stock || 0)
+    const delta = c.physicalQty - currentStock
+
+    if (delta !== 0) {
+      await supabase.from("stock_movements").insert({
+        tenant_id: tenantId, item_type: c.itemType,
+        raw_material_id: c.itemType === "raw_material" ? c.itemId : null,
+        finished_product_id: c.itemType === "finished_product" ? c.itemId : null,
+        movement_type: delta > 0 ? "entree" : "sortie",
+        quantity: Math.abs(delta), unit: c.unit,
+        reason: "Ajustement inventaire", reference: `INV-${sessionId.slice(0, 8)}`,
+        created_by: user?.id || null,
+      })
+      await supabase.from(table).update({ current_stock: c.physicalQty }).eq("id", c.itemId)
+    }
+  }
+
+  await supabase.from("inventory_sessions").update({
+    status: "valide", completed_at: new Date().toISOString()
+  }).eq("id", sessionId)
+
   return true
 }
 
-// ─── Finished Products ────────────────────────────────────────
-
-export async function fetchFinishedProducts(tenantId: string): Promise<FinishedProduct[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("finished_products")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("name")
-
-  if (error) { console.error("Error fetching finished products:", error.message); return [] }
-  return (data || []).map((p) => ({
-    id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, name: p.name,
-    description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
-    minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
-    costPrice: Number(p.cost_price), imageUrl: p.image_url, weight: p.weight,
-    isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [],
-    createdAt: p.created_at,
-  }))
-}
 
 export async function createFinishedProduct(tenantId: string, data: {
   name: string; categoryId?: string; unit: string; currentStock: number; minStock: number;
