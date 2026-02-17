@@ -77,6 +77,13 @@ export async function createRawMaterial(tenantId: string, data: {
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string
 }): Promise<RawMaterial | null> {
   const supabase = createClient()
+  // Check for duplicate raw material by name
+  const { data: existing } = await supabase
+    .from("raw_materials").select("id, name").eq("tenant_id", tenantId)
+    .ilike("name", data.name.trim()).limit(1)
+  if (existing && existing.length > 0) {
+    throw new Error(`DUPLICATE:La matiere premiere "${existing[0].name}" existe deja`)
+  }
   const { data: row, error } = await supabase.from("raw_materials").insert({
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
@@ -137,6 +144,13 @@ export async function createFinishedProduct(tenantId: string, data: {
   sellingPrice: number; costPrice: number; description?: string; weight?: string
 }): Promise<FinishedProduct | null> {
   const supabase = createClient()
+  // Check for duplicate finished product by name
+  const { data: existing } = await supabase
+    .from("finished_products").select("id, name").eq("tenant_id", tenantId)
+    .ilike("name", data.name.trim()).limit(1)
+  if (existing && existing.length > 0) {
+    throw new Error(`DUPLICATE:Le produit fini "${existing[0].name}" existe deja`)
+  }
   const { data: row, error } = await supabase.from("finished_products").insert({
     tenant_id: tenantId, name: data.name, category_id: data.categoryId || null,
     unit: data.unit, current_stock: data.currentStock, min_stock: data.minStock,
@@ -259,6 +273,13 @@ export async function createPackaging(tenantId: string, data: {
   minStock: number; price: number; description?: string
 }): Promise<Packaging | null> {
   const supabase = createClient()
+  // Check for duplicate packaging by name + type
+  const { data: existing } = await supabase
+    .from("packaging").select("id, name, type").eq("tenant_id", tenantId)
+    .ilike("name", data.name.trim()).eq("type", data.type).limit(1)
+  if (existing && existing.length > 0) {
+    throw new Error(`DUPLICATE:L'emballage "${existing[0].name}" (${existing[0].type}) existe deja`)
+  }
   const { data: row, error } = await supabase.from("packaging").insert({
     tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,

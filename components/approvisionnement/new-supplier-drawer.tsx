@@ -43,6 +43,11 @@ export function NewSupplierDrawer({ open, onOpenChange, onSuccess }: NewSupplier
         toast.success("Fournisseur ajoute", { description: result.name })
         resetForm(); onOpenChange(false); onSuccess()
       } else { toast.error("Erreur lors de la creation") }
+    } catch (err: any) {
+      const msg = err?.message || ""
+      if (msg.startsWith("DUPLICATE:")) {
+        toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+      } else { toast.error("Erreur inattendue") }
     } finally { setSaving(false) }
   }
 
