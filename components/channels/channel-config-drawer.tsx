@@ -17,6 +17,7 @@ import {
 interface SalesChannel {
   id: string; name: string; type: string; isActive: boolean; orderCount: number
   config?: Record<string, string>
+  enabled?: boolean; contact?: string; ordersCount?: number; revenue?: number; autoReply?: string
 }
 import { toast } from "sonner"
 
@@ -54,9 +55,9 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
 
   useEffect(() => {
     if (channel) {
-      setContact(channel.contact)
+      setContact(channel.contact || "")
       setAutoReply(channel.autoReply || "")
-      setEnabled(channel.enabled)
+      setEnabled(channel.enabled ?? channel.isActive ?? false)
     }
   }, [channel])
 
