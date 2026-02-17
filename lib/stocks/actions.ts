@@ -190,6 +190,23 @@ export async function applyInventoryCorrections(tenantId: string, sessionId: str
 }
 
 
+export async function fetchFinishedProducts(tenantId: string): Promise<FinishedProduct[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("finished_products")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("name")
+  if (error) { console.error("Error fetching finished products:", error.message); return [] }
+  return (data || []).map((p) => ({
+    id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, name: p.name,
+    description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
+    minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
+    costPrice: Number(p.cost_price), imageUrl: p.image_url, weight: p.weight,
+    isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
+  }))
+}
+
 export async function createFinishedProduct(tenantId: string, data: {
   name: string; categoryId?: string; unit: string; currentStock: number; minStock: number;
   sellingPrice: number; costPrice: number; description?: string; weight?: string
