@@ -165,6 +165,38 @@ export async function createFinishedProduct(tenantId: string, data: {
     isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at }
 }
 
+export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from("finished_products")
+    .update({ image_url: imageUrl })
+    .eq("id", productId)
+  if (error) { console.error("Error updating product image:", error.message); return false }
+  return true
+}
+
+export async function updateFinishedProduct(productId: string, data: {
+  name?: string; description?: string; sellingPrice?: number; unit?: string;
+  weight?: string; isPublished?: boolean; minOrder?: number; tags?: string[];
+  imageUrl?: string
+}): Promise<boolean> {
+  const supabase = createClient()
+  const update: Record<string, any> = {}
+  if (data.name !== undefined) update.name = data.name
+  if (data.description !== undefined) update.description = data.description
+  if (data.sellingPrice !== undefined) update.selling_price = data.sellingPrice
+  if (data.unit !== undefined) update.unit = data.unit
+  if (data.weight !== undefined) update.weight = data.weight
+  if (data.isPublished !== undefined) update.is_published = data.isPublished
+  if (data.minOrder !== undefined) update.min_order = data.minOrder
+  if (data.tags !== undefined) update.tags = data.tags
+  if (data.imageUrl !== undefined) update.image_url = data.imageUrl
+
+  const { error } = await supabase.from("finished_products").update(update).eq("id", productId)
+  if (error) { console.error("Error updating finished product:", error.message); return false }
+  return true
+}
+
 // Alias for backward compatibility
 export const addFinishedProduct = createFinishedProduct
 

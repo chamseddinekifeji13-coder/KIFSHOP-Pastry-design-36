@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Save, ShoppingBag, Tag, Eye, EyeOff } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Save, ShoppingBag, Tag, Eye, EyeOff, Camera, X, Loader2, ImageIcon } from "lucide-react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,11 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { updateFinishedProduct } from "@/lib/stocks/actions"
+import { useFinishedProducts } from "@/hooks/use-tenant-data"
 import { toast } from "sonner"
 
 interface CatalogProduct {
   id: string; name: string; category: string; price: number
-  image?: string; isPublished?: boolean; description?: string
+  image?: string; imageUrl?: string; isPublished?: boolean; description?: string
+  unit?: string; weight?: string; minOrder?: number; tags?: string[]
 }
 
 interface ProductEditDrawerProps {
@@ -32,33 +36,106 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [price, setPrice] = useState("")
-  const [unit, setUnit] = useState("")
-  const [minOrder, setMinOrder] = useState("")
+  const [unit, setUnit] = useState("piece")
+  const [minOrder, setMinOrder] = useState("1")
   const [weight, setWeight] = useState("")
   const [category, setCategory] = useState("")
   const [isPublished, setIsPublished] = useState(false)
   const [tags, setTags] = useState("")
+  const [imageUrl, setImageUrl] = useState("")
+  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { mutate } = useFinishedProducts()
 
   const isAddMode = !product
 
   useEffect(() => {
     if (product) {
-      setName(product.name); setDescription(product.description); setPrice(product.price.toString())
-      setUnit(product.unit); setMinOrder(product.minOrder.toString()); setWeight(product.weight || "")
-      setCategory(product.category); setIsPublished(product.isPublished); setTags(product.tags.join(", "))
+      setName(product.name)
+      setDescription(product.description || "")
+      setPrice(product.price.toString())
+      setUnit(product.unit || "piece")
+      setMinOrder((product.minOrder || 1).toString())
+      setWeight(product.weight || "")
+      setCategory(product.category || "")
+      setIsPublished(product.isPublished ?? false)
+      setTags(product.tags?.join(", ") || "")
+      setImageUrl(product.imageUrl || product.image || "")
     } else {
       setName(""); setDescription(""); setPrice(""); setUnit("piece"); setMinOrder("1")
-      setWeight(""); setCategory(""); setIsPublished(false); setTags("")
+      setWeight(""); setCategory(""); setIsPublished(false); setTags(""); setImageUrl("")
     }
-  }, [product])
+  }, [product, open])
 
-  const handleSubmit = () => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Client-side validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"]
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Format non supporte", { description: "Utilisez JPG, PNG ou WebP" })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux", { description: "Maximum 5 Mo" })
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Upload failed")
+      setImageUrl(data.url)
+      toast.success("Photo ajoutee")
+    } catch (err: any) {
+      toast.error("Erreur lors de l'upload", { description: err.message })
+    } finally {
+      setUploading(false)
+      // Reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setImageUrl("")
+  }
+
+  const handleSubmit = async () => {
     if (!name.trim() || !price) {
       toast.error("Nom et prix sont obligatoires")
       return
     }
-    toast.success(isAddMode ? "Produit ajoute" : "Produit mis a jour", { description: name })
-    onOpenChange(false)
+
+    if (product) {
+      setSaving(true)
+      const success = await updateFinishedProduct(product.id, {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        sellingPrice: Number(price),
+        unit,
+        weight: weight.trim() || undefined,
+        isPublished,
+        minOrder: Number(minOrder) || 1,
+        tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+        imageUrl: imageUrl || undefined,
+      })
+      setSaving(false)
+      if (success) {
+        toast.success("Produit mis a jour", { description: name })
+        mutate()
+        onOpenChange(false)
+      } else {
+        toast.error("Erreur lors de la mise a jour")
+      }
+    } else {
+      toast.success("Produit ajoute", { description: name })
+      onOpenChange(false)
+    }
   }
 
   return (
@@ -79,6 +156,83 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
 
         {/* Body */}
         <div className="flex-1 px-6 py-6 space-y-5">
+
+          {/* Photo Upload Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Camera className="h-3.5 w-3.5" />
+              Photo du produit
+            </div>
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+
+              {imageUrl ? (
+                <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-muted">
+                  <Image
+                    src={imageUrl}
+                    alt={name || "Photo produit"}
+                    fill
+                    className="object-cover"
+                    crossOrigin="anonymous"
+                  />
+                  <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="rounded-full shadow-lg"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        <Camera className="mr-1 h-3.5 w-3.5" />
+                        Changer
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="rounded-full shadow-lg"
+                        onClick={handleRemoveImage}
+                      >
+                        <X className="mr-1 h-3.5 w-3.5" />
+                        Supprimer
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full aspect-[4/3] rounded-lg border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors flex flex-col items-center justify-center gap-3 cursor-pointer bg-muted/30 hover:bg-muted/50"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                      <span className="text-sm text-muted-foreground">Upload en cours...</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Ajouter une photo</p>
+                        <p className="text-xs text-muted-foreground mt-1">JPG, PNG ou WebP - Max 5 Mo</p>
+                      </div>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Product Info */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -176,8 +330,12 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
           <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={handleSubmit}>
-            <Save className="mr-2 h-4 w-4" />
+          <Button
+            className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all"
+            onClick={handleSubmit}
+            disabled={saving || uploading}
+          >
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Enregistrer
           </Button>
         </div>
