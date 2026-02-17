@@ -35,7 +35,7 @@ export function StocksView() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Gestion des Stocks</h1>
-          <p className="text-muted-foreground">Gerez vos matieres premieres, produits finis et emballages.</p>
+          <p className="text-muted-foreground">Gerez vos matieres premieres, produits finis et emballages</p>
         </div>
         <div className="flex gap-2">
           {selectedTab === "raw" ? (
