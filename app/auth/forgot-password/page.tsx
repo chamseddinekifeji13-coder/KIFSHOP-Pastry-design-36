@@ -33,8 +33,6 @@ export default function ForgotPasswordPage() {
         redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       })
 
-      console.log("[v0] resetPasswordForEmail error:", error)
-
       if (error) {
         if (error.message?.includes("rate") || error.status === 429) {
           setError("Trop de tentatives. Veuillez attendre quelques minutes avant de reessayer.")
@@ -49,8 +47,7 @@ export default function ForgotPasswordPage() {
         setLoading(false)
         return
       }
-    } catch (err) {
-      console.log("[v0] resetPasswordForEmail catch:", err)
+    } catch {
       setError("Erreur de connexion. Verifiez votre connexion internet.")
       setLoading(false)
       return

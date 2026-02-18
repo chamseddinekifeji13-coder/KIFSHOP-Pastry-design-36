@@ -12,7 +12,24 @@ export const metadata: Metadata = {
   title: 'KIFSHOP - Gestion Pâtisserie',
   description: 'Application SaaS multi-tenant pour la gestion des pâtisseries et laboratoires en Tunisie',
   generator: 'v0.app',
+  metadataBase: new URL('https://kifshop.tn'),
   manifest: '/manifest.json',
+  openGraph: {
+    title: 'KIFSHOP - Gestion Pâtisserie',
+    description: 'Application SaaS multi-tenant pour la gestion des pâtisseries et laboratoires en Tunisie',
+    url: 'https://kifshop.tn',
+    siteName: 'KIFSHOP',
+    locale: 'fr_TN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KIFSHOP - Gestion Pâtisserie',
+    description: 'Gestion complète pour pâtisseries et laboratoires en Tunisie',
+  },
+  alternates: {
+    canonical: 'https://kifshop.tn',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
