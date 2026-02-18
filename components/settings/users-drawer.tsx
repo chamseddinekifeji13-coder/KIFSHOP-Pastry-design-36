@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, X, Users, Pencil, Check, UserPlus, Shield, Sparkles } from "lucide-react"
+import { Plus, Trash2, X, Users, Pencil, Check, UserPlus, Shield, Sparkles, Loader2, KeyRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useTenant, ALL_ROLES, ROLE_LABELS, type UserRole } from "@/lib/tenant-context"
+import { addEmployee, updateEmployee, removeEmployee } from "@/lib/employees/actions"
 import { toast } from "sonner"
 
 interface UsersDrawerProps {
@@ -30,19 +31,23 @@ interface UsersDrawerProps {
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
+  owner: "bg-slate-100 text-slate-800 border-slate-200",
   gerant: "bg-amber-100 text-amber-800 border-amber-200",
   vendeur: "bg-blue-100 text-blue-800 border-blue-200",
   magasinier: "bg-emerald-100 text-emerald-800 border-emerald-200",
   achat: "bg-purple-100 text-purple-800 border-purple-200",
   caissier: "bg-rose-100 text-rose-800 border-rose-200",
+  patissier: "bg-orange-100 text-orange-800 border-orange-200",
 }
 
 const ROLE_AVATAR_COLORS: Record<UserRole, string> = {
+  owner: "bg-slate-100 text-slate-700",
   gerant: "bg-amber-100 text-amber-700",
   vendeur: "bg-blue-100 text-blue-700",
   magasinier: "bg-emerald-100 text-emerald-700",
   achat: "bg-purple-100 text-purple-700",
   caissier: "bg-rose-100 text-rose-700",
+  patissier: "bg-orange-100 text-orange-700",
 }
 
 function generateInitials(name: string): string {
@@ -54,55 +59,97 @@ function generateInitials(name: string): string {
 }
 
 export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
-  const { users, currentUser, addUser, updateUser, removeUser } = useTenant()
+  const { users, currentUser, reloadUsers } = useTenant()
 
   const [newName, setNewName] = useState("")
   const [newRole, setNewRole] = useState<UserRole>("vendeur")
+  const [newPin, setNewPin] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [editRole, setEditRole] = useState<UserRole>("vendeur")
+  const [editPin, setEditPin] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim()) {
       toast.error("Veuillez saisir un nom")
       return
     }
-
-    const initials = generateInitials(newName)
-    addUser({ name: newName.trim(), role: newRole, initials })
-
-    toast.success("Utilisateur ajoute", {
-      description: `${newName.trim()} a ete ajoute en tant que ${ROLE_LABELS[newRole]}`,
-    })
-    setNewName("")
-    setNewRole("vendeur")
+    setSaving(true)
+    try {
+      await addEmployee({
+        display_name: newName.trim(),
+        role: newRole,
+        pin: newPin || undefined,
+      })
+      await reloadUsers()
+      toast.success("Employe ajoute", {
+        description: `${newName.trim()} a ete ajoute en tant que ${ROLE_LABELS[newRole]}`,
+      })
+      setNewName("")
+      setNewRole("vendeur")
+      setNewPin("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'ajout")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const startEdit = (user: { id: string; name: string; role: UserRole }) => {
+  const startEdit = (user: { id: string; name: string; role: UserRole; dbId?: string; pin?: string }) => {
     setEditingId(user.id)
     setEditName(user.name)
     setEditRole(user.role)
+    setEditPin(user.pin || "")
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingId || !editName.trim()) return
-    const initials = generateInitials(editName)
-    updateUser(editingId, { name: editName.trim(), role: editRole, initials })
-    toast.success("Utilisateur modifie")
-    setEditingId(null)
+    const targetUser = users.find((u) => u.id === editingId)
+    if (!targetUser?.dbId) {
+      toast.error("Impossible de modifier cet utilisateur")
+      return
+    }
+    setSaving(true)
+    try {
+      await updateEmployee(targetUser.dbId, {
+        display_name: editName.trim(),
+        role: editRole,
+        pin: editPin || null,
+      })
+      await reloadUsers()
+      toast.success("Employe modifie")
+      setEditingId(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la modification")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleRemove = (id: string, name: string) => {
+  const handleRemove = async (id: string, name: string) => {
     if (id === currentUser.id) {
       toast.error("Impossible de supprimer l'utilisateur actif")
       return
     }
-    removeUser(id)
-    toast.success("Utilisateur supprime", {
-      description: `${name} a ete retire de la liste`,
-    })
+    const targetUser = users.find((u) => u.id === id)
+    if (!targetUser?.dbId) return
+    setRemovingId(id)
+    try {
+      await removeEmployee(targetUser.dbId)
+      await reloadUsers()
+      toast.success("Employe supprime", {
+        description: `${name} a ete retire de l'equipe`,
+      })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la suppression")
+    } finally {
+      setRemovingId(null)
+    }
   }
 
+  // Show all roles in grouping but owner at top
   const groupedUsers = ALL_ROLES.map((role) => ({
     role,
     label: ROLE_LABELS[role],
@@ -158,7 +205,7 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {ALL_ROLES.map((role) => (
+                      {ALL_ROLES.filter((r) => r !== "owner").map((role) => (
                         <SelectItem key={role} value={role}>
                           {ROLE_LABELS[role]}
                         </SelectItem>
@@ -166,16 +213,29 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end">
-                  <Button
-                    onClick={handleAdd}
-                    className="bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter
-                  </Button>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <KeyRound className="h-3 w-3" />
+                    Code PIN
+                  </Label>
+                  <Input
+                    type="password"
+                    placeholder="4 chiffres"
+                    maxLength={4}
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+                    className="transition-all focus:ring-2 focus:ring-violet-200"
+                  />
                 </div>
               </div>
+              <Button
+                onClick={handleAdd}
+                disabled={saving || !newName.trim()}
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+              >
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                Ajouter l{"'"}employe
+              </Button>
             </div>
           </div>
 
@@ -233,13 +293,22 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                                 ))}
                               </SelectContent>
                             </Select>
+                            <Input
+                              type="password"
+                              placeholder="PIN"
+                              maxLength={4}
+                              value={editPin}
+                              onChange={(e) => setEditPin(e.target.value.replace(/\D/g, ""))}
+                              className="h-8 w-16 text-xs shrink-0 focus:ring-2 focus:ring-violet-200"
+                            />
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 shrink-0"
                               onClick={saveEdit}
+                              disabled={saving}
                             >
-                              <Check className="h-3.5 w-3.5" />
+                              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                             </Button>
                             <Button
                               variant="ghost"
@@ -265,11 +334,18 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                                 Vous
                               </Badge>
                             )}
+                            {user.pin && (
+                              <Badge variant="outline" className="text-[10px] shrink-0 gap-1">
+                                <KeyRound className="h-2.5 w-2.5" />
+                                PIN
+                              </Badge>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50 shrink-0"
                               onClick={() => startEdit(user)}
+                              disabled={saving}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -278,9 +354,13 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                               onClick={() => handleRemove(user.id, user.name)}
-                              disabled={user.id === currentUser.id}
+                              disabled={user.id === currentUser.id || removingId === user.id}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              {removingId === user.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
                             </Button>
                           </>
                         )}
