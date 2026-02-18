@@ -32,10 +32,6 @@ export default function ResetPasswordPage() {
     const supabase = createClient()
 
     async function checkSession() {
-      console.log("[v0] Reset page - URL:", window.location.href)
-      console.log("[v0] Reset page - hash:", window.location.hash)
-      console.log("[v0] Reset page - search:", window.location.search)
-
       // 1. Handle PKCE flow: exchange code from URL query params
       const urlParams = new URLSearchParams(window.location.search)
       const code = urlParams.get("code")
