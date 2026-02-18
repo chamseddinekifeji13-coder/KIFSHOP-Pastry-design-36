@@ -57,6 +57,8 @@ export interface AppUser {
   role: UserRole
   initials: string
   email?: string
+  dbId?: string   // tenant_users.id for DB operations
+  pin?: string    // PIN code for employee access
 }
 
 // ─── Subscription ─────────────────────────────────────────────
@@ -95,6 +97,7 @@ export interface TenantState {
   addUser: (user: Omit<AppUser, "id">) => void
   updateUser: (id: string, updates: Partial<Omit<AppUser, "id">>) => void
   removeUser: (id: string) => void
+  reloadUsers: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -140,6 +143,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<AppUser[]>([FALLBACK_USER])
   const [currentUser, setCurrentUser] = useState<AppUser>(FALLBACK_USER)
   const [tenants, setTenants] = useState<Tenant[]>([FALLBACK_TENANT])
+  const [activeTenantId, setActiveTenantId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   // Load user data from Supabase
@@ -217,6 +221,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           }
           setCurrentTenant(tenant)
           setTenants([tenant])
+          setActiveTenantId(tenantData.id)
         }
 
         // Build AppUser from Supabase data
@@ -234,8 +239,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         // Load all team members for this tenant
         const { data: teamMembers } = await supabase
           .from("tenant_users")
-          .select("user_id, role, display_name")
+          .select("id, user_id, role, display_name, pin")
           .eq("tenant_id", tenantUser.tenant_id)
+          .order("created_at", { ascending: true })
 
         if (teamMembers && teamMembers.length > 0) {
           const allUsers: AppUser[] = teamMembers.map((m) => {
@@ -245,6 +251,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
               name,
               role: (m.role as UserRole) || "vendeur",
               initials: getInitials(name),
+              dbId: m.id,
+              pin: m.pin || undefined,
             }
           })
           setUsers(allUsers)
@@ -301,6 +309,31 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const reloadUsers = useCallback(async () => {
+    if (!activeTenantId) return
+    const supabase = createClient()
+    const { data: teamMembers } = await supabase
+      .from("tenant_users")
+      .select("id, user_id, role, display_name, pin")
+      .eq("tenant_id", activeTenantId)
+      .order("created_at", { ascending: true })
+
+    if (teamMembers && teamMembers.length > 0) {
+      const allUsers: AppUser[] = teamMembers.map((m) => {
+        const name = m.display_name || "Utilisateur"
+        return {
+          id: m.user_id,
+          name,
+          role: (m.role as UserRole) || "vendeur",
+          initials: getInitials(name),
+          dbId: m.id,
+          pin: m.pin || undefined,
+        }
+      })
+      setUsers(allUsers)
+    }
+  }, [activeTenantId])
+
   // Compute subscription state
   const sub = currentTenant.subscription
   const isSuspended = sub.status === "suspended"
@@ -329,6 +362,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         addUser,
         updateUser,
         removeUser,
+        reloadUsers,
         signOut,
       }}
     >
