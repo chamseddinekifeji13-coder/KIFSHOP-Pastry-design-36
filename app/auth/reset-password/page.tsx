@@ -27,19 +27,37 @@ export default function ResetPasswordPage() {
   const [checking, setChecking] = useState(true)
   const router = useRouter()
 
-  // Handle hash fragment tokens (Supabase implicit flow) and verify session
+  // Handle PKCE code exchange, hash fragment tokens, or existing session
   useEffect(() => {
     const supabase = createClient()
 
     async function checkSession() {
-      // If there's a hash fragment with access_token, Supabase client handles it automatically
+      console.log("[v0] Reset page - URL:", window.location.href)
+      console.log("[v0] Reset page - hash:", window.location.hash)
+      console.log("[v0] Reset page - search:", window.location.search)
+
+      // 1. Handle PKCE flow: exchange code from URL query params
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get("code")
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (!exchangeError) {
+          // Clean up the URL (remove the code param)
+          window.history.replaceState({}, "", "/auth/reset-password")
+          setSessionReady(true)
+          setChecking(false)
+          return
+        }
+      }
+
+      // 2. Handle implicit flow: hash fragment with access_token
       const hash = window.location.hash
       if (hash && hash.includes("access_token")) {
         // Supabase JS client auto-detects hash tokens on init
-        // Give it a moment to process
-        await new Promise((r) => setTimeout(r, 500))
+        await new Promise((r) => setTimeout(r, 1000))
       }
 
+      // 3. Check if we already have a session (from any flow)
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         setSessionReady(true)
