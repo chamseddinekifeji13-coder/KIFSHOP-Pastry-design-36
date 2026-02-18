@@ -64,6 +64,16 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Redirect super admins away from tenant dashboard to super-admin panel
+  if (user && pathname.startsWith('/dashboard')) {
+    const isSuperAdmin = user.user_metadata?.is_super_admin === true
+    if (isSuperAdmin) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/super-admin'
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Redirect logged-in users away from auth pages (except reset-password)
   const isResetPasswordRoute = pathname === '/auth/reset-password'
   if (user && isAuthRoute && !isResetPasswordRoute) {
