@@ -1,10 +1,10 @@
-const CACHE_NAME = 'kifshop-v1';
+const CACHE_NAME = 'kifshop-v2';
 const OFFLINE_URL = '/offline.html';
 
-// Assets to cache immediately on install
+// Assets to cache immediately on install (static assets only, no dynamic routes)
 const PRECACHE_ASSETS = [
-  '/',
   '/offline.html',
+  '/manifest.json',
   '/icons/icon-192x192.jpg',
   '/icons/icon-512x512.jpg'
 ];
@@ -42,6 +42,15 @@ self.addEventListener('fetch', (event) => {
 
   // Skip chrome-extension and other non-http requests
   if (!event.request.url.startsWith('http')) return;
+
+  const url = new URL(event.request.url);
+
+  // Skip API routes, auth callbacks, and Supabase requests
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/auth/callback') ||
+    url.hostname.includes('supabase')
+  ) return;
 
   event.respondWith(
     fetch(event.request)
