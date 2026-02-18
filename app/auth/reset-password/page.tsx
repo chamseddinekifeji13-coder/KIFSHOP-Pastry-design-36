@@ -49,8 +49,38 @@ export default function ResetPasswordPage() {
       // 2. Handle implicit flow: hash fragment with access_token
       const hash = window.location.hash
       if (hash && hash.includes("access_token")) {
-        // Supabase JS client auto-detects hash tokens on init
-        await new Promise((r) => setTimeout(r, 1000))
+        // Supabase JS client auto-detects hash tokens on init via onAuthStateChange
+        // We need to listen for the PASSWORD_RECOVERY event
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+            if (session) {
+              setSessionReady(true)
+              setChecking(false)
+            }
+          }
+        })
+
+        // Also wait a bit and check session as a fallback
+        await new Promise((r) => setTimeout(r, 2000))
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          setSessionReady(true)
+          setChecking(false)
+          subscription.unsubscribe()
+          return
+        }
+
+        // Give more time for the hash to be processed
+        await new Promise((r) => setTimeout(r, 2000))
+        const { data: { session: retrySession } } = await supabase.auth.getSession()
+        if (retrySession) {
+          setSessionReady(true)
+          setChecking(false)
+          subscription.unsubscribe()
+          return
+        }
+
+        subscription.unsubscribe()
       }
 
       // 3. Check if we already have a session (from any flow)
