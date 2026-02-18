@@ -5,29 +5,46 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 
 /**
- * Root page that handles:
- * 1. Supabase recovery hash fragments (#access_token=...&type=recovery)
- * 2. Regular redirects based on auth status
+ * Root page that handles ALL Supabase auth redirects:
  *
- * This page MUST render client-side so hash fragments are preserved.
- * The middleware allows this page through without server-side redirect.
+ * 1. Hash fragments: #access_token=...&type=recovery (implicit flow)
+ * 2. Query params: ?code=xxx (PKCE flow fallback)
+ * 3. Query params: ?token_hash=xxx&type=recovery (custom email template)
+ * 4. Regular auth-based redirects
+ *
+ * This page MUST be client-side so hash fragments are preserved.
+ * The middleware allows "/" through without server-side redirect.
  */
 export default function RootPage() {
   const router = useRouter()
 
   useEffect(() => {
     const hash = window.location.hash
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get("code")
+    const tokenHash = params.get("token_hash")
+    const type = params.get("type")
 
-    // Check for recovery/password reset hash from Supabase
+    // 1. Handle token_hash in query params (custom email template approach)
+    if (tokenHash && type) {
+      window.location.href = `/auth/callback?token_hash=${tokenHash}&type=${type}&next=/auth/reset-password`
+      return
+    }
+
+    // 2. Handle PKCE code in query params (Supabase redirect fallback)
+    if (code) {
+      window.location.href = `/auth/callback?code=${code}&next=/auth/reset-password`
+      return
+    }
+
+    // 3. Handle recovery hash fragments (implicit flow)
     if (hash && (hash.includes("type=recovery") || hash.includes("type=password_recovery"))) {
-      // Redirect to reset-password with hash preserved
       window.location.href = `/auth/reset-password${hash}`
       return
     }
 
-    // Check for other auth hash fragments (signup confirmation, etc.)
+    // 4. Handle other auth hash fragments (signup confirmation, etc.)
     if (hash && hash.includes("access_token")) {
-      // Let the Supabase client handle it, then redirect
       const supabase = createClient()
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
@@ -40,7 +57,7 @@ export default function RootPage() {
       return
     }
 
-    // No hash fragment - regular redirect based on auth
+    // 5. No auth params - regular redirect based on auth status
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
