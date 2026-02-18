@@ -22,6 +22,10 @@ export async function GET(request: Request) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // If next points to reset-password, always go there
+      if (next === "/auth/reset-password") {
+        return NextResponse.redirect(getRedirectUrl("/auth/reset-password"))
+      }
       return NextResponse.redirect(getRedirectUrl(next))
     }
   }
