@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Loader2,
   Receipt,
+  MailCheck,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -68,6 +69,8 @@ import {
   recordPayment,
   getTenantPayments,
   setTenantTrialDays,
+  confirmUserEmail,
+  getTenantUnconfirmedUserIds,
   type TenantDetail,
   type SubscriptionPlan,
   type PaymentRecord,
@@ -113,20 +116,26 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
   const [paymentRef, setPaymentRef] = useState("")
   const [paymentNotes, setPaymentNotes] = useState("")
 
+  // Unconfirmed user IDs
+  const [unconfirmedIds, setUnconfirmedIds] = useState<Set<string>>(new Set())
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+
   // Trial customization
   const [customTrialDays, setCustomTrialDays] = useState("")
 
   useEffect(() => {
     async function load() {
       try {
-        const [tenantData, plansData, paymentsData] = await Promise.all([
+        const [tenantData, plansData, paymentsData, unconfirmedData] = await Promise.all([
           getTenantDetail(tenantId),
           getSubscriptionPlans(),
           getTenantPayments(tenantId),
+          getTenantUnconfirmedUserIds(tenantId),
         ])
         setTenant(tenantData)
         setPlans(plansData)
         setPayments(paymentsData)
+        setUnconfirmedIds(new Set(unconfirmedData))
         if (plansData.length > 0) setSelectedPlanId(plansData[0].id)
       } catch (error) {
         console.error("Error loading tenant:", error)
@@ -222,6 +231,23 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
         toast.error("Erreur")
       }
     })
+  }
+
+  async function handleConfirmEmail(userId: string) {
+    setConfirmingId(userId)
+    try {
+      await confirmUserEmail(userId)
+      setUnconfirmedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(userId)
+        return next
+      })
+      toast.success("Email confirme avec succes")
+    } catch {
+      toast.error("Erreur lors de la confirmation")
+    } finally {
+      setConfirmingId(null)
+    }
   }
 
   function handleDelete() {
@@ -568,6 +594,7 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
                   <TableRow>
                     <TableHead>Nom</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Email</TableHead>
                     <TableHead>Date ajout</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -584,6 +611,28 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px]">{ROLE_LABELS[user.role] || user.role}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {unconfirmedIds.has(user.user_id) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1.5"
+                            disabled={confirmingId === user.user_id}
+                            onClick={() => handleConfirmEmail(user.user_id)}
+                          >
+                            {confirmingId === user.user_id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <MailCheck className="h-3 w-3" />
+                            )}
+                            Confirmer email
+                          </Button>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px] bg-green-100 text-green-700">
+                            Confirme
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(user.created_at).toLocaleDateString("fr-FR")}

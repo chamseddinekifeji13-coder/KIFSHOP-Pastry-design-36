@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
 // ─── Guard: verify the caller is a super admin ────────────────
@@ -564,6 +564,105 @@ export async function updatePlatformSettings(settings: Partial<PlatformSettings>
   }
 
   return { success: true }
+}
+
+// ─── User Email Confirmation (Admin) ──────────────────────────
+
+export async function confirmUserEmail(userId: string) {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const { error } = await adminClient.auth.admin.updateUserById(userId, {
+    email_confirm: true,
+  })
+
+  if (error) throw new Error(error.message)
+  return { success: true }
+}
+
+export interface UnconfirmedUser {
+  id: string
+  email: string
+  display_name: string
+  tenant_name: string
+  created_at: string
+}
+
+export async function getUnconfirmedUsers(): Promise<UnconfirmedUser[]> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  // List all users from auth
+  const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
+  if (error || !data?.users) return []
+
+  // Filter unconfirmed users (exclude super admins)
+  const unconfirmed = data.users.filter(
+    (u) => !u.email_confirmed_at && u.user_metadata?.is_super_admin !== true
+  )
+
+  if (unconfirmed.length === 0) return []
+
+  // Get tenant info for unconfirmed users
+  const userIds = unconfirmed.map((u) => u.id)
+  const supabase = (await requireSuperAdmin()).supabase
+
+  const { data: tenantUsers } = await supabase
+    .from("tenant_users")
+    .select("user_id, display_name, tenant_id")
+    .in("user_id", userIds)
+
+  const tenantIds = [...new Set((tenantUsers || []).map((tu) => tu.tenant_id))]
+  const { data: tenants } = await supabase
+    .from("tenants")
+    .select("id, name")
+    .in("id", tenantIds.length > 0 ? tenantIds : ["__none__"])
+
+  const tenantNameMap = new Map<string, string>()
+  tenants?.forEach((t) => tenantNameMap.set(t.id, t.name))
+
+  const tuMap = new Map<string, { display_name: string; tenant_id: string }>()
+  tenantUsers?.forEach((tu) => tuMap.set(tu.user_id, tu))
+
+  return unconfirmed.map((u) => {
+    const tu = tuMap.get(u.id)
+    return {
+      id: u.id,
+      email: u.email || "",
+      display_name: tu?.display_name || u.user_metadata?.display_name || "Sans nom",
+      tenant_name: tu ? (tenantNameMap.get(tu.tenant_id) || "Inconnu") : "Aucun tenant",
+      created_at: u.created_at,
+    }
+  })
+}
+
+export async function getTenantUnconfirmedUserIds(tenantId: string): Promise<string[]> {
+  const { supabase } = await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  // Get tenant user_ids
+  const { data: tenantUsers } = await supabase
+    .from("tenant_users")
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+
+  if (!tenantUsers || tenantUsers.length === 0) return []
+
+  // Check confirmation status via admin API
+  const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
+  if (error || !data?.users) return []
+
+  const authUserMap = new Map(data.users.map((u) => [u.id, u]))
+  const unconfirmedIds: string[] = []
+
+  for (const tu of tenantUsers) {
+    const authUser = authUserMap.get(tu.user_id)
+    if (authUser && !authUser.email_confirmed_at) {
+      unconfirmedIds.push(tu.user_id)
+    }
+  }
+
+  return unconfirmedIds
 }
 
 export async function setTenantTrialDays(tenantId: string, trialDays: number) {
