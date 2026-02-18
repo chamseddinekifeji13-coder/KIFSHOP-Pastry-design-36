@@ -1,12 +1,12 @@
-const CACHE_NAME = 'kifshop-v2';
+const CACHE_NAME = 'kifshop-v3';
 const OFFLINE_URL = '/offline.html';
 
 // Assets to cache immediately on install (static assets only, no dynamic routes)
 const PRECACHE_ASSETS = [
   '/offline.html',
   '/manifest.json',
-  '/icons/icon-192x192.jpg',
-  '/icons/icon-512x512.jpg'
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png'
 ];
 
 // Install event - cache essential assets
