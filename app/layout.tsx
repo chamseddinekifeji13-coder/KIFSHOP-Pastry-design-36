@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
+import { AuthHashHandler } from '@/components/auth/auth-hash-handler'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -65,6 +66,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className="font-sans antialiased">
+        <AuthHashHandler />
         {children}
         <ServiceWorkerRegister />
         <Analytics />
