@@ -59,12 +59,13 @@ export async function addEmployee(data: {
   role: UserRole
   pin?: string
 }): Promise<Employee> {
-  const { supabase, tenantId } = await getAuthUserTenantId()
+  const { tenantId } = await getAuthUserTenantId()
+  const admin = createAdminClient()
 
   // Generate a placeholder user_id for local employees (no auth account)
   const placeholderUserId = crypto.randomUUID()
 
-  const { data: newEmployee, error } = await supabase
+  const { data: newEmployee, error } = await admin
     .from("tenant_users")
     .insert({
       tenant_id: tenantId,
@@ -90,9 +91,10 @@ export async function updateEmployee(
     pin?: string | null
   }
 ): Promise<Employee> {
-  const { supabase, tenantId } = await getAuthUserTenantId()
+  const { tenantId } = await getAuthUserTenantId()
+  const admin = createAdminClient()
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("tenant_users")
     .update(updates)
     .eq("id", employeeId)
@@ -107,11 +109,13 @@ export async function updateEmployee(
 // ─── Remove an employee ───────────────────────────────────────
 
 export async function removeEmployee(employeeId: string): Promise<void> {
-  const { supabase, tenantId } = await getAuthUserTenantId()
+  const { tenantId } = await getAuthUserTenantId()
+  const supabase = await createClient()
+  const admin = createAdminClient()
 
   // Don't allow removing the current user
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: target } = await supabase
+  const { data: target } = await admin
     .from("tenant_users")
     .select("user_id")
     .eq("id", employeeId)
@@ -122,7 +126,7 @@ export async function removeEmployee(employeeId: string): Promise<void> {
     throw new Error("Impossible de supprimer votre propre compte")
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("tenant_users")
     .delete()
     .eq("id", employeeId)
