@@ -39,6 +39,8 @@ export function ProductionView() {
   const [recipeDrawerOpen, setRecipeDrawerOpen] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
 
+  console.log("[v0] ProductionView render - recLoading:", recLoading, "rmLoading:", rmLoading, "recipes:", recipes?.length, "rawMaterials:", rawMaterials?.length)
+
   const isLoading = recLoading || rmLoading
   const allRecipes = recipes || []
   const allMaterials = rawMaterials || []
