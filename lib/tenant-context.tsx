@@ -371,9 +371,35 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// Default state returned during SSR prerendering when TenantProvider is not yet mounted
+const SSR_FALLBACK: TenantState = {
+  currentTenant: FALLBACK_TENANT,
+  currentUser: FALLBACK_USER,
+  currentRole: FALLBACK_USER.role,
+  users: [FALLBACK_USER],
+  tenants: [FALLBACK_TENANT],
+  authUser: null,
+  isLoading: true,
+  isSuspended: false,
+  isTrialExpired: false,
+  trialDaysLeft: 0,
+  setCurrentTenant: () => {},
+  setCurrentUser: () => {},
+  addUser: () => {},
+  updateUser: () => {},
+  removeUser: () => {},
+  reloadUsers: async () => {},
+  signOut: async () => {},
+}
+
 export function useTenant() {
   const context = useContext(TenantContext)
   if (context === undefined) {
+    // During SSR/prerendering, return a safe fallback with isLoading: true
+    // This prevents build errors while the loading state is handled by AppShellContent
+    if (typeof window === "undefined") {
+      return SSR_FALLBACK
+    }
     throw new Error("useTenant must be used within a TenantProvider")
   }
   return context
