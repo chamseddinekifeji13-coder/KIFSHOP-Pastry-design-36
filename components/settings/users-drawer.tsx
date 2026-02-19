@@ -76,6 +76,10 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
       toast.error("Veuillez saisir un nom")
       return
     }
+    if (!newPin || newPin.length !== 4) {
+      toast.error("Le code PIN a 4 chiffres est obligatoire")
+      return
+    }
     setSaving(true)
     try {
       await addEmployee({
