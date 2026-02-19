@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList } from "lucide-react"
+import React, { useState } from "react"
+import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,25 +14,46 @@ import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
 import { RecipeDrawer } from "./recipe-drawer"
 import { toast } from "sonner"
 import type { Recipe } from "@/lib/production/actions"
-import dynamic from "next/dynamic"
 
-const ProductionPlanner = dynamic(
-  () => import("./production-planner").then(mod => ({ default: mod.ProductionPlanner })),
-  {
-    loading: () => (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Chargement du planificateur...</span>
-      </div>
-    ),
-    ssr: false,
+// Error boundary to catch planner crashes
+class PlannerErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false, error: "" }
   }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="border-destructive/30">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertTriangle className="h-8 w-8 text-destructive/60 mb-3" />
+            <p className="text-sm font-medium">Erreur lors du chargement du planificateur</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-md text-center">{this.state.error}</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={() => this.setState({ hasError: false, error: "" })}>Reessayer</Button>
+          </CardContent>
+        </Card>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// Lazy load planner
+const ProductionPlanner = React.lazy(() =>
+  import("./production-planner").then(mod => ({ default: mod.ProductionPlanner }))
 )
 
 export function ProductionView() {
   const { data: recipes, isLoading: recLoading, mutate: mutateRecipes } = useRecipes()
   const { data: rawMaterials, isLoading: rmLoading } = useRawMaterials()
 
+  const [activeTab, setActiveTab] = useState("planner")
   const [selectedRecipe, setSelectedRecipe] = useState<string>("")
   const [quantity, setQuantity] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -72,14 +93,23 @@ export function ProductionView() {
         </div>
       </div>
 
-      <Tabs defaultValue="planner" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="planner" className="gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Planification</TabsTrigger>
           <TabsTrigger value="recipes" className="gap-1.5"><ChefHat className="h-3.5 w-3.5" /> Fiches techniques</TabsTrigger>
         </TabsList>
 
         <TabsContent value="planner">
-          <ProductionPlanner />
+          <PlannerErrorBoundary>
+            <React.Suspense fallback={
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Chargement du planificateur...</span>
+              </div>
+            }>
+              <ProductionPlanner />
+            </React.Suspense>
+          </PlannerErrorBoundary>
         </TabsContent>
 
         <TabsContent value="recipes" className="space-y-4">
