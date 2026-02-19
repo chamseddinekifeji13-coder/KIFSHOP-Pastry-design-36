@@ -526,8 +526,6 @@ export async function createStockMovement(tenantId: string, data: {
     to_location_id: data.toLocationId || null,
     created_by: user?.id || null,
   })
-  if (error) { console.error("Error creating stock movement:", error.message, error.details, error.code); throw new Error(error.message) }
-
   // Determine table and item id
   let table: string
   let idField: string | undefined
@@ -539,12 +537,27 @@ export async function createStockMovement(tenantId: string, data: {
     table = "finished_products"; idField = data.finishedProductId
   }
 
+  // For sortie and transfert: verify stock is sufficient BEFORE inserting movement
+  if (idField && (data.movementType === "sortie" || data.movementType === "transfert")) {
+    const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
+    const currentStock = Number(currentItem?.current_stock || 0)
+    if (data.quantity > currentStock) {
+      throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+    }
+  }
+
+  if (error) { throw new Error(error.message) }
+
   // Update stock level (transfers don't change total stock)
   if (idField && data.movementType !== "transfert") {
-    const { data: item } = await supabase.from(table).select("current_stock").eq("id", idField).single()
-    const currentStock = Number(item?.current_stock || 0)
+    const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
+    const currentStock = Number(currentItem?.current_stock || 0)
     const delta = data.movementType === "entree" ? data.quantity : -data.quantity
-    await supabase.from(table).update({ current_stock: Math.max(0, currentStock + delta) }).eq("id", idField)
+    const newStock = currentStock + delta
+    if (newStock < 0) {
+      throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}`)
+    }
+    await supabase.from(table).update({ current_stock: newStock }).eq("id", idField)
   }
 
   return true

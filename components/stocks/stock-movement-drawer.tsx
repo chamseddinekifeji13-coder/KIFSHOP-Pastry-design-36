@@ -110,8 +110,16 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       toast.error("Veuillez selectionner un article")
       return
     }
-    if (!quantity || Number(quantity) <= 0) {
+    const qty = Number(quantity)
+    if (!quantity || qty <= 0) {
       toast.error("Veuillez entrer une quantite valide")
+      return
+    }
+    // Validate stock for sortie and transfert
+    if ((action === "sortie" || action === "transfert") && qty > activeItem.currentStock) {
+      toast.error("Stock insuffisant", {
+        description: `Disponible: ${activeItem.currentStock} ${activeItem.unit}, demande: ${qty} ${activeItem.unit}`,
+      })
       return
     }
     if (action === "transfert" && (!fromLocationId || !toLocationId)) {
@@ -153,8 +161,13 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       } else {
         toast.error("Erreur lors de l'enregistrement")
       }
-    } catch {
-      toast.error("Erreur lors de l'enregistrement")
+    } catch (err: any) {
+      const msg = err?.message || ""
+      if (msg.startsWith("STOCK_INSUFFISANT:")) {
+        toast.error("Stock insuffisant", { description: msg.replace("STOCK_INSUFFISANT:", "") })
+      } else {
+        toast.error("Erreur", { description: msg || "Erreur lors de l'enregistrement" })
+      }
     } finally {
       setSaving(false)
     }
@@ -239,16 +252,34 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     )
   }
 
-  const renderQuantityField = (color = "primary") => (
-    <div className="space-y-2">
-      <Label className="text-xs font-medium">Quantite ({activeItem?.unit || "unites"})</Label>
-      <Input
-        type="number" min="0" step="0.01" placeholder="0"
-        value={quantity} onChange={(e) => setQuantity(e.target.value)}
-        className={`bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-${color}/30 text-lg font-semibold text-center h-12`}
-      />
-    </div>
-  )
+  const renderQuantityField = (color = "primary", showStockLimit = false) => {
+    const qty = Number(quantity) || 0
+    const stockAvailable = activeItem?.currentStock ?? 0
+    const isOverStock = showStockLimit && qty > stockAvailable
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">Quantite ({activeItem?.unit || "unites"}) *</Label>
+          {showStockLimit && activeItem && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isOverStock ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>
+              Dispo: {stockAvailable} {activeItem.unit}
+            </span>
+          )}
+        </div>
+        <Input
+          type="number" min="0" step="0.01" placeholder="0"
+          value={quantity} onChange={(e) => setQuantity(e.target.value)}
+          className={`bg-muted/50 border-0 text-lg font-semibold text-center h-12 ${isOverStock ? "ring-2 ring-red-400 focus-visible:ring-red-400" : `focus-visible:ring-1 focus-visible:ring-${color}/30`}`}
+        />
+        {isOverStock && (
+          <p className="text-[11px] text-red-600 font-medium">
+            Quantite superieure au stock disponible ({stockAvailable} {activeItem?.unit})
+          </p>
+        )}
+      </div>
+    )
+  }
 
   const renderReasonSelect = (options: string[]) => (
     <div className="space-y-2">
@@ -334,7 +365,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="sortie" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
-                {renderQuantityField("destructive")}
+                {renderQuantityField("destructive", true)}
                 {renderReasonSelect(["Vente", "Utilisation production", "Perte / Perime", "Ajustement inventaire", "Casse"])}
                 {renderLocationSelect("Depuis", fromLocationId, setFromLocationId)}
               </div>
@@ -348,7 +379,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="transfert" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
-                {renderQuantityField("primary")}
+                {renderQuantityField("primary", true)}
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                   <div className="space-y-2">
                     <Label className="text-xs font-medium">De *</Label>
