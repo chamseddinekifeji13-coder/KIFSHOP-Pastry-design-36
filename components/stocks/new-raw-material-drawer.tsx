@@ -46,7 +46,13 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
     if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
     if (!pricePerUnit || Number(pricePerUnit) <= 0) { toast.error("Le prix unitaire est obligatoire"); return }
 
+    if (!currentTenant.id || currentTenant.id === "__fallback__") {
+      toast.error("Session non initialisee", { description: "Veuillez rafraichir la page" })
+      return
+    }
+
     setSaving(true)
+    console.log("[v0] createRawMaterial tenantId:", currentTenant.id, "name:", name.trim())
     try {
       const result = await createRawMaterial(currentTenant.id, {
         name: name.trim(),
