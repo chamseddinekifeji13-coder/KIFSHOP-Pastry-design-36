@@ -234,9 +234,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           email: user.email,
         }
         setCurrentUser(appUser)
-        setUsers([appUser])
 
-        // Load all team members for this tenant
+        // Load all team members for this tenant BEFORE setting isLoading to false
         const { data: teamMembers } = await supabase
           .from("tenant_users")
           .select("id, user_id, role, display_name, pin")
@@ -256,6 +255,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             }
           })
           setUsers(allUsers)
+        } else {
+          // No team members found, use only the owner
+          setUsers([appUser])
         }
       } catch (error) {
         console.error("Error loading user data:", error)

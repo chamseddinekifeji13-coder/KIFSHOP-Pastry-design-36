@@ -401,6 +401,87 @@ export async function deletePackaging(id: string): Promise<boolean> {
   return true
 }
 
+// ─── Storage Locations (Reserves) ─────────────────────────────
+
+export interface StorageLocation {
+  id: string
+  tenantId: string
+  name: string
+  designation: string | null
+  type: string
+  description: string | null
+  isDefault: boolean
+  isActive: boolean
+  createdAt: string
+}
+
+export const LOCATION_TYPE_LABELS: Record<string, string> = {
+  reserve: "Reserve",
+  laboratoire: "Laboratoire",
+  boutique: "Boutique",
+  chambre_froide: "Chambre froide",
+  autre: "Autre",
+}
+
+export async function fetchStorageLocations(tenantId: string): Promise<StorageLocation[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("storage_locations")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("is_default", { ascending: false })
+    .order("name")
+  if (error) { console.error("Error fetching storage locations:", error.message); return [] }
+  return (data || []).map((l) => ({
+    id: l.id, tenantId: l.tenant_id, name: l.name, designation: l.designation,
+    type: l.type, description: l.description, isDefault: l.is_default,
+    isActive: l.is_active, createdAt: l.created_at,
+  }))
+}
+
+export async function createStorageLocation(tenantId: string, data: {
+  name: string; designation?: string; type: string; description?: string; isDefault?: boolean
+}): Promise<StorageLocation | null> {
+  const supabase = createClient()
+  // If setting as default, unset other defaults
+  if (data.isDefault) {
+    await supabase.from("storage_locations").update({ is_default: false }).eq("tenant_id", tenantId)
+  }
+  const { data: row, error } = await supabase.from("storage_locations").insert({
+    tenant_id: tenantId, name: data.name, designation: data.designation || null,
+    type: data.type, description: data.description || null, is_default: data.isDefault || false,
+  }).select().single()
+  if (error || !row) { console.error("Error creating storage location:", error?.message); return null }
+  return {
+    id: row.id, tenantId: row.tenant_id, name: row.name, designation: row.designation,
+    type: row.type, description: row.description, isDefault: row.is_default,
+    isActive: row.is_active, createdAt: row.created_at,
+  }
+}
+
+export async function updateStorageLocation(id: string, data: Partial<{
+  name: string; designation: string; type: string; description: string; isDefault: boolean; isActive: boolean
+}>): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (data.name !== undefined) updates.name = data.name
+  if (data.designation !== undefined) updates.designation = data.designation
+  if (data.type !== undefined) updates.type = data.type
+  if (data.description !== undefined) updates.description = data.description
+  if (data.isDefault !== undefined) updates.is_default = data.isDefault
+  if (data.isActive !== undefined) updates.is_active = data.isActive
+  const { error } = await supabase.from("storage_locations").update(updates).eq("id", id)
+  if (error) { console.error("Error updating storage location:", error.message); return false }
+  return true
+}
+
+export async function deleteStorageLocation(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("storage_locations").delete().eq("id", id)
+  if (error) { console.error("Error deleting storage location:", error.message); return false }
+  return true
+}
+
 // ─── Stock Movements ──────────────────────────────────────────
 
 export async function fetchStockMovements(tenantId: string, limit = 50): Promise<StockMovement[]> {
@@ -421,24 +502,39 @@ export async function fetchStockMovements(tenantId: string, limit = 50): Promise
 }
 
 export async function createStockMovement(tenantId: string, data: {
-  itemType: string; rawMaterialId?: string; finishedProductId?: string;
-  movementType: string; quantity: number; unit: string; reason?: string; reference?: string
+  itemType: string; rawMaterialId?: string; finishedProductId?: string; packagingId?: string;
+  movementType: string; quantity: number; unit: string; reason?: string; reference?: string;
+  fromLocationId?: string; toLocationId?: string;
 }): Promise<boolean> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   const { error } = await supabase.from("stock_movements").insert({
     tenant_id: tenantId, item_type: data.itemType,
-    raw_material_id: data.rawMaterialId || null, finished_product_id: data.finishedProductId || null,
+    raw_material_id: data.rawMaterialId || null,
+    finished_product_id: data.finishedProductId || null,
+    packaging_id: data.packagingId || null,
     movement_type: data.movementType, quantity: data.quantity, unit: data.unit,
-    reason: data.reason || null, reference: data.reference || null, created_by: user?.id || null,
+    reason: data.reason || null, reference: data.reference || null,
+    from_location_id: data.fromLocationId || null,
+    to_location_id: data.toLocationId || null,
+    created_by: user?.id || null,
   })
   if (error) { console.error("Error creating stock movement:", error.message); return false }
 
-  // Update stock level
-  const table = data.itemType === "raw_material" ? "raw_materials" : "finished_products"
-  const idField = data.itemType === "raw_material" ? data.rawMaterialId : data.finishedProductId
-  if (idField) {
+  // Determine table and item id
+  let table: string
+  let idField: string | undefined
+  if (data.itemType === "raw_material") {
+    table = "raw_materials"; idField = data.rawMaterialId
+  } else if (data.itemType === "packaging") {
+    table = "packaging"; idField = data.packagingId
+  } else {
+    table = "finished_products"; idField = data.finishedProductId
+  }
+
+  // Update stock level (transfers don't change total stock)
+  if (idField && data.movementType !== "transfert") {
     const { data: item } = await supabase.from(table).select("current_stock").eq("id", idField).single()
     const currentStock = Number(item?.current_stock || 0)
     const delta = data.movementType === "entree" ? data.quantity : -data.quantity
