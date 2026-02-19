@@ -176,6 +176,27 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       )
     }
 
+    // If an item is already selected from the list, show it with option to change
+    if (selectedItemId && activeItem) {
+      return (
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Article *</Label>
+          <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Package className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">{activeItem.name}</p>
+              <p className="text-[10px] text-muted-foreground">{typeLabel(activeItem.type)} &middot; Stock: {activeItem.currentStock} {activeItem.unit}</p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => { setSelectedItemId(""); setSearchQuery("") }}>
+              Changer
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="space-y-2">
         <Label className="text-xs font-medium">Article *</Label>
@@ -188,28 +209,32 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             className="pl-9 bg-muted/50 border-0"
           />
         </div>
-        <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
-          {filteredItems.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Aucun article trouve</p>
-          ) : (
-            filteredItems.map((i) => (
-              <button
-                key={i.id}
-                type="button"
-                onClick={() => { setSelectedItemId(i.id); setSearchQuery("") }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between ${
-                  selectedItemId === i.id ? "bg-primary/5 ring-1 ring-primary/20" : ""
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">{typeLabel(i.type)}</span>
-                  <span className="font-medium">{i.name}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">{i.currentStock} {i.unit}</span>
-              </button>
-            ))
-          )}
-        </div>
+        {allItems.length === 0 ? (
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-3 text-center">
+            Aucun article en stock. Creez des matieres premieres, produits finis ou emballages d&apos;abord.
+          </p>
+        ) : (
+          <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
+            {filteredItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Aucun resultat pour &quot;{searchQuery}&quot;</p>
+            ) : (
+              filteredItems.map((i) => (
+                <button
+                  key={i.id}
+                  type="button"
+                  onClick={() => { setSelectedItemId(i.id); setSearchQuery("") }}
+                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">{typeLabel(i.type)}</span>
+                    <span className="font-medium">{i.name}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">{i.currentStock} {i.unit}</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </div>
     )
   }
