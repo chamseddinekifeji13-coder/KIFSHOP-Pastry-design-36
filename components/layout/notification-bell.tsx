@@ -61,9 +61,11 @@ function timeAgo(dateStr: string): string {
 export function NotificationBell() {
   const router = useRouter()
   const { currentTenant, currentRole } = useTenant()
-  const { data: notifications = [], mutate: mutateNotifs } = useNotifications()
-  const { data: reminders = [], mutate: mutateReminders } = useDueReminders()
+  const { data: notifications = [], mutate: mutateNotifs, error: notifError } = useNotifications()
+  const { data: reminders = [], mutate: mutateReminders, error: reminderError } = useDueReminders()
   const [open, setOpen] = useState(false)
+
+
 
   const unreadNotifs = notifications.filter((n) => n.status === "unread")
   const totalCount = unreadNotifs.length + reminders.length

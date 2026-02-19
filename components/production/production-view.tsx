@@ -12,9 +12,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
 import { RecipeDrawer } from "./recipe-drawer"
-import { ProductionPlanner } from "./production-planner"
 import { toast } from "sonner"
 import type { Recipe } from "@/lib/production/actions"
+import dynamic from "next/dynamic"
+
+const ProductionPlanner = dynamic(
+  () => import("./production-planner").then(mod => ({ default: mod.ProductionPlanner })),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Chargement du planificateur...</span>
+      </div>
+    ),
+    ssr: false,
+  }
+)
 
 export function ProductionView() {
   const { data: recipes, isLoading: recLoading, mutate: mutateRecipes } = useRecipes()
