@@ -47,6 +47,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
     if (!pricePerUnit || Number(pricePerUnit) <= 0) { toast.error("Le prix unitaire est obligatoire"); return }
 
     setSaving(true)
+    console.log("[v0] Creating raw material with tenant:", currentTenant.id, "name:", name.trim())
     try {
       const result = await createRawMaterial(currentTenant.id, {
         name: name.trim(),
@@ -56,6 +57,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         pricePerUnit: Number(pricePerUnit) || 0,
         supplier: supplier.trim() || undefined,
       })
+      console.log("[v0] createRawMaterial result:", result)
       if (result) {
         toast.success("Matiere premiere ajoutee", { description: name.trim() })
         resetForm()
@@ -65,6 +67,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         toast.error("Erreur lors de la creation")
       }
     } catch (err: any) {
+      console.log("[v0] createRawMaterial error:", err)
       const msg = err?.message || ""
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
