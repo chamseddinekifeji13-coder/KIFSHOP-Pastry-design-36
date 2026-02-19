@@ -275,11 +275,6 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
-          {/* Item selector at the top */}
-          <div className="mb-5">
-            {renderItemSelector()}
-          </div>
-
           <Tabs defaultValue="entree">
             <TabsList className="grid w-full grid-cols-3 rounded-xl bg-muted/70 p-1">
               <TabsTrigger value="entree" className="gap-1.5 rounded-lg text-xs data-[state=active]:bg-card data-[state=active]:shadow-sm">
@@ -299,6 +294,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             {/* Entree */}
             <TabsContent value="entree" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+                {renderItemSelector()}
                 {renderQuantityField("primary")}
                 {renderReasonSelect(["Achat fournisseur", "Production", "Retour client", "Ajustement inventaire", "Don / Cadeau"])}
                 {renderLocationSelect("Destination", toLocationId, setToLocationId)}
@@ -312,6 +308,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             {/* Sortie */}
             <TabsContent value="sortie" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+                {renderItemSelector()}
                 {renderQuantityField("destructive")}
                 {renderReasonSelect(["Vente", "Utilisation production", "Perte / Perime", "Ajustement inventaire", "Casse"])}
                 {renderLocationSelect("Depuis", fromLocationId, setFromLocationId)}
@@ -325,32 +322,42 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             {/* Transfert */}
             <TabsContent value="transfert" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+                {renderItemSelector()}
                 {renderQuantityField("primary")}
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">De</Label>
+                    <Label className="text-xs font-medium">De *</Label>
                     <Select value={fromLocationId} onValueChange={setFromLocationId}>
                       <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Source" /></SelectTrigger>
                       <SelectContent>
                         {activeLocations.map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <ArrowLeftRight className="h-4 w-4 text-muted-foreground mb-2.5" />
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Vers</Label>
+                    <Label className="text-xs font-medium">Vers *</Label>
                     <Select value={toLocationId} onValueChange={setToLocationId}>
                       <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Destination" /></SelectTrigger>
                       <SelectContent>
                         {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                          <SelectItem key={loc.id} value={loc.id}>
+                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+                {activeLocations.length === 0 && (
+                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2 text-center">
+                    Aucun emplacement. Allez dans Stocks &gt; Reserves pour en creer.
+                  </p>
+                )}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Motif (optionnel)</Label>
                   <Input
