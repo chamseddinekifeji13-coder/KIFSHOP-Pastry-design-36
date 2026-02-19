@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale } from "lucide-react"
+import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,8 +13,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { useTenant } from "@/lib/tenant-context"
-import { useRawMaterials, useCategories } from "@/hooks/use-tenant-data"
-import { addFinishedProduct, addRecipe } from "@/lib/stocks/actions"
+import { useRawMaterials, useCategories, usePackaging } from "@/hooks/use-tenant-data"
+import { addFinishedProduct, addRecipe, setProductPackaging } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 
@@ -22,6 +22,14 @@ interface RecipeIngredient {
   materialId: string
   name: string
   quantity: string
+  unit: string
+}
+
+interface PackagingLine {
+  packagingId: string
+  name: string
+  quantity: string
+  unitPrice: number
   unit: string
 }
 
@@ -34,6 +42,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
+  const { data: packagingItems = [] } = usePackaging()
   const { mutate } = useSWRConfig()
 
   const [name, setName] = useState("")
@@ -53,6 +62,11 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState("")
   const [ingredientQty, setIngredientQty] = useState("")
+
+  // Packaging state
+  const [packagingLines, setPackagingLines] = useState<PackagingLine[]>([])
+  const [selectedPackaging, setSelectedPackaging] = useState("")
+  const [packagingQty, setPackagingQty] = useState("1")
 
   const allCategories = [...categories.map((c: any) => c.name), ...customCategories]
   const units = ["plateau", "piece", "pcs", "boite", "coffret", "pot", "kg", "g"]
@@ -87,10 +101,37 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setIngredients(prev => prev.filter(i => i.materialId !== materialId))
   }
 
+  const addPackagingLine = () => {
+    if (!selectedPackaging || !packagingQty) {
+      toast.error("Selectionnez un emballage et une quantite"); return
+    }
+    const pkg = packagingItems.find((p: any) => p.id === selectedPackaging)
+    if (!pkg) return
+    if (packagingLines.some(l => l.packagingId === selectedPackaging)) {
+      toast.error("Cet emballage est deja ajoute"); return
+    }
+    setPackagingLines(prev => [...prev, {
+      packagingId: pkg.id, name: pkg.name,
+      quantity: packagingQty, unitPrice: pkg.price, unit: pkg.unit,
+    }])
+    setSelectedPackaging(""); setPackagingQty("1")
+  }
+
+  const removePackagingLine = (packagingId: string) => {
+    setPackagingLines(prev => prev.filter(l => l.packagingId !== packagingId))
+  }
+
+  const totalPackagingCost = packagingLines.reduce(
+    (sum, l) => sum + (Number(l.quantity) * l.unitPrice), 0
+  )
+
+  const availablePackaging = packagingItems.filter((p: any) => !packagingLines.some(l => l.packagingId === p.id))
+
   const resetForm = () => {
     setName(""); setCategory(""); setUnit(""); setPrice(""); setInitialQty(""); setDescription("")
     setHasRecipe(true); setYieldQty("1"); setYieldUnit(""); setIngredients([])
     setSelectedMaterial(""); setIngredientQty("")
+    setPackagingLines([]); setSelectedPackaging(""); setPackagingQty("1")
   }
 
   const handleSubmit = async () => {
@@ -102,24 +143,38 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
 
     setSaving(true)
     try {
+      // Find categoryId from category name
+      const categoryObj = categories.find((c: any) => c.name === category)
       const product = await addFinishedProduct(currentTenant.id, {
-        name: name.trim(), category, unit,
-        price: parseFloat(price),
-        quantity: initialQty ? parseFloat(initialQty) : 0,
-        min_stock: 0,
+        name: name.trim(),
+        categoryId: categoryObj?.id,
+        unit,
+        sellingPrice: parseFloat(price),
+        costPrice: 0,
+        currentStock: initialQty ? parseFloat(initialQty) : 0,
+        minStock: 0,
+        description: description.trim() || undefined,
       })
 
       if (hasRecipe && product) {
         await addRecipe(currentTenant.id, {
-          name: name.trim(), category,
-          finished_product_id: product.id,
-          yield_quantity: parseFloat(yieldQty) || 1,
-          yield_unit: yieldUnit || unit,
+          name: name.trim(),
+          finishedProductId: product.id,
+          category,
+          yieldQuantity: parseFloat(yieldQty) || 1,
+          yieldUnit: yieldUnit || unit,
           ingredients: ingredients.map(ing => ({
-            raw_material_id: ing.materialId,
-            name: ing.name, quantity: parseFloat(ing.quantity), unit: ing.unit,
+            rawMaterialId: ing.materialId,
+            quantity: parseFloat(ing.quantity), unit: ing.unit,
           })),
         })
+      }
+
+      // Save packaging links + recalculate cost
+      if (product && packagingLines.length > 0) {
+        await setProductPackaging(product.id, packagingLines.map(l => ({
+          packagingId: l.packagingId, quantity: Number(l.quantity),
+        })))
       }
 
       toast.success("Produit fini cree avec succes", {
@@ -127,7 +182,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           ? `"${name}" avec sa fiche technique (${ingredients.length} ingredients)`
           : `"${name}" sans recette`,
       })
-      mutate((key: string) => typeof key === "string" && key.includes("finished_products"))
+      mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
       resetForm()
       onOpenChange(false)
@@ -136,7 +191,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
       } else {
-        toast.error("Erreur lors de la creation du produit")
+        toast.error("Erreur", { description: msg || "Erreur lors de la creation du produit" })
       }
     } finally {
       setSaving(false)
@@ -287,6 +342,62 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
             ) : (
               <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Fiche technique desactivee. Vous pourrez en creer une plus tard.</div>
             )}
+          </div>
+
+          {/* ── Section Emballage ── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Package className="h-3.5 w-3.5" /> Emballage du produit
+            </div>
+            <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un emballage</Label>
+                <div className="flex gap-2">
+                  <Select value={selectedPackaging} onValueChange={setSelectedPackaging}>
+                    <SelectTrigger className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir un emballage" /></SelectTrigger>
+                    <SelectContent>
+                      {availablePackaging.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.price.toLocaleString("fr-TN")} TND/{p.unit})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input type="number" min="1" step="1" placeholder="Qte" value={packagingQty} onChange={(e) => setPackagingQty(e.target.value)}
+                    className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
+                  <Button size="icon" variant="outline" onClick={addPackagingLine} className="shrink-0 rounded-lg"><Plus className="h-4 w-4" /></Button>
+                </div>
+              </div>
+              {packagingLines.length > 0 ? (
+                <div className="rounded-lg border divide-y">
+                  <div className="px-3 py-2 bg-muted/50 flex items-center justify-between">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Emballages ({packagingLines.length})</p>
+                    <p className="text-[10px] font-semibold text-primary">{totalPackagingCost.toLocaleString("fr-TN")} TND</p>
+                  </div>
+                  {packagingLines.map((line) => (
+                    <div key={line.packagingId} className="flex items-center justify-between p-3 text-sm group">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{line.name}</span>
+                        <Badge variant="secondary" className="text-xs rounded-full bg-primary/10 text-primary border-0">
+                          x{line.quantity}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {(Number(line.quantity) * line.unitPrice).toLocaleString("fr-TN")} TND
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removePackagingLine(line.packagingId)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+                  Aucun emballage associe. Le cout d&apos;emballage ne sera pas inclus dans le prix de revient.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

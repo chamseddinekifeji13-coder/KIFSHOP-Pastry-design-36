@@ -79,7 +79,7 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
       } else {
-        toast.error("Erreur inattendue")
+        toast.error("Erreur", { description: msg || "Erreur inattendue" })
       }
     } finally {
       setSaving(false)

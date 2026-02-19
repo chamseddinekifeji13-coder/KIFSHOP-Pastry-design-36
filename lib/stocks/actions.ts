@@ -25,6 +25,8 @@ export interface FinishedProduct {
   minStock: number
   sellingPrice: number
   costPrice: number
+  packagingCost: number
+  ingredientCost: number
   imageUrl: string | null
   weight: string | null
   isPublished: boolean
@@ -77,6 +79,9 @@ export async function createRawMaterial(tenantId: string, data: {
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string
 }): Promise<RawMaterial | null> {
   const supabase = createClient()
+  // Verify auth session
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) { throw new Error("Session expiree - veuillez vous reconnecter") }
   // Check for duplicate raw material by name
   const { data: existing } = await supabase
     .from("raw_materials").select("id, name").eq("tenant_id", tenantId)
@@ -89,7 +94,8 @@ export async function createRawMaterial(tenantId: string, data: {
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
   }).select().single()
-  if (error || !row) { console.error("Error creating raw material:", error?.message); return null }
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, name: row.name, unit: row.unit,
     currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
     pricePerUnit: Number(row.price_per_unit), supplier: row.supplier, createdAt: row.created_at }
@@ -194,17 +200,25 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
   const supabase = createClient()
   const { data, error } = await supabase
     .from("finished_products")
-    .select("*")
+    .select("*, finished_product_packaging(quantity, packaging:packaging(price))")
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching finished products:", error.message); return [] }
-  return (data || []).map((p) => ({
-    id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, name: p.name,
-    description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
-    minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
-    costPrice: Number(p.cost_price), imageUrl: p.image_url, weight: p.weight,
-    isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
-  }))
+  return (data || []).map((p: any) => {
+    const packagingCost = (p.finished_product_packaging || []).reduce(
+      (sum: number, fpp: any) => sum + (Number(fpp.quantity) * Number(fpp.packaging?.price || 0)), 0
+    )
+    const costPrice = Number(p.cost_price)
+    const ingredientCost = Math.max(0, costPrice - packagingCost)
+    return {
+      id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, name: p.name,
+      description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
+      minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
+      costPrice, packagingCost, ingredientCost,
+      imageUrl: p.image_url, weight: p.weight,
+      isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
+    }
+  })
 }
 
 export async function createFinishedProduct(tenantId: string, data: {
@@ -225,7 +239,8 @@ export async function createFinishedProduct(tenantId: string, data: {
     selling_price: data.sellingPrice, cost_price: data.costPrice,
     description: data.description || null, weight: data.weight || null,
   }).select().single()
-  if (error || !row) { console.error("Error creating finished product:", error?.message); return null }
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, categoryId: row.category_id, name: row.name,
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
@@ -267,6 +282,95 @@ export async function updateFinishedProduct(productId: string, data: {
 
 // Alias for backward compatibility
 export const addFinishedProduct = createFinishedProduct
+
+// ─── Product Packaging (emballage lie au produit fini) ───────
+
+export interface ProductPackagingItem {
+  id: string
+  packagingId: string
+  packagingName: string
+  packagingType: string
+  quantity: number
+  unitPrice: number
+  unit: string
+}
+
+export async function fetchProductPackaging(productId: string): Promise<ProductPackagingItem[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("finished_product_packaging")
+    .select("id, quantity, packaging_id, packaging:packaging(id, name, type, price, unit)")
+    .eq("finished_product_id", productId)
+  if (error) { console.error("Error fetching product packaging:", error.message); return [] }
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    packagingId: row.packaging_id,
+    packagingName: row.packaging?.name || "",
+    packagingType: row.packaging?.type || "",
+    quantity: Number(row.quantity),
+    unitPrice: Number(row.packaging?.price || 0),
+    unit: row.packaging?.unit || "unite",
+  }))
+}
+
+export async function setProductPackaging(
+  productId: string,
+  items: { packagingId: string; quantity: number }[]
+): Promise<boolean> {
+  const supabase = createClient()
+  // Delete existing links
+  await supabase.from("finished_product_packaging").delete().eq("finished_product_id", productId)
+  // Insert new links
+  if (items.length > 0) {
+    const rows = items.map(i => ({
+      finished_product_id: productId,
+      packaging_id: i.packagingId,
+      quantity: i.quantity,
+    }))
+    const { error } = await supabase.from("finished_product_packaging").insert(rows)
+    if (error) { throw new Error(error.message) }
+  }
+  // Recalculate cost_price = sum(packaging.price * quantity)
+  await recalculateProductCost(productId)
+  return true
+}
+
+export async function recalculateProductCost(productId: string): Promise<number> {
+  const supabase = createClient()
+  // Get packaging cost
+  const { data: pkgData } = await supabase
+    .from("finished_product_packaging")
+    .select("quantity, packaging:packaging(price)")
+    .eq("finished_product_id", productId)
+  const packagingCost = (pkgData || []).reduce((sum: number, row: any) => {
+    return sum + (Number(row.quantity) * Number(row.packaging?.price || 0))
+  }, 0)
+
+  // Get recipe ingredients cost (MP)
+  const { data: recipes } = await supabase
+    .from("recipes")
+    .select("id, yield_quantity")
+    .eq("finished_product_id", productId)
+    .limit(1)
+  let ingredientCost = 0
+  if (recipes && recipes.length > 0) {
+    const recipe = recipes[0]
+    const { data: ingredients } = await supabase
+      .from("recipe_ingredients")
+      .select("quantity, unit, raw_material:raw_materials(price_per_unit)")
+      .eq("recipe_id", recipe.id)
+    ingredientCost = (ingredients || []).reduce((sum: number, ing: any) => {
+      return sum + (Number(ing.quantity) * Number(ing.raw_material?.price_per_unit || 0))
+    }, 0)
+    // Divide by yield to get cost per unit
+    const yieldQty = Number(recipe.yield_quantity) || 1
+    ingredientCost = ingredientCost / yieldQty
+  }
+
+  const totalCost = ingredientCost + packagingCost
+  await supabase.from("finished_products").update({ cost_price: totalCost }).eq("id", productId)
+  return totalCost
+}
 
 // ─── Recipes ──────────────────────────────────────────────────
 
@@ -385,7 +489,8 @@ export async function createPackaging(tenantId: string, data: {
     current_stock: data.currentStock, min_stock: data.minStock,
     price: data.price, description: data.description || null,
   }).select().single()
-  if (error || !row) { console.error("Error creating packaging:", error?.message); return null }
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return {
     id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type,
     description: row.description, unit: row.unit,
@@ -520,8 +625,6 @@ export async function createStockMovement(tenantId: string, data: {
     to_location_id: data.toLocationId || null,
     created_by: user?.id || null,
   })
-  if (error) { console.error("Error creating stock movement:", error.message); return false }
-
   // Determine table and item id
   let table: string
   let idField: string | undefined
@@ -533,12 +636,27 @@ export async function createStockMovement(tenantId: string, data: {
     table = "finished_products"; idField = data.finishedProductId
   }
 
+  // For sortie and transfert: verify stock is sufficient BEFORE inserting movement
+  if (idField && (data.movementType === "sortie" || data.movementType === "transfert")) {
+    const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
+    const currentStock = Number(currentItem?.current_stock || 0)
+    if (data.quantity > currentStock) {
+      throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+    }
+  }
+
+  if (error) { throw new Error(error.message) }
+
   // Update stock level (transfers don't change total stock)
   if (idField && data.movementType !== "transfert") {
-    const { data: item } = await supabase.from(table).select("current_stock").eq("id", idField).single()
-    const currentStock = Number(item?.current_stock || 0)
+    const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
+    const currentStock = Number(currentItem?.current_stock || 0)
     const delta = data.movementType === "entree" ? data.quantity : -data.quantity
-    await supabase.from(table).update({ current_stock: Math.max(0, currentStock + delta) }).eq("id", idField)
+    const newStock = currentStock + delta
+    if (newStock < 0) {
+      throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}`)
+    }
+    await supabase.from(table).update({ current_stock: newStock }).eq("id", idField)
   }
 
   return true

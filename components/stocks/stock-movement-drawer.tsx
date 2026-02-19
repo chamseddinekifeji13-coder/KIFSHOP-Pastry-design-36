@@ -110,8 +110,16 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       toast.error("Veuillez selectionner un article")
       return
     }
-    if (!quantity || Number(quantity) <= 0) {
+    const qty = Number(quantity)
+    if (!quantity || qty <= 0) {
       toast.error("Veuillez entrer une quantite valide")
+      return
+    }
+    // Validate stock for sortie and transfert
+    if ((action === "sortie" || action === "transfert") && qty > activeItem.currentStock) {
+      toast.error("Stock insuffisant", {
+        description: `Disponible: ${activeItem.currentStock} ${activeItem.unit}, demande: ${qty} ${activeItem.unit}`,
+      })
       return
     }
     if (action === "transfert" && (!fromLocationId || !toLocationId)) {
@@ -153,8 +161,13 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       } else {
         toast.error("Erreur lors de l'enregistrement")
       }
-    } catch {
-      toast.error("Erreur lors de l'enregistrement")
+    } catch (err: any) {
+      const msg = err?.message || ""
+      if (msg.startsWith("STOCK_INSUFFISANT:")) {
+        toast.error("Stock insuffisant", { description: msg.replace("STOCK_INSUFFISANT:", "") })
+      } else {
+        toast.error("Erreur", { description: msg || "Erreur lors de l'enregistrement" })
+      }
     } finally {
       setSaving(false)
     }
@@ -176,6 +189,27 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       )
     }
 
+    // If an item is already selected from the list, show it with option to change
+    if (selectedItemId && activeItem) {
+      return (
+        <div className="space-y-2">
+          <Label className="text-xs font-medium">Article *</Label>
+          <div className="rounded-lg border bg-muted/30 p-3 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Package className="h-4 w-4" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">{activeItem.name}</p>
+              <p className="text-[10px] text-muted-foreground">{typeLabel(activeItem.type)} &middot; Stock: {activeItem.currentStock} {activeItem.unit}</p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => { setSelectedItemId(""); setSearchQuery("") }}>
+              Changer
+            </Button>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="space-y-2">
         <Label className="text-xs font-medium">Article *</Label>
@@ -188,42 +222,64 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             className="pl-9 bg-muted/50 border-0"
           />
         </div>
-        <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
-          {filteredItems.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">Aucun article trouve</p>
-          ) : (
-            filteredItems.map((i) => (
-              <button
-                key={i.id}
-                type="button"
-                onClick={() => { setSelectedItemId(i.id); setSearchQuery("") }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between ${
-                  selectedItemId === i.id ? "bg-primary/5 ring-1 ring-primary/20" : ""
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">{typeLabel(i.type)}</span>
-                  <span className="font-medium">{i.name}</span>
-                </span>
-                <span className="text-xs text-muted-foreground">{i.currentStock} {i.unit}</span>
-              </button>
-            ))
-          )}
-        </div>
+        {allItems.length === 0 ? (
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-3 text-center">
+            Aucun article en stock. Creez des matieres premieres, produits finis ou emballages d&apos;abord.
+          </p>
+        ) : (
+          <div className="max-h-48 overflow-y-auto rounded-lg border divide-y">
+            {filteredItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Aucun resultat pour &quot;{searchQuery}&quot;</p>
+            ) : (
+              filteredItems.map((i) => (
+                <button
+                  key={i.id}
+                  type="button"
+                  onClick={() => { setSelectedItemId(i.id); setSearchQuery("") }}
+                  className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">{typeLabel(i.type)}</span>
+                    <span className="font-medium">{i.name}</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground">{i.currentStock} {i.unit}</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
       </div>
     )
   }
 
-  const renderQuantityField = (color = "primary") => (
-    <div className="space-y-2">
-      <Label className="text-xs font-medium">Quantite ({activeItem?.unit || "unites"})</Label>
-      <Input
-        type="number" min="0" step="0.01" placeholder="0"
-        value={quantity} onChange={(e) => setQuantity(e.target.value)}
-        className={`bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-${color}/30 text-lg font-semibold text-center h-12`}
-      />
-    </div>
-  )
+  const renderQuantityField = (color = "primary", showStockLimit = false) => {
+    const qty = Number(quantity) || 0
+    const stockAvailable = activeItem?.currentStock ?? 0
+    const isOverStock = showStockLimit && qty > stockAvailable
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-medium">Quantite ({activeItem?.unit || "unites"}) *</Label>
+          {showStockLimit && activeItem && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isOverStock ? "bg-red-100 text-red-700" : "bg-muted text-muted-foreground"}`}>
+              Dispo: {stockAvailable} {activeItem.unit}
+            </span>
+          )}
+        </div>
+        <Input
+          type="number" min="0" step="0.01" placeholder="0"
+          value={quantity} onChange={(e) => setQuantity(e.target.value)}
+          className={`bg-muted/50 border-0 text-lg font-semibold text-center h-12 ${isOverStock ? "ring-2 ring-red-400 focus-visible:ring-red-400" : `focus-visible:ring-1 focus-visible:ring-${color}/30`}`}
+        />
+        {isOverStock && (
+          <p className="text-[11px] text-red-600 font-medium">
+            Quantite superieure au stock disponible ({stockAvailable} {activeItem?.unit})
+          </p>
+        )}
+      </div>
+    )
+  }
 
   const renderReasonSelect = (options: string[]) => (
     <div className="space-y-2">
@@ -309,7 +365,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="sortie" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
-                {renderQuantityField("destructive")}
+                {renderQuantityField("destructive", true)}
                 {renderReasonSelect(["Vente", "Utilisation production", "Perte / Perime", "Ajustement inventaire", "Casse"])}
                 {renderLocationSelect("Depuis", fromLocationId, setFromLocationId)}
               </div>
@@ -323,7 +379,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="transfert" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
-                {renderQuantityField("primary")}
+                {renderQuantityField("primary", true)}
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
                   <div className="space-y-2">
                     <Label className="text-xs font-medium">De *</Label>

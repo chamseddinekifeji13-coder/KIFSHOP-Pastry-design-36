@@ -7,6 +7,8 @@ import { fetchSuppliers, fetchPurchaseOrders } from "@/lib/approvisionnement/act
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
 import { fetchOrders } from "@/lib/orders/actions"
+import { fetchNotifications } from "@/lib/notifications/actions"
+import { fetchProductionPlans } from "@/lib/planning/actions"
 
 function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T>) {
   const { currentTenant, isLoading: tenantLoading } = useTenant()
@@ -81,6 +83,22 @@ export function useOrders() {
 
 export function useProspects() {
   return useTenantQuery("prospects", fetchProspects)
+}
+
+export function useNotifications(role?: string) {
+  const { currentTenant, currentRole, isLoading: tenantLoading } = useTenant()
+  const tenantId = currentTenant.id
+  const isFallback = tenantId === "__fallback__"
+  const targetRole = role || currentRole
+  return useSWR(
+    !tenantLoading && !isFallback ? `notifications-${tenantId}-${targetRole}` : null,
+    () => fetchNotifications(tenantId, targetRole),
+    { revalidateOnFocus: true, refreshInterval: 30000, dedupingInterval: 5000 }
+  )
+}
+
+export function useProductionPlans() {
+  return useTenantQuery("production-plans", fetchProductionPlans)
 }
 
 export function useDueReminders() {

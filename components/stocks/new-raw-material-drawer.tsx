@@ -46,6 +46,11 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
     if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
     if (!pricePerUnit || Number(pricePerUnit) <= 0) { toast.error("Le prix unitaire est obligatoire"); return }
 
+    if (!currentTenant.id || currentTenant.id === "__fallback__") {
+      toast.error("Session non initialisee", { description: "Veuillez rafraichir la page" })
+      return
+    }
+
     setSaving(true)
     try {
       const result = await createRawMaterial(currentTenant.id, {
@@ -69,7 +74,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
       } else {
-        toast.error("Erreur inattendue")
+        toast.error("Erreur", { description: msg || "Erreur inattendue" })
       }
     } finally {
       setSaving(false)

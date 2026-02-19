@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2 } from "lucide-react"
+import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
 import { RecipeDrawer } from "./recipe-drawer"
+import { ProductionPlanner } from "./production-planner"
 import { toast } from "sonner"
 import type { Recipe } from "@/lib/production/actions"
 
@@ -53,11 +55,25 @@ export function ProductionView() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Production</h1>
-          <p className="text-muted-foreground">Gerez vos recettes et lancez de nouvelles productions</p>
+          <p className="text-muted-foreground">Gerez vos recettes, planifiez et lancez vos productions</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      </div>
+
+      <Tabs defaultValue="planner" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="planner" className="gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Planification</TabsTrigger>
+          <TabsTrigger value="recipes" className="gap-1.5"><ChefHat className="h-3.5 w-3.5" /> Fiches techniques</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="planner">
+          <ProductionPlanner />
+        </TabsContent>
+
+        <TabsContent value="recipes" className="space-y-4">
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button><Play className="mr-2 h-4 w-4" />Lancer production</Button></DialogTrigger>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader><DialogTitle>Lancer une production</DialogTitle><DialogDescription>Selectionnez une recette et la quantite a produire</DialogDescription></DialogHeader>
@@ -144,6 +160,9 @@ export function ProductionView() {
       </div>
 
       <RecipeDrawer open={recipeDrawerOpen} onOpenChange={setRecipeDrawerOpen} recipe={editingRecipe} onSuccess={() => mutateRecipes()} />
+
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
