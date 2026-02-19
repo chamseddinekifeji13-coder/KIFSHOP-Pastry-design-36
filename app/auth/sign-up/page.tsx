@@ -46,9 +46,7 @@ export default function SignUpPage() {
       email,
       password,
       options: {
-        emailRedirectTo:
-          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-          `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         data: {
           tenant_name: shopName,
           display_name: displayName,
@@ -59,6 +57,14 @@ export default function SignUpPage() {
 
     if (signUpError) {
       setError(signUpError.message)
+      setLoading(false)
+      return
+    }
+
+    // Supabase returns a fake user with no identities for repeated signups
+    // This means the email is already registered
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setError("Cet email est deja utilise. Connectez-vous ou utilisez un autre email.")
       setLoading(false)
       return
     }
