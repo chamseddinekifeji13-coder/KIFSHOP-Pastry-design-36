@@ -103,7 +103,7 @@ export function SettingsView() {
                 <span className="font-medium">01/03/2026</span>
               </div>
             </div>
-            {currentRole === "gerant" && (
+            {currentRole === "owner" || currentRole === "gerant" && (
               <Button variant="outline" className="w-full bg-transparent">
                 Gérer l{"'"}abonnement
               </Button>
@@ -132,7 +132,7 @@ export function SettingsView() {
                 <p className="font-medium">{currentTenant.name}</p>
                 <p className="text-sm text-muted-foreground">ID: {currentTenant.id}</p>
               </div>
-              {currentRole === "gerant" && (
+              {currentRole === "owner" || currentRole === "gerant" && (
                 <Button variant="outline" size="sm" onClick={() => setShopConfigOpen(true)} className="bg-transparent">
                   Modifier
                 </Button>
@@ -150,7 +150,7 @@ export function SettingsView() {
                 <Tags className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">Categories de produits</CardTitle>
               </div>
-              {currentRole === "gerant" && (
+              {currentRole === "owner" || currentRole === "gerant" && (
                 <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)} className="bg-transparent">
                   Gerer
                 </Button>
@@ -179,8 +179,8 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
-        {/* Users Management - Gerant only */}
-        {currentRole === "gerant" && (
+        {/* Users Management - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -332,7 +332,7 @@ export function SettingsView() {
                   </div>
                 </div>
 
-                {currentRole === "gerant" && (
+                {currentRole === "owner" || currentRole === "gerant" && (
                   <Button onClick={handleSaveInvoiceSettings} disabled={invoiceSaving}>
                     {invoiceSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Enregistrer les parametres
