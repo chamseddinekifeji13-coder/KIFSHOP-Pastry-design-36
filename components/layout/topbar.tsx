@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Bell, BellOff, ChevronDown, Menu, Users, UserPlus } from "lucide-react"
+import { Bell, BellOff, ChevronDown, Lock, Menu, Users, UserPlus } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useDueReminders } from "@/hooks/use-tenant-data"
@@ -270,6 +270,13 @@ export function Topbar() {
             <DropdownMenuItem>Mon profil</DropdownMenuItem>
             <DropdownMenuItem>Parametres</DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => {
+              sessionStorage.removeItem("kifshop_unlocked")
+              window.location.reload()
+            }}>
+              <Lock className="mr-2 h-4 w-4" />
+              Verrouiller
+            </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={() => signOut()}>
               Deconnexion
             </DropdownMenuItem>
