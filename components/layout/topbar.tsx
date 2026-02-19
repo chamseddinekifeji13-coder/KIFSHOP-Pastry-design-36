@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { Bell, BellOff, ChevronDown, Menu, Users, UserPlus } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -17,12 +18,14 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { PinDialog } from "@/components/pin-dialog"
 import {
   useTenant,
   ROLE_LABELS,
   canAccessRoute,
   getDefaultRoute,
   type UserRole,
+  type AppUser,
 } from "@/lib/tenant-context"
 
 const roleGroups: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier"]
@@ -43,6 +46,10 @@ export function Topbar() {
   const pathname = usePathname()
   const { data: reminders = [], mutate: mutateReminders } = useDueReminders()
 
+  // PIN dialog state
+  const [pinDialogOpen, setPinDialogOpen] = useState(false)
+  const [pendingUser, setPendingUser] = useState<AppUser | null>(null)
+
   async function handleDismissReminder(id: string) {
     await dismissReminder(id)
     mutateReminders()
@@ -52,7 +59,24 @@ export function Topbar() {
   function handleUserSwitch(userId: string) {
     const user = users.find((u) => u.id === userId)
     if (!user) return
+
+    // If it's the same user, do nothing
+    if (user.id === currentUser.id) return
+
+    // If the user has a PIN, ask for it
+    if (user.pin) {
+      setPendingUser(user)
+      setPinDialogOpen(true)
+      return
+    }
+
+    // No PIN set - switch directly (owner account linked to auth)
+    completeUserSwitch(user)
+  }
+
+  function completeUserSwitch(user: AppUser) {
     setCurrentUser(user)
+    toast.success(`Connecte en tant que ${user.name}`)
     // If current page is not accessible for the new user, redirect
     if (!canAccessRoute(user.role, pathname)) {
       router.push(getDefaultRoute(user.role))
@@ -252,6 +276,22 @@ export function Topbar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* PIN Dialog for employee switch */}
+      {pendingUser && (
+        <PinDialog
+          open={pinDialogOpen}
+          onOpenChange={(open) => {
+            setPinDialogOpen(open)
+            if (!open) setPendingUser(null)
+          }}
+          userName={pendingUser.name}
+          userInitials={pendingUser.initials}
+          userRole={ROLE_LABELS[pendingUser.role]}
+          expectedPin={pendingUser.pin || ""}
+          onSuccess={() => completeUserSwitch(pendingUser)}
+        />
+      )}
     </header>
   )
 }
