@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { TenantProvider, useTenant } from "@/lib/tenant-context"
@@ -9,13 +9,32 @@ import { Topbar } from "./topbar"
 import { Toaster } from "@/components/ui/sonner"
 import { SubscriptionBanner } from "./subscription-banner"
 import { SuspensionOverlay } from "./suspension-overlay"
+import { LockScreen } from "@/components/lock-screen"
 
 interface AppShellProps {
   children: React.ReactNode
 }
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
-  const { isLoading } = useTenant()
+  const { isLoading, users } = useTenant()
+  const [isLocked, setIsLocked] = useState(true)
+
+  // Check if lock screen should be shown
+  const hasEmployeesWithPin = users.some((u) => u.pin)
+  const shouldShowLock = hasEmployeesWithPin && users.length > 1
+
+  // Check session storage to see if already unlocked this session
+  useEffect(() => {
+    const unlocked = sessionStorage.getItem("kifshop_unlocked")
+    if (unlocked === "true") {
+      setIsLocked(false)
+    }
+  }, [])
+
+  function handleUnlock() {
+    setIsLocked(false)
+    sessionStorage.setItem("kifshop_unlocked", "true")
+  }
 
   if (isLoading) {
     return (
@@ -26,6 +45,10 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     )
+  }
+
+  if (isLocked && shouldShowLock) {
+    return <LockScreen onUnlock={handleUnlock} />
   }
 
   return (
