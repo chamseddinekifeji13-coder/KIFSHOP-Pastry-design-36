@@ -52,7 +52,6 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
     }
 
     setSaving(true)
-    console.log("[v0] createRawMaterial tenantId:", currentTenant.id, "name:", name.trim())
     try {
       const result = await createRawMaterial(currentTenant.id, {
         name: name.trim(),

@@ -79,7 +79,6 @@ export async function createRawMaterial(tenantId: string, data: {
   const supabase = createClient()
   // Verify auth session
   const { data: { user } } = await supabase.auth.getUser()
-  console.log("[v0] createRawMaterial - auth user:", user?.id, "tenantId:", tenantId)
   if (!user) { throw new Error("Session expiree - veuillez vous reconnecter") }
   // Check for duplicate raw material by name
   const { data: existing } = await supabase
@@ -88,13 +87,11 @@ export async function createRawMaterial(tenantId: string, data: {
   if (existing && existing.length > 0) {
     throw new Error(`DUPLICATE:La matiere premiere "${existing[0].name}" existe deja`)
   }
-  console.log("[v0] Inserting raw_materials:", { tenant_id: tenantId, name: data.name })
   const { data: row, error } = await supabase.from("raw_materials").insert({
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
   }).select().single()
-  console.log("[v0] Insert result:", { row: row?.id, error: error?.message, errorCode: error?.code })
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, name: row.name, unit: row.unit,
