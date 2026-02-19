@@ -17,26 +17,39 @@ interface AppShellProps {
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const { isLoading, users } = useTenant()
-  const [isLocked, setIsLocked] = useState(true)
+  // null = not yet determined, true = locked, false = unlocked
+  const [lockState, setLockState] = useState<null | boolean>(null)
 
-  // Check if lock screen should be shown
-  const hasEmployeesWithPin = users.some((u) => u.pin)
-  const shouldShowLock = hasEmployeesWithPin && users.length > 1
-
-  // Check session storage to see if already unlocked this session
+  // Determine lock state AFTER loading is complete and users are available
   useEffect(() => {
+    if (isLoading) return
+    if (lockState !== null) return // already determined
+
+    const hasEmployeesWithPin = users.some((u) => u.pin)
+    const shouldShowLock = hasEmployeesWithPin && users.length > 1
+
+    if (!shouldShowLock) {
+      // No employees with PIN, skip lock screen
+      setLockState(false)
+      return
+    }
+
+    // Check if already unlocked this browser session
     const unlocked = sessionStorage.getItem("kifshop_unlocked")
     if (unlocked === "true") {
-      setIsLocked(false)
+      setLockState(false)
+    } else {
+      setLockState(true)
     }
-  }, [])
+  }, [isLoading, users, lockState])
 
   function handleUnlock() {
-    setIsLocked(false)
+    setLockState(false)
     sessionStorage.setItem("kifshop_unlocked", "true")
   }
 
-  if (isLoading) {
+  // Still loading data or determining lock state
+  if (isLoading || lockState === null) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -47,7 +60,7 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (isLocked && shouldShowLock) {
+  if (lockState === true) {
     return <LockScreen onUnlock={handleUnlock} />
   }
 
