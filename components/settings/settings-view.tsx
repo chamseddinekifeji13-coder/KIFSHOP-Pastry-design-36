@@ -103,7 +103,7 @@ export function SettingsView() {
                 <span className="font-medium">01/03/2026</span>
               </div>
             </div>
-            {currentRole === "owner" || currentRole === "gerant" && (
+            {(currentRole === "owner" || currentRole === "gerant") && (
               <Button variant="outline" className="w-full bg-transparent">
                 Gérer l{"'"}abonnement
               </Button>
@@ -132,7 +132,7 @@ export function SettingsView() {
                 <p className="font-medium">{currentTenant.name}</p>
                 <p className="text-sm text-muted-foreground">ID: {currentTenant.id}</p>
               </div>
-              {currentRole === "owner" || currentRole === "gerant" && (
+              {(currentRole === "owner" || currentRole === "gerant") && (
                 <Button variant="outline" size="sm" onClick={() => setShopConfigOpen(true)} className="bg-transparent">
                   Modifier
                 </Button>
@@ -150,7 +150,7 @@ export function SettingsView() {
                 <Tags className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">Categories de produits</CardTitle>
               </div>
-              {currentRole === "owner" || currentRole === "gerant" && (
+              {(currentRole === "owner" || currentRole === "gerant") && (
                 <Button variant="outline" size="sm" onClick={() => setCategoriesOpen(true)} className="bg-transparent">
                   Gerer
                 </Button>
@@ -241,7 +241,7 @@ export function SettingsView() {
                       <Switch
                         checked={invoiceSettings.taxEnabled}
                         onCheckedChange={(v) => setInvoiceSettings({ ...invoiceSettings, taxEnabled: v })}
-                        disabled={currentRole !== "gerant"}
+                        disabled={currentRole !== "owner" && currentRole !== "gerant"}
                       />
                     </div>
                     {invoiceSettings.taxEnabled && (
@@ -251,7 +251,7 @@ export function SettingsView() {
                           <Input
                             value={invoiceSettings.taxLabel}
                             onChange={(e) => setInvoiceSettings({ ...invoiceSettings, taxLabel: e.target.value })}
-                            disabled={currentRole !== "gerant"}
+                            disabled={currentRole !== "owner" && currentRole !== "gerant"}
                             placeholder="TVA"
                           />
                         </div>
@@ -261,7 +261,7 @@ export function SettingsView() {
                             type="number"
                             value={invoiceSettings.taxRate}
                             onChange={(e) => setInvoiceSettings({ ...invoiceSettings, taxRate: parseFloat(e.target.value) || 0 })}
-                            disabled={currentRole !== "gerant"}
+                            disabled={currentRole !== "owner" && currentRole !== "gerant"}
                             placeholder="19"
                           />
                         </div>
@@ -278,7 +278,7 @@ export function SettingsView() {
                         <Input
                           value={invoiceSettings.invoicePrefix}
                           onChange={(e) => setInvoiceSettings({ ...invoiceSettings, invoicePrefix: e.target.value })}
-                          disabled={currentRole !== "gerant"}
+                          disabled={currentRole !== "owner" && currentRole !== "gerant"}
                           placeholder="FAC"
                         />
                         <p className="text-[10px] text-muted-foreground">
@@ -290,7 +290,7 @@ export function SettingsView() {
                         <Input
                           value={invoiceSettings.deliveryNotePrefix}
                           onChange={(e) => setInvoiceSettings({ ...invoiceSettings, deliveryNotePrefix: e.target.value })}
-                          disabled={currentRole !== "gerant"}
+                          disabled={currentRole !== "owner" && currentRole !== "gerant"}
                           placeholder="BL"
                         />
                         <p className="text-[10px] text-muted-foreground">
@@ -312,7 +312,7 @@ export function SettingsView() {
                     <Textarea
                       value={invoiceSettings.footerText}
                       onChange={(e) => setInvoiceSettings({ ...invoiceSettings, footerText: e.target.value })}
-                      disabled={currentRole !== "gerant"}
+                      disabled={currentRole !== "owner" && currentRole !== "gerant"}
                       rows={2}
                       placeholder="Merci pour votre confiance."
                     />
@@ -326,13 +326,13 @@ export function SettingsView() {
                       <Switch
                         checked={invoiceSettings.showPricesOnDeliveryNote}
                         onCheckedChange={(v) => setInvoiceSettings({ ...invoiceSettings, showPricesOnDeliveryNote: v })}
-                        disabled={currentRole !== "gerant"}
+                        disabled={currentRole !== "owner" && currentRole !== "gerant"}
                       />
                     </div>
                   </div>
                 </div>
 
-                {currentRole === "owner" || currentRole === "gerant" && (
+                {(currentRole === "owner" || currentRole === "gerant") && (
                   <Button onClick={handleSaveInvoiceSettings} disabled={invoiceSaving}>
                     {invoiceSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Enregistrer les parametres
@@ -360,14 +360,14 @@ export function SettingsView() {
                 <p className="font-medium text-sm">Impression automatique</p>
                 <p className="text-xs text-muted-foreground">Imprimer le ticket après chaque vente</p>
               </div>
-              <Switch defaultChecked disabled={currentRole !== "gerant"} />
+              <Switch defaultChecked disabled={currentRole !== "owner" && currentRole !== "gerant"} />
             </div>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-sm">Inclure le logo</p>
                 <p className="text-xs text-muted-foreground">Afficher le logo sur les tickets</p>
               </div>
-              <Switch defaultChecked disabled={currentRole !== "gerant"} />
+              <Switch defaultChecked disabled={currentRole !== "owner" && currentRole !== "gerant"} />
             </div>
           </CardContent>
         </Card>
