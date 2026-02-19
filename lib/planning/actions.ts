@@ -140,7 +140,8 @@ export async function calculateMaterialAvailability(
     const { data: labStock } = await supabase
       .from("stock_by_location")
       .select("raw_material_id, quantity")
-      .eq("location_id", labLocationId)
+      .eq("storage_location_id", labLocationId)
+      .eq("item_type", "raw_material")
     labStock?.forEach((s) => {
       if (s.raw_material_id) {
         labStockMap.set(s.raw_material_id, Number(s.quantity || 0))
