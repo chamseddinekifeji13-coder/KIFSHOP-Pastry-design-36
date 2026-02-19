@@ -1,6 +1,6 @@
 import useSWR from "swr"
 import { useTenant } from "@/lib/tenant-context"
-import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging } from "@/lib/stocks/actions"
+import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging, fetchStorageLocations } from "@/lib/stocks/actions"
 import { fetchProspects, fetchDueReminders } from "@/lib/prospects/actions"
 import { fetchTransactions } from "@/lib/treasury/actions"
 import { fetchSuppliers, fetchPurchaseOrders } from "@/lib/approvisionnement/actions"
@@ -34,6 +34,10 @@ export function useCategories() {
 
 export function usePackaging() {
   return useTenantQuery("packaging", fetchPackaging)
+}
+
+export function useStorageLocations() {
+  return useTenantQuery("storage-locations", fetchStorageLocations)
 }
 
 export function useStockMovements(limit = 50) {

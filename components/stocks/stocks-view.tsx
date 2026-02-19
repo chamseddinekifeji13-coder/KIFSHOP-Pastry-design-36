@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Plus, Loader2 } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { RawMaterialsTable } from "./raw-materials-table"
@@ -11,6 +11,7 @@ import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
+import { StorageLocationsTable } from "./storage-locations-table"
 import { useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
 
 export function StocksView() {
@@ -19,14 +20,14 @@ export function StocksView() {
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
-  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" } | null>(null)
+  const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string } | null>(null)
 
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
   const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
 
-  const handleItemClick = (id: string, name: string, type: "raw" | "finished") => {
-    setSelectedItem({ id, name, type })
+  const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
+    setSelectedItem({ id, name, type, unit })
     setDrawerOpen(true)
   }
 
@@ -38,34 +39,39 @@ export function StocksView() {
           <p className="text-muted-foreground">Gerez vos matieres premieres, produits finis et emballages</p>
         </div>
         <div className="flex gap-2">
-          {selectedTab === "raw" ? (
+          {selectedTab === "raw" && (
             <Button variant="outline" onClick={() => setNewRawMaterialOpen(true)} className="bg-transparent">
               <Plus className="mr-2 h-4 w-4" />
-              Nouvelle matiere premiere
+              Nouvelle MP
             </Button>
-          ) : selectedTab === "packaging" ? (
+          )}
+          {selectedTab === "finished" && (
+            <Button variant="outline" onClick={() => setNewProductOpen(true)} className="bg-transparent">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau PF
+            </Button>
+          )}
+          {selectedTab === "packaging" && (
             <Button variant="outline" onClick={() => setNewPackagingOpen(true)} className="bg-transparent">
               <Plus className="mr-2 h-4 w-4" />
               Nouvel emballage
             </Button>
-          ) : (
-            <Button variant="outline" onClick={() => setNewProductOpen(true)} className="bg-transparent">
+          )}
+          {selectedTab !== "reserves" && (
+            <Button onClick={() => { setSelectedItem(null); setDrawerOpen(true) }}>
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau produit fini
+              Mouvement stock
             </Button>
           )}
-          <Button onClick={() => { setSelectedItem(null); setDrawerOpen(true) }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Mouvement stock
-          </Button>
         </div>
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
           <TabsTrigger value="raw" className="gap-2"><Package className="h-4 w-4" /><span className="hidden sm:inline">Matieres Premieres</span><span className="sm:hidden">MP</span></TabsTrigger>
           <TabsTrigger value="finished" className="gap-2"><Box className="h-4 w-4" /><span className="hidden sm:inline">Produits Finis</span><span className="sm:hidden">PF</span></TabsTrigger>
           <TabsTrigger value="packaging" className="gap-2"><Gift className="h-4 w-4" /><span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span></TabsTrigger>
+          <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
         </TabsList>
 
         <TabsContent value="raw" className="mt-6">
@@ -98,12 +104,16 @@ export function StocksView() {
               </Button>
             </div>
           ) : (
-            <PackagingTable items={packaging || []} onItemClick={(id, name) => handleItemClick(id, name, "raw")} />
+            <PackagingTable items={packaging || []} onItemClick={(id, name) => handleItemClick(id, name, "packaging")} />
           )}
+        </TabsContent>
+
+        <TabsContent value="reserves" className="mt-6">
+          <StorageLocationsTable />
         </TabsContent>
       </Tabs>
 
-      <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} onSuccess={() => { mutateRM(); mutateFP(); mutatePkg() }} />
+      <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} />
       <NewProductDrawer open={newProductOpen} onOpenChange={setNewProductOpen} onSuccess={() => { mutateRM(); mutateFP() }} />
       <NewPackagingDrawer open={newPackagingOpen} onOpenChange={setNewPackagingOpen} onSuccess={() => mutatePkg()} />
       <NewRawMaterialDrawer open={newRawMaterialOpen} onOpenChange={setNewRawMaterialOpen} onSuccess={() => mutateRM()} />
