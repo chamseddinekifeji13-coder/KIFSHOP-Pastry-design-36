@@ -102,22 +102,29 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
 
     setSaving(true)
     try {
+      // Find categoryId from category name
+      const categoryObj = categories.find((c: any) => c.name === category)
       const product = await addFinishedProduct(currentTenant.id, {
-        name: name.trim(), category, unit,
-        price: parseFloat(price),
-        quantity: initialQty ? parseFloat(initialQty) : 0,
-        min_stock: 0,
+        name: name.trim(),
+        categoryId: categoryObj?.id,
+        unit,
+        sellingPrice: parseFloat(price),
+        costPrice: 0,
+        currentStock: initialQty ? parseFloat(initialQty) : 0,
+        minStock: 0,
+        description: description.trim() || undefined,
       })
 
       if (hasRecipe && product) {
         await addRecipe(currentTenant.id, {
-          name: name.trim(), category,
-          finished_product_id: product.id,
-          yield_quantity: parseFloat(yieldQty) || 1,
-          yield_unit: yieldUnit || unit,
+          name: name.trim(),
+          finishedProductId: product.id,
+          category,
+          yieldQuantity: parseFloat(yieldQty) || 1,
+          yieldUnit: yieldUnit || unit,
           ingredients: ingredients.map(ing => ({
-            raw_material_id: ing.materialId,
-            name: ing.name, quantity: parseFloat(ing.quantity), unit: ing.unit,
+            rawMaterialId: ing.materialId,
+            quantity: parseFloat(ing.quantity), unit: ing.unit,
           })),
         })
       }
@@ -127,7 +134,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           ? `"${name}" avec sa fiche technique (${ingredients.length} ingredients)`
           : `"${name}" sans recette`,
       })
-      mutate((key: string) => typeof key === "string" && key.includes("finished_products"))
+      mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
       resetForm()
       onOpenChange(false)
@@ -136,7 +143,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
       } else {
-        toast.error("Erreur lors de la creation du produit")
+        toast.error("Erreur", { description: msg || "Erreur lors de la creation du produit" })
       }
     } finally {
       setSaving(false)

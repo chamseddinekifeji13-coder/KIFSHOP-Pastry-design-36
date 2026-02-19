@@ -84,14 +84,13 @@ export async function createRawMaterial(tenantId: string, data: {
   if (existing && existing.length > 0) {
     throw new Error(`DUPLICATE:La matiere premiere "${existing[0].name}" existe deja`)
   }
-  console.log("[v0] Inserting raw material:", { tenant_id: tenantId, name: data.name })
   const { data: row, error } = await supabase.from("raw_materials").insert({
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
   }).select().single()
-  console.log("[v0] Insert result - row:", row, "error:", error)
-  if (error || !row) { console.error("[v0] Error creating raw material:", error?.message, error?.details, error?.hint, error?.code); return null }
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, name: row.name, unit: row.unit,
     currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
     pricePerUnit: Number(row.price_per_unit), supplier: row.supplier, createdAt: row.created_at }
@@ -227,7 +226,8 @@ export async function createFinishedProduct(tenantId: string, data: {
     selling_price: data.sellingPrice, cost_price: data.costPrice,
     description: data.description || null, weight: data.weight || null,
   }).select().single()
-  if (error || !row) { console.error("Error creating finished product:", error?.message); return null }
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, categoryId: row.category_id, name: row.name,
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
@@ -387,7 +387,8 @@ export async function createPackaging(tenantId: string, data: {
     current_stock: data.currentStock, min_stock: data.minStock,
     price: data.price, description: data.description || null,
   }).select().single()
-  if (error || !row) { console.error("Error creating packaging:", error?.message); return null }
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return {
     id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type,
     description: row.description, unit: row.unit,
@@ -522,7 +523,7 @@ export async function createStockMovement(tenantId: string, data: {
     to_location_id: data.toLocationId || null,
     created_by: user?.id || null,
   })
-  if (error) { console.error("Error creating stock movement:", error.message); return false }
+  if (error) { console.error("Error creating stock movement:", error.message, error.details, error.code); throw new Error(error.message) }
 
   // Determine table and item id
   let table: string
