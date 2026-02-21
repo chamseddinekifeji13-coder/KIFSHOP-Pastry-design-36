@@ -349,7 +349,7 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50 shrink-0"
                               onClick={() => startEdit(user)}
-                              disabled={saving}
+                              disabled={saving || user.role === "owner"}
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -358,7 +358,7 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                               size="icon"
                               className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                               onClick={() => handleRemove(user.id, user.name)}
-                              disabled={user.id === currentUser.id || removingId === user.id}
+                              disabled={user.id === currentUser.id || removingId === user.id || user.role === "owner"}
                             >
                               {removingId === user.id ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

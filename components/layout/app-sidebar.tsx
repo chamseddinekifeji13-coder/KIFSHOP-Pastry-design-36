@@ -14,6 +14,7 @@ import {
   Radio,
   Truck,
   UserPlus,
+  Lock,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -81,7 +82,7 @@ const navigation = [
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { currentTenant, currentUser, currentRole, authUser, signOut, isLoading } = useTenant()
+  const { currentTenant, currentUser, currentRole, authUser, users, signOut, isLoading } = useTenant()
   const [signingOut, setSigningOut] = useState(false)
 
   async function handleSignOut() {
@@ -167,6 +168,20 @@ export function AppSidebar() {
               </div>
             </div>
           </SidebarMenuItem>
+          {users.length > 1 && users.some((u) => u.pin) && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Verrouiller"
+                onClick={() => {
+                  sessionStorage.removeItem("kifshop_unlocked_at")
+                  window.location.reload()
+                }}
+              >
+                <Lock className="h-4 w-4" />
+                <span>Verrouiller</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton tooltip="Deconnexion" onClick={handleSignOut} disabled={signingOut}>
               {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
