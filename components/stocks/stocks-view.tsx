@@ -80,11 +80,26 @@ export function StocksView() {
           <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
         </TabsList>
 
-        <TabsContent value="raw" className="mt-6">
+        <TabsContent value="raw" className="mt-6 space-y-6">
+          {chartMaterial && (
+            <StockHistoryChart
+              materialId={chartMaterial.id}
+              materialName={chartMaterial.name}
+              unit={chartMaterial.unit}
+              onClose={() => setChartMaterial(null)}
+            />
+          )}
           {rmLoading ? (
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            <RawMaterialsTable materials={rawMaterials || []} onItemClick={(id, name) => handleItemClick(id, name, "raw")} onAdd={() => setNewRawMaterialOpen(true)} />
+            <RawMaterialsTable
+              materials={rawMaterials || []}
+              onItemClick={(id, name, unit) => {
+                handleItemClick(id, name, "raw", unit)
+                setChartMaterial({ id, name, unit })
+              }}
+              onAdd={() => setNewRawMaterialOpen(true)}
+            />
           )}
         </TabsContent>
 

@@ -10,7 +10,7 @@ import type { RawMaterial } from "@/lib/stocks/actions"
 
 interface RawMaterialsTableProps {
   materials: RawMaterial[]
-  onItemClick: (id: string, name: string) => void
+  onItemClick: (id: string, name: string, unit?: string) => void
   onAdd?: () => void
 }
 
@@ -60,7 +60,7 @@ export function RawMaterialsTable({ materials, onItemClick, onAdd }: RawMaterial
                 const maxStock = Math.max(material.minStock * 3, material.currentStock)
                 const pct = maxStock > 0 ? Math.min((material.currentStock / maxStock) * 100, 100) : 0
                 return (
-                  <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(material.id, material.name)}>
+                  <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(material.id, material.name, material.unit)}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {status === "critical" && <AlertTriangle className="h-4 w-4 text-destructive" />}
