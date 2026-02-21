@@ -36,10 +36,11 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   const [minStock, setMinStock] = useState("5")
   const [pricePerUnit, setPricePerUnit] = useState("")
   const [supplier, setSupplier] = useState("")
+  const [barcode, setBarcode] = useState("")
 
   function resetForm() {
     setName(""); setUnit("kg"); setCurrentStock("")
-    setMinStock("5"); setPricePerUnit(""); setSupplier("")
+    setMinStock("5"); setPricePerUnit(""); setSupplier(""); setBarcode("")
   }
 
   async function handleSubmit() {
@@ -60,6 +61,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         minStock: Number(minStock) || 5,
         pricePerUnit: Number(pricePerUnit) || 0,
         supplier: supplier.trim() || undefined,
+        barcode: barcode.trim() || undefined,
       })
       if (result) {
         toast.success("Matiere premiere ajoutee", { description: name.trim() })
@@ -128,6 +130,12 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
                 <Label className="text-xs text-muted-foreground">Fournisseur (optionnel)</Label>
                 <Input placeholder="Ex: Moulin du Sud" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Code-barres (optionnel)</Label>
+              <Input placeholder="Ex: 6191234567890" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+              <p className="text-[10px] text-muted-foreground">Scannez ou saisissez le code EAN/QR pour le scan inventaire</p>
             </div>
           </div>
 
