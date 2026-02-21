@@ -70,8 +70,10 @@ export default function RootPage() {
   }, [router])
 
   return (
-    <div className="flex min-h-svh items-center justify-center">
+    <div className="flex min-h-svh flex-col items-center justify-center gap-4">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      {/* Hidden link for SEO crawlers to discover the public download page */}
+      <a href="/download" className="sr-only">Telecharger KIFSHOP</a>
     </div>
   )
 }
