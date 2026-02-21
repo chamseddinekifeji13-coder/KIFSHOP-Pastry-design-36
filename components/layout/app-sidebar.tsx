@@ -87,6 +87,9 @@ export function AppSidebar() {
 
   async function handleSignOut() {
     setSigningOut(true)
+    // Clear server-side active profile cookie
+    await fetch("/api/verify-pin", { method: "DELETE" }).catch(() => {})
+    sessionStorage.removeItem("kifshop_unlocked_at")
     await signOut()
   }
 
@@ -172,7 +175,9 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 tooltip="Verrouiller"
-                onClick={() => {
+                onClick={async () => {
+                  // Clear server-side active profile cookie
+                  await fetch("/api/verify-pin", { method: "DELETE" })
                   sessionStorage.removeItem("kifshop_unlocked_at")
                   window.location.reload()
                 }}

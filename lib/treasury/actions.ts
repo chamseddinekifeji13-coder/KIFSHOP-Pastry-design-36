@@ -37,6 +37,7 @@ export async function createTransaction(tenantId: string, data: {
 }): Promise<Transaction | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
   const { data: row, error } = await supabase.from("transactions").insert({
     tenant_id: tenantId, type: data.type, amount: data.amount, category: data.category,
     payment_method: data.paymentMethod || "cash", reference: data.reference || null,

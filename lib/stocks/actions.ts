@@ -1,5 +1,23 @@
 import { createClient } from "@/lib/supabase/client"
 
+// ─── Auth helper ─────────────────────────────────────────────
+// Verifies auth session and that tenantId matches the user's actual tenant
+async function verifyAuthAndTenant(tenantId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+  // Verify the tenantId matches the user's tenant (prevents spoofing)
+  const { data: tu } = await supabase
+    .from("tenant_users")
+    .select("tenant_id")
+    .eq("user_id", user.id)
+    .eq("tenant_id", tenantId)
+    .limit(1)
+    .single()
+  if (!tu) throw new Error("Acces refuse: tenant invalide")
+  return { supabase, user }
+}
+
 // ─── Types ────────────────────────────────────────────────────
 
 export interface RawMaterial {
@@ -78,10 +96,7 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
 export async function createRawMaterial(tenantId: string, data: {
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string
 }): Promise<RawMaterial | null> {
-  const supabase = createClient()
-  // Verify auth session
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) { throw new Error("Session expiree - veuillez vous reconnecter") }
+  const { supabase } = await verifyAuthAndTenant(tenantId)
   // Check for duplicate raw material by name
   const { data: existing } = await supabase
     .from("raw_materials").select("id, name").eq("tenant_id", tenantId)
@@ -105,6 +120,8 @@ export async function updateRawMaterial(id: string, data: Partial<{
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string
 }>): Promise<boolean> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree")
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (data.name !== undefined) updates.name = data.name
   if (data.unit !== undefined) updates.unit = data.unit
@@ -127,6 +144,7 @@ export interface InventoryCountItem {
 export async function saveInventorySession(tenantId: string, counts: InventoryCountItem[]): Promise<string | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
   const discrepancies = counts.filter(c => c.physicalQty !== c.theoreticalQty).length
 
   const { data: session, error } = await supabase.from("inventory_sessions").insert({
@@ -372,7 +390,7 @@ export async function recalculateProductCost(productId: string): Promise<number>
   return totalCost
 }
 
-// ─── Recipes ──────────────────────────────────────────────────
+// ─── Recipes ─────────────────���────────────────────────────────
 
 export interface RecipeIngredient {
   rawMaterialId: string

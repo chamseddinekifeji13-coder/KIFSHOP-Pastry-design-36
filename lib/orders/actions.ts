@@ -157,6 +157,8 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
 
 export async function createOrder(data: CreateOrderData): Promise<Order | null> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
@@ -212,15 +214,14 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     console.error("Error creating order items:", itemsError.message)
   }
 
-  // Record initial status history
-  const { data: { user } } = await supabase.auth.getUser()
+  // Record initial status history (reuse `user` from auth check above)
   await supabase.from("order_status_history").insert({
     order_id: order.id,
     tenant_id: data.tenantId,
     from_status: null,
     to_status: "nouveau",
-    changed_by: user?.id || null,
-    changed_by_name: user?.user_metadata?.display_name || user?.email || null,
+    changed_by: user.id,
+    changed_by_name: user.user_metadata?.display_name || user.email || null,
     note: "Commande creee",
   })
 
