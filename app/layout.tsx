@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
+import { InstallPrompt } from '@/components/pwa/install-prompt'
+import { OfflineIndicator } from '@/components/pwa/offline-indicator'
 import { AuthHashHandler } from '@/components/auth/auth-hash-handler'
 import './globals.css'
 
@@ -41,11 +43,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icons/icon-192x192.jpg', sizes: '192x192', type: 'image/jpeg' },
+      { url: '/icons/icon-512x512.jpg', sizes: '512x512', type: 'image/jpeg' },
     ],
     apple: [
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icons/icon-192x192.jpg', sizes: '192x192', type: 'image/jpeg' },
     ],
   },
 }
@@ -66,8 +68,10 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className="font-sans antialiased">
+        <OfflineIndicator />
         <AuthHashHandler />
         {children}
+        <InstallPrompt />
         <ServiceWorkerRegister />
         <Analytics />
       </body>
