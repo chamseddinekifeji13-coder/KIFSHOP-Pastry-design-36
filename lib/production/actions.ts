@@ -83,6 +83,70 @@ export async function createRecipe(tenantId: string, data: {
     ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
 }
 
+export interface ConsumeResult {
+  success: boolean
+  error?: string
+  production_run_id?: string
+  recipe_name?: string
+  multiplier?: number
+  finished_product_id?: string | null
+  finished_product_units?: number
+  ingredients_consumed?: {
+    name: string
+    quantity: number
+    unit: string
+    previous_stock: number
+    new_stock: number
+  }[]
+}
+
+/**
+ * Atomic production: consumes recipe ingredients, deducts stock,
+ * creates production_run, adds finished product stock.
+ * Rolls back entirely if any ingredient stock is insufficient.
+ */
+export async function consumeRecipeIngredients(
+  recipeId: string,
+  producedQty: number,
+  producedBy?: string,
+  notes?: string
+): Promise<ConsumeResult> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("consume_recipe_ingredients", {
+    p_recipe_id: recipeId,
+    p_produced_qty: producedQty,
+    p_produced_by: producedBy || null,
+    p_notes: notes || null,
+  })
+
+  if (error) {
+    console.error("Error consuming recipe ingredients:", error.message)
+    // Parse the Postgres error for user-friendly message
+    const stockMatch = error.message.match(/Stock insuffisant pour (.+?): disponible=(.+?) (.+?), requis=(.+?) (.+)/)
+    if (stockMatch) {
+      return {
+        success: false,
+        error: `Stock insuffisant pour ${stockMatch[1]}: ${stockMatch[2]}${stockMatch[3]} disponible, ${stockMatch[4]}${stockMatch[5]} requis`,
+      }
+    }
+    return { success: false, error: error.message }
+  }
+
+  if (data?.error) {
+    return { success: false, error: data.error }
+  }
+
+  return {
+    success: true,
+    production_run_id: data.production_run_id,
+    recipe_name: data.recipe_name,
+    multiplier: data.multiplier,
+    finished_product_id: data.finished_product_id,
+    finished_product_units: data.finished_product_units,
+    ingredients_consumed: data.ingredients_consumed,
+  }
+}
+
 export async function fetchProductionRuns(tenantId: string): Promise<ProductionRun[]> {
   const supabase = createClient()
   const { data, error } = await supabase
