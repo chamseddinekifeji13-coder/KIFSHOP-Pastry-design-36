@@ -1,22 +1,23 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { Navbar } from "@/components/landing/navbar"
+import { HeroSection } from "@/components/landing/hero-section"
+import { FeaturesSection } from "@/components/landing/features-section"
+import { DownloadSection } from "@/components/landing/download-section"
+import { FooterSection } from "@/components/landing/footer-section"
 
 /**
- * Root page that handles ALL Supabase auth redirects:
- *
- * 1. Hash fragments: #access_token=...&type=recovery (implicit flow)
- * 2. Query params: ?code=xxx (PKCE flow fallback)
- * 3. Query params: ?token_hash=xxx&type=recovery (custom email template)
- * 4. Regular auth-based redirects
- *
- * This page MUST be client-side so hash fragments are preserved.
- * The middleware allows "/" through without server-side redirect.
+ * Root page:
+ * - Non-authenticated visitors: see the public landing page
+ * - Auth hash fragments (#access_token, ?code, ?token_hash): handled and redirected
+ * - Authenticated users: proxy.ts redirects to dashboard before this page loads
  */
 export default function RootPage() {
   const router = useRouter()
+  const [showLanding, setShowLanding] = useState(false)
 
   useEffect(() => {
     const hash = window.location.hash
@@ -51,29 +52,35 @@ export default function RootPage() {
           const isSuperAdmin = session.user?.user_metadata?.is_super_admin === true
           router.replace(isSuperAdmin ? "/super-admin" : "/dashboard")
         } else {
-          router.replace("/auth/login")
+          // No session despite access_token, show landing
+          setShowLanding(true)
         }
       })
       return
     }
 
-    // 5. No auth params - regular redirect based on auth status
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        const isSuperAdmin = user.user_metadata?.is_super_admin === true
-        router.replace(isSuperAdmin ? "/super-admin" : "/dashboard")
-      } else {
-        router.replace("/auth/login")
-      }
-    })
+    // 5. No auth params - show landing page
+    // (proxy.ts already redirects authenticated users to dashboard)
+    setShowLanding(true)
   }, [router])
 
+  // Still processing auth flow
+  if (!showLanding) {
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+      </div>
+    )
+  }
+
+  // Public landing page
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-4">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-      {/* Hidden link for SEO crawlers to discover the public download page */}
-      <a href="/download" className="sr-only">Telecharger KIFSHOP</a>
-    </div>
+    <main>
+      <Navbar />
+      <HeroSection />
+      <FeaturesSection />
+      <DownloadSection />
+      <FooterSection />
+    </main>
   )
 }

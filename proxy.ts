@@ -37,6 +37,13 @@ export async function proxy(request: any) {
       return NextResponse.redirect(url);
     }
 
+    // Redirect logged-in users from root to dashboard (but allow hash/query auth flows client-side)
+    if (user && isRootPage) {
+      const isSuperAdmin = user.user_metadata?.is_super_admin === true;
+      const url = new URL(isSuperAdmin ? '/super-admin' : '/dashboard', request.url);
+      return NextResponse.redirect(url);
+    }
+
     return response;
   }
 

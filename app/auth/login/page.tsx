@@ -115,10 +115,10 @@ export default function LoginPage() {
             </Link>
           </p>
           <Link
-            href="/download"
+            href="/"
             className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
           >
-            Installation On-Premise / Telecharger
+            Retour a la page d{"'"}accueil
           </Link>
         </CardFooter>
       </form>
