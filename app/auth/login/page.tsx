@@ -114,6 +114,12 @@ export default function LoginPage() {
               Creer un compte
             </Link>
           </p>
+          <Link
+            href="/download"
+            className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+          >
+            Installation On-Premise / Telecharger
+          </Link>
         </CardFooter>
       </form>
     </Card>
