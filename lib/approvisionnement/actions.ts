@@ -54,6 +54,8 @@ export async function createSupplier(tenantId: string, data: {
   name: string; contactName?: string; phone?: string; email?: string; products?: string[]
 }): Promise<Supplier | null> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
   // Check for duplicate supplier by name
   const { data: existing } = await supabase
     .from("suppliers").select("id, name").eq("tenant_id", tenantId)
@@ -117,6 +119,7 @@ export async function createPurchaseOrder(tenantId: string, data: {
 }): Promise<PurchaseOrder | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
   const total = data.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
 
   const { data: row, error } = await supabase.from("purchase_orders").insert({
@@ -139,6 +142,8 @@ export async function createPurchaseOrder(tenantId: string, data: {
 
 export async function updatePurchaseOrderStatus(id: string, status: string): Promise<boolean> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree")
   const { error } = await supabase.from("purchase_orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id)
   if (error) { console.error("Error updating PO status:", error.message); return false }
   return true

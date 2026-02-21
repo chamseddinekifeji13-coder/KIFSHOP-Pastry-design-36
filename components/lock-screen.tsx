@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Lock, LogOut } from "lucide-react"
+import { Lock, LogOut, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useTenant, ROLE_LABELS, type AppUser } from "@/lib/tenant-context"
@@ -12,12 +12,41 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState("")
   const [error, setError] = useState("")
   const [shake, setShake] = useState(false)
+  const [verifying, setVerifying] = useState(false)
 
-  function handleSelectUser(user: AppUser) {
-    // Owner without PIN = unlock directly
-    if (!user.pin) {
+  // Server-side PIN verification via API route
+  async function verifyPinOnServer(user: AppUser, pinCode?: string) {
+    setVerifying(true)
+    setError("")
+    try {
+      const res = await fetch("/api/verify-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantUserId: user.dbId, pin: pinCode }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || "Erreur de verification")
+        setShake(true)
+        setTimeout(() => { setPin(""); setShake(false) }, 600)
+        return false
+      }
+      // Server verified -- update client state
       setCurrentUser(user)
-      onUnlock()
+      return true
+    } catch {
+      setError("Erreur de connexion")
+      return false
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  async function handleSelectUser(user: AppUser) {
+    // User without PIN = verify on server without PIN
+    if (!user.pin) {
+      const ok = await verifyPinOnServer(user)
+      if (ok) onUnlock()
       return
     }
     setSelectedUser(user)
@@ -25,23 +54,15 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     setError("")
   }
 
-  function handlePinInput(digit: string) {
-    if (pin.length >= 4) return
+  async function handlePinInput(digit: string) {
+    if (pin.length >= 4 || verifying) return
     const newPin = pin + digit
     setPin(newPin)
 
     if (newPin.length === 4) {
-      if (newPin === selectedUser?.pin) {
-        setCurrentUser(selectedUser)
-        onUnlock()
-      } else {
-        setError("Code PIN incorrect")
-        setShake(true)
-        setTimeout(() => {
-          setPin("")
-          setShake(false)
-        }, 600)
-      }
+      // Verify PIN on server (not client-side comparison)
+      const ok = await verifyPinOnServer(selectedUser!, newPin)
+      if (ok) onUnlock()
     }
   }
 

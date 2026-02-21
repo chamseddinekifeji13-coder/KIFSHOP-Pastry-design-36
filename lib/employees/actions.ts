@@ -1,6 +1,7 @@
 "use server"
 
-import { createClient, createAdminClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
+import { requireRole } from "@/lib/active-profile"
 import type { UserRole } from "@/lib/tenant-context"
 
 export interface Employee {
@@ -15,26 +16,10 @@ export interface Employee {
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-async function getAuthUserTenantId(): Promise<{ supabase: ReturnType<Awaited<ReturnType<typeof createClient>>>; tenantId: string }> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Non authentifie")
-
-  const { data: tenantUser } = await supabase
-    .from("tenant_users")
-    .select("tenant_id, role")
-    .eq("user_id", user.id)
-    .limit(1)
-    .single()
-
-  if (!tenantUser) throw new Error("Aucun tenant associe")
-
-  // Only owner or gerant can manage employees
-  if (!["owner", "gerant"].includes(tenantUser.role)) {
-    throw new Error("Acces refuse: seul le proprietaire ou le gerant peut gerer les employes")
-  }
-
-  return { supabase: supabase as ReturnType<Awaited<ReturnType<typeof createClient>>>, tenantId: tenantUser.tenant_id }
+async function getAuthUserTenantId() {
+  // Only owner or gerant can manage employees -- verified server-side
+  const session = await requireRole("owner", "gerant")
+  return { tenantId: session.tenantId }
 }
 
 // ─── Fetch all employees for current tenant ───────────────────
@@ -124,12 +109,12 @@ export async function updateEmployee(
 // ─── Remove an employee ───────────────────────────────────────
 
 export async function removeEmployee(employeeId: string): Promise<void> {
-  const { tenantId } = await getAuthUserTenantId()
-  const supabase = await createClient()
+  const session = await requireRole("owner", "gerant")
+  const tenantId = session.tenantId
   const admin = createAdminClient()
 
-  // Don't allow removing the current user
-  const { data: { user } } = await supabase.auth.getUser()
+  // Don't allow removing the current auth user
+  const user = { id: session.authUserId }
   const { data: target } = await admin
     .from("tenant_users")
     .select("user_id")
