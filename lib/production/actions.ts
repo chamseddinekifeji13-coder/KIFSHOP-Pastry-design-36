@@ -83,6 +83,16 @@ export async function createRecipe(tenantId: string, data: {
     ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
 }
 
+export interface ConsumedIngredient {
+  name: string
+  quantity: number
+  unit: string
+  price_per_unit: number
+  line_cost: number
+  previous_stock: number
+  new_stock: number
+}
+
 export interface ConsumeResult {
   success: boolean
   error?: string
@@ -91,13 +101,9 @@ export interface ConsumeResult {
   multiplier?: number
   finished_product_id?: string | null
   finished_product_units?: number
-  ingredients_consumed?: {
-    name: string
-    quantity: number
-    unit: string
-    previous_stock: number
-    new_stock: number
-  }[]
+  total_cost?: number
+  cost_per_unit?: number
+  ingredients_consumed?: ConsumedIngredient[]
 }
 
 /**
@@ -143,8 +149,40 @@ export async function consumeRecipeIngredients(
     multiplier: data.multiplier,
     finished_product_id: data.finished_product_id,
     finished_product_units: data.finished_product_units,
+    total_cost: data.total_cost,
+    cost_per_unit: data.cost_per_unit,
     ingredients_consumed: data.ingredients_consumed,
   }
+}
+
+/**
+ * Unified function: completes a production plan by consuming ingredients,
+ * deducting stock, and optionally updating the plan status.
+ */
+export async function completeProduction(
+  recipeId: string,
+  quantity: number,
+  producedBy?: string,
+  notes?: string,
+  planId?: string
+): Promise<ConsumeResult> {
+  // 1. Atomic consume + stock deduction + production_run
+  const result = await consumeRecipeIngredients(recipeId, quantity, producedBy, notes)
+
+  // 2. If linked to a production plan, update its status
+  if (result.success && planId) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("production_plans")
+      .update({ status: "completed", updated_at: new Date().toISOString() })
+      .eq("id", planId)
+    if (error) {
+      console.error("Error updating plan status after production:", error.message)
+      // Production already happened, just log the error
+    }
+  }
+
+  return result
 }
 
 export async function fetchProductionRuns(tenantId: string): Promise<ProductionRun[]> {

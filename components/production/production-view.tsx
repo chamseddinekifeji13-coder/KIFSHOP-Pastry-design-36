@@ -98,12 +98,15 @@ export function ProductionView() {
       }
       // Build summary of consumed ingredients
       const consumed = result.ingredients_consumed || []
-      const summary = consumed.map(c => `${c.name}: -${c.quantity}${c.unit} (reste ${c.new_stock}${c.unit})`).join("\n")
+      const costLine = result.total_cost
+        ? `Cout: ${result.total_cost.toFixed(3)} TND${result.cost_per_unit ? ` (${result.cost_per_unit.toFixed(3)} TND/u)` : ""}`
+        : ""
       toast.success("Production terminee", {
-        description: `${selectedRecipeData.name} x${quantity}\n${result.finished_product_units ? `+${result.finished_product_units} ${selectedRecipeData.yieldUnit} en stock` : ""}`,
+        description: `${selectedRecipeData.name} x${quantity}${result.finished_product_units ? ` | +${result.finished_product_units} ${selectedRecipeData.yieldUnit} en stock` : ""}${costLine ? ` | ${costLine}` : ""}`,
         duration: 6000,
       })
-      if (summary) {
+      if (consumed.length > 0) {
+        const summary = consumed.map(c => `${c.name}: -${c.quantity}${c.unit} (${c.line_cost.toFixed(2)} TND)`).join("\n")
         toast.info("Stock deduit automatiquement", { description: summary, duration: 8000 })
       }
       // Refresh data

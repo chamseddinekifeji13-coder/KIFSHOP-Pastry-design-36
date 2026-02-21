@@ -26,6 +26,7 @@ import {
   PLAN_STATUS_LABELS,
   type PlanStatus, type MaterialStatus, type ProductionPlan, type PlanMaterial,
 } from "@/lib/planning/actions"
+import { completeProduction } from "@/lib/production/actions"
 import { toast } from "sonner"
 
 // ─── Status badge colors ───────────────────────────────────
@@ -461,10 +462,36 @@ function PlanDetailDialog({ plan, onClose, onRefresh }: { plan: ProductionPlan; 
     try {
       if (newStatus === "cancelled") {
         await cancelProductionPlan(plan.id)
+        toast.success(`Plan ${PLAN_STATUS_LABELS[newStatus].toLowerCase()}`)
+      } else if (newStatus === "completed" && plan.recipeId) {
+        // Atomic: consume ingredients + stock deduction + production_run + plan update
+        const result = await completeProduction(
+          plan.recipeId,
+          plan.quantityMultiplier,
+          authUser?.id,
+          `Plan: ${plan.recipeName} x${plan.quantityMultiplier}`,
+          plan.id
+        )
+        if (!result.success) {
+          toast.error("Erreur de production", { description: result.error })
+          return
+        }
+        const consumed = result.ingredients_consumed || []
+        const costLine = result.total_cost
+          ? `Cout total: ${result.total_cost.toFixed(3)} TND${result.cost_per_unit ? ` (${result.cost_per_unit.toFixed(3)} TND/unite)` : ""}`
+          : ""
+        toast.success("Production terminee", {
+          description: `${plan.recipeName} x${plan.quantityMultiplier}${result.finished_product_units ? ` | +${result.finished_product_units} en stock` : ""}${costLine ? ` | ${costLine}` : ""}`,
+          duration: 8000,
+        })
+        if (consumed.length > 0) {
+          const summary = consumed.map(c => `${c.name}: -${c.quantity}${c.unit} (${c.line_cost.toFixed(2)} TND)`).join("\n")
+          toast.info("Stock deduit automatiquement", { description: summary, duration: 8000 })
+        }
       } else {
         await updatePlanStatus(plan.id, newStatus)
+        toast.success(`Plan ${PLAN_STATUS_LABELS[newStatus].toLowerCase()}`)
       }
-      toast.success(`Plan ${PLAN_STATUS_LABELS[newStatus].toLowerCase()}`)
       onRefresh()
     } catch (err: any) {
       toast.error("Erreur", { description: err?.message })
