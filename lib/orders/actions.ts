@@ -214,15 +214,14 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     console.error("Error creating order items:", itemsError.message)
   }
 
-  // Record initial status history
-  const { data: { user } } = await supabase.auth.getUser()
+  // Record initial status history (reuse `user` from auth check above)
   await supabase.from("order_status_history").insert({
     order_id: order.id,
     tenant_id: data.tenantId,
     from_status: null,
     to_status: "nouveau",
-    changed_by: user?.id || null,
-    changed_by_name: user?.user_metadata?.display_name || user?.email || null,
+    changed_by: user.id,
+    changed_by_name: user.user_metadata?.display_name || user.email || null,
     note: "Commande creee",
   })
 
