@@ -8,6 +8,7 @@ import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
 import { fetchOrders } from "@/lib/orders/actions"
 import { fetchNotifications } from "@/lib/notifications/actions"
+import { getCriticalStock } from "@/lib/stocks/notifications"
 import { fetchProductionPlans } from "@/lib/planning/actions"
 
 function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T>) {
@@ -99,6 +100,10 @@ export function useNotifications(role?: string) {
 
 export function useProductionPlans() {
   return useTenantQuery("production-plans", fetchProductionPlans)
+}
+
+export function useCriticalStock() {
+  return useTenantQuery("critical-stock", getCriticalStock)
 }
 
 export function useDueReminders() {
