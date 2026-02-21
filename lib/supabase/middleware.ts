@@ -46,7 +46,8 @@ export async function updateSession(request: NextRequest) {
   const isSuperAdminRoute = pathname.startsWith('/super-admin')
   const isApiRoute = pathname.startsWith('/api')
   const isRootPage = pathname === '/'
-  const isPublicRoute = isAuthRoute || isApiRoute || isRootPage
+  const isDownloadPage = pathname.startsWith('/download')
+  const isPublicRoute = isAuthRoute || isApiRoute || isRootPage || isDownloadPage
 
   // Redirect unauthenticated users to login (except public routes)
   // Root page (/) is public because it needs to handle Supabase auth hash
