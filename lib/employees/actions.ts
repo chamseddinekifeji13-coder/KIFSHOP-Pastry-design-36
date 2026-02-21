@@ -66,6 +66,57 @@ export async function addEmployee(data: {
   return newEmployee as Employee
 }
 
+// ─── Add additional profile (second role) to existing employee ─
+
+export async function addProfileToEmployee(data: {
+  sourceEmployeeDbId: string
+  role: UserRole
+  pin?: string
+}): Promise<Employee> {
+  const { tenantId } = await getAuthUserTenantId()
+  const admin = createAdminClient()
+
+  // Get the source employee to copy their user_id and display_name
+  const { data: source, error: srcErr } = await admin
+    .from("tenant_users")
+    .select("user_id, display_name")
+    .eq("id", data.sourceEmployeeDbId)
+    .eq("tenant_id", tenantId)
+    .single()
+
+  if (srcErr || !source) throw new Error("Employe introuvable")
+
+  // Check they don't already have this role
+  const { data: existing } = await admin
+    .from("tenant_users")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", source.user_id)
+    .eq("role", data.role)
+    .limit(1)
+    .single()
+
+  if (existing) throw new Error(`Cet employe a deja le profil ${data.role}`)
+
+  // Prevent adding owner role
+  if (data.role === "owner") throw new Error("Impossible d'attribuer le role proprietaire")
+
+  const { data: newProfile, error } = await admin
+    .from("tenant_users")
+    .insert({
+      tenant_id: tenantId,
+      user_id: source.user_id,
+      display_name: source.display_name,
+      role: data.role,
+      pin: data.pin || null,
+    })
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+  return newProfile as Employee
+}
+
 // ─── Update an employee ───────────────────────────────────────
 
 export async function updateEmployee(

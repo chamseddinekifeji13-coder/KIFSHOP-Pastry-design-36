@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Trash2, X, Users, Pencil, Check, UserPlus, Shield, Sparkles, Loader2, KeyRound } from "lucide-react"
+import { Plus, Trash2, X, Users, Pencil, Check, UserPlus, Shield, Sparkles, Loader2, KeyRound, CopyPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useTenant, ALL_ROLES, ROLE_LABELS, type UserRole } from "@/lib/tenant-context"
-import { addEmployee, updateEmployee, removeEmployee } from "@/lib/employees/actions"
+import { addEmployee, addProfileToEmployee, updateEmployee, removeEmployee } from "@/lib/employees/actions"
 import { toast } from "sonner"
 
 interface UsersDrawerProps {
@@ -70,6 +70,10 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
   const [editPin, setEditPin] = useState("")
   const [saving, setSaving] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  // Multi-profile: adding a second role to an existing employee
+  const [addingProfileFor, setAddingProfileFor] = useState<{ dbId: string; name: string } | null>(null)
+  const [profileRole, setProfileRole] = useState<UserRole>("magasinier")
+  const [profilePin, setProfilePin] = useState("")
 
   const handleAdd = async () => {
     if (!newName.trim()) {
@@ -152,6 +156,37 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
       setRemovingId(null)
     }
   }
+
+  const handleAddProfile = async () => {
+    if (!addingProfileFor) return
+    if (!profilePin || profilePin.length !== 4) {
+      toast.error("Le code PIN a 4 chiffres est obligatoire pour chaque profil")
+      return
+    }
+    setSaving(true)
+    try {
+      await addProfileToEmployee({
+        sourceEmployeeDbId: addingProfileFor.dbId,
+        role: profileRole,
+        pin: profilePin,
+      })
+      await reloadUsers()
+      toast.success("Profil ajoute", {
+        description: `${addingProfileFor.name} a maintenant le profil ${ROLE_LABELS[profileRole]}`,
+      })
+      setAddingProfileFor(null)
+      setProfileRole("magasinier")
+      setProfilePin("")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'ajout du profil")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Group users by physical person (same display_name) to show "add profile" only once
+  const getUserExistingRoles = (userName: string) =>
+    users.filter((u) => u.name === userName).map((u) => u.role)
 
   // Show all roles in grouping but owner at top
   const groupedUsers = ALL_ROLES.map((role) => ({
@@ -344,6 +379,26 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
                                 PIN
                               </Badge>
                             )}
+                            {/* Add second profile button -- only for non-owner */}
+                            {user.role !== "owner" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-violet-600 hover:bg-violet-50 shrink-0"
+                                title={`Ajouter un profil a ${user.name}`}
+                                onClick={() => {
+                                  setAddingProfileFor({ dbId: user.dbId!, name: user.name })
+                                  // Pre-select a role the user doesn't already have
+                                  const existing = getUserExistingRoles(user.name)
+                                  const available = ALL_ROLES.filter((r) => r !== "owner" && !existing.includes(r))
+                                  if (available.length > 0) setProfileRole(available[0])
+                                  setProfilePin("")
+                                }}
+                                disabled={saving || getUserExistingRoles(user.name).length >= ALL_ROLES.length - 1}
+                              >
+                                <CopyPlus className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -382,11 +437,64 @@ export function UsersDrawer({ open, onOpenChange }: UsersDrawerProps) {
             ))}
           </div>
 
+          {/* Add profile dialog inline */}
+          {addingProfileFor && (
+            <div className="rounded-xl border-2 border-violet-200 bg-violet-50/30 p-4 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium text-violet-700">
+                  <CopyPlus className="h-4 w-4" />
+                  Nouveau profil pour {addingProfileFor.name}
+                </div>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setAddingProfileFor(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Role supplementaire</Label>
+                  <Select value={profileRole} onValueChange={(v) => setProfileRole(v as UserRole)}>
+                    <SelectTrigger className="transition-all focus:ring-2 focus:ring-violet-200">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ALL_ROLES.filter((r) => r !== "owner" && !getUserExistingRoles(addingProfileFor.name).includes(r)).map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <KeyRound className="h-3 w-3" /> PIN pour ce profil
+                  </Label>
+                  <Input
+                    type="password"
+                    placeholder="4 chiffres"
+                    maxLength={4}
+                    value={profilePin}
+                    onChange={(e) => setProfilePin(e.target.value.replace(/\D/g, ""))}
+                    className="transition-all focus:ring-2 focus:ring-violet-200"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleAddProfile}
+                disabled={saving || !profilePin || profilePin.length !== 4}
+                className="w-full bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+              >
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CopyPlus className="mr-2 h-4 w-4" />}
+                Ajouter le profil {ROLE_LABELS[profileRole]}
+              </Button>
+            </div>
+          )}
+
           {/* Info tip */}
           <div className="flex items-start gap-2 rounded-xl bg-violet-50/50 border border-violet-100 p-3">
             <Sparkles className="h-4 w-4 text-violet-500 mt-0.5 shrink-0" />
             <p className="text-xs text-violet-700">
-              Chaque profil d{"'"}acces definit les pages et actions disponibles pour l{"'"}utilisateur dans votre patisserie.
+              Un employe peut avoir plusieurs profils (ex: Patissier + Magasinier). Sur l{"'"}ecran de verrouillage, il choisit quel profil utiliser. Chaque profil a son propre PIN.
             </p>
           </div>
         </div>

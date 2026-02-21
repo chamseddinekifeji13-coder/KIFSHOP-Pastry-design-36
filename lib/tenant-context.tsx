@@ -246,7 +246,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           const allUsers: AppUser[] = teamMembers.map((m) => {
             const name = m.display_name || "Utilisateur"
             return {
-              id: m.user_id,
+              id: m.id, // Use tenant_users.id as unique identifier (supports multi-profiles)
               name,
               role: (m.role as UserRole) || "vendeur",
               initials: getInitials(name),
@@ -255,6 +255,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             }
           })
           setUsers(allUsers)
+          // Set currentUser to the matching owner profile
+          const ownerProfile = allUsers.find((u) => u.role === "owner")
+          if (ownerProfile && appUser.role === "owner") {
+            setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+          }
         } else {
           // No team members found, use only the owner
           setUsers([appUser])
@@ -324,7 +329,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       const allUsers: AppUser[] = teamMembers.map((m) => {
         const name = m.display_name || "Utilisateur"
         return {
-          id: m.user_id,
+          id: m.id, // Use tenant_users.id as unique identifier
           name,
           role: (m.role as UserRole) || "vendeur",
           initials: getInitials(name),
