@@ -1,81 +1,86 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+export async function proxy(request: any) {
+  const pathname = new URL(request.url).pathname;
 
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  // Public routes - let through without auth
+  const publicPaths = ['/download', '/auth', '/api'];
+  const isRootPage = pathname === '/';
+  const isPublicRoute = isRootPage || publicPaths.some(p => pathname.startsWith(p));
 
+  if (isPublicRoute) {
+    // Still refresh Supabase session cookies for public routes
+    const { createServerClient } = await import('@supabase/ssr');
+    const { NextResponse } = await import('next/server');
+    let response = NextResponse.next({ request });
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll(); },
+          setAll(cookiesToSet: any[]) {
+            cookiesToSet.forEach(({ name, value }: any) => request.cookies.set(name, value));
+            response = NextResponse.next({ request });
+            cookiesToSet.forEach(({ name, value, options }: any) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
+    // Refresh session but don't block
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Redirect logged-in users away from auth pages
+    if (user && pathname.startsWith('/auth') && pathname !== '/auth/reset-password') {
+      const isSuperAdmin = user.user_metadata?.is_super_admin === true;
+      const url = new URL(isSuperAdmin ? '/super-admin' : '/dashboard', request.url);
+      return NextResponse.redirect(url);
+    }
+
+    return response;
+  }
+
+  // Protected routes - require auth
+  const { createServerClient } = await import('@supabase/ssr');
+  const { NextResponse } = await import('next/server');
+  let response = NextResponse.next({ request });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+        getAll() { return request.cookies.getAll(); },
+        setAll(cookiesToSet: any[]) {
+          cookiesToSet.forEach(({ name, value }: any) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }: any) =>
+            response.cookies.set(name, value, options)
           );
         },
       },
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-  const isAuthRoute = pathname.startsWith("/auth");
-  const isSuperAdminRoute = pathname.startsWith("/super-admin");
-  const isApiRoute = pathname.startsWith("/api");
-  const isRootPage = pathname === "/";
-  const isDownloadPage = pathname.startsWith("/download");
-  const isPublicRoute =
-    isAuthRoute || isApiRoute || isRootPage || isDownloadPage;
-
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
-    return NextResponse.redirect(url);
+  if (!user) {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
-  if (user && isSuperAdminRoute) {
-    const isSuperAdmin = user.user_metadata?.is_super_admin === true;
-    if (!isSuperAdmin) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
+  const isSuperAdmin = user.user_metadata?.is_super_admin === true;
+
+  if (pathname.startsWith('/super-admin') && !isSuperAdmin) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+  if (pathname.startsWith('/dashboard') && isSuperAdmin) {
+    return NextResponse.redirect(new URL('/super-admin', request.url));
   }
 
-  if (user && pathname.startsWith("/dashboard")) {
-    const isSuperAdmin = user.user_metadata?.is_super_admin === true;
-    if (isSuperAdmin) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/super-admin";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  const isResetPasswordRoute = pathname === "/auth/reset-password";
-  if (user && isAuthRoute && !isResetPasswordRoute) {
-    const url = request.nextUrl.clone();
-    const isSuperAdmin = user.user_metadata?.is_super_admin === true;
-    url.pathname = isSuperAdmin ? "/super-admin" : "/dashboard";
-    return NextResponse.redirect(url);
-  }
-
-  return supabaseResponse;
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|icons\\/.*|offline\\.html|og-image\\.jpg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|icons\\/.*|offline\\.html|og-image\\.jpg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
