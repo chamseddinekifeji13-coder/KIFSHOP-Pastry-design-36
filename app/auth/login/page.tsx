@@ -114,6 +114,12 @@ export default function LoginPage() {
               Creer un compte
             </Link>
           </p>
+          <Link
+            href="/"
+            className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+          >
+            Retour a la page d{"'"}accueil
+          </Link>
         </CardFooter>
       </form>
     </Card>
