@@ -3,7 +3,7 @@ import { useTenant } from "@/lib/tenant-context"
 import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging, fetchStorageLocations } from "@/lib/stocks/actions"
 import { fetchProspects, fetchDueReminders } from "@/lib/prospects/actions"
 import { fetchTransactions } from "@/lib/treasury/actions"
-import { fetchSuppliers, fetchPurchaseOrders } from "@/lib/approvisionnement/actions"
+import { fetchSuppliers, fetchPurchaseOrders, fetchSupplierPriceHistory } from "@/lib/approvisionnement/actions"
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
 import { fetchOrders } from "@/lib/orders/actions"
@@ -100,6 +100,10 @@ export function useNotifications(role?: string) {
 
 export function useProductionPlans() {
   return useTenantQuery("production-plans", fetchProductionPlans)
+}
+
+export function useSupplierPrices() {
+  return useTenantQuery("supplier-prices", fetchSupplierPriceHistory)
 }
 
 export function useCriticalStock() {

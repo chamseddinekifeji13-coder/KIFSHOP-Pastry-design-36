@@ -140,6 +140,70 @@ export async function createPurchaseOrder(tenantId: string, data: {
     items: data.items.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
 }
 
+// ─── Supplier Price History (RPC) ─────────────────────────────
+
+export interface PriceHistoryEntry {
+  id: string
+  date: string
+  supplierId: string
+  supplierName: string
+  rawMaterialName: string
+  unitPrice: number
+  unit: string
+  quantity: number
+}
+
+export interface BestPriceByProduct {
+  rawMaterialName: string
+  unit: string
+  bestPrice: number
+  avgPrice: number
+  entriesCount: number
+  bestSupplierName: string
+  lastPrice: number
+  lastSupplierName: string
+  priceVariation: number
+}
+
+export interface SupplierPriceData {
+  entries: PriceHistoryEntry[]
+  bestPrices: BestPriceByProduct[]
+}
+
+export async function fetchSupplierPriceHistory(tenantId: string): Promise<SupplierPriceData> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("get_supplier_price_history", {
+    p_tenant_id: tenantId,
+  })
+  if (error) {
+    console.error("Error fetching supplier price history:", error.message)
+    return { entries: [], bestPrices: [] }
+  }
+  return {
+    entries: (data?.entries || []).map((e: Record<string, unknown>) => ({
+      id: e.id as string,
+      date: e.date as string,
+      supplierId: e.supplierId as string,
+      supplierName: e.supplierName as string,
+      rawMaterialName: e.rawMaterialName as string,
+      unitPrice: Number(e.unitPrice),
+      unit: e.unit as string,
+      quantity: Number(e.quantity),
+    })),
+    bestPrices: (data?.bestPrices || []).map((bp: Record<string, unknown>) => ({
+      rawMaterialName: bp.rawMaterialName as string,
+      unit: bp.unit as string,
+      bestPrice: Number(bp.bestPrice),
+      avgPrice: Number(bp.avgPrice),
+      entriesCount: Number(bp.entriesCount),
+      bestSupplierName: bp.bestSupplierName as string,
+      lastPrice: Number(bp.lastPrice),
+      lastSupplierName: bp.lastSupplierName as string,
+      priceVariation: Number(bp.priceVariation),
+    })),
+  }
+}
+
 export async function updatePurchaseOrderStatus(id: string, status: string): Promise<boolean> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
