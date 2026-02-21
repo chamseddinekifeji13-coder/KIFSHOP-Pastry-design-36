@@ -12,6 +12,7 @@ import { NewProductDrawer } from "./new-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
+import { StockHistoryChart } from "./stock-history-chart"
 import { useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
 
 export function StocksView() {
@@ -21,6 +22,7 @@ export function StocksView() {
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string } | null>(null)
+  const [chartMaterial, setChartMaterial] = useState<{ id: string; name: string; unit?: string } | null>(null)
 
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
@@ -29,6 +31,10 @@ export function StocksView() {
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
     setSelectedItem({ id, name, type, unit })
     setDrawerOpen(true)
+    // Also show chart for raw materials
+    if (type === "raw") {
+      setChartMaterial({ id, name, unit })
+    }
   }
 
   return (
