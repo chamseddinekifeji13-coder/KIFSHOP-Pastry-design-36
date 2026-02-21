@@ -29,6 +29,7 @@ export interface RawMaterial {
   minStock: number
   pricePerUnit: number
   supplier: string | null
+  storageLocationId: string | null
   createdAt: string
 }
 
@@ -50,6 +51,7 @@ export interface FinishedProduct {
   isPublished: boolean
   minOrder: number
   tags: string[]
+  storageLocationId: string | null
   createdAt: string
 }
 
@@ -89,12 +91,13 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
     id: r.id, tenantId: r.tenant_id, name: r.name, unit: r.unit,
     currentStock: Number(r.current_stock), minStock: Number(r.min_stock),
     pricePerUnit: Number(r.price_per_unit), supplier: r.supplier,
+    storageLocationId: r.storage_location_id || null,
     createdAt: r.created_at,
   }))
 }
 
 export async function createRawMaterial(tenantId: string, data: {
-  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; barcode?: string
+  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; barcode?: string; storageLocationId?: string
 }): Promise<RawMaterial | null> {
   const { supabase } = await verifyAuthAndTenant(tenantId)
   // Check for duplicate raw material by name
@@ -109,16 +112,18 @@ export async function createRawMaterial(tenantId: string, data: {
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
     barcode: data.barcode || null,
+    storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, name: row.name, unit: row.unit,
     currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
-    pricePerUnit: Number(row.price_per_unit), supplier: row.supplier, createdAt: row.created_at }
+    pricePerUnit: Number(row.price_per_unit), supplier: row.supplier,
+    storageLocationId: row.storage_location_id || null, createdAt: row.created_at }
 }
 
 export async function updateRawMaterial(id: string, data: Partial<{
-  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; barcode: string
+  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; barcode: string; storageLocationId: string | null
 }>): Promise<boolean> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -131,6 +136,7 @@ export async function updateRawMaterial(id: string, data: Partial<{
   if (data.pricePerUnit !== undefined) updates.price_per_unit = data.pricePerUnit
   if (data.supplier !== undefined) updates.supplier = data.supplier
   if (data.barcode !== undefined) updates.barcode = data.barcode
+  if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId
   const { error } = await supabase.from("raw_materials").update(updates).eq("id", id)
   if (error) { console.error("Error updating raw material:", error.message); return false }
   return true

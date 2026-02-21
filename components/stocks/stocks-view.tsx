@@ -13,7 +13,7 @@ import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
-import { useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useFinishedProducts, usePackaging, useStorageLocations } from "@/hooks/use-tenant-data"
 
 export function StocksView() {
   const [selectedTab, setSelectedTab] = useState("raw")
@@ -27,6 +27,7 @@ export function StocksView() {
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
   const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
+  const { data: storageLocations } = useStorageLocations()
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
     setSelectedItem({ id, name, type, unit })
@@ -94,6 +95,7 @@ export function StocksView() {
           ) : (
             <RawMaterialsTable
               materials={rawMaterials || []}
+              storageLocations={storageLocations || []}
               onItemClick={(id, name, unit) => {
                 handleItemClick(id, name, "raw", unit)
                 setChartMaterial({ id, name, unit })
