@@ -180,29 +180,40 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           <p className="text-sm text-muted-foreground">Selectionnez votre profil pour continuer</p>
         </div>
 
-        {/* User grid */}
+        {/* User grid -- shows each profile separately (multi-role support) */}
         <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-3">
-          {users.map((user) => (
-            <button
-              key={user.id}
-              onClick={() => handleSelectUser(user)}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border/50 bg-white/80 p-4 transition-all hover:bg-white hover:shadow-md hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              <Avatar className="h-14 w-14">
-                <AvatarFallback
-                  className="text-lg font-bold text-white"
-                  style={{ backgroundColor: currentTenant.primaryColor }}
-                >
-                  {user.initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-center">
-                <p className="text-sm font-medium text-foreground leading-tight">{user.name}</p>
-                <p className="text-[11px] text-muted-foreground">{ROLE_LABELS[user.role]}</p>
-              </div>
-              {user.pin && <Lock className="h-3 w-3 text-muted-foreground/50" />}
-            </button>
-          ))}
+          {users.map((user) => {
+            // Check if this person has multiple profiles
+            const profileCount = users.filter((u) => u.name === user.name).length
+            return (
+              <button
+                key={user.id}
+                onClick={() => handleSelectUser(user)}
+                className="flex flex-col items-center gap-2 rounded-xl border border-border/50 bg-white/80 p-4 transition-all hover:bg-white hover:shadow-md hover:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <Avatar className="h-14 w-14">
+                  <AvatarFallback
+                    className="text-lg font-bold text-white"
+                    style={{ backgroundColor: currentTenant.primaryColor }}
+                  >
+                    {user.initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground leading-tight">{user.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {ROLE_LABELS[user.role]}
+                    {profileCount > 1 && (
+                      <span className="ml-1 text-[10px] text-violet-500 font-medium">
+                        ({profileCount} profils)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {user.pin && <Lock className="h-3 w-3 text-muted-foreground/50" />}
+              </button>
+            )
+          })}
         </div>
 
         {/* Sign out */}
