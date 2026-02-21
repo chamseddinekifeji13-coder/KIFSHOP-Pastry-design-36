@@ -15,37 +15,62 @@ interface AppShellProps {
   children: React.ReactNode
 }
 
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
+
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const { isLoading, users } = useTenant()
   // null = not yet determined, true = locked, false = unlocked
   const [lockState, setLockState] = useState<null | boolean>(null)
+  const hasEmployees = users.length > 1 && users.some((u) => u.pin)
 
   // Determine lock state AFTER loading is complete and users are available
   useEffect(() => {
     if (isLoading) return
     if (lockState !== null) return // already determined
 
-    const hasEmployeesWithPin = users.some((u) => u.pin)
-    const shouldShowLock = hasEmployeesWithPin && users.length > 1
-
-    if (!shouldShowLock) {
-      // No employees with PIN, skip lock screen
+    if (!hasEmployees) {
       setLockState(false)
       return
     }
 
-    // Check if already unlocked this browser session
-    const unlocked = sessionStorage.getItem("kifshop_unlocked")
-    if (unlocked === "true") {
+    // Check if already unlocked this browser session (with timestamp)
+    const unlockedAt = sessionStorage.getItem("kifshop_unlocked_at")
+    if (unlockedAt && Date.now() - Number(unlockedAt) < INACTIVITY_TIMEOUT_MS) {
       setLockState(false)
     } else {
+      sessionStorage.removeItem("kifshop_unlocked_at")
       setLockState(true)
     }
-  }, [isLoading, users, lockState])
+  }, [isLoading, users, lockState, hasEmployees])
+
+  // Auto-lock on inactivity (10 min)
+  useEffect(() => {
+    if (!hasEmployees || lockState !== false) return
+
+    let timer: ReturnType<typeof setTimeout>
+
+    function resetTimer() {
+      clearTimeout(timer)
+      sessionStorage.setItem("kifshop_unlocked_at", String(Date.now()))
+      timer = setTimeout(() => {
+        setLockState(true)
+        sessionStorage.removeItem("kifshop_unlocked_at")
+      }, INACTIVITY_TIMEOUT_MS)
+    }
+
+    const events = ["mousedown", "keydown", "touchstart", "scroll"]
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }))
+    resetTimer()
+
+    return () => {
+      clearTimeout(timer)
+      events.forEach((e) => window.removeEventListener(e, resetTimer))
+    }
+  }, [hasEmployees, lockState])
 
   function handleUnlock() {
     setLockState(false)
-    sessionStorage.setItem("kifshop_unlocked", "true")
+    sessionStorage.setItem("kifshop_unlocked_at", String(Date.now()))
   }
 
   // Still loading data or determining lock state

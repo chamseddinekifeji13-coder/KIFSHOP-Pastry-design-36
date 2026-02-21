@@ -94,6 +94,21 @@ export async function updateEmployee(
   const { tenantId } = await getAuthUserTenantId()
   const admin = createAdminClient()
 
+  // Prevent changing the owner role or modifying the owner
+  const { data: target } = await admin
+    .from("tenant_users")
+    .select("role")
+    .eq("id", employeeId)
+    .eq("tenant_id", tenantId)
+    .single()
+
+  if (target?.role === "owner") {
+    throw new Error("Impossible de modifier le compte proprietaire")
+  }
+  if (updates.role === "owner") {
+    throw new Error("Impossible d'attribuer le role proprietaire")
+  }
+
   const { data, error } = await admin
     .from("tenant_users")
     .update(updates)
@@ -124,6 +139,18 @@ export async function removeEmployee(employeeId: string): Promise<void> {
 
   if (target && user && target.user_id === user.id) {
     throw new Error("Impossible de supprimer votre propre compte")
+  }
+
+  // Check if target is owner
+  const { data: targetRole } = await admin
+    .from("tenant_users")
+    .select("role")
+    .eq("id", employeeId)
+    .eq("tenant_id", tenantId)
+    .single()
+
+  if (targetRole?.role === "owner") {
+    throw new Error("Impossible de supprimer le compte proprietaire")
   }
 
   const { error } = await admin
