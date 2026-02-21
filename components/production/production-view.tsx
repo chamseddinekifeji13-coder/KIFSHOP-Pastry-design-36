@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
 import { RecipeDrawer } from "./recipe-drawer"
+import { RecipeCostPanel } from "./recipe-cost-panel"
 import { toast } from "sonner"
 import type { Recipe } from "@/lib/production/actions"
 
@@ -131,7 +132,8 @@ export function ProductionView() {
                   <>
                     <div className="space-y-2"><Label>Quantite ({selectedRecipeData.yieldUnit})</Label><Input type="number" placeholder="Ex: 10" value={quantity} onChange={e => setQuantity(e.target.value)} /></div>
                     {quantity && (
-                      <div className="space-y-2">
+                      <div className="space-y-4">
+                        <RecipeCostPanel recipeId={selectedRecipe} defaultQuantity={parseFloat(quantity) || 1} />
                         <Label>Matieres premieres requises</Label>
                         <div className="rounded-lg border divide-y">
                           {requiredMaterials.map((m, idx) => (
@@ -188,6 +190,9 @@ export function ProductionView() {
                             return <Badge key={idx} variant="secondary" className="text-xs">{mat?.name || '?'} ({ing.quantity} {ing.unit})</Badge>
                           })}
                         </div>
+                      </div>
+                      <div className="mb-3 border-t pt-3">
+                        <RecipeCostPanel recipeId={recipe.id} compact />
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => { setEditingRecipe(recipe); setRecipeDrawerOpen(true) }}><Edit className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
