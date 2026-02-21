@@ -1,9 +1,12 @@
 "use client"
 
 import React from "react"
-import { AlertTriangle, Wallet, CheckCircle, Package, Loader2 } from "lucide-react"
+import { AlertTriangle, Wallet, CheckCircle, Package, Loader2, Flame } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useRawMaterials, useOrders, useTransactions } from "@/hooks/use-tenant-data"
+import { Badge } from "@/components/ui/badge"
+import { useCriticalStock, useOrders, useTransactions } from "@/hooks/use-tenant-data"
+import { buildStockAlerts, filterEssentialAlerts } from "@/lib/stocks/notifications"
+import type { StockAlert } from "@/lib/stocks/notifications"
 
 interface Alert {
   id: string
@@ -14,14 +17,15 @@ interface Alert {
 }
 
 export function AlertsPanel() {
-  const { data: rawMaterials, isLoading: rmLoading } = useRawMaterials()
+  const { data: criticalItems, isLoading: csLoading } = useCriticalStock()
   const { data: orders, isLoading: ordLoading } = useOrders()
   const { data: transactions, isLoading: txLoading } = useTransactions()
 
-  const isLoading = rmLoading || ordLoading || txLoading
+  const isLoading = csLoading || ordLoading || txLoading
 
-  // Calculate real alerts
-  const criticalMaterials = (rawMaterials || []).filter((m) => m.currentStock <= m.minStock && m.minStock > 0)
+  // Build structured stock alerts from RPC results (server-side filtered)
+  const stockAlerts = buildStockAlerts(criticalItems || [])
+  const essentialAlerts = filterEssentialAlerts(stockAlerts)
   const readyOrders = (orders || []).filter((o) => o.status === "pret")
 
   const totalIn = (transactions || []).filter((t) => t.type === "entree").reduce((sum, t) => sum + t.amount, 0)
@@ -30,15 +34,29 @@ export function AlertsPanel() {
 
   const alerts: Alert[] = []
 
-  criticalMaterials.forEach((material) => {
+  // Essential materials first (farine, sucre, beurre...)
+  essentialAlerts.forEach((sa: StockAlert) => {
     alerts.push({
-      id: `stock-${material.id}`,
-      type: "critical",
-      icon: Package,
-      title: `${material.name} < ${material.minStock}${material.unit}`,
-      description: `Stock actuel: ${material.currentStock}${material.unit}`,
+      id: sa.id,
+      type: sa.severity === "info" ? "warning" : sa.severity,
+      icon: Flame,
+      title: `${sa.materialName} - ESSENTIEL`,
+      description: sa.message,
     })
   })
+
+  // Then all other critical stock alerts
+  stockAlerts
+    .filter((sa) => !essentialAlerts.some((ea) => ea.id === sa.id))
+    .forEach((sa: StockAlert) => {
+      alerts.push({
+        id: sa.id,
+        type: sa.severity === "info" ? "warning" : sa.severity,
+        icon: Package,
+        title: `${sa.materialName} < ${sa.minStock}${sa.unit}`,
+        description: sa.message,
+      })
+    })
 
   if (cashFlow < 1000 && (transactions || []).length > 0) {
     alerts.push({
@@ -71,9 +89,16 @@ export function AlertsPanel() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base font-semibold">
-          <AlertTriangle className="h-4 w-4" />
-          Alertes urgentes
+        <CardTitle className="flex items-center justify-between text-base font-semibold">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Alertes urgentes
+          </span>
+          {!isLoading && alerts.length > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {alerts.length}
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

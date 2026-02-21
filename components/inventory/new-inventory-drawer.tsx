@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Save, ClipboardCheck, Package, Check, AlertTriangle, RotateCcw, Trash2, Pencil } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Plus, Save, ClipboardCheck, Package, Check, AlertTriangle, RotateCcw, Trash2, Pencil, ScanBarcode } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +21,7 @@ import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useFinishedProducts } from "@/hooks/use-tenant-data"
 import { saveInventorySession, applyInventoryCorrections } from "@/lib/stocks/actions"
 import type { InventoryCountItem } from "@/lib/stocks/actions"
+import { BarcodeScanner } from "./barcode-scanner"
 import { toast } from "sonner"
 
 interface NewInventoryDrawerProps {
@@ -44,6 +45,7 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
   const { data: finishedProducts = [] } = useFinishedProducts()
 
   const [addProductOpen, setAddProductOpen] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [newProduct, setNewProduct] = useState<NewProduct>({ name: "", type: "mp", unit: "kg", physicalQty: "" })
   const [activeTab, setActiveTab] = useState<"mp" | "pf">("mp")
   const [saving, setSaving] = useState(false)
@@ -196,6 +198,33 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
     toast.success(`"${newProduct.name}" ajoute`)
   }
 
+  const handleScanResult = useCallback((product: { id: string; name: string; type: "mp" | "pf"; current_stock: number; unit: string }) => {
+    // Check if product already in counts
+    const existing = counts.find(c => c.id === product.id)
+    if (existing) {
+      // Focus on that item by switching to the right tab and scrolling
+      setActiveTab(product.type)
+      // If excluded, restore it
+      if (excluded.has(product.id)) {
+        setExcluded(prev => { const next = new Set(prev); next.delete(product.id); return next })
+      }
+      toast.info(`${product.name} deja dans la liste - saisissez la quantite physique`)
+    } else {
+      // Add as a new item
+      setCounts(prev => [...prev, {
+        id: product.id,
+        name: product.name,
+        type: product.type,
+        theoreticalQty: product.current_stock || 0,
+        physicalQty: "",
+        unit: product.unit,
+        note: "Scan code-barres",
+      }])
+      setActiveTab(product.type)
+      toast.success(`${product.name} ajoute par scan`)
+    }
+  }, [counts, excluded])
+
   const filledCount = (items: CountItem[]) => items.filter(c => c.physicalQty !== "").length
 
   const renderTable = (items: CountItem[]) => (
@@ -300,11 +329,29 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
                       <RotateCcw className="mr-1.5 h-3 w-3" /> Tout reinitialiser
                     </Button>
                   )}
+                  <Button
+                    variant={scannerOpen ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScannerOpen(!scannerOpen)}
+                    className="rounded-lg h-8 text-xs"
+                  >
+                    <ScanBarcode className="mr-1.5 h-3 w-3" /> Scanner
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => { setNewProduct(p => ({ ...p, type: activeTab })); setAddProductOpen(true) }} className="rounded-lg h-8 text-xs">
-                    <Plus className="mr-1.5 h-3 w-3" /> Ajouter un produit
+                    <Plus className="mr-1.5 h-3 w-3" /> Ajouter
                   </Button>
                 </div>
               </div>
+              {scannerOpen && currentTenant?.id && (
+                <div className="mb-4">
+                  <BarcodeScanner
+                    tenantId={currentTenant.id}
+                    onProductFound={handleScanResult}
+                    onClose={() => setScannerOpen(false)}
+                  />
+                </div>
+              )}
+
               <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
                 <TabsContent value="mp" className="mt-0">{renderTable(mpItems)}</TabsContent>
                 <TabsContent value="pf" className="mt-0">{renderTable(pfItems)}</TabsContent>

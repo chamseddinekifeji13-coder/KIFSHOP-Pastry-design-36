@@ -1,15 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Truck, Users, FileText, Phone, Mail, Plus, Loader2 } from "lucide-react"
+import { Truck, Users, FileText, Phone, Mail, Plus, Loader2, Trophy, History } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useSuppliers, usePurchaseOrders } from "@/hooks/use-tenant-data"
+import { useSuppliers, usePurchaseOrders, useSupplierPrices } from "@/hooks/use-tenant-data"
 import { NewPurchaseOrderDrawer } from "./new-purchase-order-drawer"
 import { NewSupplierDrawer } from "./new-supplier-drawer"
+import { BestPricesView } from "./best-prices-view"
+import { PriceHistoryTable } from "./price-history-table"
+import { useCallback } from "react"
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   "en-attente": { label: "En attente", variant: "outline" },
@@ -31,6 +34,11 @@ export function ApprovisionnementView() {
 
   const { data: suppliers, isLoading: supLoading, mutate: mutateSuppliers } = useSuppliers()
   const { data: purchaseOrders, isLoading: poLoading, mutate: mutateOrders } = usePurchaseOrders()
+  const { data: priceData, isLoading: priceLoading } = useSupplierPrices()
+
+  const getHistoryForProduct = useCallback((rawMaterialName: string) => {
+    return (priceData?.entries || []).filter(e => e.rawMaterialName === rawMaterialName)
+  }, [priceData])
 
   const isLoading = supLoading || poLoading
   const allSuppliers = suppliers || []
@@ -98,6 +106,8 @@ export function ApprovisionnementView() {
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="orders"><FileText className="mr-2 h-4 w-4" />Commandes Achat</TabsTrigger>
           <TabsTrigger value="suppliers"><Users className="mr-2 h-4 w-4" />Fournisseurs</TabsTrigger>
+          <TabsTrigger value="best-prices"><Trophy className="mr-2 h-4 w-4" />Meilleurs Prix</TabsTrigger>
+          <TabsTrigger value="price-history"><History className="mr-2 h-4 w-4" />Historique Prix</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-4">
@@ -183,6 +193,39 @@ export function ApprovisionnementView() {
                 </Card>
               ))}
             </div>
+          )}
+        </TabsContent>
+        <TabsContent value="best-prices" className="mt-4">
+          {priceLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (priceData?.bestPrices || []).length === 0 ? (
+            <Card><CardContent className="flex flex-col items-center justify-center py-16">
+              <Trophy className="h-10 w-10 text-muted-foreground/50 mb-3" />
+              <p className="text-sm font-medium">Aucune donnee de prix</p>
+              <p className="text-xs text-muted-foreground mt-1">Les prix seront disponibles apres vos premieres commandes d{"'"}achat</p>
+            </CardContent></Card>
+          ) : (
+            <BestPricesView
+              bestPrices={priceData!.bestPrices}
+              getHistoryForProduct={getHistoryForProduct}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="price-history" className="mt-4">
+          {priceLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (priceData?.entries || []).length === 0 ? (
+            <Card><CardContent className="flex flex-col items-center justify-center py-16">
+              <History className="h-10 w-10 text-muted-foreground/50 mb-3" />
+              <p className="text-sm font-medium">Aucun historique de prix</p>
+              <p className="text-xs text-muted-foreground mt-1">{"L'historique se remplit automatiquement avec vos commandes d'achat"}</p>
+            </CardContent></Card>
+          ) : (
+            <PriceHistoryTable
+              entries={priceData!.entries}
+              suppliers={allSuppliers.map(s => ({ id: s.id, name: s.name }))}
+            />
           )}
         </TabsContent>
       </Tabs>

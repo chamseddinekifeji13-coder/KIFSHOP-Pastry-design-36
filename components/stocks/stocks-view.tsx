@@ -12,7 +12,8 @@ import { NewProductDrawer } from "./new-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
-import { useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
+import { StockHistoryChart } from "./stock-history-chart"
+import { useRawMaterials, useFinishedProducts, usePackaging, useStorageLocations } from "@/hooks/use-tenant-data"
 
 export function StocksView() {
   const [selectedTab, setSelectedTab] = useState("raw")
@@ -21,14 +22,20 @@ export function StocksView() {
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string } | null>(null)
+  const [chartMaterial, setChartMaterial] = useState<{ id: string; name: string; unit?: string } | null>(null)
 
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
   const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
+  const { data: storageLocations } = useStorageLocations()
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
     setSelectedItem({ id, name, type, unit })
     setDrawerOpen(true)
+    // Also show chart for raw materials
+    if (type === "raw") {
+      setChartMaterial({ id, name, unit })
+    }
   }
 
   return (
@@ -74,11 +81,27 @@ export function StocksView() {
           <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
         </TabsList>
 
-        <TabsContent value="raw" className="mt-6">
+        <TabsContent value="raw" className="mt-6 space-y-6">
+          {chartMaterial && (
+            <StockHistoryChart
+              materialId={chartMaterial.id}
+              materialName={chartMaterial.name}
+              unit={chartMaterial.unit}
+              onClose={() => setChartMaterial(null)}
+            />
+          )}
           {rmLoading ? (
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            <RawMaterialsTable materials={rawMaterials || []} onItemClick={(id, name) => handleItemClick(id, name, "raw")} onAdd={() => setNewRawMaterialOpen(true)} />
+            <RawMaterialsTable
+              materials={rawMaterials || []}
+              storageLocations={storageLocations || []}
+              onItemClick={(id, name, unit) => {
+                handleItemClick(id, name, "raw", unit)
+                setChartMaterial({ id, name, unit })
+              }}
+              onAdd={() => setNewRawMaterialOpen(true)}
+            />
           )}
         </TabsContent>
 

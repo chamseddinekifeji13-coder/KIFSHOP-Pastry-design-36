@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FlaskConical, Loader2 } from "lucide-react"
+import { FlaskConical, Loader2, MapPin } from "lucide-react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createRawMaterial } from "@/lib/stocks/actions"
+import { useStorageLocations } from "@/hooks/use-tenant-data"
 
 const UNITS = [
   { value: "kg", label: "Kilogrammes (kg)" },
@@ -29,6 +30,7 @@ interface NewRawMaterialDrawerProps {
 
 export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMaterialDrawerProps) {
   const { currentTenant } = useTenant()
+  const { data: storageLocations } = useStorageLocations()
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
   const [unit, setUnit] = useState("kg")
@@ -36,10 +38,14 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   const [minStock, setMinStock] = useState("5")
   const [pricePerUnit, setPricePerUnit] = useState("")
   const [supplier, setSupplier] = useState("")
+  const [barcode, setBarcode] = useState("")
+  const [storageLocationId, setStorageLocationId] = useState("")
+
+  const activeLocations = (storageLocations || []).filter(l => l.isActive)
 
   function resetForm() {
     setName(""); setUnit("kg"); setCurrentStock("")
-    setMinStock("5"); setPricePerUnit(""); setSupplier("")
+    setMinStock("5"); setPricePerUnit(""); setSupplier(""); setBarcode(""); setStorageLocationId("")
   }
 
   async function handleSubmit() {
@@ -60,6 +66,8 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         minStock: Number(minStock) || 5,
         pricePerUnit: Number(pricePerUnit) || 0,
         supplier: supplier.trim() || undefined,
+        barcode: barcode.trim() || undefined,
+        storageLocationId: storageLocationId || undefined,
       })
       if (result) {
         toast.success("Matiere premiere ajoutee", { description: name.trim() })
@@ -127,6 +135,25 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Fournisseur (optionnel)</Label>
                 <Input placeholder="Ex: Moulin du Sud" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Code-barres (optionnel)</Label>
+                <Input placeholder="Ex: 6191234567890" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Emplacement</Label>
+                <Select value={storageLocationId} onValueChange={setStorageLocationId}>
+                  <SelectTrigger><SelectValue placeholder="Non assigne" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Non assigne</SelectItem>
+                    {activeLocations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

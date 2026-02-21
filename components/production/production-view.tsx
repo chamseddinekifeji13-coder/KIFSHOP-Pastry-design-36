@@ -11,9 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
+import { useTenant } from "@/lib/tenant-context"
 import { RecipeDrawer } from "./recipe-drawer"
+import { RecipeCostPanel } from "./recipe-cost-panel"
 import { toast } from "sonner"
-import type { Recipe } from "@/lib/production/actions"
+import { consumeRecipeIngredients, type Recipe } from "@/lib/production/actions"
 
 // Error boundary to catch planner crashes
 class PlannerErrorBoundary extends React.Component<
@@ -50,10 +52,12 @@ const ProductionPlanner = React.lazy(() =>
 )
 
 export function ProductionView() {
+  const { authUser } = useTenant()
   const { data: recipes, isLoading: recLoading, mutate: mutateRecipes } = useRecipes()
-  const { data: rawMaterials, isLoading: rmLoading } = useRawMaterials()
+  const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRawMaterials } = useRawMaterials()
 
   const [activeTab, setActiveTab] = useState("planner")
+  const [producing, setProducing] = useState(false)
   const [selectedRecipe, setSelectedRecipe] = useState<string>("")
   const [quantity, setQuantity] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -78,10 +82,42 @@ export function ProductionView() {
   const requiredMaterials = calculateRequiredMaterials()
   const canProduce = requiredMaterials.length > 0 && requiredMaterials.every(m => m.sufficient)
 
-  const handleStartProduction = () => {
-    if (!canProduce) { toast.error("Stock insuffisant pour lancer la production"); return }
-    toast.success("Production lancee", { description: `${quantity} ${selectedRecipeData?.yieldUnit} de ${selectedRecipeData?.name}` })
-    setDialogOpen(false); setSelectedRecipe(""); setQuantity("")
+  const handleStartProduction = async () => {
+    if (!canProduce || !selectedRecipeData) { toast.error("Stock insuffisant pour lancer la production"); return }
+    setProducing(true)
+    try {
+      const result = await consumeRecipeIngredients(
+        selectedRecipeData.id,
+        parseFloat(quantity),
+        authUser?.id,
+        `Production de ${quantity}x ${selectedRecipeData.name}`
+      )
+      if (!result.success) {
+        toast.error("Erreur de production", { description: result.error })
+        return
+      }
+      // Build summary of consumed ingredients
+      const consumed = result.ingredients_consumed || []
+      const costLine = result.total_cost
+        ? `Cout: ${result.total_cost.toFixed(3)} TND${result.cost_per_unit ? ` (${result.cost_per_unit.toFixed(3)} TND/u)` : ""}`
+        : ""
+      toast.success("Production terminee", {
+        description: `${selectedRecipeData.name} x${quantity}${result.finished_product_units ? ` | +${result.finished_product_units} ${selectedRecipeData.yieldUnit} en stock` : ""}${costLine ? ` | ${costLine}` : ""}`,
+        duration: 6000,
+      })
+      if (consumed.length > 0) {
+        const summary = consumed.map(c => `${c.name}: -${c.quantity}${c.unit} (${c.line_cost.toFixed(2)} TND)`).join("\n")
+        toast.info("Stock deduit automatiquement", { description: summary, duration: 8000 })
+      }
+      // Refresh data
+      mutateRawMaterials()
+      mutateRecipes()
+      setDialogOpen(false); setSelectedRecipe(""); setQuantity("")
+    } catch (err: unknown) {
+      toast.error("Erreur inattendue", { description: err instanceof Error ? err.message : "Veuillez reessayer" })
+    } finally {
+      setProducing(false)
+    }
   }
 
   return (
@@ -131,7 +167,8 @@ export function ProductionView() {
                   <>
                     <div className="space-y-2"><Label>Quantite ({selectedRecipeData.yieldUnit})</Label><Input type="number" placeholder="Ex: 10" value={quantity} onChange={e => setQuantity(e.target.value)} /></div>
                     {quantity && (
-                      <div className="space-y-2">
+                      <div className="space-y-4">
+                        <RecipeCostPanel recipeId={selectedRecipe} defaultQuantity={parseFloat(quantity) || 1} />
                         <Label>Matieres premieres requises</Label>
                         <div className="rounded-lg border divide-y">
                           {requiredMaterials.map((m, idx) => (
@@ -151,7 +188,9 @@ export function ProductionView() {
               </div>
               <div className="flex justify-end gap-3">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                <Button onClick={handleStartProduction} disabled={!canProduce}><Play className="mr-2 h-4 w-4" />Lancer la production</Button>
+                <Button onClick={handleStartProduction} disabled={!canProduce || producing}>
+                  {producing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Production en cours...</> : <><Play className="mr-2 h-4 w-4" />Lancer la production</>}
+                </Button>
               </div>
               </DialogContent>
             </Dialog>
@@ -188,6 +227,9 @@ export function ProductionView() {
                             return <Badge key={idx} variant="secondary" className="text-xs">{mat?.name || '?'} ({ing.quantity} {ing.unit})</Badge>
                           })}
                         </div>
+                      </div>
+                      <div className="mb-3 border-t pt-3">
+                        <RecipeCostPanel recipeId={recipe.id} compact />
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => { setEditingRecipe(recipe); setRecipeDrawerOpen(true) }}><Edit className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>

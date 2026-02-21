@@ -83,6 +83,108 @@ export async function createRecipe(tenantId: string, data: {
     ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
 }
 
+export interface ConsumedIngredient {
+  name: string
+  quantity: number
+  unit: string
+  price_per_unit: number
+  line_cost: number
+  previous_stock: number
+  new_stock: number
+}
+
+export interface ConsumeResult {
+  success: boolean
+  error?: string
+  production_run_id?: string
+  recipe_name?: string
+  multiplier?: number
+  finished_product_id?: string | null
+  finished_product_units?: number
+  total_cost?: number
+  cost_per_unit?: number
+  ingredients_consumed?: ConsumedIngredient[]
+}
+
+/**
+ * Atomic production: consumes recipe ingredients, deducts stock,
+ * creates production_run, adds finished product stock.
+ * Rolls back entirely if any ingredient stock is insufficient.
+ */
+export async function consumeRecipeIngredients(
+  recipeId: string,
+  producedQty: number,
+  producedBy?: string,
+  notes?: string
+): Promise<ConsumeResult> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc("consume_recipe_ingredients", {
+    p_recipe_id: recipeId,
+    p_produced_qty: producedQty,
+    p_produced_by: producedBy || null,
+    p_notes: notes || null,
+  })
+
+  if (error) {
+    console.error("Error consuming recipe ingredients:", error.message)
+    // Parse the Postgres error for user-friendly message
+    const stockMatch = error.message.match(/Stock insuffisant pour (.+?): disponible=(.+?) (.+?), requis=(.+?) (.+)/)
+    if (stockMatch) {
+      return {
+        success: false,
+        error: `Stock insuffisant pour ${stockMatch[1]}: ${stockMatch[2]}${stockMatch[3]} disponible, ${stockMatch[4]}${stockMatch[5]} requis`,
+      }
+    }
+    return { success: false, error: error.message }
+  }
+
+  if (data?.error) {
+    return { success: false, error: data.error }
+  }
+
+  return {
+    success: true,
+    production_run_id: data.production_run_id,
+    recipe_name: data.recipe_name,
+    multiplier: data.multiplier,
+    finished_product_id: data.finished_product_id,
+    finished_product_units: data.finished_product_units,
+    total_cost: data.total_cost,
+    cost_per_unit: data.cost_per_unit,
+    ingredients_consumed: data.ingredients_consumed,
+  }
+}
+
+/**
+ * Unified function: completes a production plan by consuming ingredients,
+ * deducting stock, and optionally updating the plan status.
+ */
+export async function completeProduction(
+  recipeId: string,
+  quantity: number,
+  producedBy?: string,
+  notes?: string,
+  planId?: string
+): Promise<ConsumeResult> {
+  // 1. Atomic consume + stock deduction + production_run
+  const result = await consumeRecipeIngredients(recipeId, quantity, producedBy, notes)
+
+  // 2. If linked to a production plan, update its status
+  if (result.success && planId) {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from("production_plans")
+      .update({ status: "completed", updated_at: new Date().toISOString() })
+      .eq("id", planId)
+    if (error) {
+      console.error("Error updating plan status after production:", error.message)
+      // Production already happened, just log the error
+    }
+  }
+
+  return result
+}
+
 export async function fetchProductionRuns(tenantId: string): Promise<ProductionRun[]> {
   const supabase = createClient()
   const { data, error } = await supabase
