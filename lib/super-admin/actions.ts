@@ -44,6 +44,7 @@ export interface TenantDetail {
   is_active: boolean
   created_at: string
   trial_ends_at: string | null
+  app_version: string
   users: TenantUserInfo[]
   subscription: SubscriptionInfo | null
 }
@@ -116,7 +117,7 @@ export interface PlatformSettings {
 
 // ─── Actions ──────────────────────────────────────────────────
 
-const CURRENT_APP_VERSION = "1.2.0"
+export const CURRENT_APP_VERSION = "1.2.0"
 
 export async function getSuperAdminStats(): Promise<SuperAdminStats> {
   const { supabase } = await requireSuperAdmin()
@@ -285,6 +286,7 @@ export async function getTenantDetail(tenantId: string): Promise<TenantDetail | 
     is_active: tenant.is_active !== false,
     created_at: tenant.created_at,
     trial_ends_at: tenant.trial_ends_at || null,
+    app_version: tenant.app_version || "1.0.0",
     users: (tenantUsers || []).map((u) => ({
       id: u.id,
       user_id: u.user_id,
@@ -511,10 +513,38 @@ export async function reactivateTenantSubscription(tenantId: string) {
     .from("tenants")
     .update({
       subscription_status: restoredStatus,
-      is_active: true,
+  is_active: true,
+  updated_at: new Date().toISOString(),
+  })
+  .eq("id", tenantId)
+  
+  return { success: true }
+}
+
+export async function updateTenantAppVersion(tenantId: string) {
+  const { supabase } = await requireSuperAdmin()
+
+  await supabase
+    .from("tenants")
+    .update({
+      app_version: CURRENT_APP_VERSION,
       updated_at: new Date().toISOString(),
     })
     .eq("id", tenantId)
+
+  return { success: true }
+}
+
+export async function updateAllTenantsAppVersion() {
+  const { supabase } = await requireSuperAdmin()
+
+  await supabase
+    .from("tenants")
+    .update({
+      app_version: CURRENT_APP_VERSION,
+      updated_at: new Date().toISOString(),
+    })
+    .neq("app_version", CURRENT_APP_VERSION)
 
   return { success: true }
 }
