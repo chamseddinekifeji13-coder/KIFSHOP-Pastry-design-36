@@ -29,7 +29,6 @@ export function ContactSection() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSending(true)
-    // Simulate sending
     await new Promise((r) => setTimeout(r, 1500))
     setSending(false)
     setSent(true)
@@ -37,9 +36,9 @@ export function ContactSection() {
 
   return (
     <section id="contact" className="bg-background py-20 lg:py-28">
-      <div className="mx-auto max-w-6xl px-6">
+      <div className="mx-auto max-w-3xl px-6">
         {/* Header */}
-        <div className="mx-auto max-w-2xl text-center">
+        <div className="text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-[#4A7C59]">
             Contact
           </p>
@@ -51,184 +50,173 @@ export function ContactSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-10 lg:grid-cols-5">
-          {/* Contact info - left column */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-foreground">Coordonnees</h3>
-              <div className="mt-6 space-y-5">
-                <a href="tel:+21625122212" className="flex items-start gap-3 group">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
-                    <Phone className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground group-hover:text-[#4A7C59] transition-colors">+216 25 12 22 12</p>
-                    <p className="text-xs text-muted-foreground">Lun - Sam, 8h - 18h</p>
-                  </div>
-                </a>
-                <a href="mailto:contact@kifshop.tn" className="flex items-start gap-3 group">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground group-hover:text-[#4A7C59] transition-colors">contact@kifshop.tn</p>
-                    <p className="text-xs text-muted-foreground">Reponse sous 24h</p>
-                  </div>
-                </a>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
-                    <MapPin className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Tunisie</p>
-                    <p className="text-xs text-muted-foreground">Service 100% tunisien</p>
-                  </div>
+        {/* Contact info cards - horizontal row */}
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <a
+            href="tel:+21625122212"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-[#4A7C59]/30"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
+              <Phone className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">+216 25 12 22 12</p>
+              <p className="text-xs text-muted-foreground">Lun - Sam, 8h - 18h</p>
+            </div>
+          </a>
+          <a
+            href="mailto:contact@kifshop.tn"
+            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-[#4A7C59]/30"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
+              <Mail className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">contact@kifshop.tn</p>
+              <p className="text-xs text-muted-foreground">Reponse sous 24h</p>
+            </div>
+          </a>
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Tunisie</p>
+              <p className="text-xs text-muted-foreground">Service 100% tunisien</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form - full width */}
+        <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          {sent ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#4A7C59]/10">
+                <CheckCircle2 className="h-8 w-8 text-[#4A7C59]" />
+              </div>
+              <h3 className="mt-4 text-lg font-semibold text-foreground">Message envoye !</h3>
+              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                Merci pour votre message. Notre equipe vous repondra dans les plus brefs delais.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-6"
+                onClick={() => setSent(false)}
+              >
+                Envoyer un autre message
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Row 1: Nom complet (full width) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-name">
+                  Nom complet <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="contact-name"
+                  name="name"
+                  placeholder="Votre nom et prenom"
+                  required
+                  className="h-11"
+                />
+              </div>
+
+              {/* Row 2: Telephone + Email */}
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="contact-phone">
+                    Telephone <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="contact-phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="+216 XX XXX XXX"
+                    required
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="contact-email">Email</Label>
+                  <Input
+                    id="contact-email"
+                    name="email"
+                    type="email"
+                    placeholder="votre@email.com"
+                    className="h-11"
+                  />
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-2xl border border-[#4A7C59]/20 bg-[#4A7C59]/5 p-6">
-              <p className="text-sm font-semibold text-[#4A7C59]">Essai gratuit 14 jours</p>
-              <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                Testez KIFSHOP Pastry gratuitement pendant 14 jours. Aucune carte bancaire requise,
-                configuration en moins de 2 minutes.
-              </p>
-            </div>
-          </div>
-
-          {/* Form - right column */}
-          <div className="lg:col-span-3">
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
-              {sent ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#4A7C59]/10">
-                    <CheckCircle2 className="h-8 w-8 text-[#4A7C59]" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-foreground">Message envoye !</h3>
-                  <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                    Merci pour votre message. Notre equipe vous repondra dans les plus brefs delais.
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="mt-6"
-                    onClick={() => setSent(false)}
-                  >
-                    Envoyer un autre message
-                  </Button>
+              {/* Row 3: Sujet + Nom patisserie */}
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="contact-subject">
+                    Sujet <span className="text-destructive">*</span>
+                  </Label>
+                  <Select name="subject" required>
+                    <SelectTrigger id="contact-subject" className="h-11">
+                      <SelectValue placeholder="Choisir un sujet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SUBJECTS.map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Nom complet */}
-                  <div className="space-y-2">
-                    <Label htmlFor="contact-name">
-                      Nom complet <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                      id="contact-name"
-                      name="name"
-                      placeholder="Votre nom et prenom"
-                      required
-                      className="h-11"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="contact-shop">Nom de la patisserie</Label>
+                  <Input
+                    id="contact-shop"
+                    name="shop_name"
+                    placeholder="Ex: Patisserie El Manara"
+                    className="h-11"
+                  />
+                </div>
+              </div>
 
-                  {/* Telephone + Email cote a cote sur desktop, empiles sur mobile */}
-                  <div className="flex flex-col gap-5 md:flex-row">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="contact-phone">
-                        Telephone <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="contact-phone"
-                        name="phone"
-                        type="tel"
-                        placeholder="+216 XX XXX XXX"
-                        required
-                        className="h-11"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="contact-email">Email</Label>
-                      <Input
-                        id="contact-email"
-                        name="email"
-                        type="email"
-                        placeholder="votre@email.com"
-                        className="h-11"
-                      />
-                    </div>
-                  </div>
+              {/* Row 4: Message (full width) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-message">
+                  Message <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="contact-message"
+                  name="message"
+                  placeholder="Decrivez votre besoin ou posez votre question..."
+                  required
+                  rows={5}
+                  className="resize-y min-h-[120px]"
+                />
+              </div>
 
-                  {/* Sujet + Patisserie cote a cote sur desktop, empiles sur mobile */}
-                  <div className="flex flex-col gap-5 md:flex-row">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="contact-subject">
-                        Sujet <span className="text-destructive">*</span>
-                      </Label>
-                      <Select name="subject" required>
-                        <SelectTrigger id="contact-subject" className="h-11">
-                          <SelectValue placeholder="Choisir un sujet" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SUBJECTS.map((s) => (
-                            <SelectItem key={s.value} value={s.value}>
-                              {s.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="contact-shop">Nom de la patisserie</Label>
-                      <Input
-                        id="contact-shop"
-                        name="shop_name"
-                        placeholder="Ex: Patisserie El Manara"
-                        className="h-11"
-                      />
-                    </div>
-                  </div>
+              <Button
+                type="submit"
+                disabled={sending}
+                className="w-full h-12 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2 text-base"
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Envoi en cours...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Envoyer le message
+                  </>
+                )}
+              </Button>
 
-                  {/* Message */}
-                  <div className="space-y-2">
-                    <Label htmlFor="contact-message">
-                      Message <span className="text-destructive">*</span>
-                    </Label>
-                    <Textarea
-                      id="contact-message"
-                      name="message"
-                      placeholder="Decrivez votre besoin ou posez votre question..."
-                      required
-                      rows={5}
-                      className="resize-y min-h-[120px]"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={sending}
-                    className="w-full h-12 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2 text-base"
-                  >
-                    {sending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Envoi en cours...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" />
-                        Envoyer le message
-                      </>
-                    )}
-                  </Button>
-
-                  <p className="text-center text-xs text-muted-foreground">
-                    En soumettant ce formulaire, vous acceptez d{"'"}etre contacte par notre equipe.
-                  </p>
-                </form>
-              )}
-            </div>
-          </div>
+              <p className="text-center text-xs text-muted-foreground">
+                En soumettant ce formulaire, vous acceptez d{"'"}etre contacte par notre equipe.
+              </p>
+            </form>
+          )}
         </div>
       </div>
     </section>
