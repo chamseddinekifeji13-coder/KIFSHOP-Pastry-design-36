@@ -1,10 +1,16 @@
 "use client"
 
-import { useState } from "react"
-import { Lock, LogOut, Loader2 } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Lock, LogOut, ShieldAlert, Timer } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useTenant, ROLE_LABELS, type AppUser } from "@/lib/tenant-context"
+
+function formatCountdown(sec: number) {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
 
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const { users, currentTenant, setCurrentUser, signOut } = useTenant()
@@ -13,6 +19,36 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const [error, setError] = useState("")
   const [shake, setShake] = useState(false)
   const [verifying, setVerifying] = useState(false)
+
+  // Rate-limit state
+  const [locked, setLocked] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null)
+  const [alertTriggered, setAlertTriggered] = useState(false)
+
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Countdown timer
+  useEffect(() => {
+    if (countdown <= 0) {
+      setLocked(false)
+      if (countdownRef.current) clearInterval(countdownRef.current)
+      return
+    }
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          setLocked(false)
+          if (countdownRef.current) clearInterval(countdownRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current)
+    }
+  }, [countdown])
 
   // Server-side PIN verification via API route
   async function verifyPinOnServer(user: AppUser, pinCode?: string) {
@@ -25,13 +61,35 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
         body: JSON.stringify({ tenantUserId: user.dbId, pin: pinCode }),
       })
       const data = await res.json()
+
       if (!res.ok) {
-        setError(data.error || "Erreur de verification")
+        // Handle rate-limit / lockout
+        if (data.locked) {
+          setLocked(true)
+          setCountdown(data.remainingSeconds || 120)
+          setError("")
+        } else {
+          setError(data.error || "Erreur de verification")
+        }
+
+        if (typeof data.attemptsLeft === "number") {
+          setAttemptsLeft(data.attemptsLeft)
+        }
+        if (data.alert) {
+          setAlertTriggered(true)
+        }
+
         setShake(true)
-        setTimeout(() => { setPin(""); setShake(false) }, 600)
+        setTimeout(() => {
+          setPin("")
+          setShake(false)
+        }, 600)
         return false
       }
-      // Server verified -- update client state
+
+      // Server verified -- reset and update client state
+      setAttemptsLeft(null)
+      setAlertTriggered(false)
       setCurrentUser(user)
       return true
     } catch {
@@ -43,6 +101,12 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }
 
   async function handleSelectUser(user: AppUser) {
+    // Reset rate-limit visuals when switching users
+    setLocked(false)
+    setCountdown(0)
+    setAttemptsLeft(null)
+    setAlertTriggered(false)
+
     // User without PIN = verify on server without PIN
     if (!user.pin) {
       const ok = await verifyPinOnServer(user)
@@ -55,7 +119,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }
 
   async function handlePinInput(digit: string) {
-    if (pin.length >= 4 || verifying) return
+    if (pin.length >= 4 || verifying || locked) return
     const newPin = pin + digit
     setPin(newPin)
 
@@ -67,6 +131,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   }
 
   function handleBackspace() {
+    if (locked) return
     setPin((prev) => prev.slice(0, -1))
     setError("")
   }
@@ -80,7 +145,13 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           <Button
             variant="ghost"
             className="absolute top-4 left-4 text-muted-foreground"
-            onClick={() => setSelectedUser(null)}
+            onClick={() => {
+              setSelectedUser(null)
+              setLocked(false)
+              setCountdown(0)
+              setAttemptsLeft(null)
+              setAlertTriggered(false)
+            }}
           >
             Retour
           </Button>
@@ -111,6 +182,30 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             <p className="text-sm text-muted-foreground">{ROLE_LABELS[selectedUser.role]}</p>
           </div>
 
+          {/* Alert banner — shown after 2 lockouts */}
+          {alertTriggered && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm w-full">
+              <ShieldAlert className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-destructive">Alerte de securite</p>
+                <p className="text-destructive/80 text-xs mt-0.5">
+                  Plusieurs tentatives echouees detectees. Si ce n{"'"}est pas vous,
+                  contactez le proprietaire immediatement.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Lockout banner */}
+          {locked && (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm w-full">
+              <Timer className="h-4 w-4 text-amber-600 shrink-0" />
+              <p className="text-amber-700 font-medium">
+                Bloque pendant {formatCountdown(countdown)}
+              </p>
+            </div>
+          )}
+
           {/* PIN dots */}
           <div className={`flex gap-3 ${shake ? "animate-shake" : ""}`}>
             {[0, 1, 2, 3].map((i) => (
@@ -127,8 +222,20 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             ))}
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {!error && <p className="text-sm text-muted-foreground">Entrez votre code PIN</p>}
+          {error && !locked && (
+            <div className="text-center">
+              <p className="text-sm text-destructive">{error}</p>
+              {attemptsLeft !== null && attemptsLeft > 0 && (
+                <p className="text-xs text-destructive/70 mt-0.5">
+                  {attemptsLeft} tentative{attemptsLeft > 1 ? "s" : ""} restante
+                  {attemptsLeft > 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
+          )}
+          {!error && !locked && (
+            <p className="text-sm text-muted-foreground">Entrez votre code PIN</p>
+          )}
 
           {/* Numpad */}
           <div className="grid grid-cols-3 gap-3">
@@ -138,6 +245,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
                 variant="outline"
                 className="h-14 w-14 rounded-full text-xl font-medium bg-white/80 hover:bg-white border-border/50"
                 onClick={() => handlePinInput(String(num))}
+                disabled={locked}
               >
                 {num}
               </Button>
@@ -147,6 +255,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
               variant="outline"
               className="h-14 w-14 rounded-full text-xl font-medium bg-white/80 hover:bg-white border-border/50"
               onClick={() => handlePinInput("0")}
+              disabled={locked}
             >
               0
             </Button>
@@ -154,7 +263,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
               variant="ghost"
               className="h-14 w-14 rounded-full text-sm"
               onClick={handleBackspace}
-              disabled={pin.length === 0}
+              disabled={pin.length === 0 || locked}
             >
               Eff.
             </Button>
