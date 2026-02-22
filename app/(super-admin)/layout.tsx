@@ -1,3 +1,5 @@
+"use client"
+
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { SuperAdminSidebar } from "@/components/super-admin/super-admin-sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -13,7 +15,7 @@ export default function SuperAdminLayout({
       <SuperAdminSidebar />
       <SidebarInset>
         {/* Mobile header with sidebar trigger */}
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-card px-4 md:hidden">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 md:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-5" />
           <div className="flex items-center gap-2">
@@ -27,7 +29,7 @@ export default function SuperAdminLayout({
             </span>
           </div>
         </header>
-        <main className="flex-1 overflow-auto">{children}</main>
+        <div className="flex-1 overflow-auto">{children}</div>
       </SidebarInset>
     </SidebarProvider>
   )
