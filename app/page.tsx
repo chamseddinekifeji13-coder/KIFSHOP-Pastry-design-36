@@ -7,7 +7,7 @@ import { Navbar } from "@/components/landing/navbar"
 import { HeroSection } from "@/components/landing/hero-section"
 import { FeaturesSection } from "@/components/landing/features-section"
 import { DownloadSection } from "@/components/landing/download-section"
-
+import { ContactSection } from "@/components/landing/contact-section"
 import { FooterSection } from "@/components/landing/footer-section"
 
 /**
@@ -81,6 +81,7 @@ export default function RootPage() {
       <HeroSection />
       <FeaturesSection />
       <DownloadSection />
+      <ContactSection />
       <FooterSection />
     </main>
   )

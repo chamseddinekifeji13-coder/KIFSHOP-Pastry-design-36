@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChefHat, ArrowRight, Cloud, Server } from "lucide-react"
+import { ChefHat, ArrowRight, Cloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function HeroSection() {
@@ -42,10 +42,9 @@ export function HeroSection() {
             </Link>
           </Button>
           <Button size="lg" variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white gap-2 px-8 h-12 text-base" asChild>
-            <Link href="#download">
-              <Server className="h-4 w-4" />
-              Telecharger On-Premise
-            </Link>
+            <a href="#contact">
+              Nous contacter
+            </a>
           </Button>
         </div>
 

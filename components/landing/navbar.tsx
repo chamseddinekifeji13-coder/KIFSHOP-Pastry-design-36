@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 
 const links = [
   { href: "#features", label: "Fonctionnalites" },
-  { href: "#download", label: "Telecharger" },
+  { href: "#download", label: "Deploiement" },
+  { href: "#contact", label: "Contact" },
 ]
 
 export function Navbar() {
