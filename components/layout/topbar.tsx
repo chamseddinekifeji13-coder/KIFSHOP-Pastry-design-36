@@ -248,8 +248,9 @@ export function Topbar() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/parametres")}>{t("settings.title")}</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => {
-              sessionStorage.removeItem("kifshop_unlocked")
+            <DropdownMenuItem onClick={async () => {
+              await fetch("/api/verify-pin", { method: "DELETE" }).catch(() => {})
+              sessionStorage.removeItem("kifshop_unlocked_at")
               window.location.reload()
             }}>
               <Lock className="mr-2 h-4 w-4" />
