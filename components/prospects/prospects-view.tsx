@@ -13,6 +13,7 @@ import { updateProspectStatus, deleteProspect, type Prospect } from "@/lib/prosp
 import { toast } from "sonner"
 import { NewProspectDrawer } from "./new-prospect-drawer"
 import { ProspectDetailDrawer } from "./prospect-detail-drawer"
+import { useI18n } from "@/lib/i18n/context"
 
 const sourceIcons: Record<string, typeof MessageCircle> = {
   instagram: Instagram, tiktok: Globe, whatsapp: MessageCircle,
@@ -39,6 +40,7 @@ const statusColors: Record<string, string> = {
 }
 
 export function ProspectsView() {
+  const { t } = useI18n()
   const { currentTenant } = useTenant()
   const { data: prospects = [], isLoading, mutate } = useProspects()
   const [search, setSearch] = useState("")

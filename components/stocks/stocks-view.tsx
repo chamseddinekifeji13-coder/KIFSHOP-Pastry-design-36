@@ -14,8 +14,10 @@ import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
 import { useRawMaterials, useFinishedProducts, usePackaging, useStorageLocations } from "@/hooks/use-tenant-data"
+import { useI18n } from "@/lib/i18n/context"
 
 export function StocksView() {
+  const { t } = useI18n()
   const [selectedTab, setSelectedTab] = useState("raw")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [newProductOpen, setNewProductOpen] = useState(false)
@@ -42,8 +44,8 @@ export function StocksView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Gestion des Stocks</h1>
-          <p className="text-muted-foreground">Gerez vos matieres premieres, produits finis et emballages</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("stocks.title")}</h1>
+          <p className="text-muted-foreground">{t("stocks.subtitle")}</p>
         </div>
         <div className="flex gap-2">
           {selectedTab === "raw" && (
@@ -75,8 +77,8 @@ export function StocksView() {
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="raw" className="gap-2"><Package className="h-4 w-4" /><span className="hidden sm:inline">Matieres Premieres</span><span className="sm:hidden">MP</span></TabsTrigger>
-          <TabsTrigger value="finished" className="gap-2"><Box className="h-4 w-4" /><span className="hidden sm:inline">Produits Finis</span><span className="sm:hidden">PF</span></TabsTrigger>
+          <TabsTrigger value="raw" className="gap-2"><Package className="h-4 w-4" /><span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span></TabsTrigger>
+          <TabsTrigger value="finished" className="gap-2"><Box className="h-4 w-4" /><span className="hidden sm:inline">{t("stocks.finished_products")}</span><span className="sm:hidden">PF</span></TabsTrigger>
           <TabsTrigger value="packaging" className="gap-2"><Gift className="h-4 w-4" /><span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span></TabsTrigger>
           <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
         </TabsList>

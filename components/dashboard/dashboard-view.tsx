@@ -5,14 +5,16 @@ import { RevenueChart } from "./revenue-chart"
 import { AlertsPanel } from "./alerts-panel"
 import { QuickActions } from "./quick-actions"
 import { OnlineSalesWidget } from "./online-sales-widget"
+import { useI18n } from "@/lib/i18n/context"
 
 export function DashboardView() {
+  const { t } = useI18n()
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tableau de bord</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("dashboard.title")}</h1>
         <p className="text-muted-foreground">
-          Vue d{"'"}ensemble de votre activité
+          {t("dashboard.subtitle")}
         </p>
       </div>
 

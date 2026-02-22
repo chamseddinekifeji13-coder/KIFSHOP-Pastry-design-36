@@ -10,8 +10,10 @@ import { useInventorySessions, useRawMaterials, useFinishedProducts } from "@/ho
 import { createClient } from "@/lib/supabase/client"
 import { NewInventoryDrawer } from "./new-inventory-drawer"
 import { toast } from "sonner"
+import { useI18n } from "@/lib/i18n/context"
 
 export function InventoryView() {
+  const { t } = useI18n()
   const { data: sessions, isLoading: sessLoading, mutate: mutateSessions } = useInventorySessions()
   const { data: rawMaterials, isLoading: rmLoading } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading } = useFinishedProducts()
@@ -53,10 +55,10 @@ export function InventoryView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Inventaire</h1>
-          <p className="text-muted-foreground">Effectuez des comptages physiques et comparez avec le stock theorique</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("inventory.title")}</h1>
+          <p className="text-muted-foreground">{t("inventory.subtitle")}</p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />Nouvel inventaire</Button>
+        <Button onClick={() => setDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />{t("inventory.new")}</Button>
       </div>
 
       {allSessions.some(s => s.status === "brouillon") && (
@@ -65,9 +67,9 @@ export function InventoryView() {
             <div className="flex items-center gap-3">
               <PauseCircle className="h-5 w-5 text-amber-600" />
               <div>
-                <p className="text-sm font-medium text-amber-900">Inventaire en cours (brouillon)</p>
+                <p className="text-sm font-medium text-amber-900">{t("inventory.draft_banner")}</p>
                 <p className="text-xs text-amber-700">
-                  Vous avez un inventaire non termine. Vous pouvez le reprendre ou le supprimer.
+                  {t("inventory.draft_banner_desc")}
                 </p>
               </div>
             </div>
@@ -81,7 +83,7 @@ export function InventoryView() {
               }}
             >
               <PlayCircle className="h-4 w-4" />
-              Reprendre
+              {t("inventory.resume")}
             </Button>
           </CardContent>
         </Card>
