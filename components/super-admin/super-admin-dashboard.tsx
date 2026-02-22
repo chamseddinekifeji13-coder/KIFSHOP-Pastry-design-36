@@ -17,7 +17,7 @@ import {
   getAllTenants,
   updateTenantAppVersion,
   updateAllTenantsAppVersion,
-  CURRENT_APP_VERSION,
+  getCurrentAppVersion,
   type SuperAdminStats,
   type TenantOverview,
 } from "@/lib/super-admin/actions"
@@ -45,6 +45,7 @@ export function SuperAdminDashboard() {
   const [showOutdated, setShowOutdated] = useState(false)
   const [showInactive, setShowInactive] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [appVersion, setAppVersion] = useState("1.2.0")
 
   async function handleUpdateVersion(tenantId: string) {
     startTransition(async () => {
@@ -88,13 +89,15 @@ export function SuperAdminDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const [statsData, tenantsData] = await Promise.all([
+        const [statsData, tenantsData, version] = await Promise.all([
           getSuperAdminStats(),
           getAllTenants(),
+          getCurrentAppVersion(),
         ])
         setStats(statsData)
         setAllTenants(tenantsData)
         setRecentTenants(tenantsData.slice(0, 5))
+        setAppVersion(version)
       } catch (error) {
         console.error("Error loading super admin data:", error)
       } finally {
@@ -312,7 +315,7 @@ export function SuperAdminDashboard() {
                         <Badge variant="secondary" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">
                           v{t.app_version}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">vers v{CURRENT_APP_VERSION}</span>
+                        <span className="text-[10px] text-muted-foreground">vers v{appVersion}</span>
                       </div>
                     </div>
                   </div>

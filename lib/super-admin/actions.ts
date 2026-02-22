@@ -117,7 +117,11 @@ export interface PlatformSettings {
 
 // ─── Actions ──────────────────────────────────────────────────
 
-export const CURRENT_APP_VERSION = "1.2.0"
+const CURRENT_APP_VERSION = "1.2.0"
+
+export async function getCurrentAppVersion() {
+  return CURRENT_APP_VERSION
+}
 
 export async function getSuperAdminStats(): Promise<SuperAdminStats> {
   const { supabase } = await requireSuperAdmin()

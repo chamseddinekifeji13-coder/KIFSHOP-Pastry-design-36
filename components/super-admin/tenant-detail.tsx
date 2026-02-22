@@ -70,7 +70,7 @@ import {
   suspendTenantSubscription,
   reactivateTenantSubscription,
   updateTenantAppVersion,
-  CURRENT_APP_VERSION,
+  getCurrentAppVersion,
   recordPayment,
   getTenantPayments,
   setTenantTrialDays,
@@ -108,6 +108,7 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
   const [payments, setPayments] = useState<PaymentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [isPending, startTransition] = useTransition()
+  const [appVersion, setAppVersion] = useState("1.2.0")
 
   // Activate subscription form
   const [activateOpen, setActivateOpen] = useState(false)
@@ -131,13 +132,15 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
   useEffect(() => {
     async function load() {
       try {
-        const [tenantData, plansData, paymentsData, unconfirmedData] = await Promise.all([
-          getTenantDetail(tenantId),
-          getSubscriptionPlans(),
-          getTenantPayments(tenantId),
-          getTenantUnconfirmedUserIds(tenantId),
-        ])
-        setTenant(tenantData)
+  const [tenantData, plansData, paymentsData, unconfirmedData, version] = await Promise.all([
+  getTenantDetail(tenantId),
+  getSubscriptionPlans(),
+  getTenantPayments(tenantId),
+  getTenantUnconfirmedUserIds(tenantId),
+  getCurrentAppVersion(),
+  ])
+  setTenant(tenantData)
+  setAppVersion(version)
         setPlans(plansData)
         setPayments(paymentsData)
         setUnconfirmedIds(new Set(unconfirmedData))
@@ -583,20 +586,20 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Version</CardTitle>
-            <ArrowUpCircle className={`h-4 w-4 ${tenant.app_version !== CURRENT_APP_VERSION ? "text-amber-500" : "text-muted-foreground"}`} />
+            <ArrowUpCircle className={`h-4 w-4 ${tenant.app_version !== appVersion ? "text-amber-500" : "text-muted-foreground"}`} />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <span className={`text-2xl font-bold ${tenant.app_version !== CURRENT_APP_VERSION ? "text-amber-600" : ""}`}>
+              <span className={`text-2xl font-bold ${tenant.app_version !== appVersion ? "text-amber-600" : ""}`}>
                 v{tenant.app_version}
               </span>
-              {tenant.app_version !== CURRENT_APP_VERSION && (
+              {tenant.app_version !== appVersion && (
                 <Badge variant="secondary" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">
                   obsolete
                 </Badge>
               )}
             </div>
-            {tenant.app_version !== CURRENT_APP_VERSION ? (
+            {tenant.app_version !== appVersion ? (
               <Button
                 size="sm"
                 variant="outline"
@@ -616,7 +619,7 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
                 }}
               >
                 <RefreshCw className={`h-3 w-3 ${isPending ? "animate-spin" : ""}`} />
-                Mettre a jour vers v{CURRENT_APP_VERSION}
+                Mettre a jour vers v{appVersion}
               </Button>
             ) : (
               <p className="text-xs text-muted-foreground mt-1">A jour</p>
