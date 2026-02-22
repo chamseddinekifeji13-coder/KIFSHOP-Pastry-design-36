@@ -262,7 +262,7 @@ export function Topbar() {
         </DropdownMenu>
       </div>
 
-      {/* PIN Dialog for employee switch */}
+      {/* PIN Dialog for user switch (server-side verification) */}
       {pendingUser && (
         <PinDialog
           open={pinDialogOpen}
@@ -273,7 +273,7 @@ export function Topbar() {
           userName={pendingUser.name}
           userInitials={pendingUser.initials}
           userRole={ROLE_LABELS[pendingUser.role]}
-          expectedPin={pendingUser.pin || ""}
+          tenantUserId={pendingUser.dbId || pendingUser.id}
           onSuccess={() => completeUserSwitch(pendingUser)}
         />
       )}
