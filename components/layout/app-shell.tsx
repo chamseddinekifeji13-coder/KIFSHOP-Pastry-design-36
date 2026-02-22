@@ -120,8 +120,9 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
       <ChangePinDialog
         open={forcePinOpen}
         onOpenChange={(val) => {
-          // Only allow closing after PIN has been set (currentUser.pin updated)
-          if (!val && currentUser.pin) {
+          if (!val) {
+            // Always close — the dialog only calls onOpenChange(false)
+            // after a successful PIN save in force mode
             setForcePinOpen(false)
           }
         }}
