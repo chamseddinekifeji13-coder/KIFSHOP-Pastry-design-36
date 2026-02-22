@@ -36,7 +36,7 @@ export function FooterSection() {
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li><Link href="/auth/login" className="transition-colors hover:text-foreground">Connexion</Link></li>
               <li><Link href="/auth/sign-up" className="transition-colors hover:text-foreground">Creer un compte</Link></li>
-              <li><Link href="#contact" className="transition-colors hover:text-foreground">Nous contacter</Link></li>
+              <li><a href="tel:+21625122212" className="transition-colors hover:text-foreground">Nous contacter</a></li>
             </ul>
           </div>
 

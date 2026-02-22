@@ -91,9 +91,9 @@ export function DownloadSection() {
             </ul>
             <div className="mt-8">
               <Button variant="outline" className="w-full h-11 gap-2 border-foreground/20" asChild>
-                <a href="#contact">
+                <a href="tel:+21625122212">
                   <Send className="h-4 w-4" />
-                  Nous contacter
+                  Nous contacter : +216 25 12 22 12
                 </a>
               </Button>
               <p className="mt-2 text-center text-xs text-muted-foreground">

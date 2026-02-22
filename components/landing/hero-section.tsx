@@ -32,13 +32,6 @@ export function HeroSection() {
           — chaque aspect de votre activite est couvert dans une seule plateforme.
         </p>
 
-        <p className="max-w-2xl text-base leading-relaxed text-white/50 text-pretty">
-          Multi-utilisateurs avec roles dedies (proprietaire, gerant, patissier, vendeur, caissier),
-          accessible sur mobile en tant que PWA, avec notifications en temps reel et synchronisation instantanee.
-          Disponible en <strong className="text-white/80">Cloud</strong> (heberge et maintenu par nos soins) ou <strong className="text-white/80">On-Premise</strong> (sur votre propre serveur).
-          Interface disponible en <strong className="text-white/80">Francais</strong> et <strong className="text-white/80">Arabe</strong>.
-        </p>
-
         {/* CTA buttons */}
         <div className="flex flex-col items-center gap-4 sm:flex-row">
           <Button size="lg" className="bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2 px-8 h-12 text-base" asChild>
