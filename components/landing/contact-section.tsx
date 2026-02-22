@@ -124,61 +124,61 @@ export function ContactSection() {
                 />
               </div>
 
-              {/* Row 2: Telephone + Email */}
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact-phone">
-                    Telephone <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="contact-phone"
-                    name="phone"
-                    type="tel"
-                    placeholder="+216 XX XXX XXX"
-                    required
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact-email">Email</Label>
-                  <Input
-                    id="contact-email"
-                    name="email"
-                    type="email"
-                    placeholder="votre@email.com"
-                    className="h-11"
-                  />
-                </div>
+              {/* Telephone */}
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-phone">
+                  Telephone <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="contact-phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="+216 XX XXX XXX"
+                  required
+                  className="h-11"
+                />
               </div>
 
-              {/* Row 3: Sujet + Nom patisserie */}
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact-subject">
-                    Sujet <span className="text-destructive">*</span>
-                  </Label>
-                  <Select name="subject" required>
-                    <SelectTrigger id="contact-subject" className="h-11">
-                      <SelectValue placeholder="Choisir un sujet" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SUBJECTS.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="contact-shop">Nom de la patisserie</Label>
-                  <Input
-                    id="contact-shop"
-                    name="shop_name"
-                    placeholder="Ex: Patisserie El Manara"
-                    className="h-11"
-                  />
-                </div>
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-email">Email</Label>
+                <Input
+                  id="contact-email"
+                  name="email"
+                  type="email"
+                  placeholder="votre@email.com"
+                  className="h-11"
+                />
+              </div>
+
+              {/* Sujet */}
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-subject">
+                  Sujet <span className="text-destructive">*</span>
+                </Label>
+                <Select name="subject" required>
+                  <SelectTrigger id="contact-subject" className="h-11">
+                    <SelectValue placeholder="Choisir un sujet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUBJECTS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Nom de la patisserie */}
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-shop">Nom de la patisserie</Label>
+                <Input
+                  id="contact-shop"
+                  name="shop_name"
+                  placeholder="Ex: Patisserie El Manara"
+                  className="h-11"
+                />
               </div>
 
               {/* Row 4: Message (full width) */}
