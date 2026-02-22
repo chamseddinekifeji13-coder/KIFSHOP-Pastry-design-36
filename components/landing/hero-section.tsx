@@ -44,7 +44,7 @@ export function HeroSection() {
           <Button size="lg" className="bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2 px-8 h-12 text-base" asChild>
             <Link href="/auth/sign-up">
               <Cloud className="h-4 w-4" />
-              Essai gratuit Cloud
+              Essai gratuit
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>

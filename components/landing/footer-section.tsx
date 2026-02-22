@@ -34,8 +34,8 @@ export function FooterSection() {
           <div>
             <h4 className="text-sm font-semibold text-foreground">Ressources</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><Link href="#install-guide" className="transition-colors hover:text-foreground">Guide d{"'"}installation</Link></li>
               <li><Link href="/auth/login" className="transition-colors hover:text-foreground">Connexion</Link></li>
+              <li><Link href="/auth/sign-up" className="transition-colors hover:text-foreground">Creer un compte</Link></li>
             </ul>
           </div>
 
@@ -44,14 +44,14 @@ export function FooterSection() {
             <h4 className="text-sm font-semibold text-foreground">Contact</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>contact@kifshop.tn</li>
-              <li>+216 XX XXX XXX</li>
+              <li><a href="tel:+21625122212" className="transition-colors hover:text-foreground">+216 25 12 22 12</a></li>
               <li>Tunisie</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 text-sm text-muted-foreground sm:flex-row">
-          <p>&copy; {new Date().getFullYear()} KIFSHOP. Tous droits reserves.</p>
+          <p>&copy; {new Date().getFullYear()} KIFSHOP Pastry. Tous droits reserves.</p>
           <p>Concu en Tunisie avec passion</p>
         </div>
       </div>

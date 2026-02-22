@@ -112,7 +112,7 @@ export default function SignUpPage() {
         </div>
         <CardTitle className="text-xl font-bold text-balance">Creer un compte</CardTitle>
         <CardDescription>
-          Inscrivez votre patisserie sur KIFSHOP
+          Inscrivez votre patisserie sur KIFSHOP Pastry
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSignUp}>

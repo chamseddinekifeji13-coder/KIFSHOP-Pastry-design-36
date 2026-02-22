@@ -13,10 +13,10 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: 'KIFSHOP - Logiciel de Gestion Patisserie en Tunisie',
-    template: '%s | KIFSHOP',
+    default: 'KIFSHOP Pastry - Logiciel de Gestion Patisserie en Tunisie',
+    template: '%s | KIFSHOP Pastry',
   },
-  description: 'KIFSHOP est le logiciel de gestion complet pour patisseries, boulangeries et laboratoires en Tunisie. Gerez vos stocks, commandes, production, facturation et tresorerie en temps reel. Essai gratuit.',
+  description: 'KIFSHOP Pastry est le logiciel de gestion complet pour patisseries, boulangeries et laboratoires en Tunisie. Gerez vos stocks, commandes, production, facturation et tresorerie en temps reel. Interface en Francais et Arabe. Essai gratuit.',
   keywords: [
     'logiciel gestion patisserie',
     'gestion patisserie tunisie',
@@ -36,10 +36,10 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://kifshop.tn'),
   manifest: '/manifest.json',
   openGraph: {
-    title: 'KIFSHOP - Logiciel de Gestion Patisserie N1 en Tunisie',
-    description: 'Gerez votre patisserie en toute simplicite : stocks, commandes, production, facturation. Solution SaaS 100% tunisienne. Essai gratuit.',
+    title: 'KIFSHOP Pastry - Logiciel de Gestion Patisserie N1 en Tunisie',
+    description: 'Gerez votre patisserie en toute simplicite : stocks, commandes, production, facturation. Solution SaaS 100% tunisienne. Francais & Arabe. Essai gratuit.',
     url: 'https://kifshop.tn',
-    siteName: 'KIFSHOP',
+    siteName: 'KIFSHOP Pastry',
     locale: 'fr_TN',
     type: 'website',
     images: [
@@ -53,8 +53,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'KIFSHOP - Gestion Patisserie en Tunisie',
-    description: 'Stocks, commandes, production, facturation - tout en un pour votre patisserie. Essai gratuit.',
+    title: 'KIFSHOP Pastry - Gestion Patisserie en Tunisie',
+    description: 'Stocks, commandes, production, facturation - tout en un pour votre patisserie. Francais & Arabe. Essai gratuit.',
     images: ['/og-image.jpg'],
   },
   alternates: {
@@ -62,6 +62,8 @@ export const metadata: Metadata = {
     languages: {
       'fr-TN': 'https://kifshop.tn',
       'fr': 'https://kifshop.tn',
+      'ar-TN': 'https://kifshop.tn/ar',
+      'ar': 'https://kifshop.tn/ar',
     },
   },
   category: 'business',
@@ -109,7 +111,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              name: "KIFSHOP",
+              name: "KIFSHOP Pastry",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web, Android, iOS",
               description:
@@ -123,7 +125,7 @@ export default function RootLayout({
               },
               author: {
                 "@type": "Organization",
-                name: "KIFSHOP",
+                name: "KIFSHOP Pastry",
                 url: "https://kifshop.tn",
               },
               aggregateRating: {
@@ -142,7 +144,7 @@ export default function RootLayout({
                 "Multi-utilisateurs avec roles",
                 "Application mobile PWA",
               ],
-              inLanguage: "fr",
+              inLanguage: ["fr", "ar"],
               countryOfOrigin: {
                 "@type": "Country",
                 name: "Tunisia",

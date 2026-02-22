@@ -33,49 +33,56 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar"
 import { useTenant, canAccessRoute, ROLE_LABELS } from "@/lib/tenant-context"
+import { useI18n } from "@/lib/i18n/context"
 import { Badge } from "@/components/ui/badge"
 import { Loader2 } from "lucide-react"
 
 const navigation = [
   {
-    title: "General",
+    titleKey: "nav.general",
+    fallback: "General",
     items: [
-      { title: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
+      { titleKey: "nav.dashboard", fallback: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
     ],
   },
   {
-    title: "Operations",
+    titleKey: "nav.operations",
+    fallback: "Operations",
     items: [
-      { title: "Stocks", href: "/stocks", icon: Package },
-      { title: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
-      { title: "Production", href: "/production", icon: ChefHat },
-      { title: "Commandes", href: "/commandes", icon: ShoppingCart },
-      { title: "Prospects", href: "/prospects", icon: UserPlus },
+      { titleKey: "nav.stocks", fallback: "Stocks", href: "/stocks", icon: Package },
+      { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
+      { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
+      { titleKey: "nav.orders", fallback: "Commandes", href: "/commandes", icon: ShoppingCart },
+      { titleKey: "nav.prospects", fallback: "Prospects", href: "/prospects", icon: UserPlus },
     ],
   },
   {
-    title: "Achats",
+    titleKey: "nav.purchases",
+    fallback: "Achats",
     items: [
-      { title: "Approvisionnement", href: "/approvisionnement", icon: Truck },
+      { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },
     ],
   },
   {
-    title: "Ventes en ligne",
+    titleKey: "nav.online_sales",
+    fallback: "Ventes en ligne",
     items: [
-      { title: "E-Boutique", href: "/boutique", icon: Store },
-      { title: "Canaux de vente", href: "/canaux", icon: Radio },
+      { titleKey: "nav.store", fallback: "E-Boutique", href: "/boutique", icon: Store },
+      { titleKey: "nav.channels", fallback: "Canaux de vente", href: "/canaux", icon: Radio },
     ],
   },
   {
-    title: "Finance",
+    titleKey: "nav.finance",
+    fallback: "Finance",
     items: [
-      { title: "Tresorerie", href: "/tresorerie", icon: Wallet },
+      { titleKey: "nav.treasury", fallback: "Tresorerie", href: "/tresorerie", icon: Wallet },
     ],
   },
   {
-    title: "Administration",
+    titleKey: "nav.administration",
+    fallback: "Administration",
     items: [
-      { title: "Parametres", href: "/parametres", icon: Settings },
+      { titleKey: "nav.settings", fallback: "Parametres", href: "/parametres", icon: Settings },
     ],
   },
 ]
@@ -83,6 +90,7 @@ const navigation = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { currentTenant, currentUser, currentRole, authUser, users, signOut, isLoading } = useTenant()
+  const { t } = useI18n()
   const [signingOut, setSigningOut] = useState(false)
 
   async function handleSignOut() {
@@ -97,7 +105,10 @@ export function AppSidebar() {
   const filteredNavigation = navigation
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => canAccessRoute(currentRole, item.href)),
+      title: t(group.titleKey) || group.fallback,
+      items: group.items
+        .filter((item) => canAccessRoute(currentRole, item.href))
+        .map((item) => ({ ...item, title: t(item.titleKey) || item.fallback })),
     }))
     .filter((group) => group.items.length > 0)
 
@@ -174,7 +185,7 @@ export function AppSidebar() {
           {users.length > 1 && users.some((u) => u.pin) && (
             <SidebarMenuItem>
               <SidebarMenuButton
-                tooltip="Verrouiller"
+                tooltip={t("nav.lock")}
                 onClick={async () => {
                   // Clear server-side active profile cookie
                   await fetch("/api/verify-pin", { method: "DELETE" })
@@ -183,14 +194,14 @@ export function AppSidebar() {
                 }}
               >
                 <Lock className="h-4 w-4" />
-                <span>Verrouiller</span>
+                <span>{t("nav.lock")}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
           <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Deconnexion" onClick={handleSignOut} disabled={signingOut}>
+            <SidebarMenuButton tooltip={t("nav.logout")} onClick={handleSignOut} disabled={signingOut}>
               {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
-              <span>{signingOut ? "Deconnexion..." : "Deconnexion"}</span>
+              <span>{signingOut ? t("nav.logout") + "..." : t("nav.logout")}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { TenantProvider, useTenant } from "@/lib/tenant-context"
+import { I18nProvider } from "@/lib/i18n/context"
 import { AppSidebar } from "./app-sidebar"
 import { Topbar } from "./topbar"
 import { Toaster } from "@/components/ui/sonner"
@@ -109,8 +110,10 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <TenantProvider>
-      <AppShellContent>{children}</AppShellContent>
-    </TenantProvider>
+    <I18nProvider>
+      <TenantProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </TenantProvider>
+    </I18nProvider>
   )
 }
