@@ -36,9 +36,9 @@ export function ContactSection() {
 
   return (
     <section id="contact" className="bg-background py-20 lg:py-28">
-      <div className="mx-auto max-w-3xl px-6">
+      <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
-        <div className="text-center">
+        <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-semibold uppercase tracking-widest text-[#4A7C59]">
             Contact
           </p>
@@ -50,45 +50,47 @@ export function ContactSection() {
           </p>
         </div>
 
-        {/* Contact info cards - horizontal row */}
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <a
-            href="tel:+21625122212"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-[#4A7C59]/30"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
-              <Phone className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">+216 25 12 22 12</p>
-              <p className="text-xs text-muted-foreground">Lun - Sam, 8h - 18h</p>
-            </div>
-          </a>
-          <a
-            href="mailto:contact@kifshop.tn"
-            className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-[#4A7C59]/30"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
-              <Mail className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">contact@kifshop.tn</p>
-              <p className="text-xs text-muted-foreground">Reponse sous 24h</p>
-            </div>
-          </a>
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
-              <MapPin className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">Tunisie</p>
-              <p className="text-xs text-muted-foreground">Service 100% tunisien</p>
+        {/* Two-column layout: info left / form right on desktop, stacked on mobile */}
+        <div className="mt-14 flex flex-col gap-8 lg:flex-row lg:gap-12">
+          {/* Left column - Contact info */}
+          <div className="flex flex-col gap-4 lg:w-80 lg:shrink-0 lg:pt-2">
+            <a
+              href="tel:+21625122212"
+              className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-[#4A7C59]/30"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
+                <Phone className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">+216 25 12 22 12</p>
+                <p className="text-sm text-muted-foreground">Lun - Sam, 8h - 18h</p>
+              </div>
+            </a>
+            <a
+              href="mailto:contact@kifshop.tn"
+              className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-[#4A7C59]/30"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
+                <Mail className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">contact@kifshop.tn</p>
+                <p className="text-sm text-muted-foreground">Reponse sous 24h</p>
+              </div>
+            </a>
+            <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59]">
+                <MapPin className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">Tunisie</p>
+                <p className="text-sm text-muted-foreground">Service 100% tunisien</p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Form - full width */}
-        <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          {/* Right column - Form */}
+          <div className="flex-1 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
           {sent ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#4A7C59]/10">
@@ -123,7 +125,7 @@ export function ContactSection() {
               </div>
 
               {/* Row 2: Telephone + Email */}
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="contact-phone">
                     Telephone <span className="text-destructive">*</span>
@@ -150,7 +152,7 @@ export function ContactSection() {
               </div>
 
               {/* Row 3: Sujet + Nom patisserie */}
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="contact-subject">
                     Sujet <span className="text-destructive">*</span>
@@ -217,6 +219,7 @@ export function ContactSection() {
               </p>
             </form>
           )}
+          </div>
         </div>
       </div>
     </section>
