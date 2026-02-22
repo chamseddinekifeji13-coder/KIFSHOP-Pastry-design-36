@@ -224,6 +224,14 @@ const translations: Record<Locale, Record<string, string>> = {
     "topbar.my_profile": "Mon profil",
     "topbar.change_pin": "Modifier mon PIN",
     "topbar.set_pin": "Definir un PIN",
+
+    // PIN
+    "pin.force_title": "Code PIN requis",
+    "pin.force_description": "En tant que proprietaire, vous devez definir un code PIN pour securiser votre compte.",
+    "pin.verifying": "Verification...",
+    "pin.incorrect": "Code PIN incorrect",
+    "pin.secure_access": "Acces securise par code PIN",
+    "pin.enter_pin": "Entrez votre code PIN",
     "topbar.lock": "Verrouiller",
     "topbar.logout": "Deconnexion",
     "topbar.active": "Actif",
@@ -452,6 +460,14 @@ const translations: Record<Locale, Record<string, string>> = {
     "topbar.my_profile": "\u0645\u0644\u0641\u064a \u0627\u0644\u0634\u062e\u0635\u064a",
     "topbar.change_pin": "\u062a\u063a\u064a\u064a\u0631 \u0631\u0645\u0632 PIN",
     "topbar.set_pin": "\u062a\u0639\u064a\u064a\u0646 \u0631\u0645\u0632 PIN",
+
+    // PIN
+    "pin.force_title": "\u0631\u0645\u0632 PIN \u0645\u0637\u0644\u0648\u0628",
+    "pin.force_description": "\u0628\u0635\u0641\u062a\u0643 \u0645\u0627\u0644\u0643\u060c \u064a\u062c\u0628 \u0639\u0644\u064a\u0643 \u062a\u0639\u064a\u064a\u0646 \u0631\u0645\u0632 PIN \u0644\u062a\u0623\u0645\u064a\u0646 \u062d\u0633\u0627\u0628\u0643.",
+    "pin.verifying": "\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0642\u0642...",
+    "pin.incorrect": "\u0631\u0645\u0632 PIN \u063a\u064a\u0631 \u0635\u062d\u064a\u062d",
+    "pin.secure_access": "\u0648\u0635\u0648\u0644 \u0645\u0624\u0645\u0646 \u0628\u0631\u0645\u0632 PIN",
+    "pin.enter_pin": "\u0623\u062f\u062e\u0644 \u0631\u0645\u0632 PIN",
     "topbar.lock": "\u0642\u0641\u0644",
     "topbar.logout": "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062e\u0631\u0648\u062c",
     "topbar.active": "\u0646\u0634\u0637",

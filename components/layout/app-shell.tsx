@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { SubscriptionBanner } from "./subscription-banner"
 import { SuspensionOverlay } from "./suspension-overlay"
 import { LockScreen } from "@/components/lock-screen"
+import { ChangePinDialog } from "@/components/change-pin-dialog"
 
 interface AppShellProps {
   children: React.ReactNode
@@ -19,10 +20,20 @@ interface AppShellProps {
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
-  const { isLoading, users } = useTenant()
+  const { isLoading, users, currentUser, updateUser } = useTenant()
   // null = not yet determined, true = locked, false = unlocked
   const [lockState, setLockState] = useState<null | boolean>(null)
   const hasEmployees = users.length > 1 && users.some((u) => u.pin)
+
+  // Owner must have a PIN — detect if it's missing
+  const ownerNeedsPin = !isLoading && currentUser.role === "owner" && !currentUser.pin
+  const [forcePinOpen, setForcePinOpen] = useState(false)
+
+  useEffect(() => {
+    if (ownerNeedsPin && lockState === false) {
+      setForcePinOpen(true)
+    }
+  }, [ownerNeedsPin, lockState])
 
   // Determine lock state AFTER loading is complete and users are available
   useEffect(() => {
@@ -104,6 +115,18 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         </SidebarInset>
         <Toaster position="top-right" />
       </SidebarProvider>
+
+      {/* Force owner to set a PIN if they don't have one */}
+      <ChangePinDialog
+        open={forcePinOpen}
+        onOpenChange={(val) => {
+          // Only allow closing after PIN has been set (currentUser.pin updated)
+          if (!val && currentUser.pin) {
+            setForcePinOpen(false)
+          }
+        }}
+        force
+      />
     </>
   )
 }

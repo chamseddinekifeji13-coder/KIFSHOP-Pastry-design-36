@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Lock, Delete } from "lucide-react"
+import { Lock, Delete, Loader2 } from "lucide-react"
 
 interface PinDialogProps {
   open: boolean
@@ -18,7 +18,8 @@ interface PinDialogProps {
   userName: string
   userInitials: string
   userRole: string
-  expectedPin: string
+  /** tenant_users.id — used for server-side PIN verification */
+  tenantUserId: string
   onSuccess: () => void
 }
 
@@ -28,12 +29,13 @@ export function PinDialog({
   userName,
   userInitials,
   userRole,
-  expectedPin,
+  tenantUserId,
   onSuccess,
 }: PinDialogProps) {
   const [pin, setPin] = useState("")
   const [error, setError] = useState(false)
   const [shake, setShake] = useState(false)
+  const [verifying, setVerifying] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset state when dialog opens
@@ -42,42 +44,61 @@ export function PinDialog({
       setPin("")
       setError(false)
       setShake(false)
+      setVerifying(false)
       // Focus hidden input for keyboard support
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [open])
 
   const handlePinEntry = useCallback((digit: string) => {
-    if (pin.length >= 4) return
+    if (pin.length >= 4 || verifying) return
     setError(false)
 
     const newPin = pin + digit
     setPin(newPin)
 
     if (newPin.length === 4) {
-      // Verify PIN
-      if (newPin === expectedPin) {
-        // Success - small delay for visual feedback
-        setTimeout(() => {
-          onSuccess()
-          onOpenChange(false)
-        }, 200)
-      } else {
-        // Error - shake animation then reset
-        setError(true)
-        setShake(true)
-        setTimeout(() => {
-          setPin("")
-          setShake(false)
-        }, 600)
-      }
+      // Verify PIN via server
+      setVerifying(true)
+      fetch("/api/verify-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenantUserId, pin: newPin }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            // Success
+            setTimeout(() => {
+              onSuccess()
+              onOpenChange(false)
+            }, 200)
+          } else {
+            // Error - shake animation then reset
+            setError(true)
+            setShake(true)
+            setTimeout(() => {
+              setPin("")
+              setShake(false)
+            }, 600)
+          }
+        })
+        .catch(() => {
+          setError(true)
+          setShake(true)
+          setTimeout(() => {
+            setPin("")
+            setShake(false)
+          }, 600)
+        })
+        .finally(() => setVerifying(false))
     }
-  }, [pin, expectedPin, onSuccess, onOpenChange])
+  }, [pin, verifying, tenantUserId, onSuccess, onOpenChange])
 
   const handleDelete = useCallback(() => {
+    if (verifying) return
     setPin((prev) => prev.slice(0, -1))
     setError(false)
-  }, [])
+  }, [verifying])
 
   // Handle keyboard input
   useEffect(() => {
@@ -176,8 +197,17 @@ export function PinDialog({
         </div>
 
         <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-muted-foreground">
-          <Lock className="h-3 w-3" />
-          <span>Acces securise par code PIN</span>
+          {verifying ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Verification...</span>
+            </>
+          ) : (
+            <>
+              <Lock className="h-3 w-3" />
+              <span>Acces securise par code PIN</span>
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>
