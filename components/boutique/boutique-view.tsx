@@ -12,8 +12,10 @@ import { useTenant } from "@/lib/tenant-context"
 import { useFinishedProducts, useOrders } from "@/hooks/use-tenant-data"
 import { toast } from "sonner"
 import { ProductEditDrawer } from "./product-edit-drawer"
+import { useI18n } from "@/lib/i18n/context"
 
 export function BoutiqueView() {
+  const { t } = useI18n()
   const { currentTenant } = useTenant()
   const { data: products = [], mutate } = useFinishedProducts()
   const { data: orders = [] } = useOrders()
@@ -63,9 +65,9 @@ export function BoutiqueView() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">E-Boutique</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("boutique.title")}</h1>
           <p className="text-muted-foreground">
-            Gerez votre catalogue produits en ligne
+          {t("boutique.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">

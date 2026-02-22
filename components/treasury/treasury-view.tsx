@@ -9,8 +9,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
 import { useTransactions } from "@/hooks/use-tenant-data"
 import { NewTransactionDrawer } from "./new-transaction-drawer"
+import { useI18n } from "@/lib/i18n/context"
 
 export function TreasuryView() {
+  const { t } = useI18n()
   const { data: transactions, isLoading, mutate } = useTransactions()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -36,17 +38,17 @@ export function TreasuryView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tresorerie</h1>
-          <p className="text-muted-foreground">Suivez vos entrees et sorties de caisse</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("treasury.title")}</h1>
+          <p className="text-muted-foreground">{t("treasury.subtitle")}</p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />Nouvelle transaction</Button>
+        <Button onClick={() => setDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />{t("treasury.new_transaction")}</Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Wallet className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">Solde Caisse</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold">{cashFlow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><ArrowUpCircle className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">Total Entrees</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold text-primary">+{totalInflow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10"><ArrowDownCircle className="h-5 w-5 text-destructive" /></div><div><p className="text-sm text-muted-foreground">Total Sorties</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold text-destructive">-{totalOutflow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
-        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/20"><TrendingUp className="h-5 w-5 text-secondary-foreground" /></div><div><p className="text-sm text-muted-foreground">Marge du jour</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold">{(todayIn - todayOut).toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Wallet className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">{t("treasury.balance")}</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold">{cashFlow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><ArrowUpCircle className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">{t("treasury.total_inflow")}</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold text-primary">+{totalInflow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10"><ArrowDownCircle className="h-5 w-5 text-destructive" /></div><div><p className="text-sm text-muted-foreground">{t("treasury.total_outflow")}</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold text-destructive">-{totalOutflow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/20"><TrendingUp className="h-5 w-5 text-secondary-foreground" /></div><div><p className="text-sm text-muted-foreground">{t("treasury.today_margin")}</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold">{(todayIn - todayOut).toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

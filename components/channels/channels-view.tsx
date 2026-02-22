@@ -22,6 +22,7 @@ import { useOrders, useSalesChannels } from "@/hooks/use-tenant-data"
 import { toggleSalesChannel, type SalesChannelConfig } from "@/lib/channels/actions"
 import { toast } from "sonner"
 import { ChannelConfigDrawer } from "./channel-config-drawer"
+import { useI18n } from "@/lib/i18n/context"
 
 const channelNames: Record<string, string> = {
   whatsapp: "WhatsApp",
@@ -60,6 +61,7 @@ const channelDescriptions: Record<string, string> = {
 }
 
 export function ChannelsView() {
+  const { t } = useI18n()
   const { currentTenant } = useTenant()
   const { data: orders = [] } = useOrders()
   const { data: channels = [], mutate: mutateChannels } = useSalesChannels()
@@ -120,9 +122,9 @@ export function ChannelsView() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Canaux de vente</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("channels.title")}</h1>
         <p className="text-muted-foreground">
-          Gerez vos canaux de vente en ligne : telephone, WhatsApp, Messenger, Instagram.
+        {t("channels.subtitle")}
         </p>
       </div>
 
@@ -136,7 +138,7 @@ export function ChannelsView() {
               </div>
               <div>
                 <p className="text-2xl font-bold">{activeChannels}/{channels.length}</p>
-                <p className="text-xs text-muted-foreground">Canaux actifs</p>
+                <p className="text-xs text-muted-foreground">{t("channels.active_channels")}</p>
               </div>
             </div>
           </CardContent>

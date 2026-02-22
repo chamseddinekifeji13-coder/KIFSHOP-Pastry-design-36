@@ -203,7 +203,22 @@ const translations: Record<Locale, Record<string, string>> = {
     "boutique.title": "E-Boutique",
     "boutique.subtitle": "Votre vitrine en ligne",
 
+    // Supply extra
+    "supply.active_suppliers": "Fournisseurs actifs",
+
+    // Channels extra
+    "channels.active_channels": "Canaux actifs",
+
+    // Treasury extra
+    "treasury.total_inflow": "Total entrees",
+    "treasury.total_outflow": "Total sorties",
+    "treasury.today_margin": "Marge du jour",
+
+    // Orders extra
+    "orders.new_order": "Nouvelle commande",
+
     // Topbar
+    "topbar.language": "Changer la langue",
     "topbar.switch_shop": "Changer de boutique",
     "topbar.switch_user": "Changer d'utilisateur",
     "topbar.my_profile": "Mon profil",
@@ -416,7 +431,22 @@ const translations: Record<Locale, Record<string, string>> = {
     "boutique.title": "\u0627\u0644\u0645\u062a\u062c\u0631",
     "boutique.subtitle": "\u0648\u0627\u062c\u0647\u062a\u0643 \u0639\u0644\u0649 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a",
 
+    // Supply extra
+    "supply.active_suppliers": "\u0627\u0644\u0645\u0648\u0631\u062f\u0648\u0646 \u0627\u0644\u0646\u0634\u0637\u0648\u0646",
+
+    // Channels extra
+    "channels.active_channels": "\u0627\u0644\u0642\u0646\u0648\u0627\u062a \u0627\u0644\u0646\u0634\u0637\u0629",
+
+    // Treasury extra
+    "treasury.total_inflow": "\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u062f\u0627\u062e\u064a\u0644",
+    "treasury.total_outflow": "\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0645\u0635\u0627\u0631\u064a\u0641",
+    "treasury.today_margin": "\u0647\u0627\u0645\u0634 \u0627\u0644\u064a\u0648\u0645",
+
+    // Orders extra
+    "orders.new_order": "\u0637\u0644\u0628 \u062c\u062f\u064a\u062f",
+
     // Topbar
+    "topbar.language": "\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0644\u063a\u0629",
     "topbar.switch_shop": "\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0645\u062a\u062c\u0631",
     "topbar.switch_user": "\u062a\u063a\u064a\u064a\u0631 \u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645",
     "topbar.my_profile": "\u0645\u0644\u0641\u064a \u0627\u0644\u0634\u062e\u0635\u064a",

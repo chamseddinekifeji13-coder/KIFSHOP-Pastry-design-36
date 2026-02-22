@@ -50,6 +50,7 @@ import { InvoicePreview } from "./invoice-preview"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
+import { useI18n } from "@/lib/i18n/context"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -115,6 +116,7 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
 }
 
 export function OrdersView() {
+  const { t } = useI18n()
   const { currentTenant, isLoading: tenantLoading } = useTenant()
   const searchParams = useSearchParams()
 
@@ -571,14 +573,14 @@ export function OrdersView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Commandes</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("orders.title")}</h1>
           <p className="text-muted-foreground">
-            Gerez vos commandes clients
+            {t("orders.subtitle")}
           </p>
         </div>
         <Button onClick={() => setNewOrderOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Nouvelle commande
+          {t("orders.new_order")}
         </Button>
       </div>
 

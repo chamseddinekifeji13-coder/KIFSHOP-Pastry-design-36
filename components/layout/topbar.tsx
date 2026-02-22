@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Lock, Users, KeyRound } from "lucide-react"
+import { ChevronDown, Lock, Users, KeyRound, Globe } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -28,7 +28,6 @@ import {
   type AppUser,
 } from "@/lib/tenant-context"
 import { useI18n } from "@/lib/i18n/context"
-import { Globe } from "lucide-react"
 
 const roleGroups: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier"]
 
