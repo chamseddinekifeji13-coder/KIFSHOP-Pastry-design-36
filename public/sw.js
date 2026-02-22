@@ -1,13 +1,13 @@
-const STATIC_CACHE = 'kifshop-static-v4';
-const DYNAMIC_CACHE = 'kifshop-dynamic-v4';
+const CACHE_VERSION = 'v5';
+const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION;
+const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION;
 const OFFLINE_URL = '/offline.html';
 
-// Static assets cached on install
+// Static assets cached on install — use individual adds so one failure
+// doesn't block the whole SW installation (icon files may be missing).
 const PRECACHE_ASSETS = [
   '/offline.html',
   '/manifest.json',
-  '/icons/icon-192x192.jpg',
-  '/icons/icon-512x512.jpg',
 ];
 
 // App shell pages to cache after first visit
@@ -15,7 +15,7 @@ const APP_SHELL_ROUTES = [
   '/dashboard',
   '/stocks',
   '/production',
-  '/orders',
+  '/commandes',
   '/approvisionnement',
   '/tresorerie',
 ];
@@ -23,7 +23,15 @@ const APP_SHELL_ROUTES = [
 // ── Install ──
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_ASSETS))
+    caches.open(STATIC_CACHE).then((cache) =>
+      Promise.allSettled(
+        PRECACHE_ASSETS.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('[SW] Failed to precache', url, err);
+          })
+        )
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -85,24 +93,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 2: Stale-while-revalidate for app pages
+  // Strategy 2: Network-first for navigation & app pages
+  // This ensures users always see the latest deployed version on mobile.
   if (event.request.mode === 'navigate' || isAppPage(url)) {
     event.respondWith(
-      caches.open(DYNAMIC_CACHE).then(async (cache) => {
-        const cached = await cache.match(event.request);
-        const fetchPromise = fetch(event.request)
-          .then((response) => {
-            if (response.status === 200) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          })
-          .catch(async () => {
-            if (cached) return cached;
-            return caches.match(OFFLINE_URL);
-          });
-        return cached || fetchPromise;
-      })
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((c) => c.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          return caches.match(OFFLINE_URL);
+        })
     );
     return;
   }
