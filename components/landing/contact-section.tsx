@@ -117,21 +117,24 @@ export function ContactSection() {
                   </Button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="contact-name">
-                        Nom complet <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="contact-name"
-                        name="name"
-                        placeholder="Votre nom"
-                        required
-                        className="h-10"
-                      />
-                    </div>
-                    <div className="space-y-2">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Nom complet */}
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-name">
+                      Nom complet <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="contact-name"
+                      name="name"
+                      placeholder="Votre nom et prenom"
+                      required
+                      className="h-11"
+                    />
+                  </div>
+
+                  {/* Telephone + Email cote a cote sur desktop, empiles sur mobile */}
+                  <div className="flex flex-col gap-5 md:flex-row">
+                    <div className="flex-1 space-y-2">
                       <Label htmlFor="contact-phone">
                         Telephone <span className="text-destructive">*</span>
                       </Label>
@@ -141,28 +144,29 @@ export function ContactSection() {
                         type="tel"
                         placeholder="+216 XX XXX XXX"
                         required
-                        className="h-10"
+                        className="h-11"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div className="space-y-2">
+                    <div className="flex-1 space-y-2">
                       <Label htmlFor="contact-email">Email</Label>
                       <Input
                         id="contact-email"
                         name="email"
                         type="email"
                         placeholder="votre@email.com"
-                        className="h-10"
+                        className="h-11"
                       />
                     </div>
-                    <div className="space-y-2">
+                  </div>
+
+                  {/* Sujet + Patisserie cote a cote sur desktop, empiles sur mobile */}
+                  <div className="flex flex-col gap-5 md:flex-row">
+                    <div className="flex-1 space-y-2">
                       <Label htmlFor="contact-subject">
                         Sujet <span className="text-destructive">*</span>
                       </Label>
                       <Select name="subject" required>
-                        <SelectTrigger id="contact-subject" className="h-10">
+                        <SelectTrigger id="contact-subject" className="h-11">
                           <SelectValue placeholder="Choisir un sujet" />
                         </SelectTrigger>
                         <SelectContent>
@@ -174,18 +178,18 @@ export function ContactSection() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="contact-shop">Nom de la patisserie</Label>
+                      <Input
+                        id="contact-shop"
+                        name="shop_name"
+                        placeholder="Ex: Patisserie El Manara"
+                        className="h-11"
+                      />
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="contact-shop">Nom de la patisserie</Label>
-                    <Input
-                      id="contact-shop"
-                      name="shop_name"
-                      placeholder="Ex: Patisserie El Manara"
-                      className="h-10"
-                    />
-                  </div>
-
+                  {/* Message */}
                   <div className="space-y-2">
                     <Label htmlFor="contact-message">
                       Message <span className="text-destructive">*</span>
@@ -195,15 +199,15 @@ export function ContactSection() {
                       name="message"
                       placeholder="Decrivez votre besoin ou posez votre question..."
                       required
-                      rows={4}
-                      className="resize-y"
+                      rows={5}
+                      className="resize-y min-h-[120px]"
                     />
                   </div>
 
                   <Button
                     type="submit"
                     disabled={sending}
-                    className="w-full h-11 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2"
+                    className="w-full h-12 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2 text-base"
                   >
                     {sending ? (
                       <>
@@ -217,6 +221,10 @@ export function ContactSection() {
                       </>
                     )}
                   </Button>
+
+                  <p className="text-center text-xs text-muted-foreground">
+                    En soumettant ce formulaire, vous acceptez d{"'"}etre contacte par notre equipe.
+                  </p>
                 </form>
               )}
             </div>
