@@ -1,9 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Building2, Users, CreditCard, Clock, AlertTriangle, ArrowUpCircle, MessageSquare, WifiOff } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Building2, Users, CreditCard, Clock, AlertTriangle, ArrowUpCircle, MessageSquare, WifiOff, Eye } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   getSuperAdminStats,
   getAllTenants,
@@ -26,9 +34,22 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function SuperAdminDashboard() {
+  const router = useRouter()
   const [stats, setStats] = useState<SuperAdminStats | null>(null)
+  const [allTenants, setAllTenants] = useState<TenantOverview[]>([])
   const [recentTenants, setRecentTenants] = useState<TenantOverview[]>([])
   const [loading, setLoading] = useState(true)
+  const [showOutdated, setShowOutdated] = useState(false)
+  const [showInactive, setShowInactive] = useState(false)
+
+  const outdatedTenants = allTenants.filter(
+    (t) => t.app_version !== (stats?.currentAppVersion || "1.2.0")
+  )
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const inactiveTenants = allTenants.filter(
+    (t) => !t.last_login || t.last_login < sevenDaysAgo
+  )
 
   useEffect(() => {
     async function load() {
@@ -38,6 +59,7 @@ export function SuperAdminDashboard() {
           getAllTenants(),
         ])
         setStats(statsData)
+        setAllTenants(tenantsData)
         setRecentTenants(tenantsData.slice(0, 5))
       } catch (error) {
         console.error("Error loading super admin data:", error)
@@ -86,7 +108,10 @@ export function SuperAdminDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={(stats?.inactiveLast7Days || 0) > 0 ? "cursor-pointer transition-shadow hover:shadow-md" : ""}
+          onClick={() => (stats?.inactiveLast7Days || 0) > 0 && setShowInactive(true)}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Inactifs 7j</CardTitle>
             <WifiOff className="h-4 w-4 text-amber-500" />
@@ -95,11 +120,16 @@ export function SuperAdminDashboard() {
             <div className={`text-2xl font-bold ${(stats?.inactiveLast7Days || 0) > 0 ? "text-amber-600" : ""}`}>
               {stats?.inactiveLast7Days || 0}
             </div>
-            <p className="text-xs text-muted-foreground">aucun login depuis 7j</p>
+            <p className="text-xs text-muted-foreground">
+              {(stats?.inactiveLast7Days || 0) > 0 ? "cliquez pour voir" : "aucun login depuis 7j"}
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card
+          className={(stats?.outdatedVersions || 0) > 0 ? "cursor-pointer transition-shadow hover:shadow-md" : ""}
+          onClick={() => (stats?.outdatedVersions || 0) > 0 && setShowOutdated(true)}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Version obsolete</CardTitle>
             <ArrowUpCircle className="h-4 w-4 text-amber-500" />
@@ -109,7 +139,7 @@ export function SuperAdminDashboard() {
               {stats?.outdatedVersions || 0}
             </div>
             <p className="text-xs text-muted-foreground">
-              actuelle: v{stats?.currentAppVersion || "1.2.0"}
+              {(stats?.outdatedVersions || 0) > 0 ? "cliquez pour voir" : `actuelle: v${stats?.currentAppVersion || "1.2.0"}`}
             </p>
           </CardContent>
         </Card>
@@ -202,6 +232,103 @@ export function SuperAdminDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog: Versions obsoletes */}
+      <Dialog open={showOutdated} onOpenChange={setShowOutdated}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowUpCircle className="h-5 w-5 text-amber-500" />
+              Tenants avec version obsolete
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Version actuelle : <strong>v{stats?.currentAppVersion || "1.2.0"}</strong>
+          </p>
+          {outdatedTenants.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Tous les tenants sont a jour.</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {outdatedTenants.map((t) => (
+                <div key={t.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
+                      style={{ backgroundColor: t.primary_color }}
+                    >
+                      {t.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{t.name}</p>
+                      <Badge variant="secondary" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700 mt-0.5">
+                        v{t.app_version}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => { setShowOutdated(false); router.push(`/super-admin/tenants/${t.id}`) }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Details
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Inactifs 7 jours */}
+      <Dialog open={showInactive} onOpenChange={setShowInactive}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <WifiOff className="h-5 w-5 text-amber-500" />
+              Tenants inactifs depuis 7 jours
+            </DialogTitle>
+          </DialogHeader>
+          {inactiveTenants.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Tous les tenants sont actifs.</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto space-y-2">
+              {inactiveTenants.map((t) => {
+                const lastLogin = t.last_login ? new Date(t.last_login) : null
+                const daysSince = lastLogin ? Math.floor((Date.now() - lastLogin.getTime()) / (1000 * 60 * 60 * 24)) : null
+                return (
+                  <div key={t.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
+                        style={{ backgroundColor: t.primary_color }}
+                      >
+                        {t.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{t.name}</p>
+                        <p className="text-xs text-amber-600">
+                          {lastLogin ? `Dernier login: il y a ${daysSince}j` : "Jamais connecte"}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => { setShowInactive(false); router.push(`/super-admin/tenants/${t.id}`) }}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      Details
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

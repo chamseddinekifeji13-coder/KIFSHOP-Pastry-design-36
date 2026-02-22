@@ -1,7 +1,7 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/server"
-import { requireRole } from "@/lib/active-profile"
+import { requireRole, getServerSession } from "@/lib/active-profile"
 import type { UserRole } from "@/lib/tenant-context"
 
 export interface Employee {
@@ -12,6 +12,44 @@ export interface Employee {
   role: UserRole
   pin: string | null
   created_at: string
+}
+
+// ─── Update own PIN (any employee can change their own) ───────
+
+export async function updateOwnPin(data: {
+  currentPin?: string
+  newPin: string
+}): Promise<{ success: boolean }> {
+  const session = await getServerSession()
+  const admin = createAdminClient()
+
+  // Fetch the current profile to verify the old PIN
+  const { data: profile, error: fetchErr } = await admin
+    .from("tenant_users")
+    .select("id, pin")
+    .eq("id", session.activeProfileId)
+    .single()
+
+  if (fetchErr || !profile) throw new Error("Profil introuvable")
+
+  // If the user already has a PIN, verify the old one
+  if (profile.pin) {
+    if (!data.currentPin) throw new Error("Le PIN actuel est requis")
+    if (data.currentPin !== profile.pin) throw new Error("PIN actuel incorrect")
+  }
+
+  // Validate new PIN format (4 digits)
+  if (!/^\d{4}$/.test(data.newPin)) throw new Error("Le nouveau PIN doit contenir exactement 4 chiffres")
+
+  // Update the PIN
+  const { error: updateErr } = await admin
+    .from("tenant_users")
+    .update({ pin: data.newPin })
+    .eq("id", session.activeProfileId)
+
+  if (updateErr) throw new Error(updateErr.message)
+
+  return { success: true }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────

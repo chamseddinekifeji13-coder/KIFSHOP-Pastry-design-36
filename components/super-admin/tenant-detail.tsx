@@ -66,6 +66,7 @@ import {
   getSubscriptionPlans,
   activateTenantSubscription,
   suspendTenantSubscription,
+  reactivateTenantSubscription,
   recordPayment,
   getTenantPayments,
   setTenantTrialDays,
@@ -178,9 +179,10 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
     if (!tenant) return
     startTransition(async () => {
       try {
-        await updateTenantStatus(tenantId, true)
-        setTenant((prev) => prev ? { ...prev, is_active: true } : prev)
-        toast.success("Compte reactive")
+        await reactivateTenantSubscription(tenantId)
+        const refreshed = await getTenantDetail(tenantId)
+        setTenant(refreshed)
+        toast.success("Compte reactive avec succes")
       } catch (error) {
         toast.error("Erreur lors de la reactivation")
       }

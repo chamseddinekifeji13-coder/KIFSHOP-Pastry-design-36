@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Lock, Users } from "lucide-react"
+import { ChevronDown, Lock, Users, KeyRound } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { PinDialog } from "@/components/pin-dialog"
+import { ChangePinDialog } from "@/components/change-pin-dialog"
 import {
   useTenant,
   ROLE_LABELS,
@@ -47,6 +48,7 @@ export function Topbar() {
   // PIN dialog state
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const [pendingUser, setPendingUser] = useState<AppUser | null>(null)
+  const [changePinOpen, setChangePinOpen] = useState(false)
 
   function handleUserSwitch(userId: string) {
     const user = users.find((u) => u.id === userId)
@@ -224,6 +226,10 @@ export function Topbar() {
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push("/parametres")}>Mon profil</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setChangePinOpen(true)}>
+              <KeyRound className="mr-2 h-4 w-4" />
+              {currentUser.pin ? "Modifier mon PIN" : "Definir un PIN"}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push("/parametres")}>Parametres</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {
@@ -255,6 +261,9 @@ export function Topbar() {
           onSuccess={() => completeUserSwitch(pendingUser)}
         />
       )}
+
+      {/* Change own PIN dialog */}
+      <ChangePinDialog open={changePinOpen} onOpenChange={setChangePinOpen} />
     </header>
   )
 }
