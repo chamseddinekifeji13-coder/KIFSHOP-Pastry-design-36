@@ -12,10 +12,11 @@ export function FooterSection() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4A7C59] text-white">
                 <ChefHat className="h-4 w-4" />
               </div>
-              <span className="text-lg font-bold text-foreground">KIFSHOP</span>
+              <span className="text-lg font-bold text-foreground">KIFSHOP <span className="font-normal text-[#4A7C59]">Pastry</span></span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Logiciel de gestion complet pour patisseries et boulangeries en Tunisie.
+              Solution de gestion tout-en-un pour patisseries, boulangeries et laboratoires en Tunisie.
+              Stocks, production, commandes, facturation et tresorerie.
             </p>
           </div>
 

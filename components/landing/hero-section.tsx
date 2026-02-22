@@ -25,9 +25,18 @@ export function HeroSection() {
         </h1>
 
         <p className="max-w-2xl text-lg leading-relaxed text-white/70 text-pretty">
-          KIFSHOP est le logiciel de gestion complet pour patisseries et boulangeries.
-          Stocks, commandes, production, facturation et tresorerie — tout en un.
-          Disponible en <strong className="text-white">Cloud</strong> ou <strong className="text-white">On-Premise</strong>.
+          <strong className="text-white">KIFSHOP Pastry</strong> est la solution de gestion tout-en-un concue
+          specialement pour les patisseries, boulangeries et laboratoires en Tunisie.
+          De la gestion des matieres premieres a la planification de production, en passant par les commandes
+          clients, la facturation, le suivi de tresorerie et l{"'"}approvisionnement fournisseurs
+          — chaque aspect de votre activite est couvert dans une seule plateforme.
+        </p>
+
+        <p className="max-w-2xl text-base leading-relaxed text-white/50 text-pretty">
+          Multi-utilisateurs avec roles dedies (proprietaire, gerant, patissier, vendeur, caissier),
+          accessible sur mobile en tant que PWA, avec notifications en temps reel et synchronisation instantanee.
+          Disponible en <strong className="text-white/80">Cloud</strong> (heberge et maintenu par nos soins) ou <strong className="text-white/80">On-Premise</strong> (sur votre propre serveur).
+          Interface disponible en <strong className="text-white/80">Francais</strong> et <strong className="text-white/80">Arabe</strong>.
         </p>
 
         {/* CTA buttons */}
