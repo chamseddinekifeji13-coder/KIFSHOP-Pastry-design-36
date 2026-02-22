@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Plus, Save, ClipboardCheck, Package, Check, AlertTriangle, RotateCcw, Trash2, Pencil, ScanBarcode } from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { Plus, Save, ClipboardCheck, Package, Check, AlertTriangle, RotateCcw, Trash2, Pencil, ScanBarcode, PauseCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,7 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useFinishedProducts } from "@/hooks/use-tenant-data"
-import { saveInventorySession, applyInventoryCorrections } from "@/lib/stocks/actions"
+import { saveInventorySession, applyInventoryCorrections, saveDraftInventory, loadDraftCounts } from "@/lib/stocks/actions"
 import type { InventoryCountItem } from "@/lib/stocks/actions"
 import { BarcodeScanner } from "./barcode-scanner"
 import { toast } from "sonner"
@@ -28,6 +28,7 @@ interface NewInventoryDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  resumeSessionId?: string | null
 }
 
 interface CountItem {
@@ -39,7 +40,7 @@ interface NewProduct {
   name: string; type: "mp" | "pf"; unit: string; physicalQty: string
 }
 
-export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInventoryDrawerProps) {
+export function NewInventoryDrawer({ open, onOpenChange, onSuccess, resumeSessionId }: NewInventoryDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: finishedProducts = [] } = useFinishedProducts()
@@ -49,16 +50,21 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
   const [newProduct, setNewProduct] = useState<NewProduct>({ name: "", type: "mp", unit: "kg", physicalQty: "" })
   const [activeTab, setActiveTab] = useState<"mp" | "pf">("mp")
   const [saving, setSaving] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [draftSessionId, setDraftSessionId] = useState<string | null>(null)
   const [discrepancyItems, setDiscrepancyItems] = useState<CountItem[]>([])
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null)
+  const [loadingDraft, setLoadingDraft] = useState(false)
 
   const [counts, setCounts] = useState<CountItem[]>([])
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Rebuild counts when materials change or drawer opens
   useEffect(() => {
-    if (open) {
+    if (open && !resumeSessionId) {
       setExcluded(new Set())
       setCounts([
         ...rawMaterials.map((m: any) => ({
@@ -71,9 +77,45 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
         }))
       ])
       setSessionId(null)
+      setDraftSessionId(null)
       setDiscrepancyItems([])
+      setLastAutoSave(null)
     }
-  }, [open, rawMaterials, finishedProducts])
+  }, [open, rawMaterials, finishedProducts, resumeSessionId])
+
+  // Load draft counts when resuming a session
+  useEffect(() => {
+    if (open && resumeSessionId && rawMaterials.length > 0) {
+      setLoadingDraft(true)
+      loadDraftCounts(resumeSessionId).then(({ counts: savedCounts }) => {
+        // Build full list from current materials, then overlay saved counts
+        const allItems: CountItem[] = [
+          ...rawMaterials.map((m: any) => ({
+            id: m.id, name: m.name, type: "mp" as const,
+            theoreticalQty: m.currentStock || 0, physicalQty: "", unit: m.unit, note: ""
+          })),
+          ...finishedProducts.map((p: any) => ({
+            id: p.id, name: p.name, type: "pf" as const,
+            theoreticalQty: p.currentStock || 0, physicalQty: "", unit: p.unit, note: ""
+          }))
+        ]
+        // Overlay saved values
+        const savedMap = new Map(savedCounts.map(c => [c.id, c]))
+        const merged = allItems.map(item => {
+          const saved = savedMap.get(item.id)
+          if (saved) {
+            return { ...item, physicalQty: String(saved.physicalQty), note: saved.note }
+          }
+          return item
+        })
+        setCounts(merged)
+        setDraftSessionId(resumeSessionId)
+        setExcluded(new Set())
+        setDiscrepancyItems([])
+        setLoadingDraft(false)
+      }).catch(() => { setLoadingDraft(false) })
+    }
+  }, [open, resumeSessionId, rawMaterials, finishedProducts])
 
   const updateCount = (id: string, field: "physicalQty" | "note", value: string) => {
     setCounts(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item))
@@ -110,6 +152,61 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
     return physical - item.theoreticalQty
   }
 
+  // Save as draft
+  const handleSaveDraft = async () => {
+    const filledCounts = activeCounts.filter(c => c.physicalQty !== "")
+    if (filledCounts.length === 0) { toast.error("Aucune saisie a sauvegarder"); return }
+
+    setSavingDraft(true)
+    try {
+      const items: InventoryCountItem[] = filledCounts.map(c => ({
+        id: c.id, name: c.name, type: c.type,
+        theoreticalQty: c.theoreticalQty, physicalQty: parseFloat(c.physicalQty),
+        unit: c.unit, note: c.note,
+      }))
+
+      const sid = await saveDraftInventory(currentTenant.id, draftSessionId, items)
+      if (sid) {
+        setDraftSessionId(sid)
+        setLastAutoSave(new Date())
+        toast.success(`Brouillon sauvegarde (${filledCounts.length} saisies) - Vous pouvez reprendre plus tard`)
+        onOpenChange(false)
+        onSuccess?.()
+      }
+    } catch {
+      toast.error("Erreur lors de la sauvegarde du brouillon")
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  // Auto-save every 2 minutes if there are changes
+  useEffect(() => {
+    if (!open) return
+    const filledCounts = activeCounts.filter(c => c.physicalQty !== "")
+    if (filledCounts.length === 0) return
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current)
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const items: InventoryCountItem[] = filledCounts.map(c => ({
+          id: c.id, name: c.name, type: c.type,
+          theoreticalQty: c.theoreticalQty, physicalQty: parseFloat(c.physicalQty),
+          unit: c.unit, note: c.note,
+        }))
+        const sid = await saveDraftInventory(currentTenant.id, draftSessionId, items)
+        if (sid) {
+          setDraftSessionId(sid)
+          setLastAutoSave(new Date())
+        }
+      } catch { /* silent auto-save */ }
+    }, 120_000) // 2 min
+
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, counts, excluded])
+
   const handleSubmit = async () => {
     const filledCounts = activeCounts.filter(c => c.physicalQty !== "")
     if (filledCounts.length === 0) { toast.error("Veuillez saisir au moins un comptage"); return }
@@ -121,6 +218,13 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
         theoreticalQty: c.theoreticalQty, physicalQty: parseFloat(c.physicalQty),
         unit: c.unit, note: c.note,
       }))
+
+      // If this was a draft, delete the old draft session first
+      if (draftSessionId) {
+        const supabase = (await import("@/lib/supabase/client")).createClient()
+        await supabase.from("inventory_counts").delete().eq("session_id", draftSessionId)
+        await supabase.from("inventory_sessions").delete().eq("id", draftSessionId)
+      }
 
       const id = await saveInventorySession(currentTenant.id, items)
       if (!id) { toast.error("Erreur lors de la sauvegarde"); return }
@@ -302,8 +406,10 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"><ClipboardCheck className="h-5 w-5" /></div>
               <div>
-                <h2 className="text-lg font-semibold">Nouvel inventaire</h2>
-                <p className="text-sm text-primary-foreground/70">Comptez et corrigez les quantites physiques</p>
+                <h2 className="text-lg font-semibold">{resumeSessionId ? "Reprendre l'inventaire" : "Nouvel inventaire"}</h2>
+                <p className="text-sm text-primary-foreground/70">
+                  {resumeSessionId ? "Continuez votre comptage sauvegarde" : "Comptez et corrigez les quantites physiques"}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-6 mt-4 text-sm text-primary-foreground/70">
@@ -381,11 +487,32 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess }: NewInvento
             </Tabs>
           </div>
 
-          <div className="border-t bg-muted/30 px-6 py-4 flex gap-3">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>Annuler</Button>
-            <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" onClick={handleSubmit} disabled={saving}>
-              <Save className="mr-2 h-4 w-4" /> {saving ? "Enregistrement..." : "Enregistrer l'inventaire"}
-            </Button>
+          <div className="border-t bg-muted/30 px-6 py-4 space-y-2">
+            {lastAutoSave && (
+              <p className="text-[11px] text-muted-foreground text-center">
+                Derniere sauvegarde auto : {lastAutoSave.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            )}
+            {loadingDraft && (
+              <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Chargement du brouillon...
+              </div>
+            )}
+            <div className="flex gap-3">
+              <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)}>Annuler</Button>
+              <Button
+                variant="secondary"
+                className="flex-1 rounded-xl gap-2"
+                onClick={handleSaveDraft}
+                disabled={savingDraft || saving}
+              >
+                <PauseCircle className="h-4 w-4" />
+                {savingDraft ? "Sauvegarde..." : "Continuer plus tard"}
+              </Button>
+              <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" onClick={handleSubmit} disabled={saving || savingDraft}>
+                <Save className="mr-2 h-4 w-4" /> {saving ? "Enregistrement..." : "Enregistrer"}
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>

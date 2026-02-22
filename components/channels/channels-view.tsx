@@ -18,14 +18,19 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { useTenant } from "@/lib/tenant-context"
-import { useOrders } from "@/hooks/use-tenant-data"
-interface SalesChannel {
-  id: string; name: string; type: string; isActive: boolean; orderCount: number
-  config?: Record<string, string>
-  enabled?: boolean; contact?: string; ordersCount?: number; revenue?: number; autoReply?: string
-}
+import { useOrders, useSalesChannels } from "@/hooks/use-tenant-data"
+import { toggleSalesChannel, type SalesChannelConfig } from "@/lib/channels/actions"
 import { toast } from "sonner"
 import { ChannelConfigDrawer } from "./channel-config-drawer"
+
+const channelNames: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  messenger: "Messenger",
+  phone: "Telephone",
+  web: "Boutique en ligne",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+}
 
 const channelIcons: Record<string, typeof MessageCircle> = {
   whatsapp: MessageCircle,
@@ -57,40 +62,45 @@ const channelDescriptions: Record<string, string> = {
 export function ChannelsView() {
   const { currentTenant } = useTenant()
   const { data: orders = [] } = useOrders()
+  const { data: channels = [], mutate: mutateChannels } = useSalesChannels()
+
+  const [configChannel, setConfigChannel] = useState<SalesChannelConfig | null>(null)
+  const [configOpen, setConfigOpen] = useState(false)
+
   const getChannelStats = (source: string) => {
     const channelOrders = orders.filter((o: any) => o.source === source)
     return {
       orderCount: channelOrders.length,
-      ordersCount: channelOrders.length,
       revenue: channelOrders.reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0),
     }
   }
 
-  const channels: SalesChannel[] = [
-    { id: "whatsapp", name: "WhatsApp", type: "whatsapp", isActive: true, enabled: true, ...getChannelStats("whatsapp") },
-    { id: "phone", name: "Telephone", type: "phone", isActive: true, enabled: true, ...getChannelStats("phone") },
-    { id: "web", name: "Boutique en ligne", type: "web", isActive: true, enabled: true, ...getChannelStats("web") },
-    { id: "instagram", name: "Instagram", type: "instagram", isActive: false, enabled: false, ...getChannelStats("instagram") },
-    { id: "tiktok", name: "TikTok", type: "tiktok", isActive: false, enabled: false, ...getChannelStats("tiktok") },
-    { id: "messenger", name: "Messenger", type: "messenger", isActive: false, enabled: false, ...getChannelStats("messenger") },
-  ]
-
-  const [configChannel, setConfigChannel] = useState<SalesChannel | null>(null)
-  const [configOpen, setConfigOpen] = useState(false)
-
   const totalOnlineOrders = orders.filter((o: any) => o.source !== "comptoir").length
   const totalOnlineRevenue = orders.filter((o: any) => o.source !== "comptoir").reduce((sum: number, o: any) => sum + (Number(o.total) || 0), 0)
-  const activeChannels = channels.filter(c => c.enabled || c.isActive).length
+  const activeChannels = channels.filter(c => c.enabled).length
 
   const ordersBySource = orders.reduce((acc: Record<string, number>, order: any) => {
     acc[order.source] = (acc[order.source] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
-  const handleToggleChannel = (channel: SalesChannel) => {
-    toast.success(channel.enabled ? "Canal desactive" : "Canal active", {
-      description: channel.name,
-    })
+  const handleToggleChannel = async (channel: SalesChannelConfig) => {
+    const newEnabled = !channel.enabled
+    // Optimistic update
+    mutateChannels(
+      channels.map(c => c.channelType === channel.channelType ? { ...c, enabled: newEnabled } : c),
+      false
+    )
+    try {
+      await toggleSalesChannel(currentTenant.id, channel.channelType, newEnabled)
+      mutateChannels()
+      toast.success(newEnabled ? "Canal active" : "Canal desactive", {
+        description: channelNames[channel.channelType],
+      })
+    } catch {
+      mutateChannels() // Revert
+      toast.error("Erreur lors de la mise a jour")
+    }
   }
 
   const handleCopyAutoReply = (text: string) => {
@@ -101,7 +111,7 @@ export function ChannelsView() {
     })
   }
 
-  const handleConfigure = (channel: SalesChannel) => {
+  const handleConfigure = (channel: SalesChannelConfig) => {
     setConfigChannel(channel)
     setConfigOpen(true)
   }
@@ -162,39 +172,41 @@ export function ChannelsView() {
       {/* Channels Grid */}
       <div className="grid gap-4 md:grid-cols-2">
         {channels.map(channel => {
-          const Icon = channelIcons[channel.type]
-          const recentOrders = ordersBySource[channel.type] || 0
+          const Icon = channelIcons[channel.channelType] || Globe
+          const stats = getChannelStats(channel.channelType)
+          const recentOrders = ordersBySource[channel.channelType] || 0
+          const name = channelNames[channel.channelType] || channel.channelType
 
           return (
-            <Card key={channel.id} className={!(channel.enabled || channel.isActive) ? "opacity-60" : ""}>
+            <Card key={channel.channelType} className={!channel.enabled ? "opacity-60" : ""}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${channelColors[channel.type]} text-card`}>
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${channelColors[channel.channelType]} text-card`}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
-                      <CardTitle className="text-base">{channel.name}</CardTitle>
+                      <CardTitle className="text-base">{name}</CardTitle>
                       <CardDescription className="text-xs">{channel.contact || ""}</CardDescription>
                     </div>
                   </div>
                   <Switch
-                    checked={channel.enabled || channel.isActive}
+                    checked={channel.enabled}
                     onCheckedChange={() => handleToggleChannel(channel)}
                   />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{channelDescriptions[channel.type]}</p>
+                <p className="text-sm text-muted-foreground">{channelDescriptions[channel.channelType]}</p>
 
                 {/* Stats */}
                 <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/50 p-3">
                   <div className="text-center">
-                    <p className="text-lg font-bold">{channel.ordersCount || 0}</p>
+                    <p className="text-lg font-bold">{stats.orderCount}</p>
                     <p className="text-[10px] text-muted-foreground">Commandes</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold">{(channel.revenue || 0).toLocaleString("fr-TN")}</p>
+                    <p className="text-lg font-bold">{stats.revenue.toLocaleString("fr-TN")}</p>
                     <p className="text-[10px] text-muted-foreground">TND revenu</p>
                   </div>
                   <div className="text-center">
@@ -212,7 +224,7 @@ export function ChannelsView() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => handleCopyAutoReply(channel.autoReply!)}
+                        onClick={() => handleCopyAutoReply(channel.autoReply)}
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
@@ -234,10 +246,18 @@ export function ChannelsView() {
                     <Settings className="mr-2 h-3.5 w-3.5" />
                     Configurer
                   </Button>
-                  {(channel.type === "whatsapp" || channel.type === "messenger") && (
-                    <Button variant="outline" size="sm" className="bg-transparent">
-                      <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                      Ouvrir
+                  {(channel.channelType === "whatsapp" || channel.channelType === "messenger") && channel.contact && (
+                    <Button variant="outline" size="sm" className="bg-transparent" asChild>
+                      <a
+                        href={channel.channelType === "whatsapp"
+                          ? `https://wa.me/${channel.contact.replace(/\s+/g, "")}`
+                          : channel.contact}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                        Ouvrir
+                      </a>
                     </Button>
                   )}
                 </div>
@@ -286,6 +306,7 @@ export function ChannelsView() {
         channel={configChannel}
         open={configOpen}
         onOpenChange={setConfigOpen}
+        onSaved={() => mutateChannels()}
       />
     </div>
   )

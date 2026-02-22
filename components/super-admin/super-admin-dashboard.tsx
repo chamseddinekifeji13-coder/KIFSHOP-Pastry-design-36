@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Building2, Users, CreditCard, Clock, AlertTriangle, ArrowUpCircle, MessageSquare, WifiOff, Eye } from "lucide-react"
+import { Building2, Users, CreditCard, Clock, AlertTriangle, ArrowUpCircle, MessageSquare, WifiOff, Eye, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,9 @@ import {
 import {
   getSuperAdminStats,
   getAllTenants,
+  updateTenantAppVersion,
+  updateAllTenantsAppVersion,
+  getCurrentAppVersion,
   type SuperAdminStats,
   type TenantOverview,
 } from "@/lib/super-admin/actions"
@@ -41,6 +44,38 @@ export function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [showOutdated, setShowOutdated] = useState(false)
   const [showInactive, setShowInactive] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [appVersion, setAppVersion] = useState("1.2.0")
+
+  async function handleUpdateVersion(tenantId: string) {
+    startTransition(async () => {
+      try {
+        await updateTenantAppVersion(tenantId)
+        // Refresh data
+        const [statsData, tenantsData] = await Promise.all([getSuperAdminStats(), getAllTenants()])
+        setStats(statsData)
+        setAllTenants(tenantsData)
+        setRecentTenants(tenantsData.slice(0, 5))
+      } catch (error) {
+        console.error("Error updating version:", error)
+      }
+    })
+  }
+
+  async function handleUpdateAllVersions() {
+    startTransition(async () => {
+      try {
+        await updateAllTenantsAppVersion()
+        const [statsData, tenantsData] = await Promise.all([getSuperAdminStats(), getAllTenants()])
+        setStats(statsData)
+        setAllTenants(tenantsData)
+        setRecentTenants(tenantsData.slice(0, 5))
+        setShowOutdated(false)
+      } catch (error) {
+        console.error("Error updating all versions:", error)
+      }
+    })
+  }
 
   const outdatedTenants = allTenants.filter(
     (t) => t.app_version !== (stats?.currentAppVersion || "1.2.0")
@@ -54,13 +89,15 @@ export function SuperAdminDashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const [statsData, tenantsData] = await Promise.all([
+        const [statsData, tenantsData, version] = await Promise.all([
           getSuperAdminStats(),
           getAllTenants(),
+          getCurrentAppVersion(),
         ])
         setStats(statsData)
         setAllTenants(tenantsData)
         setRecentTenants(tenantsData.slice(0, 5))
+        setAppVersion(version)
       } catch (error) {
         console.error("Error loading super admin data:", error)
       } finally {
@@ -242,9 +279,23 @@ export function SuperAdminDashboard() {
               Tenants avec version obsolete
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Version actuelle : <strong>v{stats?.currentAppVersion || "1.2.0"}</strong>
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Version actuelle : <strong>v{stats?.currentAppVersion || "1.2.0"}</strong>
+            </p>
+            {outdatedTenants.length > 1 && (
+              <Button
+                size="sm"
+                variant="default"
+                className="h-8 gap-1.5 text-xs"
+                disabled={isPending}
+                onClick={handleUpdateAllVersions}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+                Tout mettre a jour
+              </Button>
+            )}
+          </div>
           {outdatedTenants.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Tous les tenants sont a jour.</p>
           ) : (
@@ -260,20 +311,34 @@ export function SuperAdminDashboard() {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{t.name}</p>
-                      <Badge variant="secondary" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700 mt-0.5">
-                        v{t.app_version}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge variant="secondary" className="text-[10px] border-amber-200 bg-amber-50 text-amber-700">
+                          v{t.app_version}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">vers v{appVersion}</span>
+                      </div>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs"
-                    onClick={() => { setShowOutdated(false); router.push(`/super-admin/tenants/${t.id}`) }}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Details
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      disabled={isPending}
+                      onClick={() => handleUpdateVersion(t.id)}
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isPending ? "animate-spin" : ""}`} />
+                      Mettre a jour
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => { setShowOutdated(false); router.push(`/super-admin/tenants/${t.id}`) }}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
