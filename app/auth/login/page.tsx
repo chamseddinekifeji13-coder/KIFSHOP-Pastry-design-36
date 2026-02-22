@@ -59,7 +59,7 @@ export default function LoginPage() {
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
           K
         </div>
-        <CardTitle className="text-xl font-bold text-balance">KIFSHOP</CardTitle>
+        <CardTitle className="text-xl font-bold text-balance">KIFSHOP <span className="font-normal text-primary">Pastry</span></CardTitle>
         <CardDescription>
           Connectez-vous a votre espace de gestion
         </CardDescription>

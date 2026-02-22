@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2 } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,8 +21,10 @@ import {
   type InvoiceSettings,
 } from "@/lib/orders/invoice-actions"
 import { toast } from "sonner"
+import { useI18n, type Locale } from "@/lib/i18n/context"
 
 export function SettingsView() {
+  const { locale, setLocale } = useI18n()
   const { currentTenant, currentRole, users, isLoading: tenantLoading } = useTenant()
   const { data: categories = [] } = useCategories()
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
@@ -406,6 +408,56 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
+
+        {/* Language Settings */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Langue / اللغة</CardTitle>
+            </div>
+            <CardDescription>Choisissez la langue de l{"'"}interface</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setLocale("fr")}
+                className={`flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors ${
+                  locale === "fr"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
+                }`}
+              >
+                <span className="text-xl">FR</span>
+                <div>
+                  <p className="font-medium text-sm text-foreground">Francais</p>
+                  <p className="text-xs text-muted-foreground">Interface en francais</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale("ar")}
+                className={`flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors ${
+                  locale === "ar"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
+                }`}
+              >
+                <span className="text-xl">ع</span>
+                <div>
+                  <p className="font-medium text-sm text-foreground">العربية</p>
+                  <p className="text-xs text-muted-foreground">واجهة بالعربية</p>
+                </div>
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {locale === "ar"
+                ? "سيتم تطبيق التغيير على الفور. يمكنك التبديل في أي وقت."
+                : "Le changement sera applique immediatement. Vous pouvez basculer a tout moment."}
+            </p>
+          </CardContent>
+        </Card>
 
       </div>
 

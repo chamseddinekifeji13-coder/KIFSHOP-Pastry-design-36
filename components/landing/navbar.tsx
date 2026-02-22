@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 
 const links = [
   { href: "#features", label: "Fonctionnalites" },
-  { href: "#download", label: "Telecharger" },
-  { href: "#install-guide", label: "Installation" },
+  { href: "#download", label: "Deploiement" },
+  { href: "#contact", label: "Contact" },
 ]
 
 export function Navbar() {
@@ -22,7 +22,7 @@ export function Navbar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4A7C59] text-white">
             <ChefHat className="h-4 w-4" />
           </div>
-          <span className="text-lg font-bold text-white">KIFSHOP</span>
+          <span className="text-lg font-bold text-white">KIFSHOP <span className="font-normal text-[#7dba94]">Pastry</span></span>
         </Link>
 
         {/* Desktop nav */}

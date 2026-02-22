@@ -1,7 +1,7 @@
 {
-  "name": "KIFSHOP - Gestion Patisserie",
-  "short_name": "KIFSHOP",
-  "description": "Application de gestion pour patisseries et laboratoires en Tunisie",
+  "name": "KIFSHOP Pastry - Gestion Patisserie",
+  "short_name": "KIFSHOP Pastry",
+  "description": "Application de gestion tout-en-un pour patisseries, boulangeries et laboratoires en Tunisie. Francais et Arabe.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAF8F5",

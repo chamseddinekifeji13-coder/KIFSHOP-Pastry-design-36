@@ -12,10 +12,11 @@ export function FooterSection() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4A7C59] text-white">
                 <ChefHat className="h-4 w-4" />
               </div>
-              <span className="text-lg font-bold text-foreground">KIFSHOP</span>
+              <span className="text-lg font-bold text-foreground">KIFSHOP <span className="font-normal text-[#4A7C59]">Pastry</span></span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Logiciel de gestion complet pour patisseries et boulangeries en Tunisie.
+              Solution de gestion tout-en-un pour patisseries, boulangeries et laboratoires en Tunisie.
+              Stocks, production, commandes, facturation et tresorerie.
             </p>
           </div>
 
@@ -33,8 +34,9 @@ export function FooterSection() {
           <div>
             <h4 className="text-sm font-semibold text-foreground">Ressources</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><Link href="#install-guide" className="transition-colors hover:text-foreground">Guide d{"'"}installation</Link></li>
               <li><Link href="/auth/login" className="transition-colors hover:text-foreground">Connexion</Link></li>
+              <li><Link href="/auth/sign-up" className="transition-colors hover:text-foreground">Creer un compte</Link></li>
+              <li><a href="tel:+21625122212" className="transition-colors hover:text-foreground">Nous contacter</a></li>
             </ul>
           </div>
 
@@ -43,14 +45,14 @@ export function FooterSection() {
             <h4 className="text-sm font-semibold text-foreground">Contact</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>contact@kifshop.tn</li>
-              <li>+216 XX XXX XXX</li>
+              <li><a href="tel:+21625122212" className="transition-colors hover:text-foreground">+216 25 12 22 12</a></li>
               <li>Tunisie</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 text-sm text-muted-foreground sm:flex-row">
-          <p>&copy; {new Date().getFullYear()} KIFSHOP. Tous droits reserves.</p>
+          <p>&copy; {new Date().getFullYear()} KIFSHOP Pastry. Tous droits reserves.</p>
           <p>Concu en Tunisie avec passion</p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChefHat, ArrowRight, Cloud, Server } from "lucide-react"
+import { ChefHat, ArrowRight, Cloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function HeroSection() {
@@ -25,9 +25,11 @@ export function HeroSection() {
         </h1>
 
         <p className="max-w-2xl text-lg leading-relaxed text-white/70 text-pretty">
-          KIFSHOP est le logiciel de gestion complet pour patisseries et boulangeries.
-          Stocks, commandes, production, facturation et tresorerie — tout en un.
-          Disponible en <strong className="text-white">Cloud</strong> ou <strong className="text-white">On-Premise</strong>.
+          <strong className="text-white">KIFSHOP Pastry</strong> est la solution de gestion tout-en-un concue
+          specialement pour les patisseries, boulangeries et laboratoires en Tunisie.
+          De la gestion des matieres premieres a la planification de production, en passant par les commandes
+          clients, la facturation, le suivi de tresorerie et l{"'"}approvisionnement fournisseurs
+          — chaque aspect de votre activite est couvert dans une seule plateforme.
         </p>
 
         {/* CTA buttons */}
@@ -35,15 +37,14 @@ export function HeroSection() {
           <Button size="lg" className="bg-[#4A7C59] hover:bg-[#3d6a4b] text-white gap-2 px-8 h-12 text-base" asChild>
             <Link href="/auth/sign-up">
               <Cloud className="h-4 w-4" />
-              Essai gratuit Cloud
+              Essai gratuit
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Button>
           <Button size="lg" variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white gap-2 px-8 h-12 text-base" asChild>
-            <Link href="#download">
-              <Server className="h-4 w-4" />
-              Telecharger On-Premise
-            </Link>
+            <a href="#contact">
+              Nous contacter
+            </a>
           </Button>
         </div>
 

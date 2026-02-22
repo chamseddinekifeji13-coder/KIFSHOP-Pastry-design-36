@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Lock, Menu, Users } from "lucide-react"
+import { ChevronDown, Lock, Users } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -78,10 +78,7 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b bg-card px-4 md:px-6">
       <div className="flex items-center gap-4">
-        <SidebarTrigger className="md:hidden">
-          <Menu className="h-5 w-5" />
-          <span className="sr-only">Toggle menu</span>
-        </SidebarTrigger>
+        <SidebarTrigger className="-ml-1 md:hidden" />
 
         {/* Tenant Switcher */}
         <DropdownMenu>
@@ -187,7 +184,7 @@ export function Topbar() {
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
               <div className="flex flex-col">
                 <span>{currentUser.name}</span>
@@ -201,9 +198,33 @@ export function Topbar() {
                 </span>
               </div>
             </DropdownMenuLabel>
+            {/* Mobile-only user switcher (since the Users dropdown is hidden on sm) */}
+            {users.length > 1 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal sm:hidden">
+                  Changer d{"'"}utilisateur
+                </DropdownMenuLabel>
+                {users.filter(u => u.id !== currentUser.id).slice(0, 5).map((user) => (
+                  <DropdownMenuItem
+                    key={user.id}
+                    onClick={() => handleUserSwitch(user.id)}
+                    className="flex items-center gap-2 sm:hidden"
+                  >
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-medium">
+                      {user.initials}
+                    </div>
+                    <span className="text-xs">{user.name}</span>
+                    <Badge variant="outline" className="ml-auto text-[9px] px-1 py-0">
+                      {ROLE_LABELS[user.role]}
+                    </Badge>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Mon profil</DropdownMenuItem>
-            <DropdownMenuItem>Parametres</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/parametres")}>Mon profil</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/parametres")}>Parametres</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {
               sessionStorage.removeItem("kifshop_unlocked")
