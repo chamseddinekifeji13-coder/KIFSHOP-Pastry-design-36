@@ -29,6 +29,9 @@ export interface TenantOverview {
   created_at: string
   trial_ends_at: string | null
   user_count: number
+  last_login: string | null
+  app_version: string
+  open_tickets: number
 }
 
 export interface TenantDetail {
@@ -72,7 +75,10 @@ export interface SuperAdminStats {
   totalUsers: number
   trialTenants: number
   suspendedTenants: number
-  monthlyRevenue: number
+  inactiveLast7Days: number
+  outdatedVersions: number
+  totalOpenTickets: number
+  currentAppVersion: string
   planBreakdown: { plan: string; count: number }[]
   statusBreakdown: { status: string; count: number }[]
 }
@@ -110,39 +116,39 @@ export interface PlatformSettings {
 
 // ─── Actions ──────────────────────────────────────────────────
 
+const CURRENT_APP_VERSION = "1.2.0"
+
 export async function getSuperAdminStats(): Promise<SuperAdminStats> {
   const { supabase } = await requireSuperAdmin()
 
-  const { data: tenants } = await supabase
-    .from("tenants")
-    .select("id, is_active, subscription_plan, subscription_status")
+  const [
+    { data: tenants },
+    { count: totalUsers },
+    { data: opData },
+    { count: totalOpenTickets },
+  ] = await Promise.all([
+    supabase.from("tenants").select("id, is_active, subscription_plan, subscription_status, app_version"),
+    supabase.from("tenant_users").select("*", { count: "exact", head: true }),
+    supabase.rpc("get_tenant_operational_data"),
+    supabase.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["open", "in_progress"]),
+  ])
 
-  const { count: totalUsers } = await supabase
-    .from("tenant_users")
-    .select("*", { count: "exact", head: true })
-
-  // Get active subscriptions revenue
-  const { data: activeSubscriptions } = await supabase
-    .from("subscriptions")
-    .select("plan_id, status")
-    .eq("status", "active")
-
-  const { data: plans } = await supabase
-    .from("subscription_plans")
-    .select("id, price_monthly")
-
-  const planPriceMap = new Map<string, number>()
-  plans?.forEach((p) => planPriceMap.set(p.id, p.price_monthly))
-
-  let monthlyRevenue = 0
-  activeSubscriptions?.forEach((s) => {
-    if (s.plan_id) monthlyRevenue += planPriceMap.get(s.plan_id) || 0
-  })
-
+  const opsMap: Record<string, { last_login: string | null; open_tickets: number; app_version: string }> = opData || {}
   const allTenants = tenants || []
   const activeTenants = allTenants.filter((t) => t.is_active !== false).length
   const trialTenants = allTenants.filter((t) => t.subscription_status === "trial").length
   const suspendedTenants = allTenants.filter((t) => t.is_active === false || t.subscription_status === "suspended").length
+
+  // Count tenants with no login in the last 7 days
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  let inactiveLast7Days = 0
+  let outdatedVersions = 0
+  for (const t of allTenants) {
+    const ops = opsMap[t.id]
+    if (!ops?.last_login || ops.last_login < sevenDaysAgo) inactiveLast7Days++
+    const version = ops?.app_version || t.app_version || "1.0.0"
+    if (version !== CURRENT_APP_VERSION) outdatedVersions++
+  }
 
   // Group by subscription plan
   const planMap = new Map<string, number>()
@@ -150,10 +156,7 @@ export async function getSuperAdminStats(): Promise<SuperAdminStats> {
     const plan = t.subscription_plan || "trial"
     planMap.set(plan, (planMap.get(plan) || 0) + 1)
   })
-  const planBreakdown = Array.from(planMap.entries()).map(([plan, count]) => ({
-    plan,
-    count,
-  }))
+  const planBreakdown = Array.from(planMap.entries()).map(([plan, count]) => ({ plan, count }))
 
   // Group by status
   const statusMap = new Map<string, number>()
@@ -161,10 +164,7 @@ export async function getSuperAdminStats(): Promise<SuperAdminStats> {
     const status = t.subscription_status || "trial"
     statusMap.set(status, (statusMap.get(status) || 0) + 1)
   })
-  const statusBreakdown = Array.from(statusMap.entries()).map(([status, count]) => ({
-    status,
-    count,
-  }))
+  const statusBreakdown = Array.from(statusMap.entries()).map(([status, count]) => ({ status, count }))
 
   return {
     totalTenants: allTenants.length,
@@ -172,7 +172,10 @@ export async function getSuperAdminStats(): Promise<SuperAdminStats> {
     totalUsers: totalUsers || 0,
     trialTenants,
     suspendedTenants,
-    monthlyRevenue,
+    inactiveLast7Days,
+    outdatedVersions,
+    totalOpenTickets: totalOpenTickets || 0,
+    currentAppVersion: CURRENT_APP_VERSION,
     planBreakdown,
     statusBreakdown,
   }
@@ -181,33 +184,43 @@ export async function getSuperAdminStats(): Promise<SuperAdminStats> {
 export async function getAllTenants(): Promise<TenantOverview[]> {
   const { supabase } = await requireSuperAdmin()
 
-  const { data: tenants } = await supabase
-    .from("tenants")
-    .select("id, name, slug, primary_color, subscription_plan, subscription_status, is_active, created_at, trial_ends_at")
-    .order("created_at", { ascending: false })
+  const [
+    { data: tenants },
+    { data: userCounts },
+    { data: opData },
+  ] = await Promise.all([
+    supabase.from("tenants")
+      .select("id, name, slug, primary_color, subscription_plan, subscription_status, is_active, created_at, trial_ends_at, app_version")
+      .order("created_at", { ascending: false }),
+    supabase.from("tenant_users").select("tenant_id"),
+    supabase.rpc("get_tenant_operational_data"),
+  ])
 
   if (!tenants) return []
-
-  // Get user counts per tenant
-  const { data: userCounts } = await supabase
-    .from("tenant_users")
-    .select("tenant_id")
 
   const countMap = new Map<string, number>()
   userCounts?.forEach((u) => {
     countMap.set(u.tenant_id, (countMap.get(u.tenant_id) || 0) + 1)
   })
 
-  return tenants.map((t) => ({
-    ...t,
-    slug: t.slug || "",
-    primary_color: t.primary_color || "#4A7C59",
-    subscription_plan: t.subscription_plan || "trial",
-    subscription_status: t.subscription_status || "trial",
-    is_active: t.is_active !== false,
-    trial_ends_at: t.trial_ends_at || null,
-    user_count: countMap.get(t.id) || 0,
-  }))
+  const opsMap: Record<string, { last_login: string | null; open_tickets: number; app_version: string }> = opData || {}
+
+  return tenants.map((t) => {
+    const ops = opsMap[t.id]
+    return {
+      ...t,
+      slug: t.slug || "",
+      primary_color: t.primary_color || "#4A7C59",
+      subscription_plan: t.subscription_plan || "trial",
+      subscription_status: t.subscription_status || "trial",
+      is_active: t.is_active !== false,
+      trial_ends_at: t.trial_ends_at || null,
+      user_count: countMap.get(t.id) || 0,
+      last_login: ops?.last_login || null,
+      app_version: ops?.app_version || t.app_version || "1.0.0",
+      open_tickets: ops?.open_tickets || 0,
+    }
+  })
 }
 
 export async function getTenantDetail(tenantId: string): Promise<TenantDetail | null> {

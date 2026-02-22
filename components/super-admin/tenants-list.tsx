@@ -11,6 +11,11 @@ import {
   Trash2,
   Eye,
   Users,
+  Clock,
+  ArrowUpCircle,
+  MessageSquare,
+  Wifi,
+  WifiOff,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -156,111 +161,150 @@ export function TenantsList() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Patisserie</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Abonnement</TableHead>
-                    <TableHead>Utilisateurs</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead>Date creation</TableHead>
+                    <TableHead>Dernier login</TableHead>
+                    <TableHead>Version</TableHead>
+                    <TableHead>Tickets</TableHead>
+                    <TableHead className="hidden md:table-cell">Utilisateurs</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTenants.map((tenant) => (
-                    <TableRow key={tenant.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
-                            style={{ backgroundColor: tenant.primary_color }}
-                          >
-                            {tenant.name.charAt(0).toUpperCase()}
+                  {filteredTenants.map((tenant) => {
+                    const lastLogin = tenant.last_login ? new Date(tenant.last_login) : null
+                    const daysSinceLogin = lastLogin ? Math.floor((Date.now() - lastLogin.getTime()) / (1000 * 60 * 60 * 24)) : null
+                    const isInactive = daysSinceLogin === null || daysSinceLogin > 7
+                    const isOutdated = tenant.app_version !== "1.2.0"
+                    return (
+                      <TableRow key={tenant.id} className={!tenant.is_active ? "opacity-60" : ""}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
+                              style={{ backgroundColor: tenant.primary_color }}
+                            >
+                              {tenant.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{tenant.name}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <Badge variant="outline" className="text-[10px]">
+                                  {PLAN_LABELS[tenant.subscription_plan] || tenant.subscription_plan}
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{tenant.name}</p>
-                            {tenant.slug && (
-                              <p className="text-xs text-muted-foreground">
-                                {tenant.slug}
-                              </p>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            {tenant.is_active ? (
+                              <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+                            ) : (
+                              <WifiOff className="h-3.5 w-3.5 text-muted-foreground" />
                             )}
+                            <Badge
+                              variant={tenant.is_active ? "default" : "secondary"}
+                              className={`text-[10px] ${tenant.is_active ? "bg-emerald-500/10 text-emerald-700 border-emerald-200 hover:bg-emerald-500/10" : ""}`}
+                            >
+                              {tenant.is_active ? "Actif" : "Suspendu"}
+                            </Badge>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px]">
-                          {PLAN_LABELS[tenant.subscription_plan] || tenant.subscription_plan}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={tenant.subscription_status === "active" ? "default" : tenant.subscription_status === "suspended" ? "destructive" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {STATUS_LABELS[tenant.subscription_status] || tenant.subscription_status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 text-sm">
-                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                          {tenant.user_count}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={tenant.is_active ? "default" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {tenant.is_active ? "Actif" : "Suspendu"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(tenant.created_at).toLocaleDateString("fr-FR")}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                router.push(`/super-admin/tenants/${tenant.id}`)
-                              }
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              Voir details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleToggleStatus(tenant)}
-                              disabled={isPending}
-                            >
-                              {tenant.is_active ? (
-                                <>
-                                  <Pause className="mr-2 h-4 w-4" />
-                                  Suspendre
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="mr-2 h-4 w-4" />
-                                  Reactiver
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => setDeleteTarget(tenant)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          {lastLogin ? (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className={`h-3.5 w-3.5 ${isInactive ? "text-amber-500" : "text-muted-foreground"}`} />
+                              <div>
+                                <p className={`text-xs ${isInactive ? "text-amber-600 font-medium" : "text-foreground"}`}>
+                                  {daysSinceLogin === 0
+                                    ? "Aujourd'hui"
+                                    : daysSinceLogin === 1
+                                      ? "Hier"
+                                      : `Il y a ${daysSinceLogin}j`}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {lastLogin.toLocaleDateString("fr-FR")}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-amber-600 font-medium flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> Jamais
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={isOutdated ? "secondary" : "outline"}
+                            className={`text-[10px] gap-1 ${isOutdated ? "border-amber-200 bg-amber-50 text-amber-700" : ""}`}
+                          >
+                            {isOutdated && <ArrowUpCircle className="h-3 w-3" />}
+                            v{tenant.app_version}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {tenant.open_tickets > 0 ? (
+                            <Badge variant="destructive" className="text-[10px] gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              {tenant.open_tickets}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                            {tenant.user_count}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  router.push(`/super-admin/tenants/${tenant.id}`)
+                                }
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                Voir details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleToggleStatus(tenant)}
+                                disabled={isPending}
+                              >
+                                {tenant.is_active ? (
+                                  <>
+                                    <Pause className="mr-2 h-4 w-4" />
+                                    Suspendre
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="mr-2 h-4 w-4" />
+                                    Reactiver
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteTarget(tenant)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>

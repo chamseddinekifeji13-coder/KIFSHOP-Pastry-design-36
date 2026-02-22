@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Building2, Users, CreditCard, Clock, AlertTriangle, DollarSign } from "lucide-react"
+import { Building2, Users, CreditCard, Clock, AlertTriangle, ArrowUpCircle, MessageSquare, WifiOff } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -88,34 +88,42 @@ export function SuperAdminDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">En essai</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Inactifs 7j</CardTitle>
+            <WifiOff className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.trialTenants || 0}</div>
-            <p className="text-xs text-muted-foreground">periode de grace</p>
+            <div className={`text-2xl font-bold ${(stats?.inactiveLast7Days || 0) > 0 ? "text-amber-600" : ""}`}>
+              {stats?.inactiveLast7Days || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">aucun login depuis 7j</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Suspendus</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Version obsolete</CardTitle>
+            <ArrowUpCircle className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.suspendedTenants || 0}</div>
-            <p className="text-xs text-muted-foreground">a traiter</p>
+            <div className={`text-2xl font-bold ${(stats?.outdatedVersions || 0) > 0 ? "text-amber-600" : ""}`}>
+              {stats?.outdatedVersions || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              actuelle: v{stats?.currentAppVersion || "1.2.0"}
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Revenu mensuel</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Tickets ouverts</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.monthlyRevenue || 0} TND</div>
-            <p className="text-xs text-muted-foreground">abonnements actifs</p>
+            <div className={`text-2xl font-bold ${(stats?.totalOpenTickets || 0) > 0 ? "text-destructive" : ""}`}>
+              {stats?.totalOpenTickets || 0}
+            </div>
+            <p className="text-xs text-muted-foreground">support en cours</p>
           </CardContent>
         </Card>
 
