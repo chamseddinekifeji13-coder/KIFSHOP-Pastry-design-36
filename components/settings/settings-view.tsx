@@ -419,17 +419,17 @@ export function SettingsView() {
             <CardDescription>Choisissez la langue de l{"'"}interface</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
                 onClick={() => setLocale("fr")}
-                className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
+                className={`flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors ${
                   locale === "fr"
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/30"
                 }`}
               >
-                <span className="text-2xl">🇫🇷</span>
+                <span className="text-xl">FR</span>
                 <div>
                   <p className="font-medium text-sm text-foreground">Francais</p>
                   <p className="text-xs text-muted-foreground">Interface en francais</p>
@@ -438,13 +438,13 @@ export function SettingsView() {
               <button
                 type="button"
                 onClick={() => setLocale("ar")}
-                className={`flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors ${
+                className={`flex flex-1 items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-colors ${
                   locale === "ar"
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/30"
                 }`}
               >
-                <span className="text-2xl">🇹🇳</span>
+                <span className="text-xl">ع</span>
                 <div>
                   <p className="font-medium text-sm text-foreground">العربية</p>
                   <p className="text-xs text-muted-foreground">واجهة بالعربية</p>
