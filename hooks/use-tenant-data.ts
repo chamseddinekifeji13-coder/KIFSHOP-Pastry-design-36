@@ -10,6 +10,7 @@ import { fetchOrders } from "@/lib/orders/actions"
 import { fetchNotifications } from "@/lib/notifications/actions"
 import { getCriticalStock } from "@/lib/stocks/notifications"
 import { fetchProductionPlans } from "@/lib/planning/actions"
+import { fetchSalesChannels } from "@/lib/channels/actions"
 
 function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T>) {
   const { currentTenant, isLoading: tenantLoading } = useTenant()
@@ -108,6 +109,10 @@ export function useSupplierPrices() {
 
 export function useCriticalStock() {
   return useTenantQuery("critical-stock", getCriticalStock)
+}
+
+export function useSalesChannels() {
+  return useTenantQuery("sales-channels", fetchSalesChannels)
 }
 
 export function useDueReminders() {

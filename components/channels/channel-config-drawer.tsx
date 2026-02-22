@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Save, MessageCircle, Phone, Globe, Instagram, Bell, Clock, Zap, Settings2 } from "lucide-react"
+import { Save, MessageCircle, Phone, Globe, Instagram, Bell, Clock, Zap, Settings2, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,12 +14,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-interface SalesChannel {
-  id: string; name: string; type: string; isActive: boolean; orderCount: number
-  config?: Record<string, string>
-  enabled?: boolean; contact?: string; ordersCount?: number; revenue?: number; autoReply?: string
-}
+import { upsertSalesChannel, type SalesChannelConfig } from "@/lib/channels/actions"
+import { useTenant } from "@/lib/tenant-context"
 import { toast } from "sonner"
+
+const channelNames: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  messenger: "Messenger",
+  phone: "Telephone",
+  web: "Boutique en ligne",
+  instagram: "Instagram",
+  tiktok: "TikTok",
+}
 
 const channelIcons: Record<string, typeof MessageCircle> = {
   whatsapp: MessageCircle,
@@ -40,43 +46,80 @@ const channelColors: Record<string, { bg: string; icon: string; accent: string; 
 }
 
 interface ChannelConfigDrawerProps {
-  channel: SalesChannel | null
+  channel: SalesChannelConfig | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSaved?: () => void
 }
 
-export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConfigDrawerProps) {
+export function ChannelConfigDrawer({ channel, open, onOpenChange, onSaved }: ChannelConfigDrawerProps) {
+  const { currentTenant } = useTenant()
   const [contact, setContact] = useState("")
   const [autoReply, setAutoReply] = useState("")
   const [enabled, setEnabled] = useState(false)
   const [notifyOnOrder, setNotifyOnOrder] = useState(true)
   const [notifyOnMessage, setNotifyOnMessage] = useState(true)
+  const [openHour, setOpenHour] = useState("08:00")
+  const [closeHour, setCloseHour] = useState("18:00")
+  const [quickReplies, setQuickReplies] = useState<string[]>([])
+  const [newQuickReply, setNewQuickReply] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (channel) {
       setContact(channel.contact || "")
       setAutoReply(channel.autoReply || "")
-      setEnabled(channel.enabled ?? channel.isActive ?? false)
+      setEnabled(channel.enabled)
+      setNotifyOnOrder(channel.notifyOnOrder)
+      setNotifyOnMessage(channel.notifyOnMessage)
+      setOpenHour(channel.openHour || "08:00")
+      setCloseHour(channel.closeHour || "18:00")
+      setQuickReplies(channel.quickReplies || [])
     }
   }, [channel])
 
-  const handleSubmit = async () => {
-    if (!contact.trim()) {
-      toast.error("Le contact est obligatoire")
-      return
+  const handleAddQuickReply = () => {
+    if (newQuickReply.trim()) {
+      setQuickReplies(prev => [...prev, newQuickReply.trim()])
+      setNewQuickReply("")
     }
+  }
+
+  const handleRemoveQuickReply = (index: number) => {
+    setQuickReplies(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSubmit = async () => {
+    if (!channel) return
     setIsSubmitting(true)
-    await new Promise((r) => setTimeout(r, 500))
-    toast.success("Canal mis a jour", { description: channel?.name })
-    onOpenChange(false)
-    setIsSubmitting(false)
+    try {
+      await upsertSalesChannel(currentTenant.id, {
+        channelType: channel.channelType,
+        enabled,
+        contact,
+        autoReply,
+        notifyOnOrder,
+        notifyOnMessage,
+        openHour,
+        closeHour,
+        quickReplies,
+      })
+      toast.success("Canal mis a jour", { description: channelNames[channel.channelType] })
+      onSaved?.()
+      onOpenChange(false)
+    } catch (error: any) {
+      toast.error("Erreur lors de la mise a jour", { description: error?.message })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!channel) return null
 
-  const Icon = channelIcons[channel.type] || Globe
-  const colors = channelColors[channel.type] || channelColors.web
+  const type = channel.channelType
+  const Icon = channelIcons[type] || Globe
+  const colors = channelColors[type] || channelColors.web
+  const name = channelNames[type] || type
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -89,7 +132,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
                 <Icon className="h-5 w-5" />
               </div>
               <div>
-                <SheetTitle className="text-lg">{channel.name}</SheetTitle>
+                <SheetTitle className="text-lg">{name}</SheetTitle>
                 <SheetDescription className="text-xs mt-0.5">
                   Configuration du canal de vente
                 </SheetDescription>
@@ -120,11 +163,11 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
 
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">
-                {channel.type === "phone" ? "Numero de telephone" :
-                 channel.type === "whatsapp" ? "Numero WhatsApp Business" :
-                 channel.type === "messenger" ? "Lien de la page Facebook" :
-                 channel.type === "instagram" ? "Nom d'utilisateur Instagram" :
-                 channel.type === "tiktok" ? "Nom d'utilisateur TikTok" :
+                {type === "phone" ? "Numero de telephone" :
+                 type === "whatsapp" ? "Numero WhatsApp Business" :
+                 type === "messenger" ? "Lien de la page Facebook" :
+                 type === "instagram" ? "Nom d'utilisateur Instagram" :
+                 type === "tiktok" ? "Nom d'utilisateur TikTok" :
                  "URL du site web"}
               </Label>
               <div className="relative">
@@ -134,11 +177,11 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
                   onChange={(e) => setContact(e.target.value)}
                   className="pl-10 transition-all focus:ring-2 focus:ring-primary/20"
                   placeholder={
-                    channel.type === "phone" ? "+216 XX XXX XXX" :
-                    channel.type === "whatsapp" ? "+216 XX XXX XXX" :
-                    channel.type === "messenger" ? "fb.com/votre-page" :
-                    channel.type === "instagram" ? "@votre_compte" :
-                    channel.type === "tiktok" ? "@votre_tiktok" :
+                    type === "phone" ? "+216 XX XXX XXX" :
+                    type === "whatsapp" ? "+216 XX XXX XXX" :
+                    type === "messenger" ? "fb.com/votre-page" :
+                    type === "instagram" ? "@votre_compte" :
+                    type === "tiktok" ? "@votre_tiktok" :
                     "https://votre-site.com"
                   }
                 />
@@ -147,7 +190,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
           </div>
 
           {/* Auto-reply for messaging channels */}
-          {(channel.type === "whatsapp" || channel.type === "messenger" || channel.type === "instagram" || channel.type === "tiktok") && (
+          {(type === "whatsapp" || type === "messenger" || type === "instagram" || type === "tiktok") && (
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Zap className="h-4 w-4 text-amber-500" />
@@ -171,7 +214,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
           )}
 
           {/* Phone-specific: call hours */}
-          {channel.type === "phone" && (
+          {type === "phone" && (
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Clock className="h-4 w-4 text-amber-500" />
@@ -181,11 +224,11 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Ouverture</Label>
-                  <Input type="time" defaultValue="08:00" className="transition-all focus:ring-2 focus:ring-primary/20" />
+                  <Input type="time" value={openHour} onChange={(e) => setOpenHour(e.target.value)} className="transition-all focus:ring-2 focus:ring-primary/20" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Fermeture</Label>
-                  <Input type="time" defaultValue="18:00" className="transition-all focus:ring-2 focus:ring-primary/20" />
+                  <Input type="time" value={closeHour} onChange={(e) => setCloseHour(e.target.value)} className="transition-all focus:ring-2 focus:ring-primary/20" />
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground">
@@ -194,8 +237,8 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
             </div>
           )}
 
-          {/* WhatsApp quick replies */}
-          {channel.type === "whatsapp" && (
+          {/* WhatsApp quick replies - now editable */}
+          {type === "whatsapp" && (
             <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <MessageCircle className="h-4 w-4 text-green-500" />
@@ -203,17 +246,33 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
               </div>
               <p className="text-[11px] text-muted-foreground">Messages pre-configures pour gagner du temps</p>
               <div className="space-y-2">
-                {[
-                  "Voici notre catalogue: consultez notre site!",
-                  "Votre commande est en preparation!",
-                  "Votre commande est prete au retrait.",
-                  "Livraison prevue aujourd'hui entre 14h-18h.",
-                ].map((msg, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border/50 p-2.5 text-xs transition-colors hover:bg-muted">
+                {quickReplies.map((msg, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border/50 p-2.5 text-xs transition-colors hover:bg-muted group">
                     <div className="h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
                     <span className="flex-1">{msg}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      onClick={() => handleRemoveQuickReply(i)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newQuickReply}
+                  onChange={(e) => setNewQuickReply(e.target.value)}
+                  placeholder="Ajouter une reponse rapide..."
+                  className="text-xs"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddQuickReply() } }}
+                />
+                <Button variant="outline" size="sm" className="shrink-0 gap-1" onClick={handleAddQuickReply}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter
+                </Button>
               </div>
             </div>
           )}
@@ -233,7 +292,7 @@ export function ChannelConfigDrawer({ channel, open, onOpenChange }: ChannelConf
                 </div>
                 <Switch checked={notifyOnOrder} onCheckedChange={setNotifyOnOrder} />
               </div>
-              {(channel.type === "whatsapp" || channel.type === "messenger") && (
+              {(type === "whatsapp" || type === "messenger") && (
                 <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/30 p-3">
                   <div>
                     <p className="text-sm font-medium">Nouveau message</p>
