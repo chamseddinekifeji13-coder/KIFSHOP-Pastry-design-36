@@ -175,6 +175,73 @@ export async function saveInventorySession(tenantId: string, counts: InventoryCo
   return session.id
 }
 
+export async function saveDraftInventory(
+  tenantId: string,
+  sessionId: string | null,
+  counts: InventoryCountItem[]
+): Promise<string | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  let sid = sessionId
+
+  if (!sid) {
+    // Create a new draft session
+    const { data: session, error } = await supabase.from("inventory_sessions").insert({
+      tenant_id: tenantId, status: "brouillon",
+      items_count: counts.length, discrepancies: 0,
+      created_by: user.id, completed_at: null,
+    }).select("id").single()
+    if (error || !session) { console.error("Error creating draft session:", error?.message); return null }
+    sid = session.id
+  } else {
+    // Update existing session
+    await supabase.from("inventory_sessions").update({
+      items_count: counts.length, status: "brouillon",
+    }).eq("id", sid)
+  }
+
+  // Delete existing counts for this session and re-insert
+  await supabase.from("inventory_counts").delete().eq("session_id", sid)
+
+  if (counts.length > 0) {
+    const rows = counts.map(c => ({
+      session_id: sid!, item_type: c.type === "mp" ? "raw_material" : "finished_product",
+      raw_material_id: c.type === "mp" ? c.id : null,
+      finished_product_id: c.type === "pf" ? c.id : null,
+      item_name: c.name, theoretical_qty: c.theoreticalQty,
+      physical_qty: c.physicalQty, unit: c.unit,
+      discrepancy: c.physicalQty - c.theoreticalQty, note: c.note || null,
+    }))
+    await supabase.from("inventory_counts").insert(rows)
+  }
+
+  return sid
+}
+
+export async function loadDraftCounts(sessionId: string): Promise<{
+  counts: InventoryCountItem[]
+  notes: string | null
+}> {
+  const supabase = createClient()
+  const { data: session } = await supabase
+    .from("inventory_sessions").select("notes").eq("id", sessionId).single()
+  const { data, error } = await supabase
+    .from("inventory_counts").select("*").eq("session_id", sessionId)
+  if (error) { console.error("Error loading draft counts:", error.message); return { counts: [], notes: null } }
+  const counts = (data || []).map(c => ({
+    id: c.raw_material_id || c.finished_product_id || c.id,
+    name: c.item_name,
+    type: (c.item_type === "raw_material" ? "mp" : "pf") as "mp" | "pf",
+    theoreticalQty: Number(c.theoretical_qty),
+    physicalQty: Number(c.physical_qty),
+    unit: c.unit,
+    note: c.note || "",
+  }))
+  return { counts, notes: session?.notes || null }
+}
+
 export async function fetchInventoryCounts(sessionId: string) {
   const supabase = createClient()
   const { data, error } = await supabase.from("inventory_counts").select("*").eq("session_id", sessionId)
