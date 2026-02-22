@@ -22,8 +22,8 @@ const SUBJECTS = [
   { value: "other", label: "Autre" },
 ]
 
+// Contact form v4 - single column layout - 2026-02-22
 export function ContactSection() {
-  console.log("[v0] ContactSection rendered - v3 single column layout")
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
 
