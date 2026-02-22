@@ -19,37 +19,48 @@ export interface Employee {
 export async function updateOwnPin(data: {
   currentPin?: string
   newPin: string
-}): Promise<{ success: boolean }> {
-  const session = await getServerSession()
-  const admin = createAdminClient()
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const session = await getServerSession()
+    const admin = createAdminClient()
 
-  // Fetch the current profile to verify the old PIN
-  const { data: profile, error: fetchErr } = await admin
-    .from("tenant_users")
-    .select("id, pin")
-    .eq("id", session.activeProfileId)
-    .single()
+    // Fetch the current profile to verify the old PIN
+    const { data: profile, error: fetchErr } = await admin
+      .from("tenant_users")
+      .select("id, pin")
+      .eq("id", session.activeProfileId)
+      .single()
 
-  if (fetchErr || !profile) throw new Error("Profil introuvable")
+    if (fetchErr || !profile) {
+      return { success: false, error: "Profil introuvable" }
+    }
 
-  // If the user already has a PIN, verify the old one
-  if (profile.pin) {
-    if (!data.currentPin) throw new Error("Le PIN actuel est requis")
-    if (data.currentPin !== profile.pin) throw new Error("PIN actuel incorrect")
+    // If the user already has a PIN, verify the old one
+    if (profile.pin) {
+      if (!data.currentPin) return { success: false, error: "Le PIN actuel est requis" }
+      if (data.currentPin !== profile.pin) return { success: false, error: "PIN actuel incorrect" }
+    }
+
+    // Validate new PIN format (4 digits)
+    if (!/^\d{4}$/.test(data.newPin)) {
+      return { success: false, error: "Le nouveau PIN doit contenir exactement 4 chiffres" }
+    }
+
+    // Update the PIN
+    const { error: updateErr } = await admin
+      .from("tenant_users")
+      .update({ pin: data.newPin })
+      .eq("id", session.activeProfileId)
+
+    if (updateErr) {
+      return { success: false, error: "Erreur lors de la sauvegarde du PIN" }
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error("updateOwnPin error:", err)
+    return { success: false, error: "Erreur serveur lors de la modification du PIN" }
   }
-
-  // Validate new PIN format (4 digits)
-  if (!/^\d{4}$/.test(data.newPin)) throw new Error("Le nouveau PIN doit contenir exactement 4 chiffres")
-
-  // Update the PIN
-  const { error: updateErr } = await admin
-    .from("tenant_users")
-    .update({ pin: data.newPin })
-    .eq("id", session.activeProfileId)
-
-  if (updateErr) throw new Error(updateErr.message)
-
-  return { success: true }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────

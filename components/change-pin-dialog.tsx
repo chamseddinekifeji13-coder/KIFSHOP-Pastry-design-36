@@ -75,17 +75,24 @@ export function ChangePinDialog({ open, onOpenChange, force = false }: ChangePin
 
     setSaving(true)
     try {
-      await updateOwnPin({
+      const result = await updateOwnPin({
         currentPin: !force && hasExistingPin ? currentPin : undefined,
         newPin,
       })
+
+      if (!result.success) {
+        setError(result.error || "Erreur lors de la modification du PIN")
+        return
+      }
+
       // Update local state so the UI reflects the change
       updateUser(currentUser.id, { pin: newPin })
       toast.success("Code PIN modifie avec succes")
-      handleClose(false)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur lors de la modification"
-      setError(msg)
+      resetForm()
+      // Close directly — bypass handleClose guard since we know PIN was just set
+      onOpenChange(false)
+    } catch {
+      setError("Erreur de connexion au serveur")
     } finally {
       setSaving(false)
     }

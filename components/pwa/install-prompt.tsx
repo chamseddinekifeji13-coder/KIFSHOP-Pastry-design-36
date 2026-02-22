@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Download, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -9,47 +9,90 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>
 }
 
+// Keep the deferred prompt outside React state so it survives re-renders
+// and route changes. The browser fires `beforeinstallprompt` only once per
+// page load; if the component re-mounts we'd lose it otherwise.
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null
+
+const DISMISS_KEY = "kifshop-install-dismissed"
+const DISMISS_DURATION_MS = 3 * 24 * 60 * 60 * 1000 // re-ask after 3 days
+
+function isDismissed(): boolean {
+  try {
+    const raw = localStorage.getItem(DISMISS_KEY)
+    if (!raw) return false
+    const ts = Number(raw)
+    if (Number.isNaN(ts)) return false
+    return Date.now() - ts < DISMISS_DURATION_MS
+  } catch {
+    return false
+  }
+}
+
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [show, setShow] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
+  const [hasPrompt, setHasPrompt] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Show banner after a short delay (5s instead of 30s)
+  const scheduleShow = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setShow(true), 5000)
+  }, [])
 
   useEffect(() => {
-    // Don't show if user already dismissed or app is installed
     if (typeof window === "undefined") return
-    const alreadyDismissed = localStorage.getItem("kifshop-install-dismissed")
-    if (alreadyDismissed) return
-    // Check if already installed (standalone mode)
+
+    // Already installed
     if (window.matchMedia("(display-mode: standalone)").matches) return
+
+    // If the global prompt was captured before mount (e.g. route change)
+    if (globalDeferredPrompt && !isDismissed()) {
+      setHasPrompt(true)
+      scheduleShow()
+    }
 
     const handler = (e: Event) => {
       e.preventDefault()
-      setDeferredPrompt(e as BeforeInstallPromptEvent)
-      // Show prompt after 30s of usage
-      setTimeout(() => setShow(true), 30000)
+      globalDeferredPrompt = e as BeforeInstallPromptEvent
+      setHasPrompt(true)
+      if (!isDismissed()) {
+        scheduleShow()
+      }
     }
 
     window.addEventListener("beforeinstallprompt", handler)
-    return () => window.removeEventListener("beforeinstallprompt", handler)
-  }, [])
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler)
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [scheduleShow])
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return
-    await deferredPrompt.prompt()
-    const { outcome } = await deferredPrompt.userChoice
-    if (outcome === "accepted") {
-      setShow(false)
+    if (!globalDeferredPrompt) return
+    try {
+      await globalDeferredPrompt.prompt()
+      const { outcome } = await globalDeferredPrompt.userChoice
+      if (outcome === "accepted") {
+        setShow(false)
+      }
+    } catch {
+      // prompt() can throw if called twice
     }
-    setDeferredPrompt(null)
+    globalDeferredPrompt = null
+    setHasPrompt(false)
   }
 
   const handleDismiss = () => {
     setShow(false)
-    setDismissed(true)
-    localStorage.setItem("kifshop-install-dismissed", Date.now().toString())
+    try {
+      localStorage.setItem(DISMISS_KEY, Date.now().toString())
+    } catch {
+      // storage full — ignore
+    }
   }
 
-  if (!show || dismissed || !deferredPrompt) return null
+  if (!show || !hasPrompt) return null
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm animate-in slide-in-from-bottom-4 duration-500">
