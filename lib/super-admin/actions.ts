@@ -482,6 +482,43 @@ export async function suspendTenantSubscription(tenantId: string) {
   return { success: true }
 }
 
+export async function reactivateTenantSubscription(tenantId: string) {
+  const { supabase } = await requireSuperAdmin()
+
+  // Get the latest subscription to determine what status to restore
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("id, plan_id, status, current_period_end")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single()
+
+  // Determine the restored status: if there was a plan, restore to "active", otherwise "trial"
+  const hasPlan = sub?.plan_id != null
+  const restoredStatus = hasPlan ? "active" : "trial"
+
+  // Update subscription record
+  if (sub) {
+    await supabase
+      .from("subscriptions")
+      .update({ status: restoredStatus, updated_at: new Date().toISOString() })
+      .eq("id", sub.id)
+  }
+
+  // Update tenant
+  await supabase
+    .from("tenants")
+    .update({
+      subscription_status: restoredStatus,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", tenantId)
+
+  return { success: true }
+}
+
 export async function recordPayment(data: {
   tenantId: string
   subscriptionId: string | null
