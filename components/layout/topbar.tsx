@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, Lock, Users, KeyRound } from "lucide-react"
+import { ChevronDown, Lock, Users, KeyRound, Globe } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -27,6 +27,7 @@ import {
   type UserRole,
   type AppUser,
 } from "@/lib/tenant-context"
+import { useI18n } from "@/lib/i18n/context"
 
 const roleGroups: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier"]
 
@@ -44,6 +45,7 @@ export function Topbar() {
   } = useTenant()
   const router = useRouter()
   const pathname = usePathname()
+  const { locale, setLocale, t } = useI18n()
 
   // PIN dialog state
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
@@ -70,7 +72,7 @@ export function Topbar() {
 
   function completeUserSwitch(user: AppUser) {
     setCurrentUser(user)
-    toast.success(`Connecte en tant que ${user.name}`)
+    toast.success(`${t("topbar.connected_as")} ${user.name}`)
     // If current page is not accessible for the new user, redirect
     if (!canAccessRoute(user.role, pathname)) {
       router.push(getDefaultRoute(user.role))
@@ -99,7 +101,7 @@ export function Topbar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>Changer de boutique</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("topbar.switch_shop")}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {tenants.map((tenant) => (
               <DropdownMenuItem
@@ -116,7 +118,7 @@ export function Topbar() {
                 <span>{tenant.name}</span>
                 {currentTenant.id === tenant.id && (
                   <Badge variant="secondary" className="ml-auto text-[10px]">
-                    Actif
+                    {t("topbar.active")}
                   </Badge>
                 )}
               </DropdownMenuItem>
@@ -139,7 +141,7 @@ export function Topbar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Changer d{"'"}utilisateur</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("topbar.switch_user")}</DropdownMenuLabel>
             {roleGroups.map((role) => {
               const usersInRole = users.filter((u) => u.role === role)
               if (usersInRole.length === 0) return null
@@ -161,7 +163,7 @@ export function Topbar() {
                       <span>{user.name}</span>
                       {currentUser.id === user.id && (
                         <Badge variant="secondary" className="ml-auto text-[10px]">
-                          Actif
+                          {t("topbar.active")}
                         </Badge>
                       )}
                     </DropdownMenuItem>
@@ -171,6 +173,20 @@ export function Topbar() {
             })}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Language Switcher */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setLocale(locale === "fr" ? "ar" : "fr")}
+          className="relative h-8 w-8"
+          title={t("topbar.language")}
+        >
+          <Globe className="h-4 w-4" />
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+            {locale === "fr" ? "ع" : "Fr"}
+          </span>
+        </Button>
 
         {/* Notifications */}
         <NotificationBell />
@@ -205,7 +221,7 @@ export function Topbar() {
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-normal sm:hidden">
-                  Changer d{"'"}utilisateur
+                  {t("topbar.switch_user")}
                 </DropdownMenuLabel>
                 {users.filter(u => u.id !== currentUser.id).slice(0, 5).map((user) => (
                   <DropdownMenuItem
@@ -225,22 +241,22 @@ export function Topbar() {
               </>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push("/parametres")}>Mon profil</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/parametres")}>{t("topbar.my_profile")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => setChangePinOpen(true)}>
               <KeyRound className="mr-2 h-4 w-4" />
-              {currentUser.pin ? "Modifier mon PIN" : "Definir un PIN"}
+              {currentUser.pin ? t("topbar.change_pin") : t("topbar.set_pin")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push("/parametres")}>Parametres</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/parametres")}>{t("settings.title")}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => {
               sessionStorage.removeItem("kifshop_unlocked")
               window.location.reload()
             }}>
               <Lock className="mr-2 h-4 w-4" />
-              Verrouiller
+              {t("topbar.lock")}
             </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive" onClick={() => signOut()}>
-              Deconnexion
+              {t("topbar.logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

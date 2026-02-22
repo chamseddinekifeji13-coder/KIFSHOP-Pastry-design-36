@@ -16,6 +16,7 @@ import { RecipeDrawer } from "./recipe-drawer"
 import { RecipeCostPanel } from "./recipe-cost-panel"
 import { toast } from "sonner"
 import { consumeRecipeIngredients, type Recipe } from "@/lib/production/actions"
+import { useI18n } from "@/lib/i18n/context"
 
 // Error boundary to catch planner crashes
 class PlannerErrorBoundary extends React.Component<
@@ -52,6 +53,7 @@ const ProductionPlanner = React.lazy(() =>
 )
 
 export function ProductionView() {
+  const { t } = useI18n()
   const { authUser } = useTenant()
   const { data: recipes, isLoading: recLoading, mutate: mutateRecipes } = useRecipes()
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRawMaterials } = useRawMaterials()
@@ -124,8 +126,8 @@ export function ProductionView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Production</h1>
-          <p className="text-muted-foreground">Gerez vos recettes, planifiez et lancez vos productions</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("production.title")}</h1>
+          <p className="text-muted-foreground">{t("production.subtitle")}</p>
         </div>
       </div>
 

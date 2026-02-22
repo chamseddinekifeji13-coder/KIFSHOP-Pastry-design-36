@@ -13,6 +13,7 @@ import { NewSupplierDrawer } from "./new-supplier-drawer"
 import { BestPricesView } from "./best-prices-view"
 import { PriceHistoryTable } from "./price-history-table"
 import { useCallback } from "react"
+import { useI18n } from "@/lib/i18n/context"
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   "en-attente": { label: "En attente", variant: "outline" },
@@ -28,6 +29,7 @@ function formatDate(date: string) {
 }
 
 export function ApprovisionnementView() {
+  const { t } = useI18n()
   const [selectedTab, setSelectedTab] = useState("orders")
   const [newOrderOpen, setNewOrderOpen] = useState(false)
   const [newSupplierOpen, setNewSupplierOpen] = useState(false)
@@ -54,19 +56,19 @@ export function ApprovisionnementView() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Approvisionnement</h1>
-          <p className="text-muted-foreground">Gerez vos fournisseurs et commandes d{"'"}achat</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("supply.title")}</h1>
+          <p className="text-muted-foreground">{t("supply.subtitle")}</p>
         </div>
         <Button onClick={() => setNewOrderOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
-          Nouvelle commande
+          {t("supply.new_order")}
         </Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Fournisseurs actifs</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("supply.active_suppliers")}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

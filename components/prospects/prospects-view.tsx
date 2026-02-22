@@ -13,6 +13,7 @@ import { updateProspectStatus, deleteProspect, type Prospect } from "@/lib/prosp
 import { toast } from "sonner"
 import { NewProspectDrawer } from "./new-prospect-drawer"
 import { ProspectDetailDrawer } from "./prospect-detail-drawer"
+import { useI18n } from "@/lib/i18n/context"
 
 const sourceIcons: Record<string, typeof MessageCircle> = {
   instagram: Instagram, tiktok: Globe, whatsapp: MessageCircle,
@@ -39,6 +40,7 @@ const statusColors: Record<string, string> = {
 }
 
 export function ProspectsView() {
+  const { t } = useI18n()
   const { currentTenant } = useTenant()
   const { data: prospects = [], isLoading, mutate } = useProspects()
   const [search, setSearch] = useState("")
@@ -88,8 +90,8 @@ export function ProspectsView() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Prospects</h1>
-          <p className="text-sm text-muted-foreground">Gerez vos contacts et leads des reseaux sociaux</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("prospects.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("prospects.subtitle")}</p>
         </div>
         <Button className="bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" onClick={() => setDrawerOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
