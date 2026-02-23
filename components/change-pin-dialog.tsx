@@ -78,6 +78,7 @@ export function ChangePinDialog({ open, onOpenChange, force = false }: ChangePin
       const result = await updateOwnPin({
         currentPin: !force && hasExistingPin ? currentPin : undefined,
         newPin,
+        isFirstTime: force || !hasExistingPin,
       })
 
       if (!result.success) {
