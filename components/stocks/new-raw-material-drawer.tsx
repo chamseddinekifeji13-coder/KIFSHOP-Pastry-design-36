@@ -125,7 +125,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Unite *</Label>
                 <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => (
                       <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
@@ -134,20 +134,20 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Fournisseur (optionnel)</Label>
+                <Label className="text-xs text-muted-foreground">Fournisseur</Label>
                 <Input placeholder="Ex: Moulin du Sud" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Code-barres (optionnel)</Label>
+                <Label className="text-xs text-muted-foreground">Code-barres</Label>
                 <BarcodeInput value={barcode} onChange={setBarcode} />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Emplacement</Label>
                 <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                  <SelectTrigger><SelectValue placeholder="Non assigne" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Non assigne" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Non assigne</SelectItem>
                     {activeLocations.map((loc) => (
@@ -172,11 +172,11 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
                 <Input type="number" min="0" step="0.1" placeholder="0" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Seuil minimum</Label>
+                <Label className="text-xs text-muted-foreground">Seuil min.</Label>
                 <Input type="number" min="0" step="0.1" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Prix/unite (TND) *</Label>
+                <Label className="text-xs text-muted-foreground">Prix/u (TND) *</Label>
                 <Input type="number" min="0" step="0.001" placeholder="0.000" value={pricePerUnit} onChange={(e) => setPricePerUnit(e.target.value)} />
               </div>
             </div>
