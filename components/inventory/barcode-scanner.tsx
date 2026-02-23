@@ -7,6 +7,14 @@ import { Input } from "@/components/ui/input"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 
+async function getBarcodeDetectorClass(): Promise<any> {
+  if ("BarcodeDetector" in window) {
+    return (window as any).BarcodeDetector
+  }
+  const { BarcodeDetector } = await import("barcode-detector/ponyfill")
+  return BarcodeDetector
+}
+
 interface BarcodeScanResult {
   id: string
   name: string
@@ -69,15 +77,10 @@ export function BarcodeScanner({ tenantId, onProductFound, onClose }: BarcodeSca
     }
   }, [tenantId, looking, onProductFound])
 
-  // Camera scanning using BarcodeDetector API
+  // Camera scanning using BarcodeDetector API (with ponyfill fallback)
   const startCameraScanning = useCallback(async () => {
     try {
-      // Check if BarcodeDetector is available
-      if (!("BarcodeDetector" in window)) {
-        toast.info("Camera non supportee sur ce navigateur. Utilisez la saisie manuelle.")
-        setMode("manual")
-        return
-      }
+      const DetectorClass = await getBarcodeDetectorClass()
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -89,7 +92,7 @@ export function BarcodeScanner({ tenantId, onProductFound, onClose }: BarcodeSca
         await videoRef.current.play()
       }
 
-      detectorRef.current = new (window as any).BarcodeDetector({
+      detectorRef.current = new DetectorClass({
         formats: ["qr_code", "ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e"],
       })
 

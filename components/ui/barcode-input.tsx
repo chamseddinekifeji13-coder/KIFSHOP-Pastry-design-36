@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 
+async function getBarcodeDetectorClass(): Promise<any> {
+  // Use native BarcodeDetector if available (Chromium browsers)
+  if ("BarcodeDetector" in window) {
+    return (window as any).BarcodeDetector
+  }
+  // Fall back to the ponyfill (Safari, Firefox, etc.)
+  const { BarcodeDetector } = await import("barcode-detector/ponyfill")
+  return BarcodeDetector
+}
+
 interface BarcodeInputProps {
   value: string
   onChange: (value: string) => void
@@ -35,14 +45,11 @@ export function BarcodeInput({ value, onChange, placeholder = "Ex: 6191234567890
   }, [])
 
   const startScanning = useCallback(async () => {
-    if (!("BarcodeDetector" in window)) {
-      toast.info("Le scan camera n'est pas supporte sur ce navigateur.")
-      return
-    }
-
     setInitializing(true)
 
     try {
+      const DetectorClass = await getBarcodeDetectorClass()
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
       })
@@ -57,7 +64,7 @@ export function BarcodeInput({ value, onChange, placeholder = "Ex: 6191234567890
         await videoRef.current.play()
       }
 
-      detectorRef.current = new (window as any).BarcodeDetector({
+      detectorRef.current = new DetectorClass({
         formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"],
       })
 
@@ -89,10 +96,11 @@ export function BarcodeInput({ value, onChange, placeholder = "Ex: 6191234567890
       animFrameRef.current = requestAnimationFrame(detect)
     } catch (err: any) {
       setInitializing(false)
+      stopCamera()
       if (err.name === "NotAllowedError") {
         toast.error("Acces camera refuse. Veuillez autoriser la camera dans les parametres.")
       } else {
-        toast.info("Camera non disponible.")
+        toast.info("Camera non disponible. Entrez le code manuellement.")
       }
     }
   }, [onChange, stopCamera])
