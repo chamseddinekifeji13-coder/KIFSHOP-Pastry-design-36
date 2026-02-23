@@ -19,6 +19,8 @@ export interface Employee {
 export async function updateOwnPin(data: {
   currentPin?: string
   newPin: string
+  /** When true, skip current PIN verification (first-time setup) */
+  isFirstTime?: boolean
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const session = await getServerSession()
@@ -35,8 +37,8 @@ export async function updateOwnPin(data: {
       return { success: false, error: "Profil introuvable" }
     }
 
-    // If the user already has a PIN, verify the old one
-    if (profile.pin) {
+    // If user already has a PIN AND this is not a first-time setup, verify old PIN
+    if (profile.pin && !data.isFirstTime) {
       if (!data.currentPin) return { success: false, error: "Le PIN actuel est requis" }
       if (data.currentPin !== profile.pin) return { success: false, error: "PIN actuel incorrect" }
     }
