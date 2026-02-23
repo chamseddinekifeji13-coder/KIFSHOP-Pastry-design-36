@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,50 @@ export function SettingsView() {
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [usersOpen, setUsersOpen] = useState(false)
+
+  // Update check
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date">("idle")
+
+  const handleCheckUpdate = useCallback(async () => {
+    if (!("serviceWorker" in navigator)) {
+      toast.error("Les mises a jour automatiques ne sont pas supportees sur ce navigateur")
+      return
+    }
+    setUpdateStatus("checking")
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (!reg) {
+        toast.info("Aucun service worker enregistre")
+        setUpdateStatus("idle")
+        return
+      }
+      await reg.update()
+      // Wait briefly for the update to be detected
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      if (reg.waiting) {
+        setUpdateStatus("updating")
+        toast("Nouvelle version detectee ! Mise a jour en cours...", { duration: 3000 })
+        reg.waiting.postMessage({ type: "SKIP_WAITING" })
+        // The controllerchange listener in ServiceWorkerRegister will reload
+      } else if (reg.installing) {
+        setUpdateStatus("updating")
+        toast("Mise a jour en cours d'installation...", { duration: 3000 })
+        reg.installing.addEventListener("statechange", function handler() {
+          if (reg.installing?.state === "installed" || reg.waiting) {
+            reg.waiting?.postMessage({ type: "SKIP_WAITING" })
+          }
+        })
+      } else {
+        setUpdateStatus("up-to-date")
+        toast.success("Vous etes deja sur la derniere version !")
+        setTimeout(() => setUpdateStatus("idle"), 4000)
+      }
+    } catch {
+      toast.error("Erreur lors de la verification des mises a jour")
+      setUpdateStatus("idle")
+    }
+  }, [])
 
   // Invoice settings
   const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettings | null>(null)
@@ -455,6 +499,70 @@ export function SettingsView() {
               {locale === "ar"
                 ? "سيتم تطبيق التغيير على الفور. يمكنك التبديل في أي وقت."
                 : "Le changement sera applique immediatement. Vous pouvez basculer a tout moment."}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* App Update */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary" />
+              <CardTitle className="text-base">Mises a jour</CardTitle>
+            </div>
+            <CardDescription>Verifiez et installez les dernieres mises a jour</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Version actuelle</span>
+                <Badge variant="secondary" className="font-mono text-xs">v1.0.0</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Type</span>
+                <span className="text-sm font-medium">Progressive Web App</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Cache</span>
+                <span className="text-sm font-medium">v5</span>
+              </div>
+            </div>
+
+            <Button
+              onClick={handleCheckUpdate}
+              disabled={updateStatus === "checking" || updateStatus === "updating"}
+              className="w-full gap-2"
+              variant={updateStatus === "up-to-date" ? "outline" : "default"}
+            >
+              {updateStatus === "checking" && (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Verification en cours...
+                </>
+              )}
+              {updateStatus === "updating" && (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Mise a jour en cours...
+                </>
+              )}
+              {updateStatus === "up-to-date" && (
+                <>
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  Vous etes a jour !
+                </>
+              )}
+              {updateStatus === "idle" && (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Verifier les mises a jour
+                </>
+              )}
+            </Button>
+
+            <p className="text-xs text-muted-foreground text-center">
+              L{"'"}application verifie automatiquement les mises a jour toutes les 60 secondes.
+              Utilisez ce bouton pour forcer une verification immediate.
             </p>
           </CardContent>
         </Card>
