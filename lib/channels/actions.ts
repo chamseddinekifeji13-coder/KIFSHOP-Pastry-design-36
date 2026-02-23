@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 export interface SalesChannelRow {
   id: string
   tenant_id: string
-  channel_type: string
+  type: string
   enabled: boolean
   contact: string
   auto_reply: string
@@ -55,7 +55,7 @@ export async function fetchSalesChannels(tenantId: string): Promise<SalesChannel
   }
 
   const rows: SalesChannelRow[] = data || []
-  const rowMap = new Map(rows.map(r => [r.channel_type, r]))
+  const rowMap = new Map(rows.map(r => [r.type, r]))
 
   // Return all 6 channels, merging DB data with defaults
   return CHANNEL_DEFINITIONS.map(def => {
@@ -63,7 +63,7 @@ export async function fetchSalesChannels(tenantId: string): Promise<SalesChannel
     if (row) {
       return {
         id: row.id,
-        channelType: row.channel_type,
+        channelType: row.type,
         enabled: row.enabled,
         contact: row.contact,
         autoReply: row.auto_reply,
@@ -116,7 +116,7 @@ export async function upsertSalesChannel(
 
   const row = {
     tenant_id: tenantId,
-    channel_type: config.channelType,
+    type: config.channelType,
     enabled: config.enabled,
     contact: config.contact,
     auto_reply: config.autoReply,
@@ -130,7 +130,7 @@ export async function upsertSalesChannel(
 
   const { error } = await supabase
     .from("sales_channels")
-    .upsert(row, { onConflict: "tenant_id,channel_type" })
+    .upsert(row, { onConflict: "tenant_id,type" })
 
   if (error) throw new Error(error.message)
   return { success: true }
@@ -152,11 +152,11 @@ export async function toggleSalesChannel(
     .upsert(
       {
         tenant_id: tenantId,
-        channel_type: channelType,
+        type: channelType,
         enabled,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "tenant_id,channel_type" }
+      { onConflict: "tenant_id,type" }
     )
 
   if (error) throw new Error(error.message)
