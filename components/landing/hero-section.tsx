@@ -69,22 +69,26 @@ export function HeroSection() {
           <div className="relative hidden lg:block">
             <div className="relative">
               {/* Main large image */}
-              <div className="relative h-[400px] w-full overflow-hidden rounded-2xl shadow-2xl">
+              <div className="overflow-hidden rounded-2xl shadow-2xl">
                 <Image
                   src="/images/hero-pastry.jpg"
                   alt="Patisseries artisanales tunisiennes disposees sur un comptoir en marbre"
-                  fill
+                  width={600}
+                  height={400}
                   className="object-cover"
+                  style={{ width: "100%", height: "auto" }}
                   priority
                 />
               </div>
               {/* Small overlapping image */}
-              <div className="absolute -bottom-8 -left-8 h-[150px] w-[200px] overflow-hidden rounded-xl border-4 border-[#1a2e23] shadow-xl">
+              <div className="absolute -bottom-8 -left-8 overflow-hidden rounded-xl border-4 border-[#1a2e23] shadow-xl">
                 <Image
                   src="/images/pastry-ingredients.jpg"
                   alt="Ingredients de patisserie frais et organises"
-                  fill
+                  width={200}
+                  height={150}
                   className="object-cover"
+                  style={{ width: "200px", height: "150px" }}
                 />
               </div>
               {/* Decorative accent */}
