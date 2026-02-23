@@ -7,13 +7,12 @@ export function ShowcaseSection() {
       <div className="mx-auto max-w-6xl px-6">
         {/* Row 1: Image left, text right */}
         <div className="grid items-center gap-12 lg:grid-cols-2">
-          <div className="overflow-hidden rounded-2xl shadow-lg">
+          <div className="relative h-[350px] overflow-hidden rounded-2xl shadow-lg lg:h-[420px]">
             <Image
               src="/images/pastry-showcase.jpg"
               alt="Patissier decorant un gateau dans un laboratoire professionnel"
-              width={600}
-              height={450}
-              className="h-[350px] w-full object-cover lg:h-[420px]"
+              fill
+              className="object-cover"
             />
           </div>
           <div className="flex flex-col gap-5">
@@ -72,13 +71,12 @@ export function ShowcaseSection() {
               ))}
             </ul>
           </div>
-          <div className="overflow-hidden rounded-2xl shadow-lg lg:order-2">
+          <div className="relative h-[350px] overflow-hidden rounded-2xl shadow-lg lg:order-2 lg:h-[420px]">
             <Image
               src="/images/pastry-display.jpg"
               alt="Vitrine de patisserie avec assortiment de gateaux et viennoiseries"
-              width={600}
-              height={450}
-              className="h-[350px] w-full object-cover lg:h-[420px]"
+              fill
+              className="object-cover"
             />
           </div>
         </div>
