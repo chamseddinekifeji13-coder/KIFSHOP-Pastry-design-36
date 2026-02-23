@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createRawMaterial } from "@/lib/stocks/actions"
 import { useStorageLocations } from "@/hooks/use-tenant-data"
+import { BarcodeInput } from "@/components/ui/barcode-input"
 
 const UNITS = [
   { value: "kg", label: "Kilogrammes (kg)" },
@@ -141,7 +142,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Code-barres (optionnel)</Label>
-                <Input placeholder="Ex: 6191234567890" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+                <BarcodeInput value={barcode} onChange={setBarcode} />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Emplacement</Label>
