@@ -104,7 +104,7 @@ export function InstallPrompt() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Installer KIFSHOP</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              {"Accedez a KIFSHOP depuis votre ecran d'accueil, meme hors connexion."}
+              {"Acc\u00e9dez \u00e0 KIFSHOP depuis votre \u00e9cran d\u2019accueil, m\u00eame hors connexion."}
             </p>
             <div className="flex gap-2 mt-3">
               <Button size="sm" className="h-8 bg-[#4A7C59] hover:bg-[#3D6B4A] text-xs" onClick={handleInstall}>
