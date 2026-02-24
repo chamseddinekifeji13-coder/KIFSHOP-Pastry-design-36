@@ -224,7 +224,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           setActiveTenantId(tenantData.id)
         }
 
-        // Build AppUser from Supabase data
+        // Build AppUser from Supabase data (the auth user = owner)
         const displayName = tenantUser.display_name || user.user_metadata?.display_name || user.email?.split("@")[0] || "Utilisateur"
         const appUser: AppUser = {
           id: user.id,
@@ -233,7 +233,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           initials: getInitials(displayName),
           email: user.email,
         }
-        setCurrentUser(appUser)
+        // Don't set currentUser here yet — we need to check the active profile cookie first
+        // to avoid overwriting an employee's session with the owner profile
 
         // Load all team members for this tenant BEFORE setting isLoading to false
         const { data: teamMembers } = await supabase
@@ -255,14 +256,49 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             }
           })
           setUsers(allUsers)
-          // Set currentUser to the matching owner profile
-          const ownerProfile = allUsers.find((u) => u.role === "owner")
-          if (ownerProfile && appUser.role === "owner") {
-            setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+
+          // Check if there's an active profile cookie (set by PIN verification)
+          // This restores the correct employee profile after page reload
+          try {
+            const sessionRes = await fetch("/api/session")
+            if (sessionRes.ok) {
+              const sessionData = await sessionRes.json()
+              if (sessionData.activeProfileId) {
+                const activeUser = allUsers.find((u) => u.id === sessionData.activeProfileId)
+                if (activeUser) {
+                  setCurrentUser(activeUser)
+                } else {
+                  // Active profile not found in team, fall back to owner
+                  const ownerProfile = allUsers.find((u) => u.role === "owner")
+                  if (ownerProfile && appUser.role === "owner") {
+                    setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+                  }
+                }
+              } else {
+                // No active profile cookie, set to owner
+                const ownerProfile = allUsers.find((u) => u.role === "owner")
+                if (ownerProfile && appUser.role === "owner") {
+                  setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+                }
+              }
+            } else {
+              // Session API failed, fall back to owner
+              const ownerProfile = allUsers.find((u) => u.role === "owner")
+              if (ownerProfile && appUser.role === "owner") {
+                setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+              }
+            }
+          } catch {
+            // Network error, fall back to owner
+            const ownerProfile = allUsers.find((u) => u.role === "owner")
+            if (ownerProfile && appUser.role === "owner") {
+              setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+            }
           }
         } else {
           // No team members found, use only the owner
           setUsers([appUser])
+          setCurrentUser(appUser)
         }
       } catch (error) {
         console.error("Error loading user data:", error)
