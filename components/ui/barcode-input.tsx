@@ -16,86 +16,93 @@ interface BarcodeInputProps {
 export function BarcodeInput({ value, onChange, placeholder = "Ex: 6191234567890", className }: BarcodeInputProps) {
   const [scanning, setScanning] = useState(false)
   const [initializing, setInitializing] = useState(false)
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const detectorRef = useRef<any>(null)
-  const animFrameRef = useRef<number | null>(null)
+  const [cameraSupported, setCameraSupported] = useState(false)
+  const scannerRef = useRef<any>(null)
+  const containerId = useRef(`barcode-reader-${Math.random().toString(36).slice(2, 9)}`).current
 
-  const stopCamera = useCallback(() => {
-    if (animFrameRef.current) {
-      cancelAnimationFrame(animFrameRef.current)
-      animFrameRef.current = null
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
+  // Check if camera is available (works on all browsers)
+  useEffect(() => {
+    setCameraSupported(
+      typeof window !== "undefined" &&
+      "mediaDevices" in navigator &&
+      !!navigator.mediaDevices?.getUserMedia
+    )
+  }, [])
+
+  const stopCamera = useCallback(async () => {
+    try {
+      if (scannerRef.current) {
+        const state = scannerRef.current.getState()
+        // state 2 = scanning, state 3 = paused
+        if (state === 2 || state === 3) {
+          await scannerRef.current.stop()
+        }
+        scannerRef.current.clear()
+        scannerRef.current = null
+      }
+    } catch {
+      // ignore cleanup errors
     }
     setScanning(false)
     setInitializing(false)
   }, [])
 
   const startScanning = useCallback(async () => {
-    if (!("BarcodeDetector" in window)) {
-      toast.info("Le scan camera n'est pas supporte sur ce navigateur.")
+    if (!cameraSupported) {
+      toast.info("La camera n'est pas disponible sur ce navigateur.")
       return
     }
 
     setInitializing(true)
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-      })
+      // Dynamic import to avoid SSR issues
+      const { Html5Qrcode } = await import("html5-qrcode")
 
-      streamRef.current = stream
-
-      // Wait a tick for the video element to mount
-      await new Promise((r) => setTimeout(r, 100))
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
+      // Clean up any previous scanner
+      if (scannerRef.current) {
+        try {
+          await scannerRef.current.stop()
+          scannerRef.current.clear()
+        } catch {
+          // ignore
+        }
       }
 
-      detectorRef.current = new (window as any).BarcodeDetector({
-        formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"],
-      })
+      const scanner = new Html5Qrcode(containerId)
+      scannerRef.current = scanner
+
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 100 },
+          aspectRatio: 1.777,
+        },
+        (decodedText: string) => {
+          // Successfully scanned
+          onChange(decodedText)
+          toast.success(`Code detecte : ${decodedText}`)
+          stopCamera()
+        },
+        () => {
+          // Scan frame - no match yet, keep trying
+        }
+      )
 
       setScanning(true)
       setInitializing(false)
-
-      const detect = async () => {
-        if (!videoRef.current || !detectorRef.current || videoRef.current.readyState !== 4) {
-          animFrameRef.current = requestAnimationFrame(detect)
-          return
-        }
-
-        try {
-          const barcodes = await detectorRef.current.detect(videoRef.current)
-          if (barcodes.length > 0) {
-            const code = barcodes[0].rawValue
-            onChange(code)
-            toast.success(`Code-barres detecte : ${code}`)
-            stopCamera()
-            return
-          }
-        } catch {
-          // detection failed, keep trying
-        }
-
-        animFrameRef.current = requestAnimationFrame(detect)
-      }
-
-      animFrameRef.current = requestAnimationFrame(detect)
     } catch (err: any) {
       setInitializing(false)
-      if (err.name === "NotAllowedError") {
-        toast.error("Acces camera refuse. Veuillez autoriser la camera dans les parametres.")
+      setScanning(false)
+      if (err?.message?.includes("NotAllowedError") || err?.name === "NotAllowedError") {
+        toast.error("Acces camera refuse. Autorisez la camera dans les parametres.")
       } else {
-        toast.info("Camera non disponible.")
+        toast.error("Impossible de demarrer la camera.")
+        console.log("[v0] Barcode scanner error:", err)
       }
     }
-  }, [onChange, stopCamera])
+  }, [cameraSupported, containerId, onChange, stopCamera])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -111,61 +118,50 @@ export function BarcodeInput({ value, onChange, placeholder = "Ex: 6191234567890
           onChange={(e) => onChange(e.target.value)}
           className={className}
         />
-        <Button
-          type="button"
-          variant={scanning ? "destructive" : "outline"}
-          size="icon"
-          className="shrink-0"
-          onClick={() => {
-            if (scanning || initializing) {
-              stopCamera()
-            } else {
-              startScanning()
-            }
-          }}
-          title={scanning ? "Arreter le scan" : "Scanner avec la camera"}
-        >
-          {initializing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : scanning ? (
-            <X className="h-4 w-4" />
-          ) : (
-            <Camera className="h-4 w-4" />
-          )}
-        </Button>
+        {cameraSupported && (
+          <Button
+            type="button"
+            variant={scanning ? "destructive" : "outline"}
+            size="icon"
+            className="shrink-0"
+            onClick={() => {
+              if (scanning || initializing) {
+                stopCamera()
+              } else {
+                startScanning()
+              }
+            }}
+            title={scanning ? "Arreter le scan" : "Scanner avec la camera"}
+          >
+            {initializing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : scanning ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Camera className="h-4 w-4" />
+            )}
+          </Button>
+        )}
       </div>
 
-      {/* Camera preview */}
-      {(scanning || initializing) && (
-        <div className="relative rounded-lg overflow-hidden border bg-black aspect-video max-h-36">
-          <video
-            ref={videoRef}
-            className="w-full h-full object-cover"
-            playsInline
-            muted
-          />
-          {scanning && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-40 h-24 border-2 border-primary/70 rounded-lg relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary animate-pulse" />
-              </div>
-            </div>
-          )}
-          {initializing && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-              <div className="text-center">
-                <Loader2 className="h-5 w-5 animate-spin text-white mx-auto mb-1" />
-                <p className="text-[11px] text-white/70">Initialisation camera...</p>
-              </div>
-            </div>
-          )}
-          <div className="absolute bottom-1 left-1 right-1 flex justify-center">
-            <span className="text-[10px] text-white/60 bg-black/40 rounded px-2 py-0.5">
-              <ScanBarcode className="h-3 w-3 inline mr-1" />
-              Placez le code-barres dans le cadre
-            </span>
-          </div>
+      {/* Camera preview container - html5-qrcode renders into this div */}
+      <div
+        id={containerId}
+        className={scanning || initializing ? "rounded-lg overflow-hidden border" : "hidden"}
+      />
+
+      {initializing && (
+        <div className="flex items-center justify-center gap-2 py-4 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-xs">Initialisation de la camera...</span>
         </div>
+      )}
+
+      {scanning && (
+        <p className="flex items-center gap-1 text-[11px] text-muted-foreground justify-center">
+          <ScanBarcode className="h-3 w-3" />
+          Placez le code-barres dans le cadre
+        </p>
       )}
     </div>
   )

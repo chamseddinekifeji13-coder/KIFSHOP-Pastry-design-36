@@ -48,10 +48,10 @@ export async function updateOwnPin(data: {
       return { success: false, error: "Le nouveau PIN doit contenir exactement 4 chiffres" }
     }
 
-    // Update the PIN
+    // Update the PIN (trim to avoid whitespace issues)
     const { error: updateErr } = await admin
       .from("tenant_users")
-      .update({ pin: data.newPin })
+      .update({ pin: String(data.newPin).trim() })
       .eq("id", session.activeProfileId)
 
     if (updateErr) {
@@ -108,7 +108,7 @@ export async function addEmployee(data: {
       user_id: placeholderUserId,
       display_name: data.display_name,
       role: data.role,
-      pin: data.pin || null,
+      pin: data.pin ? String(data.pin).trim() : null,
     })
     .select()
     .single()
@@ -159,7 +159,7 @@ export async function addProfileToEmployee(data: {
       user_id: source.user_id,
       display_name: source.display_name,
       role: data.role,
-      pin: data.pin || null,
+      pin: data.pin ? String(data.pin).trim() : null,
     })
     .select()
     .single()

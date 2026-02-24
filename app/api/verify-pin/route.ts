@@ -59,36 +59,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Non authentifie" }, { status: 401 })
     }
 
-    // 2. Get the caller's tenant to verify they belong to the same tenant
-    const { data: callerTenant } = await supabase
-      .from("tenant_users")
-      .select("tenant_id")
-      .eq("user_id", user.id)
-      .limit(1)
-      .single()
-
-    if (!callerTenant) {
-      return NextResponse.json({ error: "Aucun tenant associe" }, { status: 403 })
-    }
-
-    // 3. Fetch the target employee from the same tenant
+    // 2. Fetch the target employee profile
     const { data: targetUser } = await supabase
       .from("tenant_users")
       .select("id, tenant_id, user_id, role, display_name, pin")
       .eq("id", tenantUserId)
-      .eq("tenant_id", callerTenant.tenant_id)
       .single()
 
     if (!targetUser) {
-      return NextResponse.json({ error: "Utilisateur non trouve dans ce tenant" }, { status: 404 })
+      return NextResponse.json({ error: "Utilisateur non trouve" }, { status: 404 })
+    }
+
+    // 3. Verify the authenticated user has access to this tenant
+    //    (either they are the target user themselves, or they belong to the same tenant)
+    const { data: callerProfiles } = await supabase
+      .from("tenant_users")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+
+    const callerTenantIds = (callerProfiles || []).map(p => p.tenant_id)
+
+    if (!callerTenantIds.includes(targetUser.tenant_id)) {
+      return NextResponse.json({ error: "Acces non autorise a ce tenant" }, { status: 403 })
     }
 
     // 4. Verify PIN if the user has one
     if (targetUser.pin) {
       if (!pin) {
+        console.log("[v0] PIN required but not provided for user:", targetUser.display_name)
         return NextResponse.json({ error: "PIN requis" }, { status: 400 })
       }
-      if (pin !== targetUser.pin) {
+      // Trim both PINs to avoid whitespace issues
+      const storedPin = String(targetUser.pin).trim()
+      const inputPin = String(pin).trim()
+      if (inputPin !== storedPin) {
         // ── Record failure ────────────────────────────────────
         rl.failures += 1
 
