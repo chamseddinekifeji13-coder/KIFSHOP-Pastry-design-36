@@ -1,23 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { WifiOff } from "lucide-react"
 
 export function OfflineIndicator() {
   const [isOffline, setIsOffline] = useState(false)
   const [show, setShow] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-
     const handleOffline = () => {
+      // Clear any pending "hide banner" timer so it doesn't fire while offline
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
       setIsOffline(true)
       setShow(true)
     }
     const handleOnline = () => {
       setIsOffline(false)
-      // Keep showing the "back online" message for 3s
-      setTimeout(() => setShow(false), 3000)
+      // Keep showing the "back online" message for 3s, then hide
+      timerRef.current = setTimeout(() => setShow(false), 3000)
     }
 
     // Check initial state
@@ -31,6 +35,9 @@ export function OfflineIndicator() {
     return () => {
       window.removeEventListener("offline", handleOffline)
       window.removeEventListener("online", handleOnline)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
     }
   }, [])
 
@@ -45,10 +52,10 @@ export function OfflineIndicator() {
       {isOffline ? (
         <>
           <WifiOff className="h-3.5 w-3.5" />
-          <span>{"Vous etes hors connexion -- Mode offline actif"}</span>
+          <span>{"Vous \u00eates hors connexion \u2014 Mode offline actif"}</span>
         </>
       ) : (
-        <span>{"Connexion retablie"}</span>
+        <span>{"Connexion r\u00e9tablie"}</span>
       )}
     </div>
   )

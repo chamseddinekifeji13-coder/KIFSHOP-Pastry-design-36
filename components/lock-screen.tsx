@@ -90,7 +90,23 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
       // Server verified -- reset and update client state
       setAttemptsLeft(null)
       setAlertTriggered(false)
-      setCurrentUser(user)
+
+      // Use the server-verified profile data to build the correct AppUser
+      // This ensures we set the exact profile the server authenticated
+      if (data.profile) {
+        const verifiedUser: AppUser = {
+          id: data.profile.dbId || user.id,
+          name: data.profile.name || user.name,
+          role: data.profile.role || user.role,
+          initials: user.initials,
+          email: user.email,
+          dbId: data.profile.dbId || user.dbId,
+          pin: user.pin,
+        }
+        setCurrentUser(verifiedUser)
+      } else {
+        setCurrentUser(user)
+      }
       return true
     } catch {
       setError("Erreur de connexion")

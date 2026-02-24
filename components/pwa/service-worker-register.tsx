@@ -10,8 +10,8 @@ export function ServiceWorkerRegister() {
     const waiting = reg.waiting
     if (!waiting) return
 
-    toast("Mise a jour en cours...", {
-      description: "KIFSHOP se met a jour automatiquement.",
+    toast("Mise \u00e0 jour en cours...", {
+      description: "KIFSHOP se met \u00e0 jour automatiquement.",
       duration: 3000,
     })
 
@@ -19,7 +19,9 @@ export function ServiceWorkerRegister() {
   }, [])
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return
+    if (!("serviceWorker" in navigator)) return
+
+    let intervalId: ReturnType<typeof setInterval> | null = null
 
     navigator.serviceWorker
       .register("/sw.js", { updateViaCache: "none" })
@@ -45,11 +47,9 @@ export function ServiceWorkerRegister() {
         })
 
         // Proactively check for SW updates every 60 seconds (important for mobile)
-        const interval = setInterval(() => {
+        intervalId = setInterval(() => {
           reg.update().catch(() => {})
         }, 60 * 1000)
-
-        return () => clearInterval(interval)
       })
       .catch((err) => {
         console.warn("[SW] Registration failed:", err)
@@ -57,11 +57,17 @@ export function ServiceWorkerRegister() {
 
     // Reload when the new SW takes over
     let refreshing = false
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const onControllerChange = () => {
       if (refreshing) return
       refreshing = true
       window.location.reload()
-    })
+    }
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange)
+
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange)
+    }
   }, [onUpdate])
 
   return null
