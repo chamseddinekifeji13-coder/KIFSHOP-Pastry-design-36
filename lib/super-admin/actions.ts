@@ -776,3 +776,77 @@ export async function setTenantTrialDays(tenantId: string, trialDays: number) {
 
   return { success: true }
 }
+
+// ─── Tenant Invites ──────────────────────────────────────────
+
+export interface TenantInviteInput {
+  name: string
+  email: string
+  city?: string
+  trial_days?: number
+}
+
+export interface TenantInviteResult {
+  id: string
+  token: string
+  tenant_name: string
+  email: string
+  city: string | null
+  trial_days: number
+  status: string
+  expires_at: string
+  created_at: string
+}
+
+export async function createTenantInvite(
+  input: TenantInviteInput
+): Promise<{ data: TenantInviteResult | null; error: string | null }> {
+  const { supabase } = await requireSuperAdmin()
+
+  const { data, error } = await supabase.rpc("create_tenant_invite", {
+    p_name: input.name,
+    p_email: input.email,
+    p_city: input.city || null,
+    p_trial_days: input.trial_days ?? 14,
+  })
+
+  if (error) {
+    console.error("create_tenant_invite error:", error)
+    return { data: null, error: error.message }
+  }
+
+  return { data: data as TenantInviteResult, error: null }
+}
+
+export async function listTenantInvites() {
+  const { supabase } = await requireSuperAdmin()
+
+  const { data, error } = await supabase
+    .from("tenant_invites")
+    .select("*")
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("listTenantInvites error:", error)
+    return []
+  }
+
+  return data as TenantInviteResult[]
+}
+
+export async function revokeTenantInvite(inviteId: string) {
+  const { supabase } = await requireSuperAdmin()
+
+  const { error } = await supabase
+    .from("tenant_invites")
+    .update({ status: "revoked" })
+    .eq("id", inviteId)
+    .eq("status", "pending")
+
+  if (error) {
+    console.error("revokeTenantInvite error:", error)
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, error: null }
+}
