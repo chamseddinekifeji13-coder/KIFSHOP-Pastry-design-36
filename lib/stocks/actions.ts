@@ -914,6 +914,105 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
   return { headers, data }
 }
 
+export async function getPrintableStocksReport(tenantId: string): Promise<{
+  title: string
+  subtitle: string
+  headers: string[]
+  data: any[][]
+  totals: Record<string, string | number>
+}> {
+  const [rawMaterials, finishedProducts, packaging] = await Promise.all([
+    fetchRawMaterials(tenantId),
+    fetchFinishedProducts(tenantId),
+    fetchPackaging(tenantId),
+  ])
+
+  const headers = [
+    "Type",
+    "Nom",
+    "Stock Actuel",
+    "Unité",
+    "Stock Minimum",
+    "Prix Unitaire",
+    "Valeur Stock",
+    "Statut",
+  ]
+
+  const data: any[][] = []
+  let totalValue = 0
+  let lowStockCount = 0
+
+  // Add raw materials
+  rawMaterials.forEach((rm) => {
+    const value = rm.currentStock * rm.pricePerUnit
+    totalValue += value
+    const isLowStock = rm.currentStock <= rm.minStock
+    if (isLowStock) lowStockCount++
+
+    data.push([
+      "Matière Première",
+      rm.name,
+      rm.currentStock,
+      rm.unit,
+      rm.minStock,
+      `${rm.pricePerUnit.toFixed(2)} DZD`,
+      `${value.toFixed(2)} DZD`,
+      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+    ])
+  })
+
+  // Add finished products
+  finishedProducts.forEach((fp) => {
+    const value = fp.currentStock * fp.sellingPrice
+    totalValue += value
+    const isLowStock = fp.currentStock <= fp.minStock
+    if (isLowStock) lowStockCount++
+
+    data.push([
+      "Produit Fini",
+      fp.name,
+      fp.currentStock,
+      fp.unit,
+      fp.minStock,
+      `${fp.sellingPrice.toFixed(2)} DZD`,
+      `${value.toFixed(2)} DZD`,
+      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+    ])
+  })
+
+  // Add packaging
+  packaging.forEach((pkg) => {
+    const value = pkg.currentStock * pkg.pricePerUnit
+    totalValue += value
+    const isLowStock = pkg.currentStock <= pkg.minStock
+    if (isLowStock) lowStockCount++
+
+    data.push([
+      "Emballage",
+      pkg.name,
+      pkg.currentStock,
+      pkg.unit,
+      pkg.minStock,
+      `${pkg.pricePerUnit.toFixed(2)} DZD`,
+      `${value.toFixed(2)} DZD`,
+      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+    ])
+  })
+
+  return {
+    title: "Rapport d'Inventaire des Stocks",
+    subtitle: `Généré le ${new Date().toLocaleDateString("fr-FR")}`,
+    headers,
+    data,
+    totals: {
+      "Total d'Articles": rawMaterials.length + finishedProducts.length + packaging.length,
+      "Valeur Totale du Stock": `${totalValue.toFixed(2)} DZD`,
+      "Articles en Rupture": lowStockCount,
+      "Articles OK": data.length - lowStockCount,
+    },
+  }
+}
+
 // ─── Stock Movements ──────────────────────────────────────────
 
 export async function fetchStockMovements(tenantId: string, limit = 50): Promise<StockMovement[]> {
