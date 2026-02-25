@@ -246,7 +246,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   }
 }
 
-// ─── Update Order Status ────────────────────────────────────���─
+// ─── Update Order Status ────────────────────────────────────�����─
 
 export async function updateOrderStatus(
   orderId: string,
@@ -675,7 +675,4 @@ function translateSource(source: string): string {
     comptoir: "Comptoir",
   }
   return map[source] || source
-}
-
-  return true
 }
