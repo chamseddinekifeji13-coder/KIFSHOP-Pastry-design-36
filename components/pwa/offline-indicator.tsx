@@ -16,12 +16,12 @@ export function OfflineIndicator() {
     isVerifyingRef.current = true
 
     try {
-      // Use a HEAD request to a lightweight endpoint (no data transfer)
+      // Use a GET request with a cache-busting parameter for better reliability
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-      const response = await fetch("/manifest.json", {
-        method: "HEAD",
+      const response = await fetch(`/api/health?t=${Date.now()}`, {
+        method: "GET",
         cache: "no-store",
         signal: controller.signal,
       })
@@ -30,17 +30,27 @@ export function OfflineIndicator() {
       isVerifyingRef.current = false
 
       // If we got a response, we're online
-      if (response.ok || response.status === 304) {
-        return true
+      return response.ok || response.status === 304
+    } catch (error) {
+      // Network request failed - try a fallback
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000)
+        
+        const fallbackResponse = await fetch(`/manifest.json?t=${Date.now()}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        })
+        
+        clearTimeout(timeoutId)
+        isVerifyingRef.current = false
+        return fallbackResponse.ok
+      } catch {
+        isVerifyingRef.current = false
+        return false
       }
-    } catch {
-      // Network request failed
-      isVerifyingRef.current = false
-      return false
     }
-
-    isVerifyingRef.current = false
-    return false
   }
 
   // Handle offline event with verification
@@ -102,18 +112,18 @@ export function OfflineIndicator() {
   if (!show) return null
 
   return (
-    <div className={`fixed top-0 left-0 right-0 z-[60] flex items-center justify-center gap-2 px-4 py-2 text-xs font-medium transition-colors duration-300 ${
+    <div className={`fixed bottom-4 right-4 z-[60] flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-300 shadow-md ${
       isOffline
-        ? "bg-amber-500 text-white"
-        : "bg-emerald-500 text-white"
+        ? "bg-amber-100 text-amber-800 border border-amber-200"
+        : "bg-emerald-100 text-emerald-800 border border-emerald-200"
     }`}>
       {isOffline ? (
         <>
-          <WifiOff className="h-3.5 w-3.5" />
-          <span>{"Vous \u00eates hors connexion \u2014 Mode offline actif"}</span>
+          <WifiOff className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>{"Mode hors ligne actif"}</span>
         </>
       ) : (
-        <span>{"Connexion r\u00e9tablie"}</span>
+        <span>{"Connexion rétablie"}</span>
       )}
     </div>
   )

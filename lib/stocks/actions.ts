@@ -611,6 +611,77 @@ export async function createCategory(tenantId: string, name: string, color?: str
   return { id: row.id, tenantId: row.tenant_id, name: row.name, color: row.color }
 }
 
+export async function updateCategory(categoryId: string, data: { name?: string; color?: string }): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, any> = {}
+  if (data.name !== undefined) updates.name = data.name
+  if (data.color !== undefined) updates.color = data.color
+  const { error } = await supabase.from("categories").update(updates).eq("id", categoryId)
+  if (error) { console.error("Error updating category:", error.message); return false }
+  return true
+}
+
+export async function deleteCategory(categoryId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("categories").delete().eq("id", categoryId)
+  if (error) { console.error("Error deleting category:", error.message); return false }
+  return true
+}
+
+export async function saveCategories(tenantId: string, categories: Array<{ id: string; name: string; color: string; isNew?: boolean }>): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  try {
+    // Fetch existing categories
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("tenant_id", tenantId)
+    const existingIds = (existing || []).map(c => c.id)
+
+    // Determine which categories to create, update, or delete
+    const newCategories = categories.filter(c => c.isNew)
+    const updatedCategories = categories.filter(c => !c.isNew)
+    const deletedCategoryIds = existingIds.filter(id => !categories.some(c => c.id === id))
+
+    // Create new categories
+    if (newCategories.length > 0) {
+      const rowsToInsert = newCategories.map(c => ({
+        tenant_id: tenantId,
+        name: c.name,
+        color: c.color
+      }))
+      const { error: insertError } = await supabase.from("categories").insert(rowsToInsert)
+      if (insertError) throw insertError
+    }
+
+    // Update existing categories
+    for (const cat of updatedCategories) {
+      const { error: updateError } = await supabase
+        .from("categories")
+        .update({ name: cat.name, color: cat.color })
+        .eq("id", cat.id)
+      if (updateError) throw updateError
+    }
+
+    // Delete removed categories
+    if (deletedCategoryIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("categories")
+        .delete()
+        .in("id", deletedCategoryIds)
+      if (deleteError) throw deleteError
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error saving categories:", error)
+    return false
+  }
+}
+
 // ─── Packaging ────────────────────────────────────────────────
 
 export interface Packaging {
@@ -770,6 +841,176 @@ export async function deleteStorageLocation(id: string): Promise<boolean> {
   const { error } = await supabase.from("storage_locations").delete().eq("id", id)
   if (error) { console.error("Error deleting storage location:", error.message); return false }
   return true
+}
+
+// ─── CSV Export Functions ────────────────────────────────────────
+
+export async function exportStocksToCSV(tenantId: string): Promise<{ headers: string[]; data: any[][] }> {
+  const [rawMaterials, finishedProducts, packaging] = await Promise.all([
+    fetchRawMaterials(tenantId),
+    fetchFinishedProducts(tenantId),
+    fetchPackaging(tenantId),
+  ])
+
+  const headers = [
+    "Type",
+    "Nom",
+    "Catégorie",
+    "Stock Actuel",
+    "Unité",
+    "Stock Minimum",
+    "Prix Unitaire",
+    "Fournisseur",
+    "Date Création",
+  ]
+
+  const data: any[][] = []
+
+  // Add raw materials
+  rawMaterials.forEach((rm) => {
+    data.push([
+      "Matière Première",
+      rm.name,
+      "",
+      rm.currentStock,
+      rm.unit,
+      rm.minStock,
+      rm.pricePerUnit.toFixed(2),
+      rm.supplier || "",
+      new Date(rm.createdAt).toLocaleDateString("fr-FR"),
+    ])
+  })
+
+  // Add finished products
+  finishedProducts.forEach((fp) => {
+    data.push([
+      "Produit Fini",
+      fp.name,
+      "", // category name would need to be fetched separately
+      fp.currentStock,
+      fp.unit,
+      fp.minStock,
+      fp.sellingPrice.toFixed(2),
+      "",
+      new Date(fp.createdAt).toLocaleDateString("fr-FR"),
+    ])
+  })
+
+  // Add packaging
+  packaging.forEach((pkg) => {
+    data.push([
+      "Emballage",
+      pkg.name,
+      "",
+      pkg.currentStock,
+      pkg.unit,
+      pkg.minStock,
+      pkg.pricePerUnit.toFixed(2),
+      "",
+      new Date(pkg.createdAt).toLocaleDateString("fr-FR"),
+    ])
+  })
+
+  return { headers, data }
+}
+
+export async function getPrintableStocksReport(tenantId: string): Promise<{
+  title: string
+  subtitle: string
+  headers: string[]
+  data: any[][]
+  totals: Record<string, string | number>
+}> {
+  const [rawMaterials, finishedProducts, packaging] = await Promise.all([
+    fetchRawMaterials(tenantId),
+    fetchFinishedProducts(tenantId),
+    fetchPackaging(tenantId),
+  ])
+
+  const headers = [
+    "Type",
+    "Nom",
+    "Stock Actuel",
+    "Unité",
+    "Stock Minimum",
+    "Prix Unitaire",
+    "Valeur Stock",
+    "Statut",
+  ]
+
+  const data: any[][] = []
+  let totalValue = 0
+  let lowStockCount = 0
+
+  // Add raw materials
+  rawMaterials.forEach((rm) => {
+    const value = rm.currentStock * rm.pricePerUnit
+    totalValue += value
+    const isLowStock = rm.currentStock <= rm.minStock
+    if (isLowStock) lowStockCount++
+
+    data.push([
+      "Matière Première",
+      rm.name,
+      rm.currentStock,
+      rm.unit,
+      rm.minStock,
+      `${rm.pricePerUnit.toFixed(2)} DZD`,
+      `${value.toFixed(2)} DZD`,
+      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+    ])
+  })
+
+  // Add finished products
+  finishedProducts.forEach((fp) => {
+    const value = fp.currentStock * fp.sellingPrice
+    totalValue += value
+    const isLowStock = fp.currentStock <= fp.minStock
+    if (isLowStock) lowStockCount++
+
+    data.push([
+      "Produit Fini",
+      fp.name,
+      fp.currentStock,
+      fp.unit,
+      fp.minStock,
+      `${fp.sellingPrice.toFixed(2)} DZD`,
+      `${value.toFixed(2)} DZD`,
+      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+    ])
+  })
+
+  // Add packaging
+  packaging.forEach((pkg) => {
+    const value = pkg.currentStock * pkg.pricePerUnit
+    totalValue += value
+    const isLowStock = pkg.currentStock <= pkg.minStock
+    if (isLowStock) lowStockCount++
+
+    data.push([
+      "Emballage",
+      pkg.name,
+      pkg.currentStock,
+      pkg.unit,
+      pkg.minStock,
+      `${pkg.pricePerUnit.toFixed(2)} DZD`,
+      `${value.toFixed(2)} DZD`,
+      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+    ])
+  })
+
+  return {
+    title: "Rapport d'Inventaire des Stocks",
+    subtitle: `Généré le ${new Date().toLocaleDateString("fr-FR")}`,
+    headers,
+    data,
+    totals: {
+      "Total d'Articles": rawMaterials.length + finishedProducts.length + packaging.length,
+      "Valeur Totale du Stock": `${totalValue.toFixed(2)} DZD`,
+      "Articles en Rupture": lowStockCount,
+      "Articles OK": data.length - lowStockCount,
+    },
+  }
 }
 
 // ─── Stock Movements ──────────────────────────────────────────

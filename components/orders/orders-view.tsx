@@ -32,6 +32,7 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
+  exportOrdersToCSV,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -51,6 +52,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
 import { useI18n } from "@/lib/i18n/context"
+import { exportToCSV } from "@/lib/csv-export"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -126,6 +128,7 @@ export function OrdersView() {
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   // Payment collection state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -235,6 +238,20 @@ export function OrdersView() {
     loadCollections(order.id)
     loadReturns(order.id)
     loadDocuments(order.id)
+  }
+
+  const handleExportOrders = async () => {
+    setIsExporting(true)
+    try {
+      const { headers, data } = await exportOrdersToCSV(currentTenant.id)
+      exportToCSV({ filename: "commandes", headers, data })
+      toast.success("Commandes exportées avec succès")
+    } catch (error) {
+      console.error("Error exporting orders:", error)
+      toast.error("Erreur lors de l'export des commandes")
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   const handleStatusChange = async (newStatus: Order["status"], note?: string) => {
@@ -578,10 +595,20 @@ export function OrdersView() {
             {t("orders.subtitle")}
           </p>
         </div>
-        <Button onClick={() => setNewOrderOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("orders.new_order")}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportOrders}
+            disabled={isExporting}
+          >
+            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Export CSV
+          </Button>
+          <Button onClick={() => setNewOrderOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("orders.new_order")}
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

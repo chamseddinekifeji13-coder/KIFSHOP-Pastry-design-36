@@ -246,7 +246,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   }
 }
 
-// ─── Update Order Status ──────────────────────────────────────
+// ─── Update Order Status ────────────────────────────────────�����─
 
 export async function updateOrderStatus(
   orderId: string,
@@ -598,4 +598,81 @@ export async function deleteOrder(orderId: string): Promise<boolean> {
   }
 
   return true
+}
+
+// ─── CSV Export Functions ────────────────────────────────────────
+
+export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: string[]; data: any[][] }> {
+  const orders = await fetchOrders(tenantId)
+
+  const headers = [
+    "N° Commande",
+    "Client",
+    "Téléphone",
+    "Adresse",
+    "Total",
+    "Acompte",
+    "Frais Livraison",
+    "Montant Payé",
+    "Statut",
+    "Paiement",
+    "Type Livraison",
+    "Coursier",
+    "Source",
+    "Date Création",
+    "Articles",
+  ]
+
+  const data: any[][] = orders.map((order) => [
+    order.id.substring(0, 8),
+    order.customerName,
+    order.customerPhone,
+    order.customerAddress || "",
+    order.total.toFixed(2),
+    order.deposit.toFixed(2),
+    order.shippingCost.toFixed(2),
+    (order.total - (order.total - order.deposit - order.shippingCost)).toFixed(2),
+    translateStatus(order.status),
+    translatePaymentStatus(order.paymentStatus),
+    order.deliveryType === "pickup" ? "Retrait" : "Livraison",
+    order.courier || "",
+    translateSource(order.source),
+    new Date(order.createdAt).toLocaleDateString("fr-FR"),
+    order.items.map((item) => `${item.name} (x${item.quantity})`).join("; "),
+  ])
+
+  return { headers, data }
+}
+
+function translateStatus(status: string): string {
+  const map: Record<string, string> = {
+    nouveau: "Nouveau",
+    "en-preparation": "En préparation",
+    pret: "Prêt",
+    "en-livraison": "En livraison",
+    livre: "Livré",
+  }
+  return map[status] || status
+}
+
+function translatePaymentStatus(status: string): string {
+  const map: Record<string, string> = {
+    paid: "Payé",
+    unpaid: "Non payé",
+    partial: "Partial",
+  }
+  return map[status] || status
+}
+
+function translateSource(source: string): string {
+  const map: Record<string, string> = {
+    whatsapp: "WhatsApp",
+    messenger: "Messenger",
+    phone: "Téléphone",
+    web: "Web",
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    comptoir: "Comptoir",
+  }
+  return map[source] || source
 }

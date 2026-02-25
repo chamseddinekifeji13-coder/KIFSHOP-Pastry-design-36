@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Trash2, X, Save, Palette } from "lucide-react"
+import { Plus, Trash2, X, Save, Palette, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useTenant } from "@/lib/tenant-context"
 import { useCategories } from "@/hooks/use-tenant-data"
+import { saveCategories } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 
 interface CategoriesDrawerProps {
@@ -31,12 +32,13 @@ interface EditableCategory {
 
 export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) {
   const { currentTenant } = useTenant()
-  const { data: existingCategories = [] } = useCategories()
+  const { data: existingCategories = [], mutate: mutateCategories } = useCategories()
 
   const [categories, setCategories] = useState<EditableCategory[]>([])
   const [newName, setNewName] = useState("")
   const [selectedColor, setSelectedColor] = useState(colorPalette[0])
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -60,14 +62,29 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
   const handleRename = (id: string, newNameValue: string) => setCategories(prev => prev.map(c => c.id === id ? { ...c, name: newNameValue } : c))
   const handleColorChange = (id: string, color: string) => setCategories(prev => prev.map(c => c.id === id ? { ...c, color } : c))
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (categories.some(c => !c.name.trim())) { toast.error("Certaines categories n'ont pas de nom"); return }
-    const added = categories.filter(c => c.isNew).length
-    const removed = existingCategories.length - categories.filter(c => !c.isNew).length
-    toast.success("Categories mises a jour", {
-      description: `${categories.length} categories${added > 0 ? `, ${added} ajoutee(s)` : ""}${removed > 0 ? `, ${removed} supprimee(s)` : ""}`,
-    })
-    onOpenChange(false)
+    
+    setSaving(true)
+    try {
+      const success = await saveCategories(currentTenant.id, categories)
+      if (success) {
+        const added = categories.filter(c => c.isNew).length
+        const removed = existingCategories.length - categories.filter(c => !c.isNew).length
+        toast.success("Categories mises a jour", {
+          description: `${categories.length} categories${added > 0 ? `, ${added} ajoutee(s)` : ""}${removed > 0 ? `, ${removed} supprimee(s)` : ""}`,
+        })
+        await mutateCategories()
+        onOpenChange(false)
+      } else {
+        toast.error("Erreur lors de la sauvegarde des categories")
+      }
+    } catch (error) {
+      console.error("Error saving categories:", error)
+      toast.error("Une erreur est survenue")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -198,7 +215,8 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
           <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={handleSave}>
+          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" />
             Enregistrer
           </Button>
