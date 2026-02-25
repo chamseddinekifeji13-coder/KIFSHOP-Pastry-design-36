@@ -611,6 +611,77 @@ export async function createCategory(tenantId: string, name: string, color?: str
   return { id: row.id, tenantId: row.tenant_id, name: row.name, color: row.color }
 }
 
+export async function updateCategory(categoryId: string, data: { name?: string; color?: string }): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, any> = {}
+  if (data.name !== undefined) updates.name = data.name
+  if (data.color !== undefined) updates.color = data.color
+  const { error } = await supabase.from("categories").update(updates).eq("id", categoryId)
+  if (error) { console.error("Error updating category:", error.message); return false }
+  return true
+}
+
+export async function deleteCategory(categoryId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("categories").delete().eq("id", categoryId)
+  if (error) { console.error("Error deleting category:", error.message); return false }
+  return true
+}
+
+export async function saveCategories(tenantId: string, categories: Array<{ id: string; name: string; color: string; isNew?: boolean }>): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  try {
+    // Fetch existing categories
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("tenant_id", tenantId)
+    const existingIds = (existing || []).map(c => c.id)
+
+    // Determine which categories to create, update, or delete
+    const newCategories = categories.filter(c => c.isNew)
+    const updatedCategories = categories.filter(c => !c.isNew)
+    const deletedCategoryIds = existingIds.filter(id => !categories.some(c => c.id === id))
+
+    // Create new categories
+    if (newCategories.length > 0) {
+      const rowsToInsert = newCategories.map(c => ({
+        tenant_id: tenantId,
+        name: c.name,
+        color: c.color
+      }))
+      const { error: insertError } = await supabase.from("categories").insert(rowsToInsert)
+      if (insertError) throw insertError
+    }
+
+    // Update existing categories
+    for (const cat of updatedCategories) {
+      const { error: updateError } = await supabase
+        .from("categories")
+        .update({ name: cat.name, color: cat.color })
+        .eq("id", cat.id)
+      if (updateError) throw updateError
+    }
+
+    // Delete removed categories
+    if (deletedCategoryIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("categories")
+        .delete()
+        .in("id", deletedCategoryIds)
+      if (deleteError) throw deleteError
+    }
+
+    return true
+  } catch (error) {
+    console.error("Error saving categories:", error)
+    return false
+  }
+}
+
 // ─── Packaging ────────────────────────────────────────────────
 
 export interface Packaging {
