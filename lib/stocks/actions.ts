@@ -948,18 +948,19 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
 
     // Add raw materials
     rawMaterials.forEach((rm) => {
-      const value = rm.currentStock * rm.pricePerUnit
+      const price = rm.pricePerUnit ?? 0
+      const value = (rm.currentStock ?? 0) * price
       totalValue += value
-      const isLowStock = rm.currentStock <= rm.minStock
+      const isLowStock = (rm.currentStock ?? 0) <= (rm.minStock ?? 0)
       if (isLowStock) lowStockCount++
 
       data.push([
         "Matière Première",
-        rm.name,
-        rm.currentStock,
-        rm.unit,
-        rm.minStock,
-        `${rm.pricePerUnit.toFixed(2)} DZD`,
+        rm.name || "N/A",
+        rm.currentStock ?? 0,
+        rm.unit || "unité",
+        rm.minStock ?? 0,
+        `${price.toFixed(2)} DZD`,
         `${value.toFixed(2)} DZD`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
@@ -967,18 +968,19 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
 
     // Add finished products
     finishedProducts.forEach((fp) => {
-      const value = fp.currentStock * fp.sellingPrice
+      const price = fp.sellingPrice ?? 0
+      const value = (fp.currentStock ?? 0) * price
       totalValue += value
-      const isLowStock = fp.currentStock <= fp.minStock
+      const isLowStock = (fp.currentStock ?? 0) <= (fp.minStock ?? 0)
       if (isLowStock) lowStockCount++
 
       data.push([
         "Produit Fini",
-        fp.name,
-        fp.currentStock,
-        fp.unit,
-        fp.minStock,
-        `${fp.sellingPrice.toFixed(2)} DZD`,
+        fp.name || "N/A",
+        fp.currentStock ?? 0,
+        fp.unit || "unité",
+        fp.minStock ?? 0,
+        `${price.toFixed(2)} DZD`,
         `${value.toFixed(2)} DZD`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
@@ -986,18 +988,19 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
 
     // Add packaging
     packaging.forEach((pkg) => {
-      const value = pkg.currentStock * pkg.pricePerUnit
+      const price = pkg.pricePerUnit ?? 0
+      const value = (pkg.currentStock ?? 0) * price
       totalValue += value
-      const isLowStock = pkg.currentStock <= pkg.minStock
+      const isLowStock = (pkg.currentStock ?? 0) <= (pkg.minStock ?? 0)
       if (isLowStock) lowStockCount++
 
       data.push([
         "Emballage",
-        pkg.name,
-        pkg.currentStock,
-        pkg.unit,
-        pkg.minStock,
-        `${pkg.pricePerUnit.toFixed(2)} DZD`,
+        pkg.name || "N/A",
+        pkg.currentStock ?? 0,
+        pkg.unit || "unité",
+        pkg.minStock ?? 0,
+        `${price.toFixed(2)} DZD`,
         `${value.toFixed(2)} DZD`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
