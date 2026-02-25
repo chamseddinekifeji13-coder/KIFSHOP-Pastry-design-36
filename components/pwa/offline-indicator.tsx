@@ -16,12 +16,12 @@ export function OfflineIndicator() {
     isVerifyingRef.current = true
 
     try {
-      // Use a HEAD request to a lightweight endpoint (no data transfer)
+      // Use a GET request with a cache-busting parameter for better reliability
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000)
 
-      const response = await fetch("/manifest.json", {
-        method: "HEAD",
+      const response = await fetch(`/api/health?t=${Date.now()}`, {
+        method: "GET",
         cache: "no-store",
         signal: controller.signal,
       })
@@ -30,17 +30,27 @@ export function OfflineIndicator() {
       isVerifyingRef.current = false
 
       // If we got a response, we're online
-      if (response.ok || response.status === 304) {
-        return true
+      return response.ok || response.status === 304
+    } catch (error) {
+      // Network request failed - try a fallback
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000)
+        
+        const fallbackResponse = await fetch(`/manifest.json?t=${Date.now()}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        })
+        
+        clearTimeout(timeoutId)
+        isVerifyingRef.current = false
+        return fallbackResponse.ok
+      } catch {
+        isVerifyingRef.current = false
+        return false
       }
-    } catch {
-      // Network request failed
-      isVerifyingRef.current = false
-      return false
     }
-
-    isVerifyingRef.current = false
-    return false
   }
 
   // Handle offline event with verification
