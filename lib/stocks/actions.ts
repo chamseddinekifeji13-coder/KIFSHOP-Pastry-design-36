@@ -843,6 +843,77 @@ export async function deleteStorageLocation(id: string): Promise<boolean> {
   return true
 }
 
+// ─── CSV Export Functions ────────────────────────────────────────
+
+export async function exportStocksToCSV(tenantId: string): Promise<{ headers: string[]; data: any[][] }> {
+  const [rawMaterials, finishedProducts, packaging] = await Promise.all([
+    fetchRawMaterials(tenantId),
+    fetchFinishedProducts(tenantId),
+    fetchPackaging(tenantId),
+  ])
+
+  const headers = [
+    "Type",
+    "Nom",
+    "Catégorie",
+    "Stock Actuel",
+    "Unité",
+    "Stock Minimum",
+    "Prix Unitaire",
+    "Fournisseur",
+    "Date Création",
+  ]
+
+  const data: any[][] = []
+
+  // Add raw materials
+  rawMaterials.forEach((rm) => {
+    data.push([
+      "Matière Première",
+      rm.name,
+      "",
+      rm.currentStock,
+      rm.unit,
+      rm.minStock,
+      rm.pricePerUnit.toFixed(2),
+      rm.supplier || "",
+      new Date(rm.createdAt).toLocaleDateString("fr-FR"),
+    ])
+  })
+
+  // Add finished products
+  finishedProducts.forEach((fp) => {
+    data.push([
+      "Produit Fini",
+      fp.name,
+      "", // category name would need to be fetched separately
+      fp.currentStock,
+      fp.unit,
+      fp.minStock,
+      fp.sellingPrice.toFixed(2),
+      "",
+      new Date(fp.createdAt).toLocaleDateString("fr-FR"),
+    ])
+  })
+
+  // Add packaging
+  packaging.forEach((pkg) => {
+    data.push([
+      "Emballage",
+      pkg.name,
+      "",
+      pkg.currentStock,
+      pkg.unit,
+      pkg.minStock,
+      pkg.pricePerUnit.toFixed(2),
+      "",
+      new Date(pkg.createdAt).toLocaleDateString("fr-FR"),
+    ])
+  })
+
+  return { headers, data }
+}
+
 // ─── Stock Movements ──────────────────────────────────────────
 
 export async function fetchStockMovements(tenantId: string, limit = 50): Promise<StockMovement[]> {

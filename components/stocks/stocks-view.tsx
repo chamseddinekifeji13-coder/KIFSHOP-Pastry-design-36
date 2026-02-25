@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2 } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { RawMaterialsTable } from "./raw-materials-table"
@@ -15,9 +15,14 @@ import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
 import { useRawMaterials, useFinishedProducts, usePackaging, useStorageLocations } from "@/hooks/use-tenant-data"
 import { useI18n } from "@/lib/i18n/context"
+import { useTenant } from "@/lib/tenant-context"
+import { exportStocksToCSV } from "@/lib/stocks/actions"
+import { exportToCSV } from "@/lib/csv-export"
+import { toast } from "sonner"
 
 export function StocksView() {
   const { t } = useI18n()
+  const { currentTenant } = useTenant()
   const [selectedTab, setSelectedTab] = useState("raw")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [newProductOpen, setNewProductOpen] = useState(false)
@@ -25,6 +30,7 @@ export function StocksView() {
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string } | null>(null)
   const [chartMaterial, setChartMaterial] = useState<{ id: string; name: string; unit?: string } | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
@@ -40,6 +46,20 @@ export function StocksView() {
     }
   }
 
+  const handleExportStocks = async () => {
+    setIsExporting(true)
+    try {
+      const { headers, data } = await exportStocksToCSV(currentTenant.id)
+      exportToCSV({ filename: "stocks", headers, data })
+      toast.success("Stocks exportés avec succès")
+    } catch (error) {
+      console.error("Error exporting stocks:", error)
+      toast.error("Erreur lors de l'export des stocks")
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -48,6 +68,15 @@ export function StocksView() {
           <p className="text-muted-foreground">{t("stocks.subtitle")}</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportStocks}
+            disabled={isExporting}
+            className="bg-transparent"
+          >
+            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Export CSV
+          </Button>
           {selectedTab === "raw" && (
             <Button variant="outline" onClick={() => setNewRawMaterialOpen(true)} className="bg-transparent">
               <Plus className="mr-2 h-4 w-4" />
