@@ -870,12 +870,12 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
   rawMaterials.forEach((rm) => {
     data.push([
       "Matière Première",
-      rm.name,
+      rm.name || "N/A",
       "",
-      rm.currentStock,
-      rm.unit,
-      rm.minStock,
-      rm.pricePerUnit.toFixed(2),
+      rm.currentStock ?? 0,
+      rm.unit || "unité",
+      rm.minStock ?? 0,
+      (rm.pricePerUnit ?? 0).toFixed(2),
       rm.supplier || "",
       new Date(rm.createdAt).toLocaleDateString("fr-FR"),
     ])
@@ -885,12 +885,12 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
   finishedProducts.forEach((fp) => {
     data.push([
       "Produit Fini",
-      fp.name,
-      "", // category name would need to be fetched separately
-      fp.currentStock,
-      fp.unit,
-      fp.minStock,
-      fp.sellingPrice.toFixed(2),
+      fp.name || "N/A",
+      "",
+      fp.currentStock ?? 0,
+      fp.unit || "unité",
+      fp.minStock ?? 0,
+      (fp.sellingPrice ?? 0).toFixed(2),
       "",
       new Date(fp.createdAt).toLocaleDateString("fr-FR"),
     ])
@@ -900,12 +900,12 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
   packaging.forEach((pkg) => {
     data.push([
       "Emballage",
-      pkg.name,
+      pkg.name || "N/A",
       "",
-      pkg.currentStock,
-      pkg.unit,
-      pkg.minStock,
-      pkg.pricePerUnit.toFixed(2),
+      pkg.currentStock ?? 0,
+      pkg.unit || "unité",
+      pkg.minStock ?? 0,
+      (pkg.pricePerUnit ?? 0).toFixed(2),
       "",
       new Date(pkg.createdAt).toLocaleDateString("fr-FR"),
     ])
@@ -960,8 +960,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
         rm.currentStock ?? 0,
         rm.unit || "unité",
         rm.minStock ?? 0,
-        `${price.toFixed(2)} DZD`,
-        `${value.toFixed(2)} DZD`,
+        `${price.toFixed(2)} TND`,
+        `${value.toFixed(2)} TND`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
     })
@@ -980,8 +980,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
         fp.currentStock ?? 0,
         fp.unit || "unité",
         fp.minStock ?? 0,
-        `${price.toFixed(2)} DZD`,
-        `${value.toFixed(2)} DZD`,
+        `${price.toFixed(2)} TND`,
+        `${value.toFixed(2)} TND`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
     })
@@ -1000,8 +1000,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
         pkg.currentStock ?? 0,
         pkg.unit || "unité",
         pkg.minStock ?? 0,
-        `${price.toFixed(2)} DZD`,
-        `${value.toFixed(2)} DZD`,
+        `${price.toFixed(2)} TND`,
+        `${value.toFixed(2)} TND`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
     })
@@ -1015,7 +1015,7 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
       data,
       totals: {
         "Total d'Articles": rawMaterials.length + finishedProducts.length + packaging.length,
-        "Valeur Totale du Stock": `${totalValue.toFixed(2)} DZD`,
+        "Valeur Totale du Stock": `${totalValue.toFixed(2)} TND`,
         "Articles en Rupture": lowStockCount,
         "Articles OK": data.length - lowStockCount,
       },
