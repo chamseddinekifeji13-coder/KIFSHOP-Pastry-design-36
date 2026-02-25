@@ -7,10 +7,48 @@ export function OfflineIndicator() {
   const [isOffline, setIsOffline] = useState(false)
   const [show, setShow] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isVerifyingRef = useRef(false)
 
-  useEffect(() => {
-    const handleOffline = () => {
-      // Clear any pending "hide banner" timer so it doesn't fire while offline
+  // Smart connectivity check - actually verifies with a real request
+  const verifyConnectivity = async () => {
+    if (isVerifyingRef.current) return
+    isVerifyingRef.current = true
+
+    try {
+      // Use a HEAD request to a lightweight endpoint (no data transfer)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+      const response = await fetch("/manifest.json", {
+        method: "HEAD",
+        cache: "no-store",
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+      isVerifyingRef.current = false
+
+      // If we got a response, we're online
+      if (response.ok || response.status === 304) {
+        return true
+      }
+    } catch {
+      // Network request failed
+      isVerifyingRef.current = false
+      return false
+    }
+
+    isVerifyingRef.current = false
+    return false
+  }
+
+  // Handle offline event with verification
+  const handleOffline = async () => {
+    // Don't immediately mark as offline - verify first
+    const isActuallyOffline = !(await verifyConnectivity())
+
+    if (isActuallyOffline) {
       if (timerRef.current) {
         clearTimeout(timerRef.current)
         timerRef.current = null
@@ -18,28 +56,48 @@ export function OfflineIndicator() {
       setIsOffline(true)
       setShow(true)
     }
-    const handleOnline = () => {
-      setIsOffline(false)
-      // Keep showing the "back online" message for 3s, then hide
-      timerRef.current = setTimeout(() => setShow(false), 3000)
+  }
+
+  // Handle online event
+  const handleOnline = () => {
+    setIsOffline(false)
+    // Keep showing the "back online" message for 3s, then hide
+    timerRef.current = setTimeout(() => setShow(false), 3000)
+  }
+
+  useEffect(() => {
+    // Initial connectivity check
+    const initCheck = async () => {
+      const isConnected = await verifyConnectivity()
+      if (!isConnected && !navigator.onLine) {
+        setIsOffline(true)
+        setShow(true)
+      }
     }
 
-    // Check initial state
-    if (!navigator.onLine) {
-      setIsOffline(true)
-      setShow(true)
-    }
+    initCheck()
 
     window.addEventListener("offline", handleOffline)
     window.addEventListener("online", handleOnline)
+
+    // Periodic verification (every 30s) to catch lingering false offline states
+    const intervalId = setInterval(async () => {
+      if (isOffline) {
+        const isConnected = await verifyConnectivity()
+        if (isConnected) {
+          handleOnline()
+        }
+      }
+    }, 30000)
+
     return () => {
       window.removeEventListener("offline", handleOffline)
       window.removeEventListener("online", handleOnline)
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-      }
+      clearInterval(intervalId)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current)
     }
-  }, [])
+  }, [isOffline])
 
   if (!show) return null
 
