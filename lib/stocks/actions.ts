@@ -843,7 +843,7 @@ export async function deleteStorageLocation(id: string): Promise<boolean> {
   return true
 }
 
-// ─── CSV Export Functions ────────────────────────────────────────
+// ─── CSV Export Functions ──────────────────────────────���─────────
 
 export async function exportStocksToCSV(tenantId: string): Promise<{ headers: string[]; data: any[][] }> {
   const [rawMaterials, finishedProducts, packaging] = await Promise.all([
@@ -921,95 +921,108 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
   data: any[][]
   totals: Record<string, string | number>
 }> {
-  const [rawMaterials, finishedProducts, packaging] = await Promise.all([
-    fetchRawMaterials(tenantId),
-    fetchFinishedProducts(tenantId),
-    fetchPackaging(tenantId),
-  ])
-
-  const headers = [
-    "Type",
-    "Nom",
-    "Stock Actuel",
-    "Unité",
-    "Stock Minimum",
-    "Prix Unitaire",
-    "Valeur Stock",
-    "Statut",
-  ]
-
-  const data: any[][] = []
-  let totalValue = 0
-  let lowStockCount = 0
-
-  // Add raw materials
-  rawMaterials.forEach((rm) => {
-    const value = rm.currentStock * rm.pricePerUnit
-    totalValue += value
-    const isLowStock = rm.currentStock <= rm.minStock
-    if (isLowStock) lowStockCount++
-
-    data.push([
-      "Matière Première",
-      rm.name,
-      rm.currentStock,
-      rm.unit,
-      rm.minStock,
-      `${rm.pricePerUnit.toFixed(2)} DZD`,
-      `${value.toFixed(2)} DZD`,
-      isLowStock ? "⚠️ Stock bas" : "✓ OK",
+  try {
+    console.log("[v0] Fetching stocks for print report, tenantId:", tenantId)
+    const [rawMaterials, finishedProducts, packaging] = await Promise.all([
+      fetchRawMaterials(tenantId),
+      fetchFinishedProducts(tenantId),
+      fetchPackaging(tenantId),
     ])
-  })
 
-  // Add finished products
-  finishedProducts.forEach((fp) => {
-    const value = fp.currentStock * fp.sellingPrice
-    totalValue += value
-    const isLowStock = fp.currentStock <= fp.minStock
-    if (isLowStock) lowStockCount++
+    console.log("[v0] Fetched materials:", { rawMaterials: rawMaterials.length, finishedProducts: finishedProducts.length, packaging: packaging.length })
 
-    data.push([
-      "Produit Fini",
-      fp.name,
-      fp.currentStock,
-      fp.unit,
-      fp.minStock,
-      `${fp.sellingPrice.toFixed(2)} DZD`,
-      `${value.toFixed(2)} DZD`,
-      isLowStock ? "⚠️ Stock bas" : "✓ OK",
-    ])
-  })
+    const headers = [
+      "Type",
+      "Nom",
+      "Stock Actuel",
+      "Unité",
+      "Stock Minimum",
+      "Prix Unitaire",
+      "Valeur Stock",
+      "Statut",
+    ]
 
-  // Add packaging
-  packaging.forEach((pkg) => {
-    const value = pkg.currentStock * pkg.pricePerUnit
-    totalValue += value
-    const isLowStock = pkg.currentStock <= pkg.minStock
-    if (isLowStock) lowStockCount++
+    const data: any[][] = []
+    let totalValue = 0
+    let lowStockCount = 0
 
-    data.push([
-      "Emballage",
-      pkg.name,
-      pkg.currentStock,
-      pkg.unit,
-      pkg.minStock,
-      `${pkg.pricePerUnit.toFixed(2)} DZD`,
-      `${value.toFixed(2)} DZD`,
-      isLowStock ? "⚠️ Stock bas" : "✓ OK",
-    ])
-  })
+    // Add raw materials
+    rawMaterials.forEach((rm) => {
+      const price = rm.pricePerUnit ?? 0
+      const value = (rm.currentStock ?? 0) * price
+      totalValue += value
+      const isLowStock = (rm.currentStock ?? 0) <= (rm.minStock ?? 0)
+      if (isLowStock) lowStockCount++
 
-  return {
-    title: "Rapport d'Inventaire des Stocks",
-    subtitle: `Généré le ${new Date().toLocaleDateString("fr-FR")}`,
-    headers,
-    data,
-    totals: {
-      "Total d'Articles": rawMaterials.length + finishedProducts.length + packaging.length,
-      "Valeur Totale du Stock": `${totalValue.toFixed(2)} DZD`,
-      "Articles en Rupture": lowStockCount,
-      "Articles OK": data.length - lowStockCount,
-    },
+      data.push([
+        "Matière Première",
+        rm.name || "N/A",
+        rm.currentStock ?? 0,
+        rm.unit || "unité",
+        rm.minStock ?? 0,
+        `${price.toFixed(2)} DZD`,
+        `${value.toFixed(2)} DZD`,
+        isLowStock ? "⚠️ Stock bas" : "✓ OK",
+      ])
+    })
+
+    // Add finished products
+    finishedProducts.forEach((fp) => {
+      const price = fp.sellingPrice ?? 0
+      const value = (fp.currentStock ?? 0) * price
+      totalValue += value
+      const isLowStock = (fp.currentStock ?? 0) <= (fp.minStock ?? 0)
+      if (isLowStock) lowStockCount++
+
+      data.push([
+        "Produit Fini",
+        fp.name || "N/A",
+        fp.currentStock ?? 0,
+        fp.unit || "unité",
+        fp.minStock ?? 0,
+        `${price.toFixed(2)} DZD`,
+        `${value.toFixed(2)} DZD`,
+        isLowStock ? "⚠️ Stock bas" : "✓ OK",
+      ])
+    })
+
+    // Add packaging
+    packaging.forEach((pkg) => {
+      const price = pkg.pricePerUnit ?? 0
+      const value = (pkg.currentStock ?? 0) * price
+      totalValue += value
+      const isLowStock = (pkg.currentStock ?? 0) <= (pkg.minStock ?? 0)
+      if (isLowStock) lowStockCount++
+
+      data.push([
+        "Emballage",
+        pkg.name || "N/A",
+        pkg.currentStock ?? 0,
+        pkg.unit || "unité",
+        pkg.minStock ?? 0,
+        `${price.toFixed(2)} DZD`,
+        `${value.toFixed(2)} DZD`,
+        isLowStock ? "⚠️ Stock bas" : "✓ OK",
+      ])
+    })
+
+    console.log("[v0] Report data prepared, total rows:", data.length)
+
+    return {
+      title: "Rapport d'Inventaire des Stocks",
+      subtitle: `Généré le ${new Date().toLocaleDateString("fr-FR")}`,
+      headers,
+      data,
+      totals: {
+        "Total d'Articles": rawMaterials.length + finishedProducts.length + packaging.length,
+        "Valeur Totale du Stock": `${totalValue.toFixed(2)} DZD`,
+        "Articles en Rupture": lowStockCount,
+        "Articles OK": data.length - lowStockCount,
+      },
+    }
+  } catch (error) {
+    console.error("[v0] Error in getPrintableStocksReport:", error)
+    throw error
   }
 }
 

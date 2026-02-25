@@ -64,12 +64,14 @@ export function StocksView() {
   const handlePrintStocks = async () => {
     setIsPrinting(true)
     try {
+      console.log("[v0] Starting print report for tenant:", currentTenant.id)
       const report = await getPrintableStocksReport(currentTenant.id)
+      console.log("[v0] Report generated:", report)
       printReport(report)
       toast.success("Rapport d'impression généré")
     } catch (error) {
-      console.error("Error printing stocks:", error)
-      toast.error("Erreur lors de la génération du rapport")
+      console.error("[v0] Error printing stocks:", error)
+      toast.error(`Erreur lors de la génération du rapport: ${error instanceof Error ? error.message : 'Erreur inconnue'}`)
     } finally {
       setIsPrinting(false)
     }
