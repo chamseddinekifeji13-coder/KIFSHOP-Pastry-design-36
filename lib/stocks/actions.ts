@@ -960,8 +960,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
         rm.currentStock ?? 0,
         rm.unit || "unité",
         rm.minStock ?? 0,
-        `${price.toFixed(2)} DZD`,
-        `${value.toFixed(2)} DZD`,
+        `${price.toFixed(2)} TND`,
+        `${value.toFixed(2)} TND`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
     })
@@ -980,8 +980,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
         fp.currentStock ?? 0,
         fp.unit || "unité",
         fp.minStock ?? 0,
-        `${price.toFixed(2)} DZD`,
-        `${value.toFixed(2)} DZD`,
+        `${price.toFixed(2)} TND`,
+        `${value.toFixed(2)} TND`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
     })
@@ -1000,8 +1000,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
         pkg.currentStock ?? 0,
         pkg.unit || "unité",
         pkg.minStock ?? 0,
-        `${price.toFixed(2)} DZD`,
-        `${value.toFixed(2)} DZD`,
+        `${price.toFixed(2)} TND`,
+        `${value.toFixed(2)} TND`,
         isLowStock ? "⚠️ Stock bas" : "✓ OK",
       ])
     })
@@ -1015,7 +1015,7 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
       data,
       totals: {
         "Total d'Articles": rawMaterials.length + finishedProducts.length + packaging.length,
-        "Valeur Totale du Stock": `${totalValue.toFixed(2)} DZD`,
+        "Valeur Totale du Stock": `${totalValue.toFixed(2)} TND`,
         "Articles en Rupture": lowStockCount,
         "Articles OK": data.length - lowStockCount,
       },
