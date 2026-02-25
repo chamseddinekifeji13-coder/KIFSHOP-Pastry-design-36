@@ -89,6 +89,7 @@ export function HeroSection() {
                   height={150}
                   className="object-cover"
                   style={{ width: "200px", height: "150px" }}
+                  priority
                 />
               </div>
               {/* Decorative accent */}
