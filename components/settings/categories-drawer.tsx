@@ -354,7 +354,8 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
           <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
             Annuler
           </Button>
-          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={handleSave}>
+          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md hover:shadow-lg transition-all" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" />
             Enregistrer
           </Button>
