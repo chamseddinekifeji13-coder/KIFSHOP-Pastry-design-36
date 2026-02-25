@@ -78,6 +78,10 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
       const msg = err?.message || ""
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+      } else if (msg.startsWith("SIMILAR:")) {
+        toast.error("Emballage similaire detecte", { 
+          description: msg.replace("SIMILAR:", "") 
+        })
       } else {
         toast.error("Erreur", { description: msg || "Erreur inattendue" })
       }

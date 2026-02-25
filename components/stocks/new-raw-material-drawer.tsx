@@ -82,6 +82,10 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
       const msg = err?.message || ""
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+      } else if (msg.startsWith("SIMILAR:")) {
+        toast.error("Matiere premiere similaire detectee", { 
+          description: msg.replace("SIMILAR:", "") 
+        })
       } else {
         toast.error("Erreur", { description: msg || "Erreur inattendue" })
       }
