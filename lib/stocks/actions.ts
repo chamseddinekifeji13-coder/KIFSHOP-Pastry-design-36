@@ -1,5 +1,54 @@
 import { createClient } from "@/lib/supabase/client"
 
+// ─── String normalization helper ─────────────────────────────
+// Normalizes strings for comparison: removes accents, extra spaces, lowercase
+function normalizeString(str: string): string {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ") // Multiple spaces → single space
+    .normalize("NFD") // Decompose accents
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+}
+
+// Calculate similarity between two strings (0-1)
+function calculateSimilarity(str1: string, str2: string): number {
+  const s1 = normalizeString(str1)
+  const s2 = normalizeString(str2)
+  
+  if (s1 === s2) return 1
+  
+  const longer = s1.length > s2.length ? s1 : s2
+  const shorter = s1.length > s2.length ? s2 : s1
+  
+  if (longer.length === 0) return 1
+  
+  const editDistance = getEditDistance(shorter, longer)
+  return (longer.length - editDistance) / longer.length
+}
+
+// Levenshtein distance for similarity
+function getEditDistance(s1: string, s2: string): number {
+  const costs: number[] = []
+  for (let i = 0; i <= s1.length; i++) {
+    let lastValue = i
+    for (let j = 0; j <= s2.length; j++) {
+      if (i === 0) {
+        costs[j] = j
+      } else if (j > 0) {
+        let newValue = costs[j - 1]
+        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+          newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1
+        }
+        costs[j - 1] = lastValue
+        lastValue = newValue
+      }
+    }
+    if (i > 0) costs[s2.length] = lastValue
+  }
+  return costs[s2.length]
+}
+
 // ─── Auth helper ─────────────────────────────────────────────
 // Verifies auth session and that tenantId matches the user's actual tenant
 async function verifyAuthAndTenant(tenantId: string) {
@@ -100,13 +149,27 @@ export async function createRawMaterial(tenantId: string, data: {
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; barcode?: string; storageLocationId?: string
 }): Promise<RawMaterial | null> {
   const { supabase } = await verifyAuthAndTenant(tenantId)
-  // Check for duplicate raw material by name
-  const { data: existing } = await supabase
+  
+  // Check for exact and similar duplicates
+  const { data: allMaterials } = await supabase
     .from("raw_materials").select("id, name").eq("tenant_id", tenantId)
-    .ilike("name", data.name.trim()).limit(1)
-  if (existing && existing.length > 0) {
-    throw new Error(`DUPLICATE:La matiere premiere "${existing[0].name}" existe deja`)
+  
+  if (allMaterials && allMaterials.length > 0) {
+    const inputNormalized = normalizeString(data.name)
+    
+    // Check for exact match
+    const exactMatch = allMaterials.find(m => normalizeString(m.name) === inputNormalized)
+    if (exactMatch) {
+      throw new Error(`DUPLICATE:La matiere premiere "${exactMatch.name}" existe deja`)
+    }
+    
+    // Check for very similar names (90%+ similarity)
+    const similarMatch = allMaterials.find(m => calculateSimilarity(data.name, m.name) >= 0.9)
+    if (similarMatch) {
+      throw new Error(`SIMILAR:Un produit tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
+    }
   }
+  
   const { data: row, error } = await supabase.from("raw_materials").insert({
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
@@ -319,13 +382,27 @@ export async function createFinishedProduct(tenantId: string, data: {
   sellingPrice: number; costPrice: number; description?: string; weight?: string
 }): Promise<FinishedProduct | null> {
   const supabase = createClient()
-  // Check for duplicate finished product by name
-  const { data: existing } = await supabase
+  
+  // Check for exact and similar duplicates
+  const { data: allProducts } = await supabase
     .from("finished_products").select("id, name").eq("tenant_id", tenantId)
-    .ilike("name", data.name.trim()).limit(1)
-  if (existing && existing.length > 0) {
-    throw new Error(`DUPLICATE:Le produit fini "${existing[0].name}" existe deja`)
+  
+  if (allProducts && allProducts.length > 0) {
+    const inputNormalized = normalizeString(data.name)
+    
+    // Check for exact match
+    const exactMatch = allProducts.find(p => normalizeString(p.name) === inputNormalized)
+    if (exactMatch) {
+      throw new Error(`DUPLICATE:Le produit fini "${exactMatch.name}" existe deja`)
+    }
+    
+    // Check for very similar names (90%+ similarity)
+    const similarMatch = allProducts.find(p => calculateSimilarity(data.name, p.name) >= 0.9)
+    if (similarMatch) {
+      throw new Error(`SIMILAR:Un produit tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
+    }
   }
+  
   const { data: row, error } = await supabase.from("finished_products").insert({
     tenant_id: tenantId, name: data.name, category_id: data.categoryId || null,
     unit: data.unit, current_stock: data.currentStock, min_stock: data.minStock,
@@ -570,13 +647,28 @@ export async function createPackaging(tenantId: string, data: {
   minStock: number; price: number; description?: string
 }): Promise<Packaging | null> {
   const supabase = createClient()
-  // Check for duplicate packaging by name + type
-  const { data: existing } = await supabase
+  
+  // Check for exact and similar duplicates by name + type
+  const { data: allPackaging } = await supabase
     .from("packaging").select("id, name, type").eq("tenant_id", tenantId)
-    .ilike("name", data.name.trim()).eq("type", data.type).limit(1)
-  if (existing && existing.length > 0) {
-    throw new Error(`DUPLICATE:L'emballage "${existing[0].name}" (${existing[0].type}) existe deja`)
+    .eq("type", data.type)
+  
+  if (allPackaging && allPackaging.length > 0) {
+    const inputNormalized = normalizeString(data.name)
+    
+    // Check for exact match
+    const exactMatch = allPackaging.find(p => normalizeString(p.name) === inputNormalized)
+    if (exactMatch) {
+      throw new Error(`DUPLICATE:L'emballage "${exactMatch.name}" (${exactMatch.type}) existe deja`)
+    }
+    
+    // Check for very similar names (90%+ similarity)
+    const similarMatch = allPackaging.find(p => calculateSimilarity(data.name, p.name) >= 0.9)
+    if (similarMatch) {
+      throw new Error(`SIMILAR:Un emballage tres similaire existe deja: "${similarMatch.name}" (${similarMatch.type}). Voulez-vous vraiment continuer?`)
+    }
   }
+  
   const { data: row, error } = await supabase.from("packaging").insert({
     tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,

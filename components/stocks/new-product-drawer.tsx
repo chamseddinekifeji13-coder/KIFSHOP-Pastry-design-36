@@ -190,6 +190,11 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       const msg = err?.message || ""
       if (msg.startsWith("DUPLICATE:")) {
         toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+      } else if (msg.startsWith("SIMILAR:")) {
+        toast.error("Produit similaire detecte", { 
+          description: msg.replace("SIMILAR:", ""),
+          action: { label: "Continuer", onClick: () => {} }
+        })
       } else {
         toast.error("Erreur", { description: msg || "Erreur lors de la creation du produit" })
       }
