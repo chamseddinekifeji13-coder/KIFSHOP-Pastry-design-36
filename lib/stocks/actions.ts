@@ -335,7 +335,7 @@ export async function applyInventoryCorrections(tenantId: string, sessionId: str
         tenant_id: tenantId, item_type: c.itemType,
         raw_material_id: c.itemType === "raw_material" ? c.itemId : null,
         finished_product_id: c.itemType === "finished_product" ? c.itemId : null,
-        movement_type: delta > 0 ? "entree" : "sortie",
+        movement_type: delta > 0 ? "entry" : "exit",
         quantity: Math.abs(delta), unit: c.unit,
         reason: "Ajustement inventaire", reference: `INV-${sessionId.slice(0, 8)}`,
         created_by: user?.id || null,
@@ -1061,8 +1061,9 @@ export async function createStockMovement(tenantId: string, data: {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Normalize movement type for database - map French to database values
+  // DB CHECK constraint accepts: entry, exit, transfer, adjustment, production_in, production_out
   const movementTypeMap: Record<string, string> = {
-    "entree": "entrance",
+    "entree": "entry",
     "sortie": "exit", 
     "transfert": "transfer"
   }
@@ -1105,7 +1106,7 @@ export async function createStockMovement(tenantId: string, data: {
   if (idField && normalizedMovementType !== "transfer") {
     const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
     const currentStock = Number(currentItem?.current_stock || 0)
-    const delta = normalizedMovementType === "entrance" ? data.quantity : -data.quantity
+    const delta = normalizedMovementType === "entry" ? data.quantity : -data.quantity
     const newStock = currentStock + delta
     if (newStock < 0) {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}`)
