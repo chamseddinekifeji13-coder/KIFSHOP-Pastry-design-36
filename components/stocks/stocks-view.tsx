@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { RawMaterialsTable } from "./raw-materials-table"
 import { FinishedProductsTable } from "./finished-products-table"
 import { PackagingTable } from "./packaging-table"
@@ -24,6 +25,7 @@ export function StocksView() {
   const { t } = useI18n()
   const { currentTenant } = useTenant()
   const [selectedTab, setSelectedTab] = useState("raw")
+  const [searchQuery, setSearchQuery] = useState("")
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
@@ -37,6 +39,20 @@ export function StocksView() {
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
   const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
   const { data: storageLocations } = useStorageLocations()
+
+  const query = searchQuery.toLowerCase().trim()
+
+  const filteredRawMaterials = (rawMaterials || []).filter((m) =>
+    !query || m.name.toLowerCase().includes(query) || (m.unit || "").toLowerCase().includes(query)
+  )
+
+  const filteredFinishedProducts = (finishedProducts || []).filter((p) =>
+    !query || p.name.toLowerCase().includes(query) || (p.unit || "").toLowerCase().includes(query)
+  )
+
+  const filteredPackaging = (packaging || []).filter((p) =>
+    !query || p.name.toLowerCase().includes(query) || (p.type || "").toLowerCase().includes(query) || (p.description || "").toLowerCase().includes(query)
+  )
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
     setSelectedItem({ id, name, type, unit })
@@ -130,11 +146,48 @@ export function StocksView() {
         </div>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher dans le stock..."
+          className="pl-9 pr-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Effacer la recherche</span>
+          </button>
+        )}
+      </div>
+
+      {query && (
+        <p className="text-sm text-muted-foreground">
+          {filteredRawMaterials.length + filteredFinishedProducts.length + filteredPackaging.length} resultat(s) pour &quot;{searchQuery}&quot;
+        </p>
+      )}
+
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="raw" className="gap-2"><Package className="h-4 w-4" /><span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span></TabsTrigger>
-          <TabsTrigger value="finished" className="gap-2"><Box className="h-4 w-4" /><span className="hidden sm:inline">{t("stocks.finished_products")}</span><span className="sm:hidden">PF</span></TabsTrigger>
-          <TabsTrigger value="packaging" className="gap-2"><Gift className="h-4 w-4" /><span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span></TabsTrigger>
+          <TabsTrigger value="raw" className="gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span>
+            {query && <span className="text-xs opacity-70">({filteredRawMaterials.length})</span>}
+          </TabsTrigger>
+          <TabsTrigger value="finished" className="gap-2">
+            <Box className="h-4 w-4" />
+            <span className="hidden sm:inline">{t("stocks.finished_products")}</span><span className="sm:hidden">PF</span>
+            {query && <span className="text-xs opacity-70">({filteredFinishedProducts.length})</span>}
+          </TabsTrigger>
+          <TabsTrigger value="packaging" className="gap-2">
+            <Gift className="h-4 w-4" />
+            <span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span>
+            {query && <span className="text-xs opacity-70">({filteredPackaging.length})</span>}
+          </TabsTrigger>
           <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
         </TabsList>
 
@@ -151,7 +204,7 @@ export function StocksView() {
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
             <RawMaterialsTable
-              materials={rawMaterials || []}
+              materials={filteredRawMaterials}
               storageLocations={storageLocations || []}
               onItemClick={(id, name, unit) => {
                 handleItemClick(id, name, "raw", unit)
@@ -167,7 +220,7 @@ export function StocksView() {
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
             <FinishedProductsTable 
-              products={finishedProducts || []} 
+              products={filteredFinishedProducts} 
               onItemClick={(id, name) => handleItemClick(id, name, "finished")}
             />
           )}
@@ -176,19 +229,32 @@ export function StocksView() {
         <TabsContent value="packaging" className="mt-6">
           {pkgLoading ? (
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : (packaging || []).length === 0 ? (
+          ) : filteredPackaging.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Gift className="h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-semibold">Aucun emballage</h3>
-              <p className="text-sm text-muted-foreground mt-1">Ajoutez vos boites, plateaux et sachets</p>
-              <Button className="mt-4 bg-[#D4A373] hover:bg-[#c4956a] text-white" onClick={() => setNewPackagingOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter un emballage
-              </Button>
+              {query ? (
+                <>
+                  <Search className="h-12 w-12 text-muted-foreground/50" />
+                  <h3 className="mt-4 text-lg font-semibold">Aucun resultat</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{"Aucun emballage ne correspond a \""}{searchQuery}{"\""}</p>
+                  <Button variant="outline" className="mt-4" onClick={() => setSearchQuery("")}>
+                    Effacer la recherche
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Gift className="h-12 w-12 text-muted-foreground/50" />
+                  <h3 className="mt-4 text-lg font-semibold">Aucun emballage</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Ajoutez vos boites, plateaux et sachets</p>
+                  <Button className="mt-4 bg-[#D4A373] hover:bg-[#c4956a] text-white" onClick={() => setNewPackagingOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Ajouter un emballage
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <PackagingTable 
-              items={packaging || []} 
+              items={filteredPackaging} 
               onItemClick={(id, name) => handleItemClick(id, name, "packaging")}
             />
           )}
