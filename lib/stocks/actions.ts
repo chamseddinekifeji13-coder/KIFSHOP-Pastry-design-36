@@ -1,3 +1,5 @@
+"use server"
+
 import { createClient } from "@/lib/supabase/client"
 
 // ─── String normalization helper ─────────────────────────────
