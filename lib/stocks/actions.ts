@@ -163,6 +163,13 @@ export async function createRawMaterial(tenantId: string, data: {
       throw new Error(`DUPLICATE:La matiere premiere "${exactMatch.name}" existe deja`)
     }
     
+    // Check for very similar names (95%+ similarity) - more strict threshold
+    const similarMatch = allMaterials.find(m => calculateSimilarity(data.name, m.name) >= 0.95)
+    if (similarMatch) {
+      throw new Error(`SIMILAR:Une matiere premiere tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
+    }
+  }
+    
     // Check for very similar names (90%+ similarity)
     const similarMatch = allMaterials.find(m => calculateSimilarity(data.name, m.name) >= 0.9)
     if (similarMatch) {
@@ -396,8 +403,8 @@ export async function createFinishedProduct(tenantId: string, data: {
       throw new Error(`DUPLICATE:Le produit fini "${exactMatch.name}" existe deja`)
     }
     
-    // Check for very similar names (90%+ similarity)
-    const similarMatch = allProducts.find(p => calculateSimilarity(data.name, p.name) >= 0.9)
+    // Check for very similar names (95%+ similarity) - more strict threshold
+    const similarMatch = allProducts.find(p => calculateSimilarity(data.name, p.name) >= 0.95)
     if (similarMatch) {
       throw new Error(`SIMILAR:Un produit tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
     }
@@ -730,8 +737,15 @@ export async function createPackaging(tenantId: string, data: {
     // Check for exact match
     const exactMatch = allPackaging.find(p => normalizeString(p.name) === inputNormalized)
     if (exactMatch) {
-      throw new Error(`DUPLICATE:L'emballage "${exactMatch.name}" (${exactMatch.type}) existe deja`)
+      throw new Error(`DUPLICATE:L'emballage "${exactMatch.name}" existe deja`)
     }
+    
+    // Check for very similar names (95%+ similarity) - more strict threshold
+    const similarMatch = allPackaging.find(p => calculateSimilarity(data.name, p.name) >= 0.95)
+    if (similarMatch) {
+      throw new Error(`SIMILAR:Un emballage tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
+    }
+  }
     
     // Check for very similar names (90%+ similarity)
     const similarMatch = allPackaging.find(p => calculateSimilarity(data.name, p.name) >= 0.9)
