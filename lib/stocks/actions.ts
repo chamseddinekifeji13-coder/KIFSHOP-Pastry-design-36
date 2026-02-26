@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client"
 
-// ─── String normalization helper ─────────────────────────────
+// ─── String normalization helpers ────────────────────────────
 // Normalizes strings for comparison: removes accents, extra spaces, lowercase
 function normalizeString(str: string): string {
   return str
