@@ -1099,8 +1099,8 @@ export async function createStockMovement(tenantId: string, data: {
     table = "finished_products"; idField = data.finishedProductId
   }
 
-  // For sortie and transfert: verify stock is sufficient BEFORE inserting movement
-  if (idField && (data.movementType === "sortie" || data.movementType === "transfert")) {
+  // For exit and transfer: verify stock is sufficient BEFORE inserting movement
+  if (idField && (normalizedMovementType === "exit" || normalizedMovementType === "transfer")) {
     const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
     const currentStock = Number(currentItem?.current_stock || 0)
     if (data.quantity > currentStock) {
@@ -1111,10 +1111,10 @@ export async function createStockMovement(tenantId: string, data: {
   if (error) { throw new Error(error.message) }
 
   // Update stock level (transfers don't change total stock)
-  if (idField && data.movementType !== "transfert") {
+  if (idField && normalizedMovementType !== "transfer") {
     const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
     const currentStock = Number(currentItem?.current_stock || 0)
-    const delta = data.movementType === "entree" ? data.quantity : -data.quantity
+    const delta = normalizedMovementType === "entrance" ? data.quantity : -data.quantity
     const newStock = currentStock + delta
     if (newStock < 0) {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}`)
