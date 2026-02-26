@@ -169,13 +169,6 @@ export async function createRawMaterial(tenantId: string, data: {
       throw new Error(`SIMILAR:Une matiere premiere tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
     }
   }
-    
-    // Check for very similar names (90%+ similarity)
-    const similarMatch = allMaterials.find(m => calculateSimilarity(data.name, m.name) >= 0.9)
-    if (similarMatch) {
-      throw new Error(`SIMILAR:Un produit tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
-    }
-  }
   
   const { data: row, error } = await supabase.from("raw_materials").insert({
     tenant_id: tenantId, name: data.name, unit: data.unit,
