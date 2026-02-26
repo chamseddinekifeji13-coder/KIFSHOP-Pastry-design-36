@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangle, FlaskConical, Plus, MapPin, Filter, Pencil } from "lucide-react"
+import { AlertTriangle, FlaskConical, Plus, MapPin, Filter } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,11 +14,10 @@ interface RawMaterialsTableProps {
   materials: RawMaterial[]
   storageLocations?: StorageLocation[]
   onItemClick: (id: string, name: string, unit?: string) => void
-  onEditClick?: (id: string, name: string, unit?: string, currentStock?: number, minStock?: number, pricePerUnit?: number) => void
   onAdd?: () => void
 }
 
-export function RawMaterialsTable({ materials, storageLocations, onItemClick, onEditClick, onAdd }: RawMaterialsTableProps) {
+export function RawMaterialsTable({ materials, storageLocations, onItemClick, onAdd }: RawMaterialsTableProps) {
   const [locationFilter, setLocationFilter] = useState("all")
 
   const locMap = new Map((storageLocations || []).map(l => [l.id, l]))
@@ -90,7 +89,6 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                 <TableHead className="hidden sm:table-cell">Niveau</TableHead>
                 <TableHead>Prix/Unite</TableHead>
                 <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -135,19 +133,6 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                     <TableCell>{material.pricePerUnit.toLocaleString("fr-TN")} TND</TableCell>
                     <TableCell>
                       {status === "critical" ? <Badge variant="destructive">Critique</Badge> : <Badge variant="default" className="bg-primary">En stock</Badge>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onEditClick?.(material.id, material.name, material.unit, material.currentStock, material.minStock, material.pricePerUnit)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 )

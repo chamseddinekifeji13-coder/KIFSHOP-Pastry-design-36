@@ -2,19 +2,17 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Package, Pencil } from "lucide-react"
+import { Package } from "lucide-react"
 import type { FinishedProduct } from "@/lib/stocks/actions"
 
 interface FinishedProductsTableProps {
   products: FinishedProduct[]
   onItemClick: (id: string, name: string) => void
-  onEditClick?: (id: string, name: string, unit?: string, currentStock?: number, minStock?: number, pricePerUnit?: number) => void
 }
 
-export function FinishedProductsTable({ products, onItemClick, onEditClick }: FinishedProductsTableProps) {
+export function FinishedProductsTable({ products, onItemClick }: FinishedProductsTableProps) {
   if (products.length === 0) {
     return (
       <Card>
@@ -38,7 +36,6 @@ export function FinishedProductsTable({ products, onItemClick, onEditClick }: Fi
                 <TableHead className="text-right">Prix vente</TableHead>
                 <TableHead className="text-right">Cout revient</TableHead>
                 <TableHead className="text-right">Marge</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,19 +77,6 @@ export function FinishedProductsTable({ products, onItemClick, onEditClick }: Fi
                       ) : (
                         <span className="text-xs text-muted-foreground">--</span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-primary"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onEditClick?.(product.id, product.name, product.unit, product.currentStock, product.minStock, product.sellingPrice)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
                     </TableCell>
                   </TableRow>
                 )
