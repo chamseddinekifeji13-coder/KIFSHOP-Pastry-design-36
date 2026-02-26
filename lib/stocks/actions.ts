@@ -739,13 +739,6 @@ export async function createPackaging(tenantId: string, data: {
       throw new Error(`SIMILAR:Un emballage tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
     }
   }
-    
-    // Check for very similar names (90%+ similarity)
-    const similarMatch = allPackaging.find(p => calculateSimilarity(data.name, p.name) >= 0.9)
-    if (similarMatch) {
-      throw new Error(`SIMILAR:Un emballage tres similaire existe deja: "${similarMatch.name}" (${similarMatch.type}). Voulez-vous vraiment continuer?`)
-    }
-  }
   
   const { data: row, error } = await supabase.from("packaging").insert({
     tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
