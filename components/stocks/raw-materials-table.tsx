@@ -82,6 +82,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
   const hasLocations = (storageLocations || []).length > 0
 
   return (
+    <>
     <Card>
       {hasLocations && (
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
@@ -200,5 +201,6 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
