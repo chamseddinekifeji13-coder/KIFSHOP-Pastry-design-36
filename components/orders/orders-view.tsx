@@ -51,6 +51,7 @@ import { InvoicePreview } from "./invoice-preview"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
+import { ExportToBestDeliveryDrawer } from "./export-to-best-delivery-drawer"
 import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV } from "@/lib/csv-export"
 
@@ -158,6 +159,9 @@ export function OrdersView() {
   const [previewInvoice, setPreviewInvoice] = useState<Invoice | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
+
+  // Best Delivery export state
+  const [bestDeliveryDrawerOpen, setBestDeliveryDrawerOpen] = useState(false)
 
   const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
@@ -1423,15 +1427,25 @@ export function OrdersView() {
                         </Button>
                       )}
                       {selectedOrder.deliveryType === "delivery" ? (
-                        <Button
-                          variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
-                          className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
-                          disabled={actionLoading}
-                          onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
-                        >
-                          <Truck className="mr-2 h-4 w-4" />
-                          Expedier la commande
-                        </Button>
+                        <>
+                          <Button
+                            variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
+                            className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
+                            disabled={actionLoading}
+                            onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Expedier la commande
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full bg-transparent"
+                            onClick={() => setBestDeliveryDrawerOpen(true)}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Exporter vers Best Delivery
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
@@ -1844,6 +1858,11 @@ export function OrdersView() {
 
       {/* New Order Drawer */}
       <NewOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+      <ExportToBestDeliveryDrawer
+        open={bestDeliveryDrawerOpen}
+        onOpenChange={setBestDeliveryDrawerOpen}
+        order={selectedOrder}
+      />
     </div>
   )
 }

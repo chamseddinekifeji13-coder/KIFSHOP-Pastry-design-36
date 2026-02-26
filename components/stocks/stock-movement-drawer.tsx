@@ -106,6 +106,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   }
 
   const handleSubmit = async (action: "entree" | "sortie" | "transfert") => {
+    console.log("[v0] handleSubmit called with action:", action, "activeItem:", activeItem)
     if (!activeItem) {
       toast.error("Veuillez selectionner un article")
       return
@@ -355,7 +356,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
                 {renderReasonSelect(["Achat fournisseur", "Production", "Retour client", "Ajustement inventaire", "Don / Cadeau"])}
                 {renderLocationSelect("Destination", toLocationId, setToLocationId)}
               </div>
-              <Button className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-11" onClick={() => handleSubmit("entree")} disabled={saving || !activeItem}>
+              <Button className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-11" onClick={() => handleSubmit("entree")} disabled={saving || !activeItem || !quantity}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
                 {"Enregistrer l'entree"}
               </Button>
@@ -369,7 +370,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
                 {renderReasonSelect(["Vente", "Utilisation production", "Perte / Perime", "Ajustement inventaire", "Casse"])}
                 {renderLocationSelect("Depuis", fromLocationId, setFromLocationId)}
               </div>
-              <Button className="w-full rounded-xl h-11" variant="destructive" onClick={() => handleSubmit("sortie")} disabled={saving || !activeItem}>
+              <Button className="w-full rounded-xl h-11" variant="destructive" onClick={() => handleSubmit("sortie")} disabled={saving || !activeItem || !quantity}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Minus className="mr-2 h-4 w-4" />}
                 Enregistrer la sortie
               </Button>
