@@ -1069,12 +1069,20 @@ export async function createStockMovement(tenantId: string, data: {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Normalize movement type for database - map French to database values
+  const movementTypeMap: Record<string, string> = {
+    "entree": "entrance",
+    "sortie": "exit", 
+    "transfert": "transfer"
+  }
+  const normalizedMovementType = movementTypeMap[data.movementType] || data.movementType
+
   const { error } = await supabase.from("stock_movements").insert({
     tenant_id: tenantId, item_type: data.itemType,
     raw_material_id: data.rawMaterialId || null,
     finished_product_id: data.finishedProductId || null,
     packaging_id: data.packagingId || null,
-    movement_type: data.movementType, quantity: data.quantity, unit: data.unit,
+    movement_type: normalizedMovementType, quantity: data.quantity, unit: data.unit,
     reason: data.reason || null, reference: data.reference || null,
     from_location_id: data.fromLocationId || null,
     to_location_id: data.toLocationId || null,
