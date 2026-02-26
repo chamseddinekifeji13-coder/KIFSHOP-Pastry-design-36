@@ -165,6 +165,7 @@ export function StocksView() {
                 handleItemClick(id, name, "raw", unit)
                 setChartMaterial({ id, name, unit })
               }}
+              onEditClick={(id, name, unit, currentStock, minStock, pricePerUnit) => handleEditArticle(id, name, "raw", unit, currentStock, minStock, pricePerUnit)}
               onAdd={() => setNewRawMaterialOpen(true)}
             />
           )}
@@ -174,7 +175,11 @@ export function StocksView() {
           {fpLoading ? (
             <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
-            <FinishedProductsTable products={finishedProducts || []} onItemClick={(id, name) => handleItemClick(id, name, "finished")} />
+            <FinishedProductsTable 
+              products={finishedProducts || []} 
+              onItemClick={(id, name) => handleItemClick(id, name, "finished")}
+              onEditClick={(id, name, unit, currentStock, minStock, pricePerUnit) => handleEditArticle(id, name, "finished", unit, currentStock, minStock, pricePerUnit)}
+            />
           )}
         </TabsContent>
 
@@ -192,7 +197,11 @@ export function StocksView() {
               </Button>
             </div>
           ) : (
-            <PackagingTable items={packaging || []} onItemClick={(id, name) => handleItemClick(id, name, "packaging")} />
+            <PackagingTable 
+              items={packaging || []} 
+              onItemClick={(id, name) => handleItemClick(id, name, "packaging")}
+              onEditClick={(id, name, unit, currentStock, minStock, pricePerUnit) => handleEditArticle(id, name, "packaging", unit, currentStock, minStock, pricePerUnit)}
+            />
           )}
         </TabsContent>
 
