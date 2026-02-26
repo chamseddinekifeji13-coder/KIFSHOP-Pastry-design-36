@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Pencil } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { RawMaterialsTable } from "./raw-materials-table"
@@ -11,7 +11,6 @@ import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
-import { EditArticleDrawer } from "./edit-article-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
 import { useRawMaterials, useFinishedProducts, usePackaging, useStorageLocations } from "@/hooks/use-tenant-data"
@@ -29,9 +28,7 @@ export function StocksView() {
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
-  const [editDrawerOpen, setEditDrawerOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string } | null>(null)
-  const [editingArticle, setEditingArticle] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string; currentStock?: number; minStock?: number; pricePerUnit?: number } | null>(null)
   const [chartMaterial, setChartMaterial] = useState<{ id: string; name: string; unit?: string } | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
@@ -48,11 +45,6 @@ export function StocksView() {
     if (type === "raw") {
       setChartMaterial({ id, name, unit })
     }
-  }
-
-  const handleEditArticle = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string, currentStock?: number, minStock?: number, pricePerUnit?: number) => {
-    setEditingArticle({ id, name, type, unit, currentStock, minStock, pricePerUnit })
-    setEditDrawerOpen(true)
   }
 
   const handleExportStocks = async () => {
@@ -165,7 +157,6 @@ export function StocksView() {
                 handleItemClick(id, name, "raw", unit)
                 setChartMaterial({ id, name, unit })
               }}
-              onEditClick={(id, name, unit, currentStock, minStock, pricePerUnit) => handleEditArticle(id, name, "raw", unit, currentStock, minStock, pricePerUnit)}
               onAdd={() => setNewRawMaterialOpen(true)}
             />
           )}
@@ -178,7 +169,6 @@ export function StocksView() {
             <FinishedProductsTable 
               products={finishedProducts || []} 
               onItemClick={(id, name) => handleItemClick(id, name, "finished")}
-              onEditClick={(id, name, unit, currentStock, minStock, pricePerUnit) => handleEditArticle(id, name, "finished", unit, currentStock, minStock, pricePerUnit)}
             />
           )}
         </TabsContent>
@@ -200,7 +190,6 @@ export function StocksView() {
             <PackagingTable 
               items={packaging || []} 
               onItemClick={(id, name) => handleItemClick(id, name, "packaging")}
-              onEditClick={(id, name, unit, currentStock, minStock, pricePerUnit) => handleEditArticle(id, name, "packaging", unit, currentStock, minStock, pricePerUnit)}
             />
           )}
         </TabsContent>
@@ -211,16 +200,6 @@ export function StocksView() {
       </Tabs>
 
       <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} />
-      <EditArticleDrawer
-        open={editDrawerOpen}
-        onOpenChange={setEditDrawerOpen}
-        article={editingArticle}
-        onSuccess={() => {
-          mutateRM()
-          mutateFP()
-          mutatePkg()
-        }}
-      />
       <NewProductDrawer open={newProductOpen} onOpenChange={setNewProductOpen} onSuccess={() => { mutateRM(); mutateFP() }} />
       <NewPackagingDrawer open={newPackagingOpen} onOpenChange={setNewPackagingOpen} onSuccess={() => mutatePkg()} />
       <NewRawMaterialDrawer open={newRawMaterialOpen} onOpenChange={setNewRawMaterialOpen} onSuccess={() => mutateRM()} />

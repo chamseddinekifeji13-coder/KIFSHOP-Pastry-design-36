@@ -1,9 +1,8 @@
 "use client"
 
-import { Package, AlertTriangle, Pencil } from "lucide-react"
+import { Package, AlertTriangle } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import type { Packaging } from "@/lib/stocks/actions"
 
@@ -22,10 +21,9 @@ const typeLabels: Record<string, string> = {
 interface PackagingTableProps {
   items: Packaging[]
   onItemClick?: (id: string, name: string) => void
-  onEditClick?: (id: string, name: string, unit?: string, currentStock?: number, minStock?: number, pricePerUnit?: number) => void
 }
 
-export function PackagingTable({ items, onItemClick, onEditClick }: PackagingTableProps) {
+export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
   if (items.length === 0) {
     return (
       <Card>
@@ -52,7 +50,6 @@ export function PackagingTable({ items, onItemClick, onEditClick }: PackagingTab
               <TableHead className="text-right">Seuil min.</TableHead>
               <TableHead className="text-right">Prix unitaire</TableHead>
               <TableHead>Statut</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -102,19 +99,6 @@ export function PackagingTable({ items, onItemClick, onEditClick }: PackagingTab
                         OK
                       </Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground hover:text-primary"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEditClick?.(item.id, item.name, item.unit, item.currentStock, item.minStock, item.price)
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
                   </TableCell>
                 </TableRow>
               )
