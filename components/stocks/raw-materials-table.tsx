@@ -1,14 +1,19 @@
 "use client"
 
 import { useState } from "react"
-import { AlertTriangle, FlaskConical, Plus, MapPin, Filter } from "lucide-react"
+import { AlertTriangle, FlaskConical, Plus, MapPin, Filter, Edit2 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import type { RawMaterial, StorageLocation } from "@/lib/stocks/actions"
+import { updateRawMaterial } from "@/lib/stocks/actions"
+import { toast } from "sonner"
 
 interface RawMaterialsTableProps {
   materials: RawMaterial[]
@@ -19,6 +24,9 @@ interface RawMaterialsTableProps {
 
 export function RawMaterialsTable({ materials, storageLocations, onItemClick, onAdd }: RawMaterialsTableProps) {
   const [locationFilter, setLocationFilter] = useState("all")
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
 
   const locMap = new Map((storageLocations || []).map(l => [l.id, l]))
 
@@ -27,6 +35,25 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
     : locationFilter === "unassigned"
       ? materials.filter(m => !m.storageLocationId)
       : materials.filter(m => m.storageLocationId === locationFilter)
+  const handleEditClick = (material: RawMaterial) => {
+    setEditingId(material.id)
+    setEditName(material.name)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editName.trim()) return
+    setIsSaving(true)
+    try {
+      await updateRawMaterial(editingId, { name: editName.trim() })
+      toast.success("Matiere premiere modifiee")
+      setEditingId(null)
+    } catch (err: any) {
+      toast.error("Erreur lors de la modification")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const getStatus = (m: RawMaterial) => {
     if (m.minStock > 0 && m.currentStock <= m.minStock) return "critical"
     return "in-stock"
@@ -55,6 +82,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
   const hasLocations = (storageLocations || []).length > 0
 
   return (
+    <>
     <Card>
       {hasLocations && (
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
@@ -99,12 +127,20 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                 const loc = material.storageLocationId ? locMap.get(material.storageLocationId) : null
                 return (
                   <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(material.id, material.name, material.unit)}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {status === "critical" && <AlertTriangle className="h-4 w-4 text-destructive" />}
-                        <span className="font-medium">{material.name}</span>
-                      </div>
-                    </TableCell>
+                <TableCell>
+                  <span className="font-medium">{material.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2 h-5 w-5 p-0 inline-flex"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditClick(material)
+                    }}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </TableCell>
                     {hasLocations && (
                       <TableCell className="hidden md:table-cell">
                         {loc ? (
@@ -142,5 +178,29 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={!!editingId} onOpenChange={() => editingId && setEditingId(null)}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Modifier le nom</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="edit-name">Nouveau nom</Label>
+            <Input
+              id="edit-name"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Entrez le nouveau nom"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditingId(null)}>Annuler</Button>
+          <Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? "Saving..." : "Enregistrer"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
