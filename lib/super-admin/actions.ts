@@ -1114,6 +1114,141 @@ export async function adminCorrectOrder(
   return { success: true }
 }
 
+// ─── Articles Management (Super Admin) ──────────────────────
+
+export interface AdminArticle {
+  id: string
+  name: string
+  type: "raw_material" | "finished_product" | "packaging"
+  unit: string
+  currentStock: number
+  price: number
+  tenant_id: string
+  tenant_name: string
+}
+
+export async function getAllArticles(tenantId?: string): Promise<AdminArticle[]> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  // Get tenants for name mapping
+  const { data: tenants } = await adminClient.from("tenants").select("id, name")
+  const tenantMap = new Map<string, string>()
+  tenants?.forEach((t) => tenantMap.set(t.id, t.name))
+
+  // Build queries based on optional tenant filter
+  const rmQuery = adminClient.from("raw_materials").select("id, name, unit, current_stock, price_per_unit, tenant_id").order("name")
+  const fpQuery = adminClient.from("finished_products").select("id, name, unit, current_stock, selling_price, tenant_id").order("name")
+  const pkgQuery = adminClient.from("packaging").select("id, name, unit, current_stock, price, tenant_id").order("name")
+
+  if (tenantId) {
+    rmQuery.eq("tenant_id", tenantId)
+    fpQuery.eq("tenant_id", tenantId)
+    pkgQuery.eq("tenant_id", tenantId)
+  }
+
+  const [{ data: rawMaterials }, { data: finishedProducts }, { data: packaging }] = await Promise.all([
+    rmQuery, fpQuery, pkgQuery,
+  ])
+
+  const articles: AdminArticle[] = []
+
+  rawMaterials?.forEach((r) => articles.push({
+    id: r.id, name: r.name, type: "raw_material", unit: r.unit,
+    currentStock: Number(r.current_stock), price: Number(r.price_per_unit),
+    tenant_id: r.tenant_id, tenant_name: tenantMap.get(r.tenant_id) || "Inconnu",
+  }))
+
+  finishedProducts?.forEach((f) => articles.push({
+    id: f.id, name: f.name, type: "finished_product", unit: f.unit,
+    currentStock: Number(f.current_stock), price: Number(f.selling_price),
+    tenant_id: f.tenant_id, tenant_name: tenantMap.get(f.tenant_id) || "Inconnu",
+  }))
+
+  packaging?.forEach((p) => articles.push({
+    id: p.id, name: p.name, type: "packaging", unit: p.unit,
+    currentStock: Number(p.current_stock), price: Number(p.price),
+    tenant_id: p.tenant_id, tenant_name: tenantMap.get(p.tenant_id) || "Inconnu",
+  }))
+
+  return articles
+}
+
+export async function adminDeleteArticle(
+  tenantId: string,
+  itemType: "raw_material" | "finished_product" | "packaging",
+  itemId: string
+): Promise<{ success: boolean }> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const tableMap = { raw_material: "raw_materials", finished_product: "finished_products", packaging: "packaging" } as const
+  const table = tableMap[itemType]
+
+  // Get article name before deleting for confirmation
+  const { data: item } = await adminClient.from(table).select("name").eq("id", itemId).single()
+  if (!item) throw new Error("Article introuvable")
+
+  // Clean up related data
+  const fkColumn = itemType === "raw_material" ? "raw_material_id" : itemType === "finished_product" ? "finished_product_id" : "packaging_id"
+
+  // Delete stock movements
+  await adminClient.from("stock_movements").delete().eq(fkColumn, itemId)
+
+  // Delete recipe ingredients (for raw materials)
+  if (itemType === "raw_material") {
+    await adminClient.from("recipe_ingredients").delete().eq("raw_material_id", itemId)
+  }
+
+  // Delete finished product packaging links
+  if (itemType === "finished_product") {
+    await adminClient.from("finished_product_packaging").delete().eq("finished_product_id", itemId)
+  }
+  if (itemType === "packaging") {
+    await adminClient.from("finished_product_packaging").delete().eq("packaging_id", itemId)
+  }
+
+  // Delete the article itself
+  const { error } = await adminClient.from(table).delete().eq("id", itemId)
+  if (error) throw new Error(error.message)
+
+  return { success: true }
+}
+
+export async function adminUpdateArticleUnit(
+  tenantId: string,
+  itemType: "raw_material" | "finished_product" | "packaging",
+  itemId: string,
+  newUnit: string
+): Promise<{ success: boolean }> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const tableMap = { raw_material: "raw_materials", finished_product: "finished_products", packaging: "packaging" } as const
+  const table = tableMap[itemType]
+
+  // Verify article exists
+  const { data: item } = await adminClient.from(table).select("name, unit").eq("id", itemId).single()
+  if (!item) throw new Error("Article introuvable")
+
+  // Update unit on the article
+  const { error } = await adminClient
+    .from(table)
+    .update({ unit: newUnit, updated_at: new Date().toISOString() })
+    .eq("id", itemId)
+
+  if (error) throw new Error(error.message)
+
+  // Also update stock_movements to keep unit consistent
+  const fkColumn = itemType === "raw_material" ? "raw_material_id" : itemType === "finished_product" ? "finished_product_id" : "packaging_id"
+  await adminClient
+    .from("stock_movements")
+    .update({ unit: newUnit })
+    .eq(fkColumn, itemId)
+
+  return { success: true }
+}
+
 export async function setTenantTrialDays(tenantId: string, trialDays: number) {
   const { supabase } = await requireSuperAdmin()
 

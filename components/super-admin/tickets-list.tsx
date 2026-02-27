@@ -679,43 +679,45 @@ function AdminTicketConversation({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-start gap-3 pb-4">
-        <Button variant="ghost" size="icon" onClick={onBack} className="mt-0.5 shrink-0">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base truncate">{ticket.subject}</h3>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <StatusBadge status={ticket.status} />
-            <PriorityBadge priority={ticket.priority} />
-            <Badge variant="outline" className="text-xs gap-1">
-              <Building2 className="h-3 w-3" />
-              {ticket.tenant_name}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              par {ticket.created_by_name}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS[ticket.category] || ticket.category}
-            </span>
+      <div className="flex flex-col gap-3 pb-4">
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={onBack} className="mt-0.5 shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-sm sm:text-base truncate">{ticket.subject}</h3>
+            <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+              <StatusBadge status={ticket.status} />
+              <PriorityBadge priority={ticket.priority} />
+              <Badge variant="outline" className="text-xs gap-1 hidden sm:inline-flex">
+                <Building2 className="h-3 w-3" />
+                {ticket.tenant_name}
+              </Badge>
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                par {ticket.created_by_name}
+              </span>
+              <span className="text-xs text-muted-foreground hidden md:inline">
+                {CATEGORY_LABELS[ticket.category] || ticket.category}
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="shrink-0">
-          <Select
-            value={ticket.status}
-            onValueChange={handleStatusChange}
-            disabled={updatingStatus}
-          >
-            <SelectTrigger className="h-8 w-[130px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="open">Ouvert</SelectItem>
-              <SelectItem value="in_progress">En cours</SelectItem>
-              <SelectItem value="resolved">Resolu</SelectItem>
-              <SelectItem value="closed">Ferme</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="shrink-0">
+            <Select
+              value={ticket.status}
+              onValueChange={handleStatusChange}
+              disabled={updatingStatus}
+            >
+              <SelectTrigger className="h-8 w-[110px] sm:w-[130px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Ouvert</SelectItem>
+                <SelectItem value="in_progress">En cours</SelectItem>
+                <SelectItem value="resolved">Resolu</SelectItem>
+                <SelectItem value="closed">Ferme</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -822,7 +824,7 @@ export function TicketsList() {
   return (
     <div className="space-y-6">
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -877,10 +879,10 @@ export function TicketsList() {
               <CardTitle className="text-base">Tous les tickets</CardTitle>
               <CardDescription>{filteredTickets.length} ticket(s)</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectTrigger className="w-[120px] sm:w-[130px] h-8 text-xs">
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>
@@ -892,7 +894,7 @@ export function TicketsList() {
                 </SelectContent>
               </Select>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectTrigger className="w-[120px] sm:w-[130px] h-8 text-xs">
                   <SelectValue placeholder="Priorite" />
                 </SelectTrigger>
                 <SelectContent>
@@ -918,13 +920,13 @@ export function TicketsList() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Sujet</TableHead>
-                    <TableHead>Patisserie</TableHead>
-                    <TableHead>Auteur</TableHead>
-                    <TableHead>Categorie</TableHead>
-                    <TableHead>Priorite</TableHead>
+                    <TableHead className="hidden sm:table-cell">Patisserie</TableHead>
+                    <TableHead className="hidden lg:table-cell">Auteur</TableHead>
+                    <TableHead className="hidden lg:table-cell">Categorie</TableHead>
+                    <TableHead className="hidden sm:table-cell">Priorite</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead className="text-center">Messages</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead className="text-center hidden md:table-cell">Messages</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -936,31 +938,34 @@ export function TicketsList() {
                     >
                       <TableCell className="font-medium max-w-[200px] truncate">
                         {ticket.subject}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        <div className="sm:hidden text-xs text-muted-foreground font-normal mt-0.5">
                           {ticket.tenant_name}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm">{ticket.created_by_name}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-sm hidden sm:table-cell">
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate">{ticket.tenant_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm hidden lg:table-cell">{ticket.created_by_name}</TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <span className="text-xs text-muted-foreground">
                           {CATEGORY_LABELS[ticket.category] || ticket.category}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <PriorityBadge priority={ticket.priority} />
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={ticket.status} />
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="text-center hidden md:table-cell">
                         <Badge variant="secondary" className="text-xs">
                           {ticket.message_count}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap hidden md:table-cell">
                         {new Date(ticket.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                       </TableCell>
                     </TableRow>

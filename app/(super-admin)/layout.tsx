@@ -15,7 +15,7 @@ export default function SuperAdminLayout({
       <SuperAdminSidebar />
       <SidebarInset>
         {/* Mobile header with sidebar trigger */}
-        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 md:hidden">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b bg-background px-4 lg:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-5" />
           <div className="flex items-center gap-2">

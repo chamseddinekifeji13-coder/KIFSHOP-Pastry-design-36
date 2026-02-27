@@ -7,7 +7,7 @@ export default async function TenantDetailPage({
 }) {
   const { id } = await params
   return (
-    <div className="p-6">
+    <div className="p-4 lg:p-6">
       <TenantDetailView tenantId={id} />
     </div>
   )

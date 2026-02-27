@@ -118,7 +118,7 @@ export function SuperAdminDashboard() {
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Patisseries</CardTitle>
@@ -230,24 +230,24 @@ export function SuperAdminDashboard() {
               {recentTenants.map((tenant) => (
                 <div
                   key={tenant.id}
-                  className="flex items-center justify-between rounded-md border p-3"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between rounded-md border p-3 gap-2"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold text-background"
                       style={{ backgroundColor: tenant.primary_color }}
                     >
                       {tenant.name.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{tenant.name}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{tenant.name}</p>
                       <p className="text-xs text-muted-foreground">
                         {tenant.user_count} utilisateur{tenant.user_count !== 1 ? "s" : ""} - Cree le{" "}
                         {new Date(tenant.created_at).toLocaleDateString("fr-FR")}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 ml-12 sm:ml-0">
                     <Badge
                       variant={tenant.is_active ? "default" : "secondary"}
                       className="text-[10px]"
