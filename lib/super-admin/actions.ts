@@ -1053,7 +1053,7 @@ export async function adminCorrectPrice(
     ticket_id: ticketId,
     sender_type: "system",
     sender_name: "Correction automatique",
-    message: `CORRECTION PRIX | ${typeLabel}: ${item.name} | ${priceLabel}: ${oldPrice} DA → ${newPrice} DA | Raison: ${reason}`,
+    message: `CORRECTION PRIX | ${typeLabel}: ${item.name} | ${priceLabel}: ${oldPrice} DT → ${newPrice} DT | Raison: ${reason}`,
   })
 
   await adminClient.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId)
@@ -1085,7 +1085,7 @@ export async function adminCorrectOrder(
 
   if (updates.total !== undefined && updates.total !== Number(order.total)) {
     updateObj.total = updates.total
-    changes.push(`Total: ${Number(order.total)} DA → ${updates.total} DA`)
+    changes.push(`Total: ${Number(order.total)} DT → ${updates.total} DT`)
   }
   if (updates.status && updates.status !== order.status) {
     updateObj.status = updates.status
