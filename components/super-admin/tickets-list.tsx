@@ -412,7 +412,7 @@ function CorrectionPanel({
                               {TYPE_LABELS[p.type]?.substring(0, 2).toUpperCase() || p.type}
                             </Badge>
                             {p.name}
-                            <span className="text-muted-foreground">({p.price} DA)</span>
+                            <span className="text-muted-foreground">({p.price} DT)</span>
                           </span>
                         </SelectItem>
                       ))}
@@ -422,9 +422,9 @@ function CorrectionPanel({
                 {selectedPriceProduct && (
                   <div className="space-y-2">
                     <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5">
-                      Prix actuel : <strong className="text-foreground">{selectedPriceProduct.price} DA</strong>
+                      Prix actuel : <strong className="text-foreground">{selectedPriceProduct.price} DT</strong>
                       {selectedPriceProduct.costPrice !== undefined && (
-                        <> | Cout : <strong className="text-foreground">{selectedPriceProduct.costPrice} DA</strong></>
+                        <> | Cout : <strong className="text-foreground">{selectedPriceProduct.costPrice} DT</strong></>
                       )}
                     </div>
                     {selectedPriceProduct.type === "finished_product" && (
@@ -486,7 +486,7 @@ function CorrectionPanel({
                     <SelectContent>
                       {orders.map((o) => (
                         <SelectItem key={o.id} value={o.id} className="text-xs">
-                          {o.customerName} - {o.total} DA ({new Date(o.createdAt).toLocaleDateString("fr-FR")})
+                          {o.customerName} - {o.total} DT ({new Date(o.createdAt).toLocaleDateString("fr-FR")})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -495,7 +495,7 @@ function CorrectionPanel({
                 {selectedOrder && (
                   <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1.5 space-y-0.5">
                     <div>Client : <strong className="text-foreground">{selectedOrder.customerName}</strong></div>
-                    <div>Total : <strong className="text-foreground">{selectedOrder.total} DA</strong> | Statut : <strong className="text-foreground">{ORDER_STATUS_LABELS[selectedOrder.status] || selectedOrder.status}</strong> | Paiement : <strong className="text-foreground">{PAYMENT_STATUS_LABELS[selectedOrder.paymentStatus] || selectedOrder.paymentStatus}</strong></div>
+                    <div>Total : <strong className="text-foreground">{selectedOrder.total} DT</strong> | Statut : <strong className="text-foreground">{ORDER_STATUS_LABELS[selectedOrder.status] || selectedOrder.status}</strong> | Paiement : <strong className="text-foreground">{PAYMENT_STATUS_LABELS[selectedOrder.paymentStatus] || selectedOrder.paymentStatus}</strong></div>
                   </div>
                 )}
                 <div className="space-y-2">
