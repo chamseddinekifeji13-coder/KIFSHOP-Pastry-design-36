@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   CircleDot,
   Filter,
+  Wrench,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -284,6 +285,31 @@ function TicketConversation({
           <div className="space-y-4 px-1">
             {messages.map((msg) => {
               const isAdmin = msg.senderType === "admin"
+              const isSystem = msg.senderType === "system"
+
+              if (isSystem) {
+                const parts = msg.message.split(" | ")
+                const action = parts[0] || ""
+                return (
+                  <div key={msg.id} className="flex justify-center my-2">
+                    <div className="max-w-[90%] rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Wrench className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-semibold text-primary">{action}</span>
+                        <span className="text-[10px] text-muted-foreground ml-auto">
+                          {new Date(msg.createdAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {parts.slice(1).map((part, i) => (
+                          <p key={i} className="text-xs text-foreground/80">{part.trim()}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+
               return (
                 <div key={msg.id} className={`flex ${isAdmin ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[80%] rounded-xl px-4 py-2.5 ${

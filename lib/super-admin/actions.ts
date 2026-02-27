@@ -862,6 +862,258 @@ export async function getTenantUnconfirmedUserIds(tenantId: string): Promise<str
   return unconfirmedIds
 }
 
+// ─── Tenant Data Access (for corrections) ────────────────────
+
+export interface TenantProduct {
+  id: string
+  name: string
+  type: "raw_material" | "finished_product" | "packaging"
+  unit: string
+  currentStock: number
+  price: number // price_per_unit for RM, selling_price for FP, price for PKG
+  costPrice?: number // cost_price for FP only
+}
+
+export interface TenantOrder {
+  id: string
+  customerName: string
+  total: number
+  status: string
+  paymentStatus: string
+  createdAt: string
+  itemCount: number
+}
+
+export async function getTenantProducts(tenantId: string): Promise<TenantProduct[]> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const [{ data: rawMaterials }, { data: finishedProducts }, { data: packaging }] = await Promise.all([
+    adminClient.from("raw_materials").select("id, name, unit, current_stock, price_per_unit").eq("tenant_id", tenantId).order("name"),
+    adminClient.from("finished_products").select("id, name, unit, current_stock, selling_price, cost_price").eq("tenant_id", tenantId).order("name"),
+    adminClient.from("packaging").select("id, name, unit, current_stock, price").eq("tenant_id", tenantId).order("name"),
+  ])
+
+  const products: TenantProduct[] = []
+
+  rawMaterials?.forEach((r) => products.push({
+    id: r.id, name: r.name, type: "raw_material", unit: r.unit,
+    currentStock: Number(r.current_stock), price: Number(r.price_per_unit),
+  }))
+
+  finishedProducts?.forEach((f) => products.push({
+    id: f.id, name: f.name, type: "finished_product", unit: f.unit,
+    currentStock: Number(f.current_stock), price: Number(f.selling_price),
+    costPrice: Number(f.cost_price),
+  }))
+
+  packaging?.forEach((p) => products.push({
+    id: p.id, name: p.name, type: "packaging", unit: p.unit,
+    currentStock: Number(p.current_stock), price: Number(p.price),
+  }))
+
+  return products
+}
+
+export async function getTenantOrders(tenantId: string): Promise<TenantOrder[]> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const { data: orders } = await adminClient
+    .from("orders")
+    .select("id, customer_name, total, status, payment_status, created_at")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+    .limit(50)
+
+  if (!orders) return []
+
+  // Get item counts
+  const orderIds = orders.map((o) => o.id)
+  const { data: items } = await adminClient
+    .from("order_items")
+    .select("order_id")
+    .in("order_id", orderIds.length > 0 ? orderIds : ["__none__"])
+
+  const countMap = new Map<string, number>()
+  items?.forEach((i) => countMap.set(i.order_id, (countMap.get(i.order_id) || 0) + 1))
+
+  return orders.map((o) => ({
+    id: o.id,
+    customerName: o.customer_name,
+    total: Number(o.total),
+    status: o.status,
+    paymentStatus: o.payment_status,
+    createdAt: o.created_at,
+    itemCount: countMap.get(o.id) || 0,
+  }))
+}
+
+export async function adminCorrectStock(
+  ticketId: string,
+  tenantId: string,
+  itemType: "raw_material" | "finished_product" | "packaging",
+  itemId: string,
+  newQuantity: number,
+  reason: string
+): Promise<{ success: boolean }> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const tableMap = { raw_material: "raw_materials", finished_product: "finished_products", packaging: "packaging" }
+  const table = tableMap[itemType]
+
+  // Get current data
+  const { data: item } = await adminClient.from(table).select("name, current_stock, unit").eq("id", itemId).single()
+  if (!item) throw new Error("Produit introuvable")
+
+  const oldQty = Number(item.current_stock)
+
+  // Update stock
+  const { error } = await adminClient
+    .from(table)
+    .update({ current_stock: newQuantity, updated_at: new Date().toISOString() })
+    .eq("id", itemId)
+
+  if (error) throw new Error(error.message)
+
+  // Record stock movement
+  const fkColumn = itemType === "raw_material" ? "raw_material_id" : itemType === "finished_product" ? "finished_product_id" : "packaging_id"
+  await adminClient.from("stock_movements").insert({
+    tenant_id: tenantId,
+    item_type: itemType === "raw_material" ? "mp" : itemType === "finished_product" ? "pf" : "emballage",
+    [fkColumn]: itemId,
+    movement_type: "correction_admin",
+    quantity: newQuantity - oldQty,
+    unit: item.unit,
+    reason: `[Admin] ${reason}`,
+    reference: `ticket:${ticketId}`,
+  })
+
+  // Trace in ticket conversation
+  const typeLabel = itemType === "raw_material" ? "MP" : itemType === "finished_product" ? "PF" : "Emballage"
+  await adminClient.from("ticket_messages").insert({
+    ticket_id: ticketId,
+    sender_type: "system",
+    sender_name: "Correction automatique",
+    message: `CORRECTION STOCK | ${typeLabel}: ${item.name} | ${oldQty} ${item.unit} → ${newQuantity} ${item.unit} | Raison: ${reason}`,
+  })
+
+  await adminClient.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId)
+
+  return { success: true }
+}
+
+export async function adminCorrectPrice(
+  ticketId: string,
+  tenantId: string,
+  itemType: "raw_material" | "finished_product" | "packaging",
+  itemId: string,
+  newPrice: number,
+  priceField: "selling" | "cost" | "unit",
+  reason: string
+): Promise<{ success: boolean }> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  const tableMap = { raw_material: "raw_materials", finished_product: "finished_products", packaging: "packaging" }
+  const table = tableMap[itemType]
+
+  // Determine column
+  let column: string
+  let priceLabel: string
+  if (itemType === "raw_material") {
+    column = "price_per_unit"
+    priceLabel = "Prix unitaire"
+  } else if (itemType === "finished_product") {
+    column = priceField === "cost" ? "cost_price" : "selling_price"
+    priceLabel = priceField === "cost" ? "Prix de revient" : "Prix de vente"
+  } else {
+    column = "price"
+    priceLabel = "Prix"
+  }
+
+  // Get current data
+  const { data: item } = await adminClient.from(table).select(`name, ${column}`).eq("id", itemId).single()
+  if (!item) throw new Error("Produit introuvable")
+
+  const oldPrice = Number(item[column])
+
+  // Update price
+  const { error } = await adminClient
+    .from(table)
+    .update({ [column]: newPrice, updated_at: new Date().toISOString() })
+    .eq("id", itemId)
+
+  if (error) throw new Error(error.message)
+
+  // Trace in ticket conversation
+  const typeLabel = itemType === "raw_material" ? "MP" : itemType === "finished_product" ? "PF" : "Emballage"
+  await adminClient.from("ticket_messages").insert({
+    ticket_id: ticketId,
+    sender_type: "system",
+    sender_name: "Correction automatique",
+    message: `CORRECTION PRIX | ${typeLabel}: ${item.name} | ${priceLabel}: ${oldPrice} DA → ${newPrice} DA | Raison: ${reason}`,
+  })
+
+  await adminClient.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId)
+
+  return { success: true }
+}
+
+export async function adminCorrectOrder(
+  ticketId: string,
+  orderId: string,
+  updates: { total?: number; status?: string; paymentStatus?: string },
+  reason: string
+): Promise<{ success: boolean }> {
+  await requireSuperAdmin()
+  const adminClient = createAdminClient()
+
+  // Get current order
+  const { data: order } = await adminClient
+    .from("orders")
+    .select("customer_name, total, status, payment_status")
+    .eq("id", orderId)
+    .single()
+
+  if (!order) throw new Error("Commande introuvable")
+
+  // Build update object
+  const updateObj: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  const changes: string[] = []
+
+  if (updates.total !== undefined && updates.total !== Number(order.total)) {
+    updateObj.total = updates.total
+    changes.push(`Total: ${Number(order.total)} DA → ${updates.total} DA`)
+  }
+  if (updates.status && updates.status !== order.status) {
+    updateObj.status = updates.status
+    changes.push(`Statut: ${order.status} → ${updates.status}`)
+  }
+  if (updates.paymentStatus && updates.paymentStatus !== order.payment_status) {
+    updateObj.payment_status = updates.paymentStatus
+    changes.push(`Paiement: ${order.payment_status} → ${updates.paymentStatus}`)
+  }
+
+  if (changes.length === 0) return { success: true }
+
+  const { error } = await adminClient.from("orders").update(updateObj).eq("id", orderId)
+  if (error) throw new Error(error.message)
+
+  // Trace in ticket conversation
+  await adminClient.from("ticket_messages").insert({
+    ticket_id: ticketId,
+    sender_type: "system",
+    sender_name: "Correction automatique",
+    message: `CORRECTION COMMANDE | Client: ${order.customer_name} | ${changes.join(" | ")} | Raison: ${reason}`,
+  })
+
+  await adminClient.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId)
+
+  return { success: true }
+}
+
 export async function setTenantTrialDays(tenantId: string, trialDays: number) {
   const { supabase } = await requireSuperAdmin()
 
