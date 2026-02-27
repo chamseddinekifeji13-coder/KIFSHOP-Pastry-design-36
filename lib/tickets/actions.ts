@@ -54,10 +54,10 @@ function mapTicket(row: Record<string, unknown>): SupportTicket {
   return {
     id: row.id as string,
     tenantId: row.tenant_id as string,
-    createdByUserId: row.created_by_user_id as string,
+    createdByUserId: row.created_by as string,
     createdByName: row.created_by_name as string,
     subject: row.subject as string,
-    category: row.category as TicketCategory,
+    category: (row.category as TicketCategory) || "general",
     priority: row.priority as TicketPriority,
     status: row.status as TicketStatus,
     createdAt: row.created_at as string,
@@ -109,9 +109,10 @@ export async function createTicket(data: {
     .from("support_tickets")
     .insert({
       tenant_id: data.tenantId,
-      created_by_user_id: data.createdByUserId,
+      created_by: data.createdByUserId,
       created_by_name: data.createdByName,
       subject: data.subject,
+      description: data.message,
       category: data.category,
       priority: data.priority,
       status: "open",
