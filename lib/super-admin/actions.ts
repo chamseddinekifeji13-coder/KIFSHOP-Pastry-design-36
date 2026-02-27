@@ -314,17 +314,130 @@ export async function updateTenantStatus(tenantId: string, isActive: boolean) {
   return { success: true }
 }
 
-export async function updateTenantPlan(tenantId: string, plan: string) {
+// ─── Support Tickets (Super Admin) ───────────────────────────
+
+export interface AdminTicketOverview {
+  id: string
+  tenant_id: string
+  tenant_name: string
+  created_by_name: string
+  subject: string
+  category: string
+  priority: string
+  status: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+export interface AdminTicketMessage {
+  id: string
+  ticket_id: string
+  sender_type: string
+  sender_name: string
+  message: string
+  created_at: string
+}
+
+export async function getAllTickets(): Promise<AdminTicketOverview[]> {
+  const { supabase } = await requireSuperAdmin()
+
+  const { data: tickets, error } = await supabase
+    .from("support_tickets")
+    .select("*")
+    .order("updated_at", { ascending: false })
+
+  if (error || !tickets) return []
+
+  // Get tenant names
+  const tenantIds = [...new Set(tickets.map((t) => t.tenant_id))]
+  const { data: tenants } = await supabase
+    .from("tenants")
+    .select("id, name")
+    .in("id", tenantIds.length > 0 ? tenantIds : ["__none__"])
+
+  const tenantMap = new Map<string, string>()
+  tenants?.forEach((t) => tenantMap.set(t.id, t.name))
+
+  // Get message counts
+  const { data: messages } = await supabase
+    .from("ticket_messages")
+    .select("ticket_id")
+
+  const countMap = new Map<string, number>()
+  messages?.forEach((m) => {
+    countMap.set(m.ticket_id, (countMap.get(m.ticket_id) || 0) + 1)
+  })
+
+  return tickets.map((t) => ({
+    id: t.id,
+    tenant_id: t.tenant_id,
+    tenant_name: tenantMap.get(t.tenant_id) || "Inconnu",
+    created_by_name: t.created_by_name,
+    subject: t.subject,
+    category: t.category,
+    priority: t.priority,
+    status: t.status,
+    created_at: t.created_at,
+    updated_at: t.updated_at,
+    message_count: countMap.get(t.id) || 0,
+  }))
+}
+
+export async function getTicketMessages(ticketId: string): Promise<AdminTicketMessage[]> {
+  const { supabase } = await requireSuperAdmin()
+
+  const { data, error } = await supabase
+    .from("ticket_messages")
+    .select("*")
+    .eq("ticket_id", ticketId)
+    .order("created_at", { ascending: true })
+
+  if (error || !data) return []
+
+  return data.map((m) => ({
+    id: m.id,
+    ticket_id: m.ticket_id,
+    sender_type: m.sender_type,
+    sender_name: m.sender_name,
+    message: m.message,
+    created_at: m.created_at,
+  }))
+}
+
+export async function replyToTicket(ticketId: string, message: string): Promise<{ success: boolean }> {
+  const { supabase } = await requireSuperAdmin()
+
+  const { error: msgError } = await supabase.from("ticket_messages").insert({
+    ticket_id: ticketId,
+    sender_type: "admin",
+    sender_name: "KIFSHOP Support",
+    message,
+  })
+
+  if (msgError) throw new Error(msgError.message)
+
+  // Update ticket status and timestamp
+  await supabase
+    .from("support_tickets")
+    .update({ status: "in_progress", updated_at: new Date().toISOString() })
+    .eq("id", ticketId)
+
+  return { success: true }
+}
+
+export async function updateTicketStatus(ticketId: string, status: string): Promise<{ success: boolean }> {
   const { supabase } = await requireSuperAdmin()
 
   const { error } = await supabase
-    .from("tenants")
-    .update({ subscription_plan: plan })
-    .eq("id", tenantId)
+    .from("support_tickets")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", ticketId)
 
   if (error) throw new Error(error.message)
   return { success: true }
 }
+
 
 export interface GlobalUser {
   user_id: string

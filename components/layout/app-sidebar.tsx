@@ -15,6 +15,7 @@ import {
   Truck,
   UserPlus,
   Lock,
+  LifeBuoy,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -83,6 +84,7 @@ const navigation = [
     fallback: "Administration",
     items: [
       { titleKey: "nav.settings", fallback: "Parametres", href: "/parametres", icon: Settings },
+      { titleKey: "nav.support", fallback: "Support", href: "/support", icon: LifeBuoy },
     ],
   },
 ]

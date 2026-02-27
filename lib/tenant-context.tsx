@@ -28,8 +28,8 @@ export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier"
 
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
-  owner: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres"],
-  gerant: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres"],
+  owner: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres", "/support"],
+  gerant: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres", "/support"],
   vendeur: ["/commandes", "/canaux", "/prospects"],
   magasinier: ["/stocks", "/inventaire"],
   achat: ["/approvisionnement"],
