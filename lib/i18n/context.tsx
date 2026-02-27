@@ -43,6 +43,7 @@ const translations: Record<Locale, Record<string, string>> = {
     "nav.online_sales": "Ventes en ligne",
     "nav.finance": "Finance",
     "nav.administration": "Administration",
+    "nav.support": "Support",
     "nav.logout": "Deconnexion",
     "nav.lock": "Verrouiller",
 
@@ -279,6 +280,7 @@ const translations: Record<Locale, Record<string, string>> = {
     "nav.online_sales": "\u0627\u0644\u0628\u064a\u0639 \u0639\u0628\u0631 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a",
     "nav.finance": "\u0627\u0644\u0645\u0627\u0644\u064a\u0629",
     "nav.administration": "\u0627\u0644\u0625\u062f\u0627\u0631\u0629",
+    "nav.support": "\u0627\u0644\u062f\u0639\u0645",
     "nav.logout": "\u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062e\u0631\u0648\u062c",
     "nav.lock": "\u0642\u0641\u0644",
 
