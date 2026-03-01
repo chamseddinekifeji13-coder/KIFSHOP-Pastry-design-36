@@ -419,6 +419,215 @@ export async function rejectPurchaseInvoice(invoiceId: string, reason?: string):
   return true
 }
 
+// ─── Delivery Notes (Bons de livraison) ──────────────────────
+
+export interface DeliveryNote {
+  id: string
+  tenantId: string
+  deliveryNumber: string
+  purchaseOrderId: string | null
+  supplierId: string | null
+  supplierName: string
+  deliveryDate: string
+  status: string
+  notes: string | null
+  validatedBy: string | null
+  validatedAt: string | null
+  createdBy: string | null
+  items: DeliveryNoteItem[]
+  createdAt: string
+}
+
+export interface DeliveryNoteItem {
+  id: string
+  deliveryNoteId: string
+  itemType: string
+  rawMaterialId: string | null
+  packagingId: string | null
+  consumableId: string | null
+  name: string
+  quantityOrdered: number
+  quantityReceived: number
+  unit: string
+  isConform: boolean
+  remark: string | null
+}
+
+export async function fetchDeliveryNotes(tenantId: string): Promise<DeliveryNote[]> {
+  const supabase = createClient()
+  const { data: notes, error } = await supabase
+    .from("delivery_notes")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+  if (error) { console.error("Error fetching delivery notes:", error.message); return [] }
+  if (!notes || notes.length === 0) return []
+
+  const noteIds = notes.map((n) => n.id)
+  const { data: allItems } = await supabase
+    .from("delivery_note_items")
+    .select("*")
+    .in("delivery_note_id", noteIds)
+
+  const itemsByNote = new Map<string, DeliveryNoteItem[]>()
+  allItems?.forEach((item) => {
+    const list = itemsByNote.get(item.delivery_note_id) || []
+    list.push({
+      id: item.id, deliveryNoteId: item.delivery_note_id, itemType: item.item_type,
+      rawMaterialId: item.raw_material_id, packagingId: item.packaging_id,
+      consumableId: item.consumable_id, name: item.name,
+      quantityOrdered: Number(item.quantity_ordered), quantityReceived: Number(item.quantity_received),
+      unit: item.unit, isConform: item.is_conform, remark: item.remark,
+    })
+    itemsByNote.set(item.delivery_note_id, list)
+  })
+
+  return notes.map((n) => ({
+    id: n.id, tenantId: n.tenant_id, deliveryNumber: n.delivery_number,
+    purchaseOrderId: n.purchase_order_id, supplierId: n.supplier_id,
+    supplierName: n.supplier_name, deliveryDate: n.delivery_date,
+    status: n.status, notes: n.notes,
+    validatedBy: n.validated_by, validatedAt: n.validated_at,
+    createdBy: n.created_by, items: itemsByNote.get(n.id) || [],
+    createdAt: n.created_at,
+  }))
+}
+
+export async function createDeliveryNote(tenantId: string, data: {
+  deliveryNumber: string; purchaseOrderId?: string; supplierId?: string; supplierName: string;
+  deliveryDate: string; notes?: string;
+  items: { itemType: string; rawMaterialId?: string; packagingId?: string; consumableId?: string;
+    name: string; quantityOrdered: number; quantityReceived: number; unit: string; isConform: boolean; remark?: string }[]
+}): Promise<DeliveryNote | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  const { data: row, error } = await supabase.from("delivery_notes").insert({
+    tenant_id: tenantId, delivery_number: data.deliveryNumber,
+    purchase_order_id: data.purchaseOrderId || null,
+    supplier_id: data.supplierId || null, supplier_name: data.supplierName,
+    delivery_date: data.deliveryDate, status: "en-attente",
+    notes: data.notes || null, created_by: user.id,
+  }).select().single()
+  if (error || !row) { console.error("Error creating delivery note:", error?.message); return null }
+
+  const itemRows = data.items.map((i) => ({
+    delivery_note_id: row.id, item_type: i.itemType,
+    raw_material_id: i.rawMaterialId || null,
+    packaging_id: i.packagingId || null,
+    consumable_id: i.consumableId || null,
+    name: i.name, quantity_ordered: i.quantityOrdered,
+    quantity_received: i.quantityReceived, unit: i.unit,
+    is_conform: i.isConform, remark: i.remark || null,
+  }))
+  await supabase.from("delivery_note_items").insert(itemRows)
+
+  // If linked to a PO, update its status to "en-livraison"
+  if (data.purchaseOrderId) {
+    await supabase.from("purchase_orders").update({
+      status: "en-livraison", updated_at: new Date().toISOString(),
+    }).eq("id", data.purchaseOrderId)
+  }
+
+  return {
+    id: row.id, tenantId: row.tenant_id, deliveryNumber: row.delivery_number,
+    purchaseOrderId: row.purchase_order_id, supplierId: row.supplier_id,
+    supplierName: row.supplier_name, deliveryDate: row.delivery_date,
+    status: row.status, notes: row.notes, validatedBy: row.validated_by,
+    validatedAt: row.validated_at, createdBy: row.created_by,
+    items: data.items.map((i, idx) => ({ id: `new-${idx}`, deliveryNoteId: row.id, ...i, remark: i.remark || null })),
+    createdAt: row.created_at,
+  }
+}
+
+export async function validateDeliveryNote(deliveryNoteId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree")
+
+  const { data: note } = await supabase
+    .from("delivery_notes").select("*").eq("id", deliveryNoteId).single()
+  if (!note) throw new Error("Bon de livraison introuvable")
+  if (note.status === "validee") throw new Error("Bon deja valide")
+
+  const { data: items } = await supabase
+    .from("delivery_note_items").select("*").eq("delivery_note_id", deliveryNoteId)
+  if (!items || items.length === 0) throw new Error("Bon sans articles")
+
+  // Update stock for each received item
+  for (const item of items) {
+    const qty = Number(item.quantity_received)
+    if (qty <= 0) continue
+
+    if (item.item_type === "raw_material" && item.raw_material_id) {
+      const { data: rm } = await supabase
+        .from("raw_materials").select("current_stock").eq("id", item.raw_material_id).single()
+      const newStock = Number(rm?.current_stock || 0) + qty
+      await supabase.from("raw_materials").update({
+        current_stock: newStock, updated_at: new Date().toISOString()
+      }).eq("id", item.raw_material_id)
+
+      await supabase.from("stock_movements").insert({
+        tenant_id: note.tenant_id, item_type: "raw_material",
+        raw_material_id: item.raw_material_id,
+        movement_type: "entry", quantity: qty, unit: item.unit,
+        reason: "Bon de livraison valide", reference: `BL-${note.delivery_number}`,
+        created_by: user.id,
+      })
+    } else if (item.item_type === "packaging" && item.packaging_id) {
+      const { data: pkg } = await supabase
+        .from("packaging").select("current_stock").eq("id", item.packaging_id).single()
+      const newStock = Number(pkg?.current_stock || 0) + qty
+      await supabase.from("packaging").update({
+        current_stock: newStock, updated_at: new Date().toISOString()
+      }).eq("id", item.packaging_id)
+
+      await supabase.from("stock_movements").insert({
+        tenant_id: note.tenant_id, item_type: "packaging",
+        movement_type: "entry", quantity: qty, unit: item.unit,
+        reason: "Bon de livraison valide", reference: `BL-${note.delivery_number}`,
+        created_by: user.id,
+      })
+    } else if (item.item_type === "consumable" && item.consumable_id) {
+      const { data: cons } = await supabase
+        .from("consumables").select("current_stock").eq("id", item.consumable_id).single()
+      const newStock = Number(cons?.current_stock || 0) + qty
+      await supabase.from("consumables").update({
+        current_stock: newStock, updated_at: new Date().toISOString()
+      }).eq("id", item.consumable_id)
+    }
+  }
+
+  // Mark delivery note as validated
+  const { error } = await supabase.from("delivery_notes").update({
+    status: "validee", validated_by: user.id,
+    validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  }).eq("id", deliveryNoteId)
+
+  // If linked to a PO, update its status to "livree"
+  if (note.purchase_order_id) {
+    await supabase.from("purchase_orders").update({
+      status: "livree", updated_at: new Date().toISOString(),
+    }).eq("id", note.purchase_order_id)
+  }
+
+  if (error) { console.error("Error validating delivery note:", error.message); return false }
+  return true
+}
+
+export async function rejectDeliveryNote(deliveryNoteId: string, reason?: string): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree")
+
+  const { error } = await supabase.from("delivery_notes").update({
+    status: "rejetee", notes: reason || null, updated_at: new Date().toISOString(),
+  }).eq("id", deliveryNoteId)
+  if (error) { console.error("Error rejecting delivery note:", error.message); return false }
+  return true
+}
+
 export async function updatePurchaseOrderStatus(id: string, status: string): Promise<boolean> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

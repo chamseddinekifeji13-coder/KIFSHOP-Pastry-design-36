@@ -3,7 +3,7 @@ import { useTenant } from "@/lib/tenant-context"
 import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging, fetchConsumables, fetchStorageLocations } from "@/lib/stocks/actions"
 import { fetchProspects, fetchDueReminders } from "@/lib/prospects/actions"
 import { fetchTransactions } from "@/lib/treasury/actions"
-import { fetchSuppliers, fetchPurchaseOrders, fetchSupplierPriceHistory, fetchPurchaseInvoices } from "@/lib/approvisionnement/actions"
+import { fetchSuppliers, fetchPurchaseOrders, fetchSupplierPriceHistory, fetchPurchaseInvoices, fetchDeliveryNotes } from "@/lib/approvisionnement/actions"
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
 import { fetchOrders } from "@/lib/orders/actions"
@@ -113,6 +113,10 @@ export function useSupplierPrices() {
 
 export function usePurchaseInvoices() {
   return useTenantQuery("purchase-invoices", fetchPurchaseInvoices)
+}
+
+export function useDeliveryNotes() {
+  return useTenantQuery("delivery-notes", fetchDeliveryNotes)
 }
 
 export function useCriticalStock() {
