@@ -36,7 +36,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useFinishedProducts } from "@/hooks/use-tenant-data"
+import useSWR from "swr"
+import { fetchFinishedProducts } from "@/lib/stocks/actions"
 import { toast, Toaster } from "sonner"
 
 interface CatalogProduct {
@@ -50,7 +51,10 @@ interface CartItem {
 }
 
 export function StorefrontView({ tenantId }: { tenantId: string }) {
-  const { data: products = [] } = useFinishedProducts()
+  const { data: products = [] } = useSWR(
+    tenantId ? `storefront-products-${tenantId}` : null,
+    () => fetchFinishedProducts(tenantId)
+  )
   const catalog: CatalogProduct[] = products.map((p: any) => ({
     id: p.id, name: p.name, category: p.category || "", price: p.price || 0,
     image: "", isPublished: true, description: "",
