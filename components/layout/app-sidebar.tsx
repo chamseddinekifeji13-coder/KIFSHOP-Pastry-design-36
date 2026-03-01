@@ -32,6 +32,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { useTenant, canAccessRoute, ROLE_LABELS } from "@/lib/tenant-context"
 import { useI18n } from "@/lib/i18n/context"
@@ -93,6 +94,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { currentTenant, currentUser, currentRole, authUser, users, signOut, isLoading } = useTenant()
   const { t } = useI18n()
+  const { setOpenMobile, isMobile } = useSidebar()
   const [signingOut, setSigningOut] = useState(false)
 
   async function handleSignOut() {
@@ -155,7 +157,7 @@ export function AppSidebar() {
                       isActive={pathname === item.href}
                       tooltip={item.title}
                     >
-                      <Link href={item.href}>
+                      <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false) }}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
