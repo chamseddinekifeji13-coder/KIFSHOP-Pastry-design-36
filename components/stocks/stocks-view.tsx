@@ -1,20 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { RawMaterialsTable } from "./raw-materials-table"
 import { FinishedProductsTable } from "./finished-products-table"
 import { PackagingTable } from "./packaging-table"
+import { ConsumablesTable } from "./consumables-table"
+import { NewConsumableDrawer } from "./new-consumable-drawer"
 import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
-import { useRawMaterials, useFinishedProducts, usePackaging, useStorageLocations } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations } from "@/hooks/use-tenant-data"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { exportStocksToCSV, getPrintableStocksReport } from "@/lib/stocks/actions"
@@ -30,6 +32,7 @@ export function StocksView() {
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
+  const [newConsumableOpen, setNewConsumableOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState<{ id: string; name: string; type: "raw" | "finished" | "packaging"; unit?: string } | null>(null)
   const [chartMaterial, setChartMaterial] = useState<{ id: string; name: string; unit?: string } | null>(null)
   const [isExporting, setIsExporting] = useState(false)
@@ -38,6 +41,7 @@ export function StocksView() {
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRM } = useRawMaterials()
   const { data: finishedProducts, isLoading: fpLoading, mutate: mutateFP } = useFinishedProducts()
   const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
+  const { data: consumables, isLoading: consLoading, mutate: mutateCons } = useConsumables()
   const { data: storageLocations } = useStorageLocations()
 
   const query = searchQuery.toLowerCase().trim()
@@ -52,6 +56,10 @@ export function StocksView() {
 
   const filteredPackaging = (packaging || []).filter((p) =>
     !query || p.name.toLowerCase().includes(query) || (p.type || "").toLowerCase().includes(query) || (p.description || "").toLowerCase().includes(query)
+  )
+
+  const filteredConsumables = (consumables || []).filter((c) =>
+    !query || c.name.toLowerCase().includes(query) || (c.category || "").toLowerCase().includes(query) || (c.description || "").toLowerCase().includes(query)
   )
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
@@ -137,6 +145,12 @@ export function StocksView() {
               Nouvel emballage
             </Button>
           )}
+          {selectedTab === "consumables" && (
+            <Button variant="outline" onClick={() => setNewConsumableOpen(true)} className="bg-transparent">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau consommable
+            </Button>
+          )}
           {selectedTab !== "reserves" && (
             <Button onClick={() => { setSelectedItem(null); setDrawerOpen(true) }}>
               <Plus className="mr-2 h-4 w-4" />
@@ -167,12 +181,12 @@ export function StocksView() {
 
       {query && (
         <p className="text-sm text-muted-foreground">
-          {filteredRawMaterials.length + filteredFinishedProducts.length + filteredPackaging.length} resultat(s) pour &quot;{searchQuery}&quot;
+          {filteredRawMaterials.length + filteredFinishedProducts.length + filteredPackaging.length + filteredConsumables.length} resultat(s) pour &quot;{searchQuery}&quot;
         </p>
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
           <TabsTrigger value="raw" className="gap-2">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span>
@@ -187,6 +201,11 @@ export function StocksView() {
             <Gift className="h-4 w-4" />
             <span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span>
             {query && <span className="text-xs opacity-70">({filteredPackaging.length})</span>}
+          </TabsTrigger>
+          <TabsTrigger value="consumables" className="gap-2">
+            <Wrench className="h-4 w-4" />
+            <span className="hidden sm:inline">Consommables</span><span className="sm:hidden">Cons.</span>
+            {query && <span className="text-xs opacity-70">({filteredConsumables.length})</span>}
           </TabsTrigger>
           <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
         </TabsList>
@@ -260,6 +279,40 @@ export function StocksView() {
           )}
         </TabsContent>
 
+        <TabsContent value="consumables" className="mt-6">
+          {consLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : filteredConsumables.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              {query ? (
+                <>
+                  <Search className="h-12 w-12 text-muted-foreground/50" />
+                  <h3 className="mt-4 text-lg font-semibold">Aucun resultat</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{"Aucun consommable ne correspond a \""}{searchQuery}{"\""}</p>
+                  <Button variant="outline" className="mt-4" onClick={() => setSearchQuery("")}>
+                    Effacer la recherche
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Wrench className="h-12 w-12 text-muted-foreground/50" />
+                  <h3 className="mt-4 text-lg font-semibold">Aucun consommable</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Ajoutez vos produits de nettoyage, fournitures, etc.</p>
+                  <Button className="mt-4 bg-blue-500 hover:bg-blue-600 text-white" onClick={() => setNewConsumableOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Ajouter un consommable
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : (
+            <ConsumablesTable
+              items={filteredConsumables}
+              onItemClick={(id, name) => handleItemClick(id, name, "raw")}
+            />
+          )}
+        </TabsContent>
+
         <TabsContent value="reserves" className="mt-6">
           <StorageLocationsTable />
         </TabsContent>
@@ -269,6 +322,7 @@ export function StocksView() {
       <NewProductDrawer open={newProductOpen} onOpenChange={setNewProductOpen} onSuccess={() => { mutateRM(); mutateFP() }} />
       <NewPackagingDrawer open={newPackagingOpen} onOpenChange={setNewPackagingOpen} onSuccess={() => mutatePkg()} />
       <NewRawMaterialDrawer open={newRawMaterialOpen} onOpenChange={setNewRawMaterialOpen} onSuccess={() => mutateRM()} />
+      <NewConsumableDrawer open={newConsumableOpen} onOpenChange={setNewConsumableOpen} onSuccess={() => mutateCons()} />
     </div>
   )
 }

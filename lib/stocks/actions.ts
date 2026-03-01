@@ -762,6 +762,95 @@ export async function deletePackaging(id: string): Promise<boolean> {
   return true
 }
 
+// ─── Consumables (Consommables) ─────────────────────────────────
+
+export interface Consumable {
+  id: string
+  tenantId: string
+  name: string
+  category: string
+  description: string | null
+  unit: string
+  currentStock: number
+  minStock: number
+  price: number
+  supplier: string | null
+  storageLocationId: string | null
+  createdAt: string
+}
+
+export const CONSUMABLE_CATEGORIES: Record<string, string> = {
+  nettoyage: "Nettoyage",
+  hygiene: "Hygiene",
+  bureau: "Bureau",
+  outillage: "Outillage",
+  entretien: "Entretien",
+  jetable: "Jetable",
+  general: "General",
+}
+
+export async function fetchConsumables(tenantId: string): Promise<Consumable[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("consumables")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("name")
+  if (error) { console.error("Error fetching consumables:", error.message); return [] }
+  return (data || []).map((c) => ({
+    id: c.id, tenantId: c.tenant_id, name: c.name, category: c.category,
+    description: c.description, unit: c.unit,
+    currentStock: Number(c.current_stock), minStock: Number(c.min_stock),
+    price: Number(c.price), supplier: c.supplier,
+    storageLocationId: c.storage_location_id || null, createdAt: c.created_at,
+  }))
+}
+
+export async function createConsumable(tenantId: string, data: {
+  name: string; category: string; unit: string; currentStock: number;
+  minStock: number; price: number; description?: string; supplier?: string; storageLocationId?: string
+}): Promise<Consumable | null> {
+  const { supabase } = await verifyAuthAndTenant(tenantId)
+
+  // Check for duplicates
+  const { data: allConsumables } = await supabase
+    .from("consumables").select("id, name").eq("tenant_id", tenantId)
+  if (allConsumables && allConsumables.length > 0) {
+    const inputNormalized = normalizeString(data.name)
+    const exactMatch = allConsumables.find(c => normalizeString(c.name) === inputNormalized)
+    if (exactMatch) {
+      throw new Error(`DUPLICATE:Le consommable "${exactMatch.name}" existe deja`)
+    }
+    const similarMatch = allConsumables.find(c => calculateSimilarity(data.name, c.name) >= 0.95)
+    if (similarMatch) {
+      throw new Error(`SIMILAR:Un consommable tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
+    }
+  }
+
+  const { data: row, error } = await supabase.from("consumables").insert({
+    tenant_id: tenantId, name: data.name, category: data.category, unit: data.unit,
+    current_stock: data.currentStock, min_stock: data.minStock,
+    price: data.price, description: data.description || null,
+    supplier: data.supplier || null, storage_location_id: data.storageLocationId || null,
+  }).select().single()
+  if (error) { throw new Error(error.message) }
+  if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
+  return {
+    id: row.id, tenantId: row.tenant_id, name: row.name, category: row.category,
+    description: row.description, unit: row.unit,
+    currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
+    price: Number(row.price), supplier: row.supplier,
+    storageLocationId: row.storage_location_id || null, createdAt: row.created_at,
+  }
+}
+
+export async function deleteConsumable(id: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("consumables").delete().eq("id", id)
+  if (error) { console.error("Error deleting consumable:", error.message); return false }
+  return true
+}
+
 // ─── Storage Locations (Reserves) ─────────────────────────────
 
 export interface StorageLocation {

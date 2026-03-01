@@ -1,17 +1,21 @@
 "use client"
 
 import { useState } from "react"
-import { Truck, Users, FileText, Phone, Mail, Plus, Loader2, Trophy, History } from "lucide-react"
+import { Truck, Users, FileText, Phone, Mail, Plus, Loader2, Trophy, History, Receipt, PackageCheck } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { useSuppliers, usePurchaseOrders, useSupplierPrices } from "@/hooks/use-tenant-data"
+import { useSuppliers, usePurchaseOrders, useSupplierPrices, usePurchaseInvoices, useDeliveryNotes, useRawMaterials, usePackaging, useConsumables } from "@/hooks/use-tenant-data"
 import { NewPurchaseOrderDrawer } from "./new-purchase-order-drawer"
 import { NewSupplierDrawer } from "./new-supplier-drawer"
 import { BestPricesView } from "./best-prices-view"
 import { PriceHistoryTable } from "./price-history-table"
+import { NewInvoiceDrawer } from "./new-invoice-drawer"
+import { PurchaseInvoicesList } from "./purchase-invoices-list"
+import { NewDeliveryNoteDrawer } from "./new-delivery-note-drawer"
+import { DeliveryNotesList } from "./delivery-notes-list"
 import { useCallback } from "react"
 import { useI18n } from "@/lib/i18n/context"
 
@@ -33,10 +37,17 @@ export function ApprovisionnementView() {
   const [selectedTab, setSelectedTab] = useState("orders")
   const [newOrderOpen, setNewOrderOpen] = useState(false)
   const [newSupplierOpen, setNewSupplierOpen] = useState(false)
+  const [newInvoiceOpen, setNewInvoiceOpen] = useState(false)
+  const [newDeliveryNoteOpen, setNewDeliveryNoteOpen] = useState(false)
 
   const { data: suppliers, isLoading: supLoading, mutate: mutateSuppliers } = useSuppliers()
   const { data: purchaseOrders, isLoading: poLoading, mutate: mutateOrders } = usePurchaseOrders()
   const { data: priceData, isLoading: priceLoading } = useSupplierPrices()
+  const { data: invoices, isLoading: invLoading, mutate: mutateInvoices } = usePurchaseInvoices()
+  const { data: deliveryNotes, isLoading: dnLoading, mutate: mutateDeliveryNotes } = useDeliveryNotes()
+  const { data: rawMaterials } = useRawMaterials()
+  const { data: packaging } = usePackaging()
+  const { data: consumablesList } = useConsumables()
 
   const getHistoryForProduct = useCallback((rawMaterialName: string) => {
     return (priceData?.entries || []).filter(e => e.rawMaterialName === rawMaterialName)
@@ -46,8 +57,12 @@ export function ApprovisionnementView() {
   const allSuppliers = suppliers || []
   const allOrders = purchaseOrders || []
 
+  const allInvoices = invoices || []
+  const allDeliveryNotes = deliveryNotes || []
   const activeSuppliers = allSuppliers.filter((s) => s.status === "active").length
   const pendingOrders = allOrders.filter((o) => o.status !== "livree" && o.status !== "annulee").length
+  const pendingInvoices = allInvoices.filter((i) => i.status === "en-attente").length
+  const pendingDeliveryNotes = allDeliveryNotes.filter((n) => n.status === "en-attente").length
   const totalPending = allOrders
     .filter((o) => o.status !== "livree" && o.status !== "annulee")
     .reduce((sum, o) => sum + o.total, 0)
@@ -59,10 +74,20 @@ export function ApprovisionnementView() {
           <h1 className="text-2xl font-bold tracking-tight">{t("supply.title")}</h1>
           <p className="text-muted-foreground">{t("supply.subtitle")}</p>
         </div>
-        <Button onClick={() => setNewOrderOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          {t("supply.new_order")}
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setNewDeliveryNoteOpen(true)}>
+            <PackageCheck className="mr-2 h-4 w-4" />
+            Nouveau BL
+          </Button>
+          <Button variant="outline" onClick={() => setNewInvoiceOpen(true)}>
+            <Receipt className="mr-2 h-4 w-4" />
+            Nouvelle facture
+          </Button>
+          <Button onClick={() => setNewOrderOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            {t("supply.new_order")}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -102,11 +127,37 @@ export function ApprovisionnementView() {
             )}
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">BL en attente</CardTitle>
+            <PackageCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {dnLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : (
+              <><div className="text-2xl font-bold">{pendingDeliveryNotes}</div>
+              <p className="text-xs text-muted-foreground">a valider par le magasin</p></>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Factures en attente</CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {invLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : (
+              <><div className="text-2xl font-bold">{pendingInvoices}</div>
+              <p className="text-xs text-muted-foreground">a valider par le magasin</p></>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="orders"><FileText className="mr-2 h-4 w-4" />Commandes Achat</TabsTrigger>
+          <TabsTrigger value="delivery-notes"><PackageCheck className="mr-2 h-4 w-4" />Bons de livraison{pendingDeliveryNotes > 0 && <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-[10px]">{pendingDeliveryNotes}</Badge>}</TabsTrigger>
+          <TabsTrigger value="invoices"><Receipt className="mr-2 h-4 w-4" />Factures{pendingInvoices > 0 && <Badge variant="destructive" className="ml-1 h-5 px-1.5 text-[10px]">{pendingInvoices}</Badge>}</TabsTrigger>
           <TabsTrigger value="suppliers"><Users className="mr-2 h-4 w-4" />Fournisseurs</TabsTrigger>
           <TabsTrigger value="best-prices"><Trophy className="mr-2 h-4 w-4" />Meilleurs Prix</TabsTrigger>
           <TabsTrigger value="price-history"><History className="mr-2 h-4 w-4" />Historique Prix</TabsTrigger>
@@ -159,6 +210,28 @@ export function ApprovisionnementView() {
           )}
         </TabsContent>
 
+        <TabsContent value="delivery-notes" className="mt-4">
+          {dnLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <DeliveryNotesList
+              deliveryNotes={allDeliveryNotes}
+              onRefresh={() => { mutateDeliveryNotes(); mutateOrders(); }}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="invoices" className="mt-4">
+          {invLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <PurchaseInvoicesList
+              invoices={allInvoices}
+              onRefresh={() => { mutateInvoices(); }}
+            />
+          )}
+        </TabsContent>
+
         <TabsContent value="suppliers" className="mt-4">
           <div className="mb-4 flex justify-end">
             <Button onClick={() => setNewSupplierOpen(true)} variant="outline"><Plus className="mr-2 h-4 w-4" />Ajouter un fournisseur</Button>
@@ -173,7 +246,7 @@ export function ApprovisionnementView() {
               <Button className="mt-4" onClick={() => setNewSupplierOpen(true)}><Plus className="mr-2 h-4 w-4" />Ajouter un fournisseur</Button>
             </CardContent></Card>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {allSuppliers.map((supplier) => (
                 <Card key={supplier.id}>
                   <CardHeader className="pb-3">
@@ -234,6 +307,25 @@ export function ApprovisionnementView() {
 
       <NewPurchaseOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} suppliers={allSuppliers} onSuccess={() => mutateOrders()} />
       <NewSupplierDrawer open={newSupplierOpen} onOpenChange={setNewSupplierOpen} onSuccess={() => mutateSuppliers()} />
+      <NewInvoiceDrawer
+        open={newInvoiceOpen}
+        onOpenChange={setNewInvoiceOpen}
+        suppliers={allSuppliers}
+        rawMaterials={rawMaterials || []}
+        packaging={packaging || []}
+        consumables={consumablesList || []}
+        onSuccess={() => mutateInvoices()}
+      />
+      <NewDeliveryNoteDrawer
+        open={newDeliveryNoteOpen}
+        onOpenChange={setNewDeliveryNoteOpen}
+        suppliers={allSuppliers}
+        purchaseOrders={allOrders}
+        rawMaterials={rawMaterials || []}
+        packaging={packaging || []}
+        consumables={consumablesList || []}
+        onSuccess={() => { mutateDeliveryNotes(); mutateOrders(); }}
+      />
     </div>
   )
 }
