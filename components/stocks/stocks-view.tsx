@@ -191,29 +191,29 @@ export function StocksView() {
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none" style={{ WebkitOverflowScrolling: "touch" }}>
-          <TabsList className="inline-flex w-max">
-            <TabsTrigger value="raw" className="flex-none gap-1.5">
+          <TabsList className="w-max">
+            <TabsTrigger value="raw" className="!flex-none gap-1.5">
               <Package className="h-4 w-4" />
               <span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span>
               {query && <span className="text-xs opacity-70">({filteredRawMaterials.length})</span>}
             </TabsTrigger>
-            <TabsTrigger value="finished" className="flex-none gap-1.5">
+            <TabsTrigger value="finished" className="!flex-none gap-1.5">
               <Box className="h-4 w-4" />
               <span className="hidden sm:inline">{t("stocks.finished_products")}</span><span className="sm:hidden">PF</span>
               {query && <span className="text-xs opacity-70">({filteredFinishedProducts.length})</span>}
             </TabsTrigger>
-            <TabsTrigger value="packaging" className="flex-none gap-1.5">
+            <TabsTrigger value="packaging" className="!flex-none gap-1.5">
               <Gift className="h-4 w-4" />
               <span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span>
               {query && <span className="text-xs opacity-70">({filteredPackaging.length})</span>}
             </TabsTrigger>
-            <TabsTrigger value="consumables" className="flex-none gap-1.5">
+            <TabsTrigger value="consumables" className="!flex-none gap-1.5">
               <Wrench className="h-4 w-4" />
               <span className="hidden sm:inline">Consommables</span><span className="sm:hidden">Cons.</span>
               {query && <span className="text-xs opacity-70">({filteredConsumables.length})</span>}
             </TabsTrigger>
-            <TabsTrigger value="reserves" className="flex-none gap-1.5"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
-            <TabsTrigger value="reception-bl" className="flex-none gap-1.5 relative">
+            <TabsTrigger value="reserves" className="!flex-none gap-1.5"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
+            <TabsTrigger value="reception-bl" className="!flex-none gap-1.5 relative">
               <Truck className="h-4 w-4" />
               <span className="hidden sm:inline">Reception BL</span><span className="sm:hidden">BL</span>
               {pendingBLCount > 0 && (
