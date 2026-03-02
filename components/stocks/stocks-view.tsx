@@ -190,38 +190,40 @@ export function StocksView() {
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="raw" className="gap-2">
-            <Package className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span>
-            {query && <span className="text-xs opacity-70">({filteredRawMaterials.length})</span>}
-          </TabsTrigger>
-          <TabsTrigger value="finished" className="gap-2">
-            <Box className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("stocks.finished_products")}</span><span className="sm:hidden">PF</span>
-            {query && <span className="text-xs opacity-70">({filteredFinishedProducts.length})</span>}
-          </TabsTrigger>
-          <TabsTrigger value="packaging" className="gap-2">
-            <Gift className="h-4 w-4" />
-            <span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span>
-            {query && <span className="text-xs opacity-70">({filteredPackaging.length})</span>}
-          </TabsTrigger>
-          <TabsTrigger value="consumables" className="gap-2">
-            <Wrench className="h-4 w-4" />
-            <span className="hidden sm:inline">Consommables</span><span className="sm:hidden">Cons.</span>
-            {query && <span className="text-xs opacity-70">({filteredConsumables.length})</span>}
-          </TabsTrigger>
-          <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
-          <TabsTrigger value="reception-bl" className="gap-2 relative">
-            <Truck className="h-4 w-4" />
-            <span className="hidden sm:inline">Reception BL</span><span className="sm:hidden">BL</span>
-            {pendingBLCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
-                {pendingBLCount}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="inline-flex w-auto min-w-full sm:min-w-0">
+            <TabsTrigger value="raw" className="gap-1.5 shrink-0">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span>
+              {query && <span className="text-xs opacity-70">({filteredRawMaterials.length})</span>}
+            </TabsTrigger>
+            <TabsTrigger value="finished" className="gap-1.5 shrink-0">
+              <Box className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("stocks.finished_products")}</span><span className="sm:hidden">PF</span>
+              {query && <span className="text-xs opacity-70">({filteredFinishedProducts.length})</span>}
+            </TabsTrigger>
+            <TabsTrigger value="packaging" className="gap-1.5 shrink-0">
+              <Gift className="h-4 w-4" />
+              <span className="hidden sm:inline">Emballages</span><span className="sm:hidden">Emb.</span>
+              {query && <span className="text-xs opacity-70">({filteredPackaging.length})</span>}
+            </TabsTrigger>
+            <TabsTrigger value="consumables" className="gap-1.5 shrink-0">
+              <Wrench className="h-4 w-4" />
+              <span className="hidden sm:inline">Consommables</span><span className="sm:hidden">Cons.</span>
+              {query && <span className="text-xs opacity-70">({filteredConsumables.length})</span>}
+            </TabsTrigger>
+            <TabsTrigger value="reserves" className="gap-1.5 shrink-0"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
+            <TabsTrigger value="reception-bl" className="gap-1.5 shrink-0 relative">
+              <Truck className="h-4 w-4" />
+              <span className="hidden sm:inline">Reception BL</span><span className="sm:hidden">BL</span>
+              {pendingBLCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
+                  {pendingBLCount}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="raw" className="mt-6 space-y-6">
           {chartMaterial && (
