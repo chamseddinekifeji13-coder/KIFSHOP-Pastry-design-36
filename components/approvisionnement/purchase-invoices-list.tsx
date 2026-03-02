@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { FileText, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Clock, AlertTriangle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -40,7 +40,7 @@ export function PurchaseInvoicesList({ invoices, canValidate = false, onRefresh 
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
 
-  const showValidationButtons = canValidate || currentRole === "magasinier" || currentRole === "admin" || currentRole === "owner"
+  const showValidationButtons = canValidate || currentRole === "magasinier" || currentRole === "gerant" || currentRole === "owner" || currentRole === "achat"
 
   async function handleValidate(invoiceId: string) {
     setValidatingId(invoiceId)
@@ -123,9 +123,8 @@ export function PurchaseInvoicesList({ invoices, canValidate = false, onRefresh 
                 const isExpanded = expandedId === invoice.id
                 const isProcessing = validatingId === invoice.id
                 return (
-                  <>
+                  <React.Fragment key={invoice.id}>
                     <TableRow
-                      key={invoice.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => setExpandedId(isExpanded ? null : invoice.id)}
                     >
@@ -177,7 +176,7 @@ export function PurchaseInvoicesList({ invoices, canValidate = false, onRefresh 
                       )}
                     </TableRow>
                     {isExpanded && (
-                      <TableRow key={`${invoice.id}-details`}>
+                      <TableRow>
                         <TableCell colSpan={showValidationButtons ? 8 : 7} className="bg-muted/30 p-4">
                           <div className="space-y-3">
                             <h4 className="text-sm font-semibold">Detail des articles</h4>

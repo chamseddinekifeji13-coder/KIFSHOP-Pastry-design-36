@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { Truck, CheckCircle2, XCircle, Loader2, ChevronDown, ChevronUp, Clock, AlertTriangle, AlertCircle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -40,7 +40,7 @@ export function DeliveryNotesList({ deliveryNotes, canValidate = false, onRefres
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
 
-  const showValidationButtons = canValidate || currentRole === "magasinier" || currentRole === "admin" || currentRole === "owner"
+  const showValidationButtons = canValidate || currentRole === "magasinier" || currentRole === "gerant" || currentRole === "owner" || currentRole === "achat"
 
   async function handleValidate(noteId: string) {
     setProcessingId(noteId)
@@ -124,9 +124,8 @@ export function DeliveryNotesList({ deliveryNotes, canValidate = false, onRefres
                 const nonConformItems = note.items.filter((i) => !i.isConform)
                 const hasDiscrepancy = note.items.some((i) => i.quantityReceived !== i.quantityOrdered)
                 return (
-                  <>
+                  <React.Fragment key={note.id}>
                     <TableRow
-                      key={note.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => setExpandedId(isExpanded ? null : note.id)}
                     >
@@ -191,7 +190,7 @@ export function DeliveryNotesList({ deliveryNotes, canValidate = false, onRefres
                       )}
                     </TableRow>
                     {isExpanded && (
-                      <TableRow key={`${note.id}-details`}>
+                      <TableRow>
                         <TableCell colSpan={showValidationButtons ? 7 : 6} className="bg-muted/30 p-4">
                           <div className="space-y-3">
                             <h4 className="text-sm font-semibold">Detail des articles recus</h4>
@@ -245,7 +244,7 @@ export function DeliveryNotesList({ deliveryNotes, canValidate = false, onRefres
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 )
               })}
             </TableBody>
