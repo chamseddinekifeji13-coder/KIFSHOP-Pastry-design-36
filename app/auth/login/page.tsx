@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Loader2, ChefHat } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -54,12 +54,12 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm border-0 shadow-none lg:border lg:shadow-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-          K
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A7C59] text-white lg:hidden">
+          <ChefHat className="h-6 w-6" />
         </div>
-        <CardTitle className="text-xl font-bold text-balance">KIFSHOP <span className="font-normal text-primary">Pastry</span></CardTitle>
+        <CardTitle className="text-xl font-bold text-balance">KIFSHOP <span className="font-normal text-[#4A7C59]">Pastry</span></CardTitle>
         <CardDescription>
           Connectez-vous a votre espace de gestion
         </CardDescription>

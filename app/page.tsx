@@ -7,6 +7,7 @@ import { Navbar } from "@/components/landing/navbar"
 import { HeroSection } from "@/components/landing/hero-section"
 import { FeaturesSection } from "@/components/landing/features-section"
 import { ShowcaseSection } from "@/components/landing/showcase-section"
+import { PricingSection } from "@/components/landing/pricing-section"
 import { DownloadSection } from "@/components/landing/download-section"
 import { ContactSection } from "@/components/landing/contact-section"
 import { FooterSection } from "@/components/landing/footer-section"
@@ -15,7 +16,7 @@ import { FooterSection } from "@/components/landing/footer-section"
  * Root page:
  * - Non-authenticated visitors: see the public landing page
  * - Auth hash fragments (#access_token, ?code, ?token_hash): handled and redirected
- * - Authenticated users: proxy.ts redirects to dashboard before this page loads
+ * - Authenticated users: middleware.ts redirects to dashboard before this page loads
  */
 export default function RootPage() {
   const router = useRouter()
@@ -82,6 +83,7 @@ export default function RootPage() {
       <HeroSection />
       <FeaturesSection />
       <ShowcaseSection />
+      <PricingSection />
       <DownloadSection />
       <ContactSection />
       <FooterSection />

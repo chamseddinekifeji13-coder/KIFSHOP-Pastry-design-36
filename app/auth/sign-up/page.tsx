@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Loader2 } from "lucide-react"
+import { Loader2, ChefHat } from "lucide-react"
 
 export default function SignUpPage() {
   const [shopName, setShopName] = useState("")
@@ -83,10 +83,10 @@ export default function SignUpPage() {
 
   if (success) {
     return (
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm border-0 shadow-none lg:border lg:shadow-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-            K
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A7C59] text-white lg:hidden">
+            <ChefHat className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl font-bold text-balance">Verifiez votre email</CardTitle>
           <CardDescription>
@@ -105,10 +105,10 @@ export default function SignUpPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm border-0 shadow-none lg:border lg:shadow-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-lg">
-          K
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A7C59] text-white lg:hidden">
+          <ChefHat className="h-6 w-6" />
         </div>
         <CardTitle className="text-xl font-bold text-balance">Creer un compte</CardTitle>
         <CardDescription>
