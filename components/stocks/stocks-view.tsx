@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck, Receipt, ClipboardCheck } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck, Receipt, ClipboardCheck, History } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,7 @@ import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
+import { StockMovementsHistory } from "./stock-movements-history"
 import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes, usePurchaseInvoices } from "@/hooks/use-tenant-data"
 import { DeliveryNotesList } from "@/components/approvisionnement/delivery-notes-list"
 import { PurchaseInvoicesList } from "@/components/approvisionnement/purchase-invoices-list"
@@ -223,6 +224,10 @@ export function StocksView() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="historique" className="gap-1.5" style={{ flex: "none" }}>
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Historique</span><span className="sm:hidden">Hist.</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -385,6 +390,10 @@ export function StocksView() {
               />
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="historique" className="mt-6">
+          <StockMovementsHistory />
         </TabsContent>
       </Tabs>
 
