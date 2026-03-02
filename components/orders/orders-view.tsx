@@ -53,6 +53,7 @@ import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
 import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV } from "@/lib/csv-export"
+import { exportOrdersToBestDelivery, exportOrderToBestDelivery, getExportableOrders } from "@/lib/orders/best-delivery-export"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -603,6 +604,21 @@ export function OrdersView() {
           >
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const exportable = getExportableOrders(orders)
+              if (exportable.length === 0) {
+                toast.error("Aucune commande prete a exporter vers Best Delivery (statut Pret ou En livraison, type Livraison)")
+                return
+              }
+              exportOrdersToBestDelivery(exportable)
+              toast.success(`${exportable.length} commande(s) exportee(s) vers Best Delivery`)
+            }}
+          >
+            <Truck className="mr-2 h-4 w-4" />
+            Best Delivery ({getExportableOrders(orders).length})
           </Button>
           <Button onClick={() => setNewOrderOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -1423,15 +1439,28 @@ export function OrdersView() {
                         </Button>
                       )}
                       {selectedOrder.deliveryType === "delivery" ? (
-                        <Button
-                          variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
-                          className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
-                          disabled={actionLoading}
-                          onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
-                        >
-                          <Truck className="mr-2 h-4 w-4" />
-                          Expedier la commande
-                        </Button>
+                        <>
+                          <Button
+                            variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
+                            className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
+                            disabled={actionLoading}
+                            onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Expedier la commande
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full bg-transparent"
+                            onClick={() => {
+                              exportOrderToBestDelivery(selectedOrder)
+                              toast.success("Commande exportee vers Best Delivery")
+                            }}
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Exporter Best Delivery
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
