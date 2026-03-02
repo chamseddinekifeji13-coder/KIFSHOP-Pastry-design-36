@@ -1,34 +1,54 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ChefHat, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 const links = [
   { href: "#features", label: "Fonctionnalites" },
+  { href: "#pricing", label: "Tarifs" },
   { href: "#download", label: "Deploiement" },
   { href: "#contact", label: "Contact" },
 ]
 
 export function Navbar() {
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#1a2e23]/95 backdrop-blur-md">
+    <header
+      className={`sticky top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "border-b border-white/10 bg-[#1a2e23]/98 shadow-lg shadow-black/10 backdrop-blur-xl"
+          : "bg-[#1a2e23]/80 backdrop-blur-md"
+      }`}
+    >
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4A7C59] text-white">
             <ChefHat className="h-4 w-4" />
           </div>
-          <span className="text-lg font-bold text-white">KIFSHOP <span className="font-normal text-[#7dba94]">Pastry</span></span>
+          <span className="text-lg font-bold text-white">
+            KIFSHOP <span className="font-normal text-[#7dba94]">Pastry</span>
+          </span>
         </Link>
 
         {/* Desktop nav */}
         <div className="hidden items-center gap-6 md:flex">
           {links.map((l) => (
-            <a key={l.href} href={l.href} className="text-sm text-white/70 transition-colors hover:text-white">
+            <a
+              key={l.href}
+              href={l.href}
+              className="relative text-sm text-white/70 transition-colors hover:text-white after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-[#7dba94] after:transition-all hover:after:w-full"
+            >
               {l.label}
             </a>
           ))}
@@ -51,8 +71,12 @@ export function Navbar() {
       </nav>
 
       {/* Mobile menu */}
-      {open && (
-        <div className="border-t border-white/10 bg-[#1a2e23] px-6 py-4 md:hidden">
+      <div
+        className={`overflow-hidden transition-all duration-300 md:hidden ${
+          open ? "max-h-64 border-t border-white/10" : "max-h-0"
+        }`}
+      >
+        <div className="bg-[#1a2e23] px-6 py-4">
           <div className="flex flex-col gap-3">
             {links.map((l) => (
               <a
@@ -74,7 +98,7 @@ export function Navbar() {
             </div>
           </div>
         </div>
-      )}
+      </div>
     </header>
   )
 }
