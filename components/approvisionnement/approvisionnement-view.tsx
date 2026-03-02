@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Truck, Users, FileText, Phone, Mail, Plus, Loader2, Trophy, History, Receipt, PackageCheck } from "lucide-react"
+import { Truck, Users, FileText, Phone, Mail, Plus, Loader2, Trophy, History, Receipt, PackageCheck, Pencil } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useSuppliers, usePurchaseOrders, useSupplierPrices, usePurchaseInvoices, useDeliveryNotes, useRawMaterials, usePackaging, useConsumables } from "@/hooks/use-tenant-data"
 import { NewPurchaseOrderDrawer } from "./new-purchase-order-drawer"
 import { NewSupplierDrawer } from "./new-supplier-drawer"
+import { EditSupplierDrawer } from "./edit-supplier-drawer"
 import { BestPricesView } from "./best-prices-view"
 import { PriceHistoryTable } from "./price-history-table"
 import { NewInvoiceDrawer } from "./new-invoice-drawer"
@@ -39,6 +40,8 @@ export function ApprovisionnementView() {
   const [newSupplierOpen, setNewSupplierOpen] = useState(false)
   const [newInvoiceOpen, setNewInvoiceOpen] = useState(false)
   const [newDeliveryNoteOpen, setNewDeliveryNoteOpen] = useState(false)
+  const [editSupplierOpen, setEditSupplierOpen] = useState(false)
+  const [editingSupplier, setEditingSupplier] = useState<import("@/lib/approvisionnement/actions").Supplier | null>(null)
 
   const { data: suppliers, isLoading: supLoading, mutate: mutateSuppliers } = useSuppliers()
   const { data: purchaseOrders, isLoading: poLoading, mutate: mutateOrders } = usePurchaseOrders()
@@ -248,11 +251,22 @@ export function ApprovisionnementView() {
           ) : (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {allSuppliers.map((supplier) => (
-                <Card key={supplier.id}>
+                <Card key={supplier.id} className="group relative">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">{supplier.name}</CardTitle>
-                      <Badge variant={supplier.status === "active" ? "default" : "secondary"}>{supplier.status === "active" ? "Actif" : "Inactif"}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => { setEditingSupplier(supplier); setEditSupplierOpen(true) }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          <span className="sr-only">Modifier {supplier.name}</span>
+                        </Button>
+                        <Badge variant={supplier.status === "active" ? "default" : "secondary"}>{supplier.status === "active" ? "Actif" : "Inactif"}</Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -307,6 +321,7 @@ export function ApprovisionnementView() {
 
       <NewPurchaseOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} suppliers={allSuppliers} onSuccess={() => mutateOrders()} />
       <NewSupplierDrawer open={newSupplierOpen} onOpenChange={setNewSupplierOpen} onSuccess={() => mutateSuppliers()} />
+      <EditSupplierDrawer open={editSupplierOpen} onOpenChange={setEditSupplierOpen} supplier={editingSupplier} onSuccess={() => mutateSuppliers()} />
       <NewInvoiceDrawer
         open={newInvoiceOpen}
         onOpenChange={setNewInvoiceOpen}
