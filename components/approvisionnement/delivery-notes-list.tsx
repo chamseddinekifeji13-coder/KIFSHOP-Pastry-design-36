@@ -40,7 +40,10 @@ export function DeliveryNotesList({ deliveryNotes, canValidate = false, onRefres
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
 
-  const showValidationButtons = canValidate || currentRole === "magasinier" || currentRole === "gerant" || currentRole === "owner" || currentRole === "achat"
+  // Seuls le magasinier, le gerant et le proprietaire peuvent valider/rejeter les BL
+  // Le role "achat" saisit les BL mais NE les valide PAS
+  const canValidateByRole = currentRole === "magasinier" || currentRole === "gerant" || currentRole === "owner"
+  const showValidationButtons = canValidate && canValidateByRole
 
   async function handleValidate(noteId: string) {
     setProcessingId(noteId)

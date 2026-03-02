@@ -40,7 +40,10 @@ export function PurchaseInvoicesList({ invoices, canValidate = false, onRefresh 
   const [rejectTarget, setRejectTarget] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState("")
 
-  const showValidationButtons = canValidate || currentRole === "magasinier" || currentRole === "gerant" || currentRole === "owner" || currentRole === "achat"
+  // Seuls le magasinier, le gerant et le proprietaire peuvent valider/rejeter les factures
+  // Le role "achat" saisit les factures mais NE les valide PAS
+  const canValidateByRole = currentRole === "magasinier" || currentRole === "gerant" || currentRole === "owner"
+  const showValidationButtons = canValidate && canValidateByRole
 
   async function handleValidate(invoiceId: string) {
     setValidatingId(invoiceId)
