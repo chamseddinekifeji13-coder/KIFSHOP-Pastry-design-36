@@ -345,10 +345,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const removeUser = useCallback((id: string) => {
+    // Prevent removing the currently active user
     setCurrentUser((current) => {
       if (id === current.id) return current
-      setUsers((prev) => prev.filter((u) => u.id !== id))
       return current
+    })
+    setUsers((prev) => {
+      // Only remove if it's not the current user (checked by comparing with prev)
+      const target = prev.find((u) => u.id === id)
+      if (!target) return prev
+      return prev.filter((u) => u.id !== id)
     })
   }, [])
 

@@ -106,7 +106,6 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   }
 
   const handleSubmit = async (action: "entree" | "sortie" | "transfert") => {
-    console.log("[v0] handleSubmit called with action:", action, "activeItem:", activeItem)
     if (!activeItem) {
       toast.error("Veuillez selectionner un article")
       return

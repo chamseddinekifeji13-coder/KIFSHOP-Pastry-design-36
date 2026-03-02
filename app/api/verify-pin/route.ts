@@ -86,7 +86,6 @@ export async function POST(request: NextRequest) {
     // 4. Verify PIN if the user has one
     if (targetUser.pin) {
       if (!pin) {
-        console.log("[v0] PIN required but not provided for user:", targetUser.display_name)
         return NextResponse.json({ error: "PIN requis" }, { status: 400 })
       }
       // Trim both PINs to avoid whitespace issues

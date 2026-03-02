@@ -76,9 +76,10 @@ async function getAuthUserTenantId() {
 // ─── Fetch all employees for current tenant ───────────────────
 
 export async function fetchEmployees(): Promise<Employee[]> {
-  const { supabase, tenantId } = await getAuthUserTenantId()
+  const { tenantId } = await getAuthUserTenantId()
+  const admin = createAdminClient()
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from("tenant_users")
     .select("*")
     .eq("tenant_id", tenantId)

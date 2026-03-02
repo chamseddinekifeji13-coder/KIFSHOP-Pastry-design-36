@@ -99,7 +99,6 @@ export function BarcodeInput({ value, onChange, placeholder = "Ex: 6191234567890
         toast.error("Acces camera refuse. Autorisez la camera dans les parametres.")
       } else {
         toast.error("Impossible de demarrer la camera.")
-        console.log("[v0] Barcode scanner error:", err)
       }
     }
   }, [cameraSupported, containerId, onChange, stopCamera])
