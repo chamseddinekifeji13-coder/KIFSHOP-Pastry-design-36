@@ -81,6 +81,50 @@ export async function createSupplier(tenantId: string, data: {
     phone: row.phone, email: row.email, products: row.products || [], status: row.status, createdAt: row.created_at }
 }
 
+export async function updateSupplier(supplierId: string, tenantId: string, data: {
+  name: string; contactName?: string; phone?: string; email?: string; products?: string[]; status?: string
+}): Promise<Supplier | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  // Check for duplicate name (excluding self)
+  const { data: existing } = await supabase
+    .from("suppliers").select("id, name").eq("tenant_id", tenantId)
+    .ilike("name", data.name.trim()).neq("id", supplierId).limit(1)
+  if (existing && existing.length > 0) {
+    throw new Error(`DUPLICATE:Le fournisseur "${existing[0].name}" existe deja`)
+  }
+
+  // Check for duplicate phone (excluding self)
+  if (data.phone) {
+    const { data: phoneMatch } = await supabase
+      .from("suppliers").select("id, name, phone").eq("tenant_id", tenantId)
+      .eq("phone", data.phone.trim()).neq("id", supplierId).limit(1)
+    if (phoneMatch && phoneMatch.length > 0) {
+      throw new Error(`DUPLICATE:Un fournisseur avec ce numero existe deja: "${phoneMatch[0].name}"`)
+    }
+  }
+
+  const { data: row, error } = await supabase.from("suppliers").update({
+    name: data.name, contact_name: data.contactName || null,
+    phone: data.phone || null, email: data.email || null,
+    products: data.products || [], status: data.status || "active",
+  }).eq("id", supplierId).eq("tenant_id", tenantId).select().single()
+
+  if (error || !row) { console.error("Error updating supplier:", error?.message); return null }
+  return { id: row.id, tenantId: row.tenant_id, name: row.name, contactName: row.contact_name,
+    phone: row.phone, email: row.email, products: row.products || [], status: row.status, createdAt: row.created_at }
+}
+
+export async function deleteSupplier(supplierId: string, tenantId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase.from("suppliers")
+    .delete().eq("id", supplierId).eq("tenant_id", tenantId)
+  if (error) { console.error("Error deleting supplier:", error.message); return false }
+  return true
+}
+
 // ─── Purchase Orders ──────────────────────────────────────────
 
 export async function fetchPurchaseOrders(tenantId: string): Promise<PurchaseOrder[]> {
