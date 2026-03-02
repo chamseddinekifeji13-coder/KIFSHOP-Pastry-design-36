@@ -11,7 +11,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error("[v0] App error:", error)
+    console.error("[KIFSHOP] App error:", error)
   }, [error])
 
   return (

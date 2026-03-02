@@ -1011,14 +1011,11 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
   totals: Record<string, string | number>
 }> {
   try {
-    console.log("[v0] Fetching stocks for print report, tenantId:", tenantId)
     const [rawMaterials, finishedProducts, packaging] = await Promise.all([
       fetchRawMaterials(tenantId),
       fetchFinishedProducts(tenantId),
       fetchPackaging(tenantId),
     ])
-
-    console.log("[v0] Fetched materials:", { rawMaterials: rawMaterials.length, finishedProducts: finishedProducts.length, packaging: packaging.length })
 
     const headers = [
       "Type",
@@ -1095,8 +1092,6 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
       ])
     })
 
-    console.log("[v0] Report data prepared, total rows:", data.length)
-
     return {
       title: "Rapport d'Inventaire des Stocks",
       subtitle: `Généré le ${new Date().toLocaleDateString("fr-FR")}`,
@@ -1110,7 +1105,6 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
       },
     }
   } catch (error) {
-    console.error("[v0] Error in getPrintableStocksReport:", error)
     throw error
   }
 }

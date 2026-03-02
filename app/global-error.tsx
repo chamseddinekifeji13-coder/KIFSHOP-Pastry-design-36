@@ -10,7 +10,7 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error("[v0] Global error:", error)
+    console.error("[KIFSHOP] Global error:", error)
   }, [error])
 
   return (
