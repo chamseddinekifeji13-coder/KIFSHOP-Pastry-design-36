@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck, Receipt, ClipboardCheck } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,8 +16,9 @@ import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
-import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes, usePurchaseInvoices } from "@/hooks/use-tenant-data"
 import { DeliveryNotesList } from "@/components/approvisionnement/delivery-notes-list"
+import { PurchaseInvoicesList } from "@/components/approvisionnement/purchase-invoices-list"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { exportStocksToCSV, getPrintableStocksReport } from "@/lib/stocks/actions"
@@ -45,8 +46,11 @@ export function StocksView() {
   const { data: consumables, isLoading: consLoading, mutate: mutateCons } = useConsumables()
   const { data: storageLocations } = useStorageLocations()
   const { data: deliveryNotes, isLoading: dnLoading, mutate: mutateDN } = useDeliveryNotes()
+  const { data: purchaseInvoices, isLoading: invLoading, mutate: mutateInv } = usePurchaseInvoices()
 
   const pendingBLCount = (deliveryNotes || []).filter((n) => n.status === "en-attente").length
+  const pendingInvCount = (purchaseInvoices || []).filter((i) => i.status === "en-attente").length
+  const totalPendingValidation = pendingBLCount + pendingInvCount
 
   const query = searchQuery.toLowerCase().trim()
 
@@ -210,12 +214,12 @@ export function StocksView() {
               {query && <span className="text-xs opacity-70">({filteredConsumables.length})</span>}
             </TabsTrigger>
             <TabsTrigger value="reserves" className="gap-1.5" style={{ flex: "none" }}><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
-            <TabsTrigger value="reception-bl" className="gap-1.5 relative" style={{ flex: "none" }}>
-              <Truck className="h-4 w-4" />
-              <span className="hidden sm:inline">Reception BL</span><span className="sm:hidden">BL</span>
-              {pendingBLCount > 0 && (
+            <TabsTrigger value="validation-bl-factures" className="gap-1.5 relative" style={{ flex: "none" }}>
+              <ClipboardCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Validation BL/Factures</span><span className="sm:hidden">Valid.</span>
+              {totalPendingValidation > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
-                  {pendingBLCount}
+                  {totalPendingValidation}
                 </span>
               )}
             </TabsTrigger>
@@ -329,21 +333,58 @@ export function StocksView() {
           <StorageLocationsTable />
         </TabsContent>
 
-        <TabsContent value="reception-bl" className="mt-6">
-          {dnLoading ? (
-            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : (
-            <DeliveryNotesList
-              deliveryNotes={deliveryNotes || []}
-              canValidate={true}
-              onRefresh={() => {
-                mutateDN()
-                mutateRM()
-                mutatePkg()
-                mutateCons()
-              }}
-            />
-          )}
+        <TabsContent value="validation-bl-factures" className="mt-6 space-y-8">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Truck className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Bons de livraison</h2>
+              {pendingBLCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
+                  {pendingBLCount}
+                </span>
+              )}
+            </div>
+            {dnLoading ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <DeliveryNotesList
+                deliveryNotes={deliveryNotes || []}
+                canValidate={true}
+                onRefresh={() => {
+                  mutateDN()
+                  mutateRM()
+                  mutatePkg()
+                  mutateCons()
+                }}
+              />
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Receipt className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Factures d{"'"}achat</h2>
+              {pendingInvCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
+                  {pendingInvCount}
+                </span>
+              )}
+            </div>
+            {invLoading ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <PurchaseInvoicesList
+                invoices={purchaseInvoices || []}
+                canValidate={true}
+                onRefresh={() => {
+                  mutateInv()
+                  mutateRM()
+                  mutatePkg()
+                  mutateCons()
+                }}
+              />
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 
