@@ -219,7 +219,7 @@ export function PurchaseInvoicesList({ invoices, canValidate = false, onRefresh 
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </React.Fragment>
                 )
               })}
             </TableBody>
