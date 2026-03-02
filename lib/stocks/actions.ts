@@ -1145,17 +1145,6 @@ export async function createStockMovement(tenantId: string, data: {
   }
   const normalizedMovementType = movementTypeMap[data.movementType] || data.movementType
 
-  const { error } = await supabase.from("stock_movements").insert({
-    tenant_id: tenantId, item_type: data.itemType,
-    raw_material_id: data.rawMaterialId || null,
-    finished_product_id: data.finishedProductId || null,
-    packaging_id: data.packagingId || null,
-    movement_type: normalizedMovementType, quantity: data.quantity, unit: data.unit,
-    reason: data.reason || null, reference: data.reference || null,
-    from_location_id: data.fromLocationId || null,
-    to_location_id: data.toLocationId || null,
-    created_by: user?.id || null,
-  })
   // Determine table and item id
   let table: string
   let idField: string | undefined
@@ -1167,21 +1156,36 @@ export async function createStockMovement(tenantId: string, data: {
     table = "finished_products"; idField = data.finishedProductId
   }
 
-  // For exit and transfer: verify stock is sufficient BEFORE inserting movement
-  if (idField && (normalizedMovementType === "exit" || normalizedMovementType === "transfer")) {
+  // 1. Read current stock ONCE before any mutation
+  let currentStock = 0
+  if (idField) {
     const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
-    const currentStock = Number(currentItem?.current_stock || 0)
+    currentStock = Number(currentItem?.current_stock || 0)
+  }
+
+  // 2. Verify stock is sufficient BEFORE inserting anything (exit/transfer)
+  if (idField && (normalizedMovementType === "exit" || normalizedMovementType === "transfer")) {
     if (data.quantity > currentStock) {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
     }
   }
 
+  // 3. Insert the stock movement record
+  const { error } = await supabase.from("stock_movements").insert({
+    tenant_id: tenantId, item_type: data.itemType,
+    raw_material_id: data.rawMaterialId || null,
+    finished_product_id: data.finishedProductId || null,
+    packaging_id: data.packagingId || null,
+    movement_type: normalizedMovementType, quantity: data.quantity, unit: data.unit,
+    reason: data.reason || null, reference: data.reference || null,
+    from_location_id: data.fromLocationId || null,
+    to_location_id: data.toLocationId || null,
+    created_by: user?.id || null,
+  })
   if (error) { throw new Error(error.message) }
 
-  // Update stock level (transfers don't change total stock)
+  // 4. Update stock level using the already-read value (transfers don't change total stock)
   if (idField && normalizedMovementType !== "transfer") {
-    const { data: currentItem } = await supabase.from(table).select("current_stock").eq("id", idField).single()
-    const currentStock = Number(currentItem?.current_stock || 0)
     const delta = normalizedMovementType === "entry" ? data.quantity : -data.quantity
     const newStock = currentStock + delta
     if (newStock < 0) {

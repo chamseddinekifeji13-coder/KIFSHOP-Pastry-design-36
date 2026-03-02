@@ -49,9 +49,10 @@ export function StockMovementsHistory() {
     return map
   }, [rawMaterials, finishedProducts, packagingItems])
 
-  const getItemName = (m: StockMovement) => {
+  const getItemName = (m: StockMovement & { packagingId?: string | null }) => {
     if (m.rawMaterialId && nameMap[m.rawMaterialId]) return nameMap[m.rawMaterialId]
     if (m.finishedProductId && nameMap[m.finishedProductId]) return nameMap[m.finishedProductId]
+    if (m.packagingId && nameMap[m.packagingId]) return nameMap[m.packagingId]
     return m.reference || "Article inconnu"
   }
 
