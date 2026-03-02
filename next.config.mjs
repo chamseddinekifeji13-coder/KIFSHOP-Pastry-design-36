@@ -1,5 +1,4 @@
 /** @type {import('next').NextConfig} */
-// Force clean deploy - cache bust
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -7,6 +6,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  generateBuildId: () => `build-${Date.now()}`,
   async headers() {
     return [
       {
