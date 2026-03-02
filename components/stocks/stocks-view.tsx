@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,8 @@ import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
-import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes } from "@/hooks/use-tenant-data"
+import { DeliveryNotesList } from "@/components/approvisionnement/delivery-notes-list"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { exportStocksToCSV, getPrintableStocksReport } from "@/lib/stocks/actions"
@@ -43,6 +44,9 @@ export function StocksView() {
   const { data: packaging, isLoading: pkgLoading, mutate: mutatePkg } = usePackaging()
   const { data: consumables, isLoading: consLoading, mutate: mutateCons } = useConsumables()
   const { data: storageLocations } = useStorageLocations()
+  const { data: deliveryNotes, isLoading: dnLoading, mutate: mutateDN } = useDeliveryNotes()
+
+  const pendingBLCount = (deliveryNotes || []).filter((n) => n.status === "en-attente").length
 
   const query = searchQuery.toLowerCase().trim()
 
@@ -186,7 +190,7 @@ export function StocksView() {
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
           <TabsTrigger value="raw" className="gap-2">
             <Package className="h-4 w-4" />
             <span className="hidden sm:inline">{t("stocks.raw_materials")}</span><span className="sm:hidden">MP</span>
@@ -208,6 +212,15 @@ export function StocksView() {
             {query && <span className="text-xs opacity-70">({filteredConsumables.length})</span>}
           </TabsTrigger>
           <TabsTrigger value="reserves" className="gap-2"><Warehouse className="h-4 w-4" /><span className="hidden sm:inline">Reserves</span><span className="sm:hidden">Res.</span></TabsTrigger>
+          <TabsTrigger value="reception-bl" className="gap-2 relative">
+            <Truck className="h-4 w-4" />
+            <span className="hidden sm:inline">Reception BL</span><span className="sm:hidden">BL</span>
+            {pendingBLCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
+                {pendingBLCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="raw" className="mt-6 space-y-6">
@@ -315,6 +328,23 @@ export function StocksView() {
 
         <TabsContent value="reserves" className="mt-6">
           <StorageLocationsTable />
+        </TabsContent>
+
+        <TabsContent value="reception-bl" className="mt-6">
+          {dnLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <DeliveryNotesList
+              deliveryNotes={deliveryNotes || []}
+              canValidate={true}
+              onRefresh={() => {
+                mutateDN()
+                mutateRM()
+                mutatePkg()
+                mutateCons()
+              }}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
