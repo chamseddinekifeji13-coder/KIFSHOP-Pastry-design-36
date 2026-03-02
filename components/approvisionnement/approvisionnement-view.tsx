@@ -216,6 +216,7 @@ export function ApprovisionnementView() {
           ) : (
             <DeliveryNotesList
               deliveryNotes={allDeliveryNotes}
+              canValidate={true}
               onRefresh={() => { mutateDeliveryNotes(); mutateOrders(); }}
             />
           )}
@@ -227,6 +228,7 @@ export function ApprovisionnementView() {
           ) : (
             <PurchaseInvoicesList
               invoices={allInvoices}
+              canValidate={true}
               onRefresh={() => { mutateInvoices(); }}
             />
           )}
