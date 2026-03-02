@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck } from "lucide-react"
+import { Package, Box, Gift, Warehouse, Plus, Loader2, Download, Printer, Search, X, Wrench, Truck, FileText } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,8 +16,9 @@ import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
-import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes, usePurchaseInvoices } from "@/hooks/use-tenant-data"
 import { DeliveryNotesList } from "@/components/approvisionnement/delivery-notes-list"
+import { PurchaseInvoicesList } from "@/components/approvisionnement/purchase-invoices-list"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { exportStocksToCSV, getPrintableStocksReport } from "@/lib/stocks/actions"
@@ -45,8 +46,10 @@ export function StocksView() {
   const { data: consumables, isLoading: consLoading, mutate: mutateCons } = useConsumables()
   const { data: storageLocations } = useStorageLocations()
   const { data: deliveryNotes, isLoading: dnLoading, mutate: mutateDN } = useDeliveryNotes()
+  const { data: invoices, isLoading: invLoading, mutate: mutateInvoices } = usePurchaseInvoices()
 
   const pendingBLCount = (deliveryNotes || []).filter((n) => n.status === "en-attente").length
+  const pendingInvCount = (invoices || []).filter((i) => i.status === "en-attente").length
 
   const query = searchQuery.toLowerCase().trim()
 
@@ -222,6 +225,15 @@ export function StocksView() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="factures" className="gap-1.5 relative" style={{ flex: "none" }}>
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Factures</span><span className="sm:hidden">Fact.</span>
+              {pendingInvCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground px-1">
+                  {pendingInvCount}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -341,6 +353,23 @@ export function StocksView() {
               canValidate={true}
               onRefresh={() => {
                 mutateDN()
+                mutateRM()
+                mutatePkg()
+                mutateCons()
+              }}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="factures" className="mt-6">
+          {invLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <PurchaseInvoicesList
+              invoices={invoices || []}
+              canValidate={true}
+              onRefresh={() => {
+                mutateInvoices()
                 mutateRM()
                 mutatePkg()
                 mutateCons()
