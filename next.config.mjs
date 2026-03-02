@@ -6,7 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  generateBuildId: () => `build-${Date.now()}`,
   async headers() {
     return [
       {
