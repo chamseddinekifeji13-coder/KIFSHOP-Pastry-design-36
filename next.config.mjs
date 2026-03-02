@@ -1,5 +1,4 @@
 /** @type {import('next').NextConfig} */
-// Force clean deploy - cache bust
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
