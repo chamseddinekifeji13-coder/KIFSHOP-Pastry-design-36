@@ -180,7 +180,7 @@ export function ChannelsView() {
           const name = channelNames[channel.channelType] || channel.channelType
 
           return (
-            <Card key={channel.channelType} className={!channel.enabled ? "opacity-60" : ""}>
+            <Card key={channel.channelType} className={`flex flex-col ${!channel.enabled ? "opacity-60" : ""}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -189,7 +189,7 @@ export function ChannelsView() {
                     </div>
                     <div>
                       <CardTitle className="text-base">{name}</CardTitle>
-                      <CardDescription className="text-xs">{channel.contact || ""}</CardDescription>
+                      <CardDescription className="text-xs">{channel.contact || "\u00A0"}</CardDescription>
                     </div>
                   </div>
                   <Switch
@@ -198,7 +198,7 @@ export function ChannelsView() {
                   />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="flex flex-1 flex-col space-y-4">
                 <p className="text-sm text-muted-foreground">{channelDescriptions[channel.channelType]}</p>
 
                 {/* Stats */}
@@ -217,11 +217,11 @@ export function ChannelsView() {
                   </div>
                 </div>
 
-                {/* Auto-reply preview */}
-                {channel.autoReply && (
-                  <div className="rounded-lg border p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-muted-foreground">Reponse automatique</p>
+                {/* Auto-reply preview (always rendered for consistent height) */}
+                <div className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-muted-foreground">Reponse automatique</p>
+                    {channel.autoReply && (
                       <Button
                         variant="ghost"
                         size="icon"
@@ -230,15 +230,17 @@ export function ChannelsView() {
                       >
                         <Copy className="h-3 w-3" />
                       </Button>
-                    </div>
-                    <p className="text-xs leading-relaxed italic">
-                      &quot;{channel.autoReply}&quot;
-                    </p>
+                    )}
                   </div>
-                )}
+                  <p className="text-xs leading-relaxed italic text-muted-foreground/70">
+                    {channel.autoReply
+                      ? `"${channel.autoReply}"`
+                      : "Aucune reponse configuree"}
+                  </p>
+                </div>
 
-                {/* Actions */}
-                <div className="flex gap-2">
+                {/* Actions - pushed to bottom */}
+                <div className="mt-auto flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -248,12 +250,22 @@ export function ChannelsView() {
                     <Settings className="mr-2 h-3.5 w-3.5" />
                     Configurer
                   </Button>
-                  {(channel.channelType === "whatsapp" || channel.channelType === "messenger") && channel.contact && (
+                  {channel.contact && (
                     <Button variant="outline" size="sm" className="bg-transparent" asChild>
                       <a
-                        href={channel.channelType === "whatsapp"
-                          ? `https://wa.me/${channel.contact.replace(/\s+/g, "")}`
-                          : channel.contact}
+                        href={
+                          channel.channelType === "whatsapp"
+                            ? `https://wa.me/${channel.contact.replace(/\s+/g, "")}`
+                            : channel.channelType === "messenger"
+                              ? channel.contact
+                              : channel.channelType === "phone"
+                                ? `tel:${channel.contact.replace(/\s+/g, "")}`
+                                : channel.channelType === "instagram"
+                                  ? `https://instagram.com/${channel.contact.replace("@", "")}`
+                                  : channel.channelType === "tiktok"
+                                    ? `https://tiktok.com/@${channel.contact.replace("@", "")}`
+                                    : channel.contact
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                       >
