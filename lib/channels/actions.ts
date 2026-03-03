@@ -114,9 +114,13 @@ export async function upsertSalesChannel(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree")
 
+  // Resolve the display name from CHANNEL_DEFINITIONS
+  const channelName = CHANNEL_DEFINITIONS.find(d => d.type === config.channelType)?.name ?? config.channelType
+
   const row = {
     tenant_id: tenantId,
     type: config.channelType,
+    name: channelName,
     enabled: config.enabled,
     contact: config.contact,
     auto_reply: config.autoReply,
@@ -147,12 +151,16 @@ export async function toggleSalesChannel(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree")
 
+  // Resolve the display name from CHANNEL_DEFINITIONS
+  const channelName = CHANNEL_DEFINITIONS.find(d => d.type === channelType)?.name ?? channelType
+
   const { error } = await supabase
     .from("sales_channels")
     .upsert(
       {
         tenant_id: tenantId,
         type: channelType,
+        name: channelName,
         enabled,
         updated_at: new Date().toISOString(),
       },
