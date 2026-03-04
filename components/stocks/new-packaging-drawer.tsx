@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Package, Loader2, X } from "lucide-react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -91,21 +91,21 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-y-auto">
+<Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-[#D4A373] to-[#c4956a] p-6 text-white">
-          <SheetHeader>
+          <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <SheetTitle className="text-white text-lg">Nouvel emballage</SheetTitle>
+                <DialogTitle className="text-white text-lg">Nouvel emballage</DialogTitle>
                 <p className="text-white/80 text-sm">Boites, plateaux, sachets...</p>
               </div>
             </div>
-          </SheetHeader>
+          </DialogHeader>
         </div>
 
         <div className="flex-1 p-6 space-y-5">
@@ -191,7 +191,7 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
             {saving ? "Enregistrement..." : "Ajouter l'emballage"}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
