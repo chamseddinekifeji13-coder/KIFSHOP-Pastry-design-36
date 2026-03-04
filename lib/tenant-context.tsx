@@ -30,11 +30,11 @@ export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier"
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   owner: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres", "/support"],
   gerant: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres", "/support"],
-  vendeur: ["/commandes", "/canaux", "/prospects"],
-  magasinier: ["/stocks", "/inventaire"],
-  achat: ["/approvisionnement"],
-  caissier: ["/tresorerie"],
-  patissier: ["/production"],
+  vendeur: ["/commandes", "/canaux", "/prospects", "/support"],
+  magasinier: ["/stocks", "/inventaire", "/support"],
+  achat: ["/approvisionnement", "/support"],
+  caissier: ["/tresorerie", "/support"],
+  patissier: ["/production", "/support"],
 }
 
 export function canAccessRoute(role: UserRole, pathname: string): boolean {
