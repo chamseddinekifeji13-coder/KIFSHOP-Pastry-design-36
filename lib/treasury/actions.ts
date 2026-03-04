@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client"
 export interface Transaction {
   id: string
   tenantId: string
-  type: "entree" | "sortie"
+  type: "income" | "expense"
   amount: number
   category: string
   paymentMethod: string
@@ -24,7 +24,7 @@ export async function fetchTransactions(tenantId: string): Promise<Transaction[]
 
   if (error) { console.error("Error fetching transactions:", error.message); return [] }
   return (data || []).map((t) => ({
-    id: t.id, tenantId: t.tenant_id, type: t.type as "entree" | "sortie",
+    id: t.id, tenantId: t.tenant_id, type: t.type as "income" | "expense",
     amount: Number(t.amount), category: t.category, paymentMethod: t.payment_method,
     reference: t.reference, description: t.description, orderId: t.order_id,
     createdBy: t.created_by, createdAt: t.created_at,
