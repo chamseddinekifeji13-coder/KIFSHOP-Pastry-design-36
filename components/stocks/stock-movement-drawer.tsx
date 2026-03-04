@@ -105,14 +105,19 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       setLocationStocks([])
       return
     }
-    const itemType = activeItem.type === "raw" ? "raw_material"
-      : activeItem.type === "finished" ? "finished_product" : "packaging"
+    const typeMap: Record<string, string> = {
+      raw: "raw_material",
+      finished: "finished_product",
+      packaging: "packaging",
+      consumable: "consumable",
+    }
+    const itemType = typeMap[activeItem.type] || "raw_material"
     setLoadingLocationStocks(true)
     fetchItemStockByLocation(currentTenant.id, itemType, activeItem.id)
       .then((data) => setLocationStocks(data))
       .catch(() => setLocationStocks([]))
       .finally(() => setLoadingLocationStocks(false))
-  }, [activeItem?.id, currentTenant?.id])
+  }, [activeItem?.id, activeItem?.type, currentTenant?.id, open])
 
   const filteredItems = useMemo(() => {
     const base = deferredSearch ? allItems.filter((i) => i.name.toLowerCase().includes(deferredSearch.toLowerCase())) : allItems
