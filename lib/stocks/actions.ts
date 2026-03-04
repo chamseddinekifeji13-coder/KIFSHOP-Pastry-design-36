@@ -1184,7 +1184,7 @@ export async function createStockMovement(tenantId: string, data: {
   })
   if (error) { throw new Error(error.message) }
 
-  // 4. Update stock level using the already-read value (transfers don't change total stock)
+  // 4. Update global stock level (transfers don't change total stock)
   if (idField && normalizedMovementType !== "transfer") {
     const delta = normalizedMovementType === "entry" ? data.quantity : -data.quantity
     const newStock = currentStock + delta
@@ -1192,6 +1192,72 @@ export async function createStockMovement(tenantId: string, data: {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}`)
     }
     await supabase.from(table).update({ current_stock: newStock }).eq("id", idField)
+  }
+
+  // 5. Update stock_by_location for per-location tracking
+
+  // Build the item ID column and value for queries
+  const itemIdColumn = data.rawMaterialId ? "raw_material_id"
+    : data.finishedProductId ? "finished_product_id"
+    : data.packagingId ? "packaging_id" : null
+  const itemIdValue = data.rawMaterialId || data.finishedProductId || data.packagingId || null
+
+  // Helper: find existing stock_by_location record
+  const findLocationStock = async (locationId: string) => {
+    if (!itemIdColumn || !itemIdValue) return null
+    const { data: existing } = await supabase.from("stock_by_location")
+      .select("id, quantity")
+      .eq("storage_location_id", locationId)
+      .eq("item_type", data.itemType)
+      .eq(itemIdColumn, itemIdValue)
+      .maybeSingle()
+    return existing
+  }
+
+  // Helper: upsert stock_by_location for a given location
+  const upsertLocationStock = async (locationId: string, delta: number) => {
+    if (!itemIdColumn || !itemIdValue) return
+
+    const existing = await findLocationStock(locationId)
+
+    if (existing) {
+      const newQty = Math.max(0, Number(existing.quantity || 0) + delta)
+      await supabase.from("stock_by_location").update({
+        quantity: newQty, updated_at: new Date().toISOString()
+      }).eq("id", existing.id)
+    } else if (delta > 0) {
+      // Only insert the relevant item ID column, not all 3
+      await supabase.from("stock_by_location").insert({
+        tenant_id: tenantId, storage_location_id: locationId,
+        item_type: data.itemType, [itemIdColumn]: itemIdValue,
+        quantity: delta, updated_at: new Date().toISOString(),
+      })
+    }
+  }
+
+  if (normalizedMovementType === "transfer") {
+    // For transfers: verify stock in SOURCE depot specifically
+    if (data.fromLocationId && itemIdColumn && itemIdValue) {
+      const sourceStock = await findLocationStock(data.fromLocationId)
+      const sourceQty = Number(sourceStock?.quantity || 0)
+      if (data.quantity > sourceQty) {
+        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans le depot source. Disponible dans ce depot: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+      }
+    }
+    // Transfer: decrease from source, increase at destination
+    if (data.fromLocationId) await upsertLocationStock(data.fromLocationId, -data.quantity)
+    if (data.toLocationId) await upsertLocationStock(data.toLocationId, data.quantity)
+  } else if (normalizedMovementType === "entry" && data.toLocationId) {
+    // Entry: increase at destination location
+    await upsertLocationStock(data.toLocationId, data.quantity)
+  } else if (normalizedMovementType === "exit" && data.fromLocationId) {
+    // Exit: verify stock in specific depot before exiting
+    const sourceStock = await findLocationStock(data.fromLocationId)
+    const sourceQty = Number(sourceStock?.quantity || 0)
+    if (data.quantity > sourceQty) {
+      throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans ce depot. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+    }
+    await upsertLocationStock(data.fromLocationId, -data.quantity)
   }
 
   return true

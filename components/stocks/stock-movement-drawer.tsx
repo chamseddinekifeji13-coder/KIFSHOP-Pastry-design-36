@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useTransition, useCallback } from "react"
 import { Plus, Minus, ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, Package, Loader2, Search } from "lucide-react"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -49,13 +49,24 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
 
   const [selectedItemId, setSelectedItemId] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
+  const [deferredSearch, setDeferredSearch] = useState("")
   const [quantity, setQuantity] = useState("")
   const [reason, setReason] = useState("")
   const [toLocationId, setToLocationId] = useState("")
   const [fromLocationId, setFromLocationId] = useState("")
   const [saving, setSaving] = useState(false)
+  const [, startTransition] = useTransition()
+
+  const MAX_VISIBLE_ITEMS = 30
 
   const activeLocations = locations.filter((l) => l.isActive)
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value)
+    startTransition(() => {
+      setDeferredSearch(value)
+    })
+  }, [])
 
   // Build a unified list of all items for selection
   const allItems: ItemOption[] = useMemo(() => {
@@ -85,10 +96,9 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   }, [item, selectedItemId, allItems])
 
   const filteredItems = useMemo(() => {
-    if (!searchQuery) return allItems
-    const q = searchQuery.toLowerCase()
-    return allItems.filter((i) => i.name.toLowerCase().includes(q))
-  }, [allItems, searchQuery])
+    const base = deferredSearch ? allItems.filter((i) => i.name.toLowerCase().includes(deferredSearch.toLowerCase())) : allItems
+    return base.slice(0, MAX_VISIBLE_ITEMS)
+  }, [allItems, deferredSearch, MAX_VISIBLE_ITEMS])
 
   const typeLabel = (type: string) => {
     if (type === "raw") return "MP"
@@ -103,6 +113,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     setFromLocationId("")
     setSelectedItemId("")
     setSearchQuery("")
+    setDeferredSearch("")
   }
 
   const handleSubmit = async (action: "entree" | "sortie" | "transfert") => {
@@ -202,7 +213,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
               <p className="text-sm font-semibold">{activeItem.name}</p>
               <p className="text-[10px] text-muted-foreground">{typeLabel(activeItem.type)} &middot; Stock: {activeItem.currentStock} {activeItem.unit}</p>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => { setSelectedItemId(""); setSearchQuery("") }}>
+            <Button variant="ghost" size="sm" className="text-xs h-7 px-2" onClick={() => { setSelectedItemId(""); setSearchQuery(""); setDeferredSearch("") }}>
               Changer
             </Button>
           </div>
@@ -218,7 +229,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
           <Input
             placeholder="Rechercher un article..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9 bg-muted/50 border-0"
           />
         </div>
@@ -232,10 +243,10 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
               <p className="text-xs text-muted-foreground text-center py-4">Aucun resultat pour &quot;{searchQuery}&quot;</p>
             ) : (
               filteredItems.map((i) => (
-                <button
+                  <button
                   key={i.id}
                   type="button"
-                  onClick={() => { setSelectedItemId(i.id); setSearchQuery("") }}
+                  onClick={() => { startTransition(() => { setSelectedItemId(i.id) }); setSearchQuery(""); setDeferredSearch("") }}
                   className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between"
                 >
                   <span className="flex items-center gap-2">
