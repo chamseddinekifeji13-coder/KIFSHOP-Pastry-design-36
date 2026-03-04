@@ -51,6 +51,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
 
   async function handleSubmit() {
     if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
+    if (!storageLocationId || storageLocationId === "none") { toast.error("Le depot est obligatoire", { description: "Veuillez selectionner un emplacement de stockage" }); return }
     if (!pricePerUnit || Number(pricePerUnit) <= 0) { toast.error("Le prix unitaire est obligatoire"); return }
 
     if (!currentTenant.id || currentTenant.id === "__fallback__") {
@@ -149,11 +150,10 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
                 <BarcodeInput value={barcode} onChange={setBarcode} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Emplacement</Label>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Emplacement *</Label>
                 <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Non assigne" /></SelectTrigger>
+                  <SelectTrigger className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}><SelectValue placeholder="Choisir un depot (obligatoire)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Non assigne</SelectItem>
                     {activeLocations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</SelectItem>
                     ))}
