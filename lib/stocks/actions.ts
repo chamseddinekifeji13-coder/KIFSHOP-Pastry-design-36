@@ -873,6 +873,40 @@ export const LOCATION_TYPE_LABELS: Record<string, string> = {
   autre: "Autre",
 }
 
+export interface ItemLocationStock {
+  locationId: string
+  locationName: string
+  quantity: number
+}
+
+export async function fetchItemStockByLocation(
+  tenantId: string,
+  itemType: string,
+  itemId: string,
+): Promise<ItemLocationStock[]> {
+  const supabase = createClient()
+  const itemColumn =
+    itemType === "raw_material" ? "raw_material_id"
+    : itemType === "packaging" ? "packaging_id"
+    : itemType === "consumable" ? "consumable_id"
+    : "finished_product_id"
+
+  const { data, error } = await supabase
+    .from("stock_by_location")
+    .select("storage_location_id, quantity, storage_locations(name)")
+    .eq("tenant_id", tenantId)
+    .eq("item_type", itemType)
+    .eq(itemColumn, itemId)
+    .gt("quantity", 0)
+
+  if (error) { console.error("Error fetching item stock by location:", error.message); return [] }
+  return (data || []).map((row: Record<string, unknown>) => ({
+    locationId: row.storage_location_id as string,
+    locationName: (row.storage_locations as Record<string, unknown>)?.name as string || "Inconnu",
+    quantity: Number(row.quantity || 0),
+  }))
+}
+
 export async function fetchStorageLocations(tenantId: string): Promise<StorageLocation[]> {
   const supabase = createClient()
   const { data, error } = await supabase

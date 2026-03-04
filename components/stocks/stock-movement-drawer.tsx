@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo, useTransition, useCallback } from "react"
-import { Plus, Minus, ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, Package, Loader2, Search } from "lucide-react"
+import { useState, useEffect, useMemo, useTransition, useCallback } from "react"
+import { Plus, Minus, ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, Package, Loader2, Search, MapPin, Warehouse } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,7 +23,9 @@ import {
   usePackaging,
   useStockMovements,
 } from "@/hooks/use-tenant-data"
-import { createStockMovement } from "@/lib/stocks/actions"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { createStockMovement, fetchItemStockByLocation, type ItemLocationStock } from "@/lib/stocks/actions"
 
 interface ItemOption {
   id: string
