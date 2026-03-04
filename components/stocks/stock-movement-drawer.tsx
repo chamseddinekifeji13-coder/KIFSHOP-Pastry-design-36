@@ -312,11 +312,15 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       <div className="space-y-2">
         <Label className="text-xs font-medium">{label}</Label>
         <Select value={value} onValueChange={onChange}>
-          <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Choisir un emplacement" /></SelectTrigger>
+          <SelectTrigger className="bg-muted/50 border-0 w-full min-w-0">
+            <span className="truncate block text-left">
+              {value ? (filtered.find((l) => l.id === value)?.name || "Choisir un emplacement") : "Choisir un emplacement"}
+            </span>
+          </SelectTrigger>
           <SelectContent>
             {filtered.map((loc) => (
               <SelectItem key={loc.id} value={loc.id}>
-                {loc.name}{loc.designation ? ` - ${loc.designation}` : ""}
+                <span className="truncate">{loc.name}{loc.designation ? ` - ${loc.designation}` : ""}</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -392,33 +396,46 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
                 {renderQuantityField("primary", true)}
-                <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">De *</Label>
-                    <Select value={fromLocationId} onValueChange={setFromLocationId}>
-                      <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Source" /></SelectTrigger>
-                      <SelectContent>
-                        {activeLocations.map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>
-                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                    <Label className="text-xs font-medium">De (source) *</Label>
+                    <span />
+                    <Label className="text-xs font-medium">Vers (destination) *</Label>
                   </div>
-                  <ArrowLeftRight className="h-4 w-4 text-muted-foreground mb-2.5" />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Vers *</Label>
-                    <Select value={toLocationId} onValueChange={setToLocationId}>
-                      <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Destination" /></SelectTrigger>
-                      <SelectContent>
-                        {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>
-                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+                    <div className="min-w-0">
+                      <Select value={fromLocationId} onValueChange={setFromLocationId}>
+                        <SelectTrigger className="bg-muted/50 border-0 w-full min-w-0">
+                          <span className="truncate block text-left">
+                            {fromLocationId ? (activeLocations.find((l) => l.id === fromLocationId)?.name || "Source") : "Source"}
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeLocations.map((loc) => (
+                            <SelectItem key={loc.id} value={loc.id}>
+                              <span className="truncate">{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <ArrowLeftRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <Select value={toLocationId} onValueChange={setToLocationId}>
+                        <SelectTrigger className="bg-muted/50 border-0 w-full min-w-0">
+                          <span className="truncate block text-left">
+                            {toLocationId ? (activeLocations.filter((l) => l.id !== fromLocationId).find((l) => l.id === toLocationId)?.name || "Destination") : "Destination"}
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
+                            <SelectItem key={loc.id} value={loc.id}>
+                              <span className="truncate">{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
                 {activeLocations.length === 0 && (
