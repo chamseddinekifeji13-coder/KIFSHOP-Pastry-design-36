@@ -63,11 +63,18 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
   const handleColorChange = (id: string, color: string) => setCategories(prev => prev.map(c => c.id === id ? { ...c, color } : c))
 
   const handleSave = async () => {
+    console.log("[v0] handleSave called, categories:", JSON.stringify(categories))
+    console.log("[v0] categories.length:", categories.length)
+    console.log("[v0] existingCategories:", JSON.stringify(existingCategories))
+    console.log("[v0] currentTenant:", currentTenant?.id)
+    
     if (categories.some(c => !c.name.trim())) { toast.error("Certaines categories n'ont pas de nom"); return }
     
     setSaving(true)
     try {
+      console.log("[v0] Calling saveCategories with", categories.length, "categories")
       const success = await saveCategories(currentTenant.id, categories)
+      console.log("[v0] saveCategories returned:", success)
       if (success) {
         const added = categories.filter(c => c.isNew).length
         const removed = existingCategories.length - categories.filter(c => !c.isNew).length
@@ -80,7 +87,7 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
         toast.error("Erreur lors de la sauvegarde des categories")
       }
     } catch (error) {
-      console.error("Error saving categories:", error)
+      console.error("[v0] Error saving categories:", error)
       toast.error("Une erreur est survenue")
     } finally {
       setSaving(false)
