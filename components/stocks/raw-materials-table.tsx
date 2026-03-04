@@ -32,6 +32,8 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
   const [editLocationId, setEditLocationId] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
+  const locMap = new Map((storageLocations || []).map(l => [l.id, l]))
+
   const filtered = locationFilter === "all" ? materials
     : locationFilter === "unassigned"
       ? materials.filter(m => !m.storageLocationId)
@@ -61,20 +63,6 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
       toast.success("Article modifie avec succes")
       setEditingMaterial(null)
     } catch (err: unknown) {
-      toast.error("Erreur lors de la modification")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleSaveEdit = async () => {
-    if (!editingId || !editName.trim()) return
-    setIsSaving(true)
-    try {
-      await updateRawMaterial(editingId, { name: editName.trim() })
-      toast.success("Matiere premiere modifiee")
-      setEditingId(null)
-    } catch (err: any) {
       toast.error("Erreur lors de la modification")
     } finally {
       setIsSaving(false)
