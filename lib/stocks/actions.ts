@@ -1195,25 +1195,30 @@ export async function createStockMovement(tenantId: string, data: {
   }
 
   // 5. Update stock_by_location for per-location tracking
-  const itemIdFields = {
-    raw_material_id: data.rawMaterialId || null,
-    finished_product_id: data.finishedProductId || null,
-    packaging_id: data.packagingId || null,
+
+  // Build the item ID column and value for queries
+  const itemIdColumn = data.rawMaterialId ? "raw_material_id"
+    : data.finishedProductId ? "finished_product_id"
+    : data.packagingId ? "packaging_id" : null
+  const itemIdValue = data.rawMaterialId || data.finishedProductId || data.packagingId || null
+
+  // Helper: find existing stock_by_location record
+  const findLocationStock = async (locationId: string) => {
+    if (!itemIdColumn || !itemIdValue) return null
+    const { data: existing } = await supabase.from("stock_by_location")
+      .select("id, quantity")
+      .eq("storage_location_id", locationId)
+      .eq("item_type", data.itemType)
+      .eq(itemIdColumn, itemIdValue)
+      .maybeSingle()
+    return existing
   }
 
   // Helper: upsert stock_by_location for a given location
   const upsertLocationStock = async (locationId: string, delta: number) => {
-    // Try to find existing record
-    let query = supabase.from("stock_by_location")
-      .select("id, quantity")
-      .eq("storage_location_id", locationId)
-      .eq("item_type", data.itemType)
+    if (!itemIdColumn || !itemIdValue) return
 
-    if (data.rawMaterialId) query = query.eq("raw_material_id", data.rawMaterialId)
-    else if (data.finishedProductId) query = query.eq("finished_product_id", data.finishedProductId)
-    else if (data.packagingId) query = query.eq("packaging_id", data.packagingId)
-
-    const { data: existing } = await query.maybeSingle()
+    const existing = await findLocationStock(locationId)
 
     if (existing) {
       const newQty = Math.max(0, Number(existing.quantity || 0) + delta)
@@ -1221,15 +1226,24 @@ export async function createStockMovement(tenantId: string, data: {
         quantity: newQty, updated_at: new Date().toISOString()
       }).eq("id", existing.id)
     } else if (delta > 0) {
+      // Only insert the relevant item ID column, not all 3
       await supabase.from("stock_by_location").insert({
         tenant_id: tenantId, storage_location_id: locationId,
-        item_type: data.itemType, ...itemIdFields,
+        item_type: data.itemType, [itemIdColumn]: itemIdValue,
         quantity: delta, updated_at: new Date().toISOString(),
       })
     }
   }
 
   if (normalizedMovementType === "transfer") {
+    // For transfers: verify stock in SOURCE depot specifically
+    if (data.fromLocationId && itemIdColumn && itemIdValue) {
+      const sourceStock = await findLocationStock(data.fromLocationId)
+      const sourceQty = Number(sourceStock?.quantity || 0)
+      if (data.quantity > sourceQty) {
+        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans le depot source. Disponible dans ce depot: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+      }
+    }
     // Transfer: decrease from source, increase at destination
     if (data.fromLocationId) await upsertLocationStock(data.fromLocationId, -data.quantity)
     if (data.toLocationId) await upsertLocationStock(data.toLocationId, data.quantity)
@@ -1237,7 +1251,12 @@ export async function createStockMovement(tenantId: string, data: {
     // Entry: increase at destination location
     await upsertLocationStock(data.toLocationId, data.quantity)
   } else if (normalizedMovementType === "exit" && data.fromLocationId) {
-    // Exit: decrease at source location
+    // Exit: verify stock in specific depot before exiting
+    const sourceStock = await findLocationStock(data.fromLocationId)
+    const sourceQty = Number(sourceStock?.quantity || 0)
+    if (data.quantity > sourceQty) {
+      throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans ce depot. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+    }
     await upsertLocationStock(data.fromLocationId, -data.quantity)
   }
 
