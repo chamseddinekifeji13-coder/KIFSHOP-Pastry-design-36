@@ -56,14 +56,12 @@ export async function createSupplier(tenantId: string, data: {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
-  // Check for duplicate supplier by name
   const { data: existing } = await supabase
     .from("suppliers").select("id, name").eq("tenant_id", tenantId)
     .ilike("name", data.name.trim()).limit(1)
   if (existing && existing.length > 0) {
     throw new Error(`DUPLICATE:Le fournisseur "${existing[0].name}" existe deja`)
   }
-  // Check for duplicate supplier by phone
   if (data.phone) {
     const { data: phoneMatch } = await supabase
       .from("suppliers").select("id, name, phone").eq("tenant_id", tenantId)
@@ -88,7 +86,6 @@ export async function updateSupplier(supplierId: string, tenantId: string, data:
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
-  // Check for duplicate name (excluding self)
   const { data: existing } = await supabase
     .from("suppliers").select("id, name").eq("tenant_id", tenantId)
     .ilike("name", data.name.trim()).neq("id", supplierId).limit(1)
@@ -96,7 +93,6 @@ export async function updateSupplier(supplierId: string, tenantId: string, data:
     throw new Error(`DUPLICATE:Le fournisseur "${existing[0].name}" existe deja`)
   }
 
-  // Check for duplicate phone (excluding self)
   if (data.phone) {
     const { data: phoneMatch } = await supabase
       .from("suppliers").select("id, name, phone").eq("tenant_id", tenantId)
@@ -440,7 +436,6 @@ export async function validatePurchaseInvoice(invoiceId: string): Promise<boolea
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree")
 
-  // Get invoice and its items
   const { data: invoice } = await supabase
     .from("purchase_invoices").select("*").eq("id", invoiceId).single()
   if (!invoice) throw new Error("Facture introuvable")
@@ -448,13 +443,10 @@ export async function validatePurchaseInvoice(invoiceId: string): Promise<boolea
 
   const { data: items } = await supabase
     .from("purchase_invoice_items").select("*").eq("invoice_id", invoiceId)
-
   if (!items || items.length === 0) throw new Error("Facture sans articles")
 
-  // Get default storage location for this tenant
   const defaultLocationId = await getDefaultLocation(supabase, invoice.tenant_id)
 
-  // Update stock and prices for each item
   for (const item of items) {
     const qty = Number(item.quantity)
     const unitPrice = Number(item.unit_price)
@@ -524,7 +516,6 @@ export async function validatePurchaseInvoice(invoiceId: string): Promise<boolea
     }
   }
 
-  // Mark invoice as validated
   const { error } = await supabase.from("purchase_invoices").update({
     status: "validee", validated_by: user.id,
     validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -649,7 +640,6 @@ export async function createDeliveryNote(tenantId: string, data: {
   }))
   await supabase.from("delivery_note_items").insert(itemRows)
 
-  // If linked to a PO, update its status to "en-livraison"
   if (data.purchaseOrderId) {
     await supabase.from("purchase_orders").update({
       status: "en-livraison", updated_at: new Date().toISOString(),
@@ -681,10 +671,8 @@ export async function validateDeliveryNote(deliveryNoteId: string): Promise<bool
     .from("delivery_note_items").select("*").eq("delivery_note_id", deliveryNoteId)
   if (!items || items.length === 0) throw new Error("Bon sans articles")
 
-  // Get default storage location for this tenant
   const defaultLocationId = await getDefaultLocation(supabase, note.tenant_id)
 
-  // Update stock for each received item
   for (const item of items) {
     const qty = Number(item.quantity_received)
     if (qty <= 0) continue
@@ -754,13 +742,11 @@ export async function validateDeliveryNote(deliveryNoteId: string): Promise<bool
     }
   }
 
-  // Mark delivery note as validated
   const { error } = await supabase.from("delivery_notes").update({
     status: "validee", validated_by: user.id,
     validated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   }).eq("id", deliveryNoteId)
 
-  // If linked to a PO, update its status to "livree"
   if (note.purchase_order_id) {
     await supabase.from("purchase_orders").update({
       status: "livree", updated_at: new Date().toISOString(),
