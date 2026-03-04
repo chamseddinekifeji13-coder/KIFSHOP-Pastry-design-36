@@ -125,8 +125,8 @@ export function NewProspectDrawer({ open, onOpenChange, onCreated }: NewProspect
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Source</Label>
-                <Select value={source} onValueChange={(v) => setSource(v as ProspectSource)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                <Select value={source} onValueChange={(v) => setSource(v as ProspectSource)} defaultValue="direct">
+                  <SelectTrigger><SelectValue placeholder="Choisir une source" /></SelectTrigger>
                   <SelectContent>
                     {(Object.keys(SOURCE_LABELS) as ProspectSource[]).map(s => (
                       <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>
