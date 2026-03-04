@@ -82,7 +82,7 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
+    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white">
           <DialogHeader>

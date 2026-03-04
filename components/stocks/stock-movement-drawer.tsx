@@ -402,7 +402,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
 
   return (
 <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
-    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100" showCloseButton={false}>
+    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100" showCloseButton={false}>
         {/* Header */}
         <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
           <div className="flex items-center gap-3 mb-3">

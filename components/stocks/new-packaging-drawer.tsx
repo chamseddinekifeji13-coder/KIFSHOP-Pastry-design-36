@@ -98,7 +98,7 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
+    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-[#D4A373] to-[#c4956a] p-6 text-white">
           <DialogHeader>

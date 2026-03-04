@@ -195,7 +195,7 @@ export function StorageLocationsTable() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetForm() }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingLocation ? "Modifier l'emplacement" : "Nouvel emplacement"}</DialogTitle>
           </DialogHeader>

@@ -97,7 +97,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
+    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-[#4A7C59] to-[#3d6a4b] p-6 text-white">
           <DialogHeader>
