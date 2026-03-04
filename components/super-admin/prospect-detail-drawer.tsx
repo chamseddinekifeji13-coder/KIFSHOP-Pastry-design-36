@@ -10,14 +10,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Building2, Phone, Mail, MapPin, CalendarClock, ArrowRight, Edit2, Trash2, Loader2, ChevronRight } from "lucide-react"
+import { updatePlatformProspect, deletePlatformProspect } from "@/lib/super-admin/prospect-actions"
 import {
-  updatePlatformProspect, deletePlatformProspect,
   type PlatformProspect, type ProspectStatus, type ProspectSource,
-  STATUS_LABELS, STATUS_COLORS, SOURCE_LABELS,
-} from "@/lib/super-admin/prospect-actions"
+  STATUS_LABELS, STATUS_COLORS, SOURCE_LABELS, PIPELINE_ORDER,
+} from "@/lib/super-admin/prospect-types"
 import { toast } from "sonner"
-
-const PIPELINE_ORDER: ProspectStatus[] = ["nouveau", "contacte", "interesse", "demo_planifiee", "negociation", "converti"]
 
 interface ProspectDetailDrawerProps {
   prospect: PlatformProspect

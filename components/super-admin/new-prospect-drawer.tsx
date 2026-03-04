@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Building2 } from "lucide-react"
-import { createPlatformProspect, SOURCE_LABELS, type ProspectSource } from "@/lib/super-admin/prospect-actions"
+import { createPlatformProspect } from "@/lib/super-admin/prospect-actions"
+import { SOURCE_LABELS, type ProspectSource } from "@/lib/super-admin/prospect-types"
 import { toast } from "sonner"
 
 interface NewProspectDrawerProps {
