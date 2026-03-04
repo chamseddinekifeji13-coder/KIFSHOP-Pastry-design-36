@@ -715,7 +715,7 @@ export async function fetchPackaging(tenantId: string): Promise<Packaging[]> {
 
 export async function createPackaging(tenantId: string, data: {
   name: string; type: string; unit: string; currentStock: number;
-  minStock: number; price: number; description?: string
+  minStock: number; price: number; description?: string; storageLocationId?: string
 }): Promise<Packaging | null> {
   const supabase = createClient()
   
@@ -744,9 +744,22 @@ export async function createPackaging(tenantId: string, data: {
     tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price: data.price, description: data.description || null,
+    storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
+
+  // Auto-create stock_by_location if a depot is assigned and there's initial stock
+  if (data.storageLocationId && data.currentStock > 0) {
+    await supabase.from("stock_by_location").insert({
+      tenant_id: tenantId,
+      storage_location_id: data.storageLocationId,
+      item_type: "packaging",
+      packaging_id: row.id,
+      quantity: data.currentStock,
+    })
+  }
+
   return {
     id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type,
     description: row.description, unit: row.unit,
@@ -1233,7 +1246,7 @@ export async function createStockMovement(tenantId: string, data: {
     }
   }
 
-  // ── 2. ALL VALIDATION BEFORE ANY MUTATION ──
+  // ── 2. ALL VALIDATION BEFORE ANY MUTATION ─��
 
   // Helper: check if this item has ANY stock_by_location records at all
   const hasAnyLocationStock = async () => {
