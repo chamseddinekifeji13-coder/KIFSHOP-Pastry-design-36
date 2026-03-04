@@ -126,10 +126,11 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       toast.error("Veuillez entrer une quantite valide")
       return
     }
-    // Validate stock for sortie and transfert
+    // Validate stock for sortie/transfert (basic client-side check on global stock)
+    // The server does the precise per-depot validation and will reject if insufficient
     if ((action === "sortie" || action === "transfert") && qty > activeItem.currentStock) {
       toast.error("Stock insuffisant", {
-        description: `Disponible: ${activeItem.currentStock} ${activeItem.unit}, demande: ${qty} ${activeItem.unit}`,
+        description: `Stock global disponible: ${activeItem.currentStock} ${activeItem.unit}, demande: ${qty} ${activeItem.unit}`,
       })
       return
     }
