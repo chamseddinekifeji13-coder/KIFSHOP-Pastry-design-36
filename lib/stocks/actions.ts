@@ -848,6 +848,18 @@ export async function createConsumable(tenantId: string, data: {
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
+
+  // Auto-create stock_by_location if a depot is assigned and there's initial stock
+  if (data.storageLocationId && data.currentStock > 0) {
+    await supabase.from("stock_by_location").insert({
+      tenant_id: tenantId,
+      storage_location_id: data.storageLocationId,
+      item_type: "consumable",
+      consumable_id: row.id,
+      quantity: data.currentStock,
+    })
+  }
+
   return {
     id: row.id, tenantId: row.tenant_id, name: row.name, category: row.category,
     description: row.description, unit: row.unit,

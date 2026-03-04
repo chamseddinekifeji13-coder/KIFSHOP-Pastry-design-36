@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Loader2 } from "lucide-react"
+import { Package, Loader2, MapPin } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createConsumable, CONSUMABLE_CATEGORIES } from "@/lib/stocks/actions"
+import { useStorageLocations } from "@/hooks/use-tenant-data"
 
 const UNITS = [
   { value: "unite", label: "Unite" },
@@ -30,8 +31,11 @@ interface NewConsumableDrawerProps {
 
 export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsumableDrawerProps) {
   const { currentTenant } = useTenant()
+  const { data: storageLocations } = useStorageLocations()
+  const activeLocations = (storageLocations || []).filter(l => l.isActive)
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
+  const [storageLocationId, setStorageLocationId] = useState("")
   const [category, setCategory] = useState("general")
   const [unit, setUnit] = useState("unite")
   const [currentStock, setCurrentStock] = useState("")
@@ -41,12 +45,13 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
   const [supplier, setSupplier] = useState("")
 
   function resetForm() {
-    setName(""); setCategory("general"); setUnit("unite")
+    setName(""); setCategory("general"); setUnit("unite"); setStorageLocationId("")
     setCurrentStock(""); setMinStock("5"); setPrice(""); setDescription(""); setSupplier("")
   }
 
   async function handleSubmit() {
     if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
+    if (!storageLocationId) { toast.error("Le depot est obligatoire", { description: "Veuillez selectionner un emplacement de stockage" }); return }
 
     setSaving(true)
     try {
@@ -57,6 +62,7 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
         price: Number(price) || 0,
         description: description.trim() || undefined,
         supplier: supplier.trim() || undefined,
+        storageLocationId: storageLocationId || undefined,
       })
       if (result) {
         toast.success("Consommable ajoute", { description: name.trim() })
@@ -149,6 +155,24 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Fournisseur (optionnel)</Label>
               <Input placeholder="Nom du fournisseur" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> Depot / Emplacement *
+              </Label>
+              <Select value={storageLocationId} onValueChange={setStorageLocationId}>
+                <SelectTrigger className={`w-full ${!storageLocationId ? "border-destructive/50" : ""}`}>
+                  <SelectValue placeholder="Choisir un depot (obligatoire)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeLocations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
