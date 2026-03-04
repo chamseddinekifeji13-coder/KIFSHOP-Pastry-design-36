@@ -31,16 +31,12 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient()
-      console.log("[v0] Login attempt for:", email)
-      console.log("[v0] Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING")
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (error) {
-        console.log("[v0] Login error details:", JSON.stringify({ message: error.message, status: error.status, name: error.name, code: (error as any).code }))
         if (error.message === "Email not confirmed") {
           setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception (et les spams) pour le lien de confirmation.")
         } else if (error.message === "Invalid login credentials") {
