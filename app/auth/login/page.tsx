@@ -29,28 +29,41 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      if (error.message === "Email not confirmed") {
-        setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception (et les spams) pour le lien de confirmation.")
-      } else if (error.message === "Invalid login credentials") {
-        setError("Email ou mot de passe incorrect.")
-      } else {
-        setError(error.message)
+      if (error) {
+        if (error.message === "Email not confirmed") {
+          setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception (et les spams) pour le lien de confirmation.")
+        } else if (error.message === "Invalid login credentials") {
+          setError("Email ou mot de passe incorrect.")
+        } else if (error.message.includes("unexpected")) {
+          setError("Erreur de connexion au serveur. Veuillez reessayer dans quelques instants.")
+        } else {
+          setError(error.message)
+        }
+        setLoading(false)
+        return
       }
-      setLoading(false)
-      return
-    }
 
-    // Redirect super admins to their dashboard
-    const isSuperAdmin = data.user?.user_metadata?.is_super_admin === true
-    router.push(isSuperAdmin ? "/super-admin" : "/dashboard")
-    router.refresh()
+      if (!data?.user) {
+        setError("Erreur inattendue : aucune donnee utilisateur recue.")
+        setLoading(false)
+        return
+      }
+
+      // Redirect super admins to their dashboard
+      const isSuperAdmin = data.user?.user_metadata?.is_super_admin === true
+      router.push(isSuperAdmin ? "/super-admin" : "/dashboard")
+      router.refresh()
+    } catch (err) {
+      setError("Impossible de contacter le serveur. Verifiez votre connexion internet et reessayez.")
+      setLoading(false)
+    }
   }
 
   return (
