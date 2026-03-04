@@ -32,7 +32,7 @@ export async function fetchTransactions(tenantId: string): Promise<Transaction[]
 }
 
 export async function createTransaction(tenantId: string, data: {
-  type: "entree" | "sortie"; amount: number; category: string;
+  type: "income" | "expense"; amount: number; category: string;
   paymentMethod?: string; reference?: string; description?: string
 }): Promise<Transaction | null> {
   const supabase = createClient()
