@@ -42,7 +42,7 @@ export function NewTransactionDrawer({ open, onOpenChange, onSuccess }: NewTrans
     setSaving(true)
     try {
       const result = await createTransaction(currentTenant.id, {
-        type: transactionType, amount: amountNum, category,
+        type: transactionType === "entree" ? "income" : "expense", amount: amountNum, category,
         paymentMethod: paymentMethod || undefined,
         reference: reference || undefined,
         description: description || undefined,

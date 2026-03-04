@@ -43,7 +43,7 @@ export async function createTransaction(tenantId: string, data: {
     payment_method: data.paymentMethod || "cash", reference: data.reference || null,
     description: data.description || null, created_by: user?.id || null,
   }).select().single()
-  if (error || !row) { console.log("[v0] Transaction insert error:", error?.message, error?.details, error?.hint, error?.code); return null }
+  if (error || !row) { console.error("Error creating transaction:", error?.message); return null }
   return { id: row.id, tenantId: row.tenant_id, type: row.type, amount: Number(row.amount),
     category: row.category, paymentMethod: row.payment_method, reference: row.reference,
     description: row.description, orderId: row.order_id, createdBy: row.created_by, createdAt: row.created_at }
