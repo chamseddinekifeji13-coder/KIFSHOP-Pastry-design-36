@@ -78,94 +78,60 @@ export function PlatformProspectsView() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50"><Users className="h-5 w-5 text-blue-600" /></div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total prospects</p>
-                <p className="text-xl font-bold">{stats.total}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {[
+          { label: "Total prospects", value: stats.total, icon: Users, bg: "bg-blue-50", color: "text-blue-600" },
+          { label: "Taux conversion", value: `${stats.conversionRate}%`, icon: TrendingUp, bg: "bg-emerald-50", color: "text-emerald-600" },
+          { label: "Relances a venir", value: stats.upcomingActions, icon: CalendarClock, bg: "bg-purple-50", color: "text-purple-600" },
+          { label: "Ce mois-ci", value: stats.thisMonth, icon: Sparkles, bg: "bg-amber-50", color: "text-amber-600" },
+          { label: "Convertis", value: stats.byStatus.converti, icon: Users, bg: "bg-green-50", color: "text-green-600" },
+        ].map((kpi) => (
+          <Card key={kpi.label}>
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${kpi.bg}`}>
+                  <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground truncate">{kpi.label}</p>
+                  <p className="text-lg font-bold leading-tight">{kpi.value}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50"><TrendingUp className="h-5 w-5 text-emerald-600" /></div>
-              <div>
-                <p className="text-xs text-muted-foreground">Taux conversion</p>
-                <p className="text-xl font-bold">{stats.conversionRate}%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50"><CalendarClock className="h-5 w-5 text-purple-600" /></div>
-              <div>
-                <p className="text-xs text-muted-foreground">Relances a venir</p>
-                <p className="text-xl font-bold">{stats.upcomingActions}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50"><Sparkles className="h-5 w-5 text-amber-600" /></div>
-              <div>
-                <p className="text-xs text-muted-foreground">Ce mois-ci</p>
-                <p className="text-xl font-bold">{stats.thisMonth}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50"><Users className="h-5 w-5 text-green-600" /></div>
-              <div>
-                <p className="text-xs text-muted-foreground">Convertis</p>
-                <p className="text-xl font-bold">{stats.byStatus.converti}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Filters + View Toggle */}
       <Card>
-        <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
-            <div className="relative flex-1 w-full">
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Rechercher par nom..." className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input placeholder="Rechercher..." className="pl-9 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Select value={filterCity} onValueChange={setFilterCity}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Ville" /></SelectTrigger>
+              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Ville" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les villes</SelectItem>
+                <SelectItem value="all">Toutes villes</SelectItem>
                 {cities.map(c => <SelectItem key={c} value={c!}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filterSource} onValueChange={setFilterSource}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Source" /></SelectTrigger>
+              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Source" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Toutes sources</SelectItem>
                 {(Object.keys(SOURCE_LABELS) as ProspectSource[]).map(s => <SelectItem key={s} value={s}>{SOURCE_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Statut" /></SelectTrigger>
+              <SelectTrigger className="w-[140px] h-9"><SelectValue placeholder="Statut" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tous statuts</SelectItem>
                 {(Object.keys(STATUS_LABELS) as ProspectStatus[]).map(s => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="flex items-center border rounded-lg overflow-hidden">
+            <div className="flex items-center border rounded-lg overflow-hidden ml-auto">
               <Button variant={viewMode === "kanban" ? "default" : "ghost"} size="sm" className={viewMode === "kanban" ? "bg-[#4A7C59] hover:bg-[#3d6649] text-white rounded-none" : "rounded-none"} onClick={() => setViewMode("kanban")}>
                 <LayoutGrid className="h-4 w-4" />
               </Button>
@@ -182,11 +148,11 @@ export function PlatformProspectsView() {
         <div className="text-center py-12 text-muted-foreground">Chargement...</div>
       ) : viewMode === "kanban" ? (
         /* Kanban View */
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-3">
           {PIPELINE_STATUSES.map(status => {
             const items = filtered.filter(p => p.status === status)
             return (
-              <div key={status} className="flex-shrink-0 w-72">
+              <div key={status} className="min-w-0">
                 <div className="flex items-center gap-2 mb-3 px-1">
                   <Badge className={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Badge>
                   <span className="text-xs text-muted-foreground font-medium">{items.length}</span>
@@ -197,27 +163,18 @@ export function PlatformProspectsView() {
                   )}
                   {items.map(p => (
                     <Card key={p.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setDetailProspect(p)}>
-                      <CardContent className="p-4 space-y-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-semibold text-sm">{p.businessName}</p>
-                            {p.ownerName && <p className="text-xs text-muted-foreground">{p.ownerName}</p>}
-                          </div>
-                          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+                      <CardContent className="p-3 space-y-1.5">
+                        <p className="font-semibold text-sm truncate">{p.businessName}</p>
+                        {p.ownerName && <p className="text-xs text-muted-foreground truncate">{p.ownerName}</p>}
+                        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                          {p.city && <span className="text-xs flex items-center gap-0.5 text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{p.city}</span></span>}
+                          {p.phone && <span className="text-xs flex items-center gap-0.5 text-muted-foreground"><Phone className="h-3 w-3 shrink-0" /><span className="truncate">{p.phone}</span></span>}
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          {p.city && (
-                            <span className="text-xs flex items-center gap-1 text-muted-foreground"><MapPin className="h-3 w-3" />{p.city}</span>
-                          )}
-                          {p.phone && (
-                            <span className="text-xs flex items-center gap-1 text-muted-foreground"><Phone className="h-3 w-3" />{p.phone}</span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between pt-1">
-                          <Badge variant="outline" className="text-xs">{SOURCE_LABELS[p.source]}</Badge>
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">{SOURCE_LABELS[p.source]}</Badge>
                           {p.nextActionDate && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                              <CalendarClock className="h-3 w-3" />
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                              <CalendarClock className="h-2.5 w-2.5" />
                               {new Date(p.nextActionDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
                             </span>
                           )}
@@ -239,7 +196,7 @@ export function PlatformProspectsView() {
           {(["converti", "perdu"] as ProspectStatus[]).map(status => {
             const items = filtered.filter(p => p.status === status)
             return (
-              <div key={status} className="flex-shrink-0 w-72 opacity-75">
+              <div key={status} className="min-w-0 opacity-75">
                 <div className="flex items-center gap-2 mb-3 px-1">
                   <Badge className={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Badge>
                   <span className="text-xs text-muted-foreground font-medium">{items.length}</span>
