@@ -396,31 +396,57 @@ export async function validatePurchaseInvoice(invoiceId: string): Promise<boolea
 
   if (!items || items.length === 0) throw new Error("Facture sans articles")
 
+  // Helper: upsert stock_by_location for invoice validation
+  const upsertInvLocationStock = async (locationId: string, itemType: string, itemId: string, idColumn: string, qty: number) => {
+    const { data: existing } = await supabase.from("stock_by_location")
+      .select("id, quantity")
+      .eq("storage_location_id", locationId)
+      .eq("item_type", itemType)
+      .eq(idColumn, itemId)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from("stock_by_location").update({
+        quantity: Math.max(0, Number(existing.quantity || 0) + qty),
+        updated_at: new Date().toISOString(),
+      }).eq("id", existing.id)
+    } else {
+      await supabase.from("stock_by_location").insert({
+        tenant_id: invoice.tenant_id, storage_location_id: locationId,
+        item_type: itemType, [idColumn]: itemId,
+        quantity: qty, updated_at: new Date().toISOString(),
+      })
+    }
+  }
+
   // Update stock and prices for each item
   for (const item of items) {
     const qty = Number(item.quantity)
     const unitPrice = Number(item.unit_price)
 
     if (item.item_type === "raw_material" && item.raw_material_id) {
-      // Update raw material stock and price
       const { data: rm } = await supabase
-        .from("raw_materials").select("current_stock").eq("id", item.raw_material_id).single()
+        .from("raw_materials").select("current_stock, storage_location_id").eq("id", item.raw_material_id).single()
       const newStock = Number(rm?.current_stock || 0) + qty
       await supabase.from("raw_materials").update({
         current_stock: newStock, price_per_unit: unitPrice, updated_at: new Date().toISOString()
       }).eq("id", item.raw_material_id)
 
-      // Record stock movement
       await supabase.from("stock_movements").insert({
         tenant_id: invoice.tenant_id, item_type: "raw_material",
         raw_material_id: item.raw_material_id,
         movement_type: "entry", quantity: qty, unit: item.unit,
         reason: "Facture achat validee", reference: `FAC-${invoice.invoice_number}`,
+        to_location_id: rm?.storage_location_id || null,
         created_by: user.id,
       })
+
+      if (rm?.storage_location_id) {
+        await upsertInvLocationStock(rm.storage_location_id, "raw_material", item.raw_material_id, "raw_material_id", qty)
+      }
     } else if (item.item_type === "packaging" && item.packaging_id) {
       const { data: pkg } = await supabase
-        .from("packaging").select("current_stock").eq("id", item.packaging_id).single()
+        .from("packaging").select("current_stock, storage_location_id").eq("id", item.packaging_id).single()
       const newStock = Number(pkg?.current_stock || 0) + qty
       await supabase.from("packaging").update({
         current_stock: newStock, price: unitPrice, updated_at: new Date().toISOString()
@@ -428,10 +454,16 @@ export async function validatePurchaseInvoice(invoiceId: string): Promise<boolea
 
       await supabase.from("stock_movements").insert({
         tenant_id: invoice.tenant_id, item_type: "packaging",
+        packaging_id: item.packaging_id,
         movement_type: "entry", quantity: qty, unit: item.unit,
         reason: "Facture achat validee", reference: `FAC-${invoice.invoice_number}`,
+        to_location_id: pkg?.storage_location_id || null,
         created_by: user.id,
       })
+
+      if (pkg?.storage_location_id) {
+        await upsertInvLocationStock(pkg.storage_location_id, "packaging", item.packaging_id, "packaging_id", qty)
+      }
     } else if (item.item_type === "consumable" && item.consumable_id) {
       const { data: cons } = await supabase
         .from("consumables").select("current_stock").eq("id", item.consumable_id).single()
@@ -599,6 +631,29 @@ export async function validateDeliveryNote(deliveryNoteId: string): Promise<bool
     .from("delivery_note_items").select("*").eq("delivery_note_id", deliveryNoteId)
   if (!items || items.length === 0) throw new Error("Bon sans articles")
 
+  // Helper: upsert stock_by_location for a given location
+  const upsertLocationStock = async (locationId: string, itemType: string, itemId: string, idColumn: string, qty: number) => {
+    const { data: existing } = await supabase.from("stock_by_location")
+      .select("id, quantity")
+      .eq("storage_location_id", locationId)
+      .eq("item_type", itemType)
+      .eq(idColumn, itemId)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from("stock_by_location").update({
+        quantity: Math.max(0, Number(existing.quantity || 0) + qty),
+        updated_at: new Date().toISOString(),
+      }).eq("id", existing.id)
+    } else {
+      await supabase.from("stock_by_location").insert({
+        tenant_id: note.tenant_id, storage_location_id: locationId,
+        item_type: itemType, [idColumn]: itemId,
+        quantity: qty, updated_at: new Date().toISOString(),
+      })
+    }
+  }
+
   // Update stock for each received item
   for (const item of items) {
     const qty = Number(item.quantity_received)
@@ -606,7 +661,7 @@ export async function validateDeliveryNote(deliveryNoteId: string): Promise<bool
 
     if (item.item_type === "raw_material" && item.raw_material_id) {
       const { data: rm } = await supabase
-        .from("raw_materials").select("current_stock").eq("id", item.raw_material_id).single()
+        .from("raw_materials").select("current_stock, storage_location_id").eq("id", item.raw_material_id).single()
       const newStock = Number(rm?.current_stock || 0) + qty
       await supabase.from("raw_materials").update({
         current_stock: newStock, updated_at: new Date().toISOString()
@@ -617,11 +672,17 @@ export async function validateDeliveryNote(deliveryNoteId: string): Promise<bool
         raw_material_id: item.raw_material_id,
         movement_type: "entry", quantity: qty, unit: item.unit,
         reason: "Bon de livraison valide", reference: `BL-${note.delivery_number}`,
+        to_location_id: rm?.storage_location_id || null,
         created_by: user.id,
       })
+
+      // Update stock_by_location if article has a default location
+      if (rm?.storage_location_id) {
+        await upsertLocationStock(rm.storage_location_id, "raw_material", item.raw_material_id, "raw_material_id", qty)
+      }
     } else if (item.item_type === "packaging" && item.packaging_id) {
       const { data: pkg } = await supabase
-        .from("packaging").select("current_stock").eq("id", item.packaging_id).single()
+        .from("packaging").select("current_stock, storage_location_id").eq("id", item.packaging_id).single()
       const newStock = Number(pkg?.current_stock || 0) + qty
       await supabase.from("packaging").update({
         current_stock: newStock, updated_at: new Date().toISOString()
@@ -629,10 +690,16 @@ export async function validateDeliveryNote(deliveryNoteId: string): Promise<bool
 
       await supabase.from("stock_movements").insert({
         tenant_id: note.tenant_id, item_type: "packaging",
+        packaging_id: item.packaging_id,
         movement_type: "entry", quantity: qty, unit: item.unit,
         reason: "Bon de livraison valide", reference: `BL-${note.delivery_number}`,
+        to_location_id: pkg?.storage_location_id || null,
         created_by: user.id,
       })
+
+      if (pkg?.storage_location_id) {
+        await upsertLocationStock(pkg.storage_location_id, "packaging", item.packaging_id, "packaging_id", qty)
+      }
     } else if (item.item_type === "consumable" && item.consumable_id) {
       const { data: cons } = await supabase
         .from("consumables").select("current_stock").eq("id", item.consumable_id).single()

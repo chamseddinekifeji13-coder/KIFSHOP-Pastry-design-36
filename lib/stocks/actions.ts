@@ -1184,7 +1184,7 @@ export async function createStockMovement(tenantId: string, data: {
   })
   if (error) { throw new Error(error.message) }
 
-  // 4. Update stock level using the already-read value (transfers don't change total stock)
+  // 4. Update global stock level (transfers don't change total stock)
   if (idField && normalizedMovementType !== "transfer") {
     const delta = normalizedMovementType === "entry" ? data.quantity : -data.quantity
     const newStock = currentStock + delta
@@ -1192,6 +1192,53 @@ export async function createStockMovement(tenantId: string, data: {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}`)
     }
     await supabase.from(table).update({ current_stock: newStock }).eq("id", idField)
+  }
+
+  // 5. Update stock_by_location for per-location tracking
+  const itemIdFields = {
+    raw_material_id: data.rawMaterialId || null,
+    finished_product_id: data.finishedProductId || null,
+    packaging_id: data.packagingId || null,
+  }
+
+  // Helper: upsert stock_by_location for a given location
+  const upsertLocationStock = async (locationId: string, delta: number) => {
+    // Try to find existing record
+    let query = supabase.from("stock_by_location")
+      .select("id, quantity")
+      .eq("storage_location_id", locationId)
+      .eq("item_type", data.itemType)
+
+    if (data.rawMaterialId) query = query.eq("raw_material_id", data.rawMaterialId)
+    else if (data.finishedProductId) query = query.eq("finished_product_id", data.finishedProductId)
+    else if (data.packagingId) query = query.eq("packaging_id", data.packagingId)
+
+    const { data: existing } = await query.maybeSingle()
+
+    if (existing) {
+      const newQty = Math.max(0, Number(existing.quantity || 0) + delta)
+      await supabase.from("stock_by_location").update({
+        quantity: newQty, updated_at: new Date().toISOString()
+      }).eq("id", existing.id)
+    } else if (delta > 0) {
+      await supabase.from("stock_by_location").insert({
+        tenant_id: tenantId, storage_location_id: locationId,
+        item_type: data.itemType, ...itemIdFields,
+        quantity: delta, updated_at: new Date().toISOString(),
+      })
+    }
+  }
+
+  if (normalizedMovementType === "transfer") {
+    // Transfer: decrease from source, increase at destination
+    if (data.fromLocationId) await upsertLocationStock(data.fromLocationId, -data.quantity)
+    if (data.toLocationId) await upsertLocationStock(data.toLocationId, data.quantity)
+  } else if (normalizedMovementType === "entry" && data.toLocationId) {
+    // Entry: increase at destination location
+    await upsertLocationStock(data.toLocationId, data.quantity)
+  } else if (normalizedMovementType === "exit" && data.fromLocationId) {
+    // Exit: decrease at source location
+    await upsertLocationStock(data.fromLocationId, -data.quantity)
   }
 
   return true
