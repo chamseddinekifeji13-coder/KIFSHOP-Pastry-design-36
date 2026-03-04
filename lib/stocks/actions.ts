@@ -1201,34 +1201,37 @@ export async function createStockMovement(tenantId: string, data: {
 
   // ── 2. ALL VALIDATION BEFORE ANY MUTATION ──
 
-  // 2a. For exit: verify global stock
-  if (idField && normalizedMovementType === "exit") {
+  // Helper: check if this item has ANY stock_by_location records at all
+  const hasAnyLocationStock = async () => {
+    if (!itemIdColumn || !itemIdValue) return false
+    const { data: records } = await supabase.from("stock_by_location")
+      .select("id")
+      .eq("item_type", data.itemType)
+      .eq(itemIdColumn, itemIdValue)
+      .limit(1)
+    return (records && records.length > 0)
+  }
+
+  // 2a. For exit: verify global stock first, then per-depot if records exist
+  if (idField && (normalizedMovementType === "exit" || normalizedMovementType === "transfer")) {
+    // Always check global stock
     if (data.quantity > currentStock) {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
     }
-    // Also verify stock in specific source depot
-    if (data.fromLocationId) {
-      const sourceStock = await findLocationStock(data.fromLocationId)
-      const sourceQty = Number(sourceStock?.quantity || 0)
-      if (data.quantity > sourceQty) {
-        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans ce depot. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
-      }
-    }
-  }
 
-  // 2b. For transfer: verify stock in SOURCE depot specifically (not global)
-  if (normalizedMovementType === "transfer") {
-    if (data.fromLocationId && itemIdColumn && itemIdValue) {
-      const sourceStock = await findLocationStock(data.fromLocationId)
-      const sourceQty = Number(sourceStock?.quantity || 0)
-      if (data.quantity > sourceQty) {
-        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans le depot source. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+    // Check per-depot stock only if stock_by_location records exist for this item
+    const fromLoc = data.fromLocationId
+    if (fromLoc && itemIdColumn && itemIdValue) {
+      const itemHasLocationRecords = await hasAnyLocationStock()
+      if (itemHasLocationRecords) {
+        const sourceStock = await findLocationStock(fromLoc)
+        const sourceQty = Number(sourceStock?.quantity || 0)
+        if (data.quantity > sourceQty) {
+          throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans ce depot. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+        }
       }
-    } else {
-      // No source location specified for transfer - check global stock
-      if (idField && data.quantity > currentStock) {
-        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
-      }
+      // If no location records exist at all, we skip per-depot check
+      // and rely on global stock check above (the stock was never assigned to any depot)
     }
   }
 
