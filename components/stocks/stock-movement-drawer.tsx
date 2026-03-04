@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useCallback } from "react"
 import { Plus, Minus, ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, Package, Loader2, Search } from "lucide-react"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -330,8 +330,8 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col gap-0 [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+<Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
+    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100" showCloseButton={false}>
         {/* Header */}
         <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
           <div className="flex items-center gap-3 mb-3">
@@ -459,7 +459,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             </TabsContent>
           </Tabs>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

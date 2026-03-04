@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -206,8 +206,8 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const availableMaterials = rawMaterials.filter((m: any) => !ingredients.some(i => i.materialId === m.id))
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+<Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100" showCloseButton={false}>
         <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
           <div className="flex items-center gap-3 mb-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
@@ -413,7 +413,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
             {saving ? "Creation..." : "Creer le produit"}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

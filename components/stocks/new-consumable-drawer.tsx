@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Package, Loader2 } from "lucide-react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -81,21 +81,21 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-y-auto">
+<Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white">
-          <SheetHeader>
+          <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
                 <Package className="h-5 w-5" />
               </div>
               <div>
-                <SheetTitle className="text-white text-lg">Nouveau consommable</SheetTitle>
+                <DialogTitle className="text-white text-lg">Nouveau consommable</DialogTitle>
                 <p className="text-white/80 text-sm">Produits non utilises comme matiere premiere</p>
               </div>
             </div>
-          </SheetHeader>
+          </DialogHeader>
         </div>
 
         <div className="flex-1 p-6 space-y-5">
@@ -186,7 +186,7 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
             {saving ? "Enregistrement..." : "Ajouter le consommable"}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

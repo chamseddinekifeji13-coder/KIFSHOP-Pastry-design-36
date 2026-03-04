@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { FlaskConical, Loader2, MapPin } from "lucide-react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -95,21 +95,21 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[480px] p-0 flex flex-col gap-0 overflow-y-auto">
+<Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-[#4A7C59] to-[#3d6a4b] p-6 text-white">
-          <SheetHeader>
+          <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
                 <FlaskConical className="h-5 w-5" />
               </div>
               <div>
-                <SheetTitle className="text-white text-lg">Nouvelle matiere premiere</SheetTitle>
+                <DialogTitle className="text-white text-lg">Nouvelle matiere premiere</DialogTitle>
                 <p className="text-white/80 text-sm">Farine, sucre, beurre, oeufs...</p>
               </div>
             </div>
-          </SheetHeader>
+          </DialogHeader>
         </div>
 
         <div className="flex-1 p-6 space-y-5">
@@ -197,7 +197,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
             {saving ? "Enregistrement..." : "Ajouter"}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
