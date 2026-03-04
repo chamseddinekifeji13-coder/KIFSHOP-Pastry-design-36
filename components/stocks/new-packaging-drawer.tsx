@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Loader2, X } from "lucide-react"
+import { Package, Loader2, X, MapPin } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createPackaging } from "@/lib/stocks/actions"
+import { useStorageLocations } from "@/hooks/use-tenant-data"
 
 const PACKAGING_TYPES = [
   { value: "boite", label: "Boite" },
@@ -40,22 +41,26 @@ interface NewPackagingDrawerProps {
 
 export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagingDrawerProps) {
   const { currentTenant } = useTenant()
+  const { data: storageLocations } = useStorageLocations()
   const [saving, setSaving] = useState(false)
   const [name, setName] = useState("")
+  const [storageLocationId, setStorageLocationId] = useState("")
   const [type, setType] = useState("boite")
   const [unit, setUnit] = useState("pcs")
   const [currentStock, setCurrentStock] = useState("")
   const [minStock, setMinStock] = useState("10")
   const [price, setPrice] = useState("")
   const [description, setDescription] = useState("")
+  const activeLocations = (storageLocations || []).filter(l => l.isActive)
 
   function resetForm() {
-    setName(""); setType("boite"); setUnit("pcs")
+    setName(""); setType("boite"); setUnit("pcs"); setStorageLocationId("")
     setCurrentStock(""); setMinStock("10"); setPrice(""); setDescription("")
   }
 
   async function handleSubmit() {
     if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
+    if (!storageLocationId || storageLocationId === "none") { toast.error("Le depot est obligatoire", { description: "Veuillez selectionner un emplacement de stockage" }); return }
 
     setSaving(true)
     try {
@@ -65,6 +70,7 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
         minStock: Number(minStock) || 10,
         price: Number(price) || 0,
         description: description.trim() || undefined,
+        storageLocationId: storageLocationId && storageLocationId !== "none" ? storageLocationId : undefined,
       })
       if (result) {
         toast.success("Emballage ajoute", { description: name.trim() })
@@ -92,7 +98,7 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
+    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
         <div className="bg-gradient-to-br from-[#D4A373] to-[#c4956a] p-6 text-white">
           <DialogHeader>
@@ -154,6 +160,24 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3 w-3" /> Depot / Emplacement *
+              </Label>
+              <Select value={storageLocationId} onValueChange={setStorageLocationId}>
+                <SelectTrigger className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}>
+                  <SelectValue placeholder="Choisir un depot (obligatoire)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeLocations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

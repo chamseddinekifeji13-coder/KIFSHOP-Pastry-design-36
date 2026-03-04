@@ -715,7 +715,7 @@ export async function fetchPackaging(tenantId: string): Promise<Packaging[]> {
 
 export async function createPackaging(tenantId: string, data: {
   name: string; type: string; unit: string; currentStock: number;
-  minStock: number; price: number; description?: string
+  minStock: number; price: number; description?: string; storageLocationId?: string
 }): Promise<Packaging | null> {
   const supabase = createClient()
   
@@ -744,9 +744,22 @@ export async function createPackaging(tenantId: string, data: {
     tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price: data.price, description: data.description || null,
+    storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
+
+  // Auto-create stock_by_location if a depot is assigned and there's initial stock
+  if (data.storageLocationId && data.currentStock > 0) {
+    await supabase.from("stock_by_location").insert({
+      tenant_id: tenantId,
+      storage_location_id: data.storageLocationId,
+      item_type: "packaging",
+      packaging_id: row.id,
+      quantity: data.currentStock,
+    })
+  }
+
   return {
     id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type,
     description: row.description, unit: row.unit,
@@ -871,6 +884,40 @@ export const LOCATION_TYPE_LABELS: Record<string, string> = {
   boutique: "Boutique",
   chambre_froide: "Chambre froide",
   autre: "Autre",
+}
+
+export interface ItemLocationStock {
+  locationId: string
+  locationName: string
+  quantity: number
+}
+
+export async function fetchItemStockByLocation(
+  tenantId: string,
+  itemType: string,
+  itemId: string,
+): Promise<ItemLocationStock[]> {
+  const supabase = createClient()
+  const itemColumn =
+    itemType === "raw_material" ? "raw_material_id"
+    : itemType === "packaging" ? "packaging_id"
+    : itemType === "consumable" ? "consumable_id"
+    : "finished_product_id"
+
+  const { data, error } = await supabase
+    .from("stock_by_location")
+    .select("storage_location_id, quantity, storage_locations(name)")
+    .eq("tenant_id", tenantId)
+    .eq("item_type", itemType)
+    .eq(itemColumn, itemId)
+    .gt("quantity", 0)
+
+  if (error) { console.error("Error fetching item stock by location:", error.message); return [] }
+  return (data || []).map((row: Record<string, unknown>) => ({
+    locationId: row.storage_location_id as string,
+    locationName: (row.storage_locations as Record<string, unknown>)?.name as string || "Inconnu",
+    quantity: Number(row.quantity || 0),
+  }))
 }
 
 export async function fetchStorageLocations(tenantId: string): Promise<StorageLocation[]> {
@@ -1199,36 +1246,39 @@ export async function createStockMovement(tenantId: string, data: {
     }
   }
 
-  // ── 2. ALL VALIDATION BEFORE ANY MUTATION ──
+  // ── 2. ALL VALIDATION BEFORE ANY MUTATION ─��
 
-  // 2a. For exit: verify global stock
-  if (idField && normalizedMovementType === "exit") {
+  // Helper: check if this item has ANY stock_by_location records at all
+  const hasAnyLocationStock = async () => {
+    if (!itemIdColumn || !itemIdValue) return false
+    const { data: records } = await supabase.from("stock_by_location")
+      .select("id")
+      .eq("item_type", data.itemType)
+      .eq(itemIdColumn, itemIdValue)
+      .limit(1)
+    return (records && records.length > 0)
+  }
+
+  // 2a. For exit: verify global stock first, then per-depot if records exist
+  if (idField && (normalizedMovementType === "exit" || normalizedMovementType === "transfer")) {
+    // Always check global stock
     if (data.quantity > currentStock) {
       throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
     }
-    // Also verify stock in specific source depot
-    if (data.fromLocationId) {
-      const sourceStock = await findLocationStock(data.fromLocationId)
-      const sourceQty = Number(sourceStock?.quantity || 0)
-      if (data.quantity > sourceQty) {
-        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans ce depot. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
-      }
-    }
-  }
 
-  // 2b. For transfer: verify stock in SOURCE depot specifically (not global)
-  if (normalizedMovementType === "transfer") {
-    if (data.fromLocationId && itemIdColumn && itemIdValue) {
-      const sourceStock = await findLocationStock(data.fromLocationId)
-      const sourceQty = Number(sourceStock?.quantity || 0)
-      if (data.quantity > sourceQty) {
-        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans le depot source. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+    // Check per-depot stock only if stock_by_location records exist for this item
+    const fromLoc = data.fromLocationId
+    if (fromLoc && itemIdColumn && itemIdValue) {
+      const itemHasLocationRecords = await hasAnyLocationStock()
+      if (itemHasLocationRecords) {
+        const sourceStock = await findLocationStock(fromLoc)
+        const sourceQty = Number(sourceStock?.quantity || 0)
+        if (data.quantity > sourceQty) {
+          throw new Error(`STOCK_INSUFFISANT:Stock insuffisant dans ce depot. Disponible: ${sourceQty} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
+        }
       }
-    } else {
-      // No source location specified for transfer - check global stock
-      if (idField && data.quantity > currentStock) {
-        throw new Error(`STOCK_INSUFFISANT:Stock insuffisant. Disponible: ${currentStock} ${data.unit}, demande: ${data.quantity} ${data.unit}`)
-      }
+      // If no location records exist at all, we skip per-depot check
+      // and rely on global stock check above (the stock was never assigned to any depot)
     }
   }
 
