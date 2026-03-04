@@ -1,13 +1,14 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
 async function requireSuperAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.user_metadata?.is_super_admin !== true) redirect("/dashboard")
-  return { supabase, user }
+  const adminClient = createAdminClient()
+  return { supabase: adminClient, user }
 }
 
 // ─── Types ────────────────────────────────────────────────────
