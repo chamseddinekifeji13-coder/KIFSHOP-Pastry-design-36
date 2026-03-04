@@ -12,6 +12,7 @@ import {
   Settings,
   TicketCheck,
   Package,
+  Target,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -42,6 +43,7 @@ const navigation = [
     title: "Gestion",
     items: [
       { title: "Patisseries", href: "/super-admin/tenants", icon: Building2 },
+      { title: "Prospection", href: "/super-admin/prospects", icon: Target },
       { title: "Abonnements", href: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Utilisateurs", href: "/super-admin/users", icon: Users },
       { title: "Articles", href: "/super-admin/articles", icon: Package },
