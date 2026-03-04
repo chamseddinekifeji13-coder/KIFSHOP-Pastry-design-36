@@ -57,6 +57,8 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   const [toLocationId, setToLocationId] = useState("")
   const [fromLocationId, setFromLocationId] = useState("")
   const [saving, setSaving] = useState(false)
+  const [locationStocks, setLocationStocks] = useState<ItemLocationStock[]>([])
+  const [loadingLocationStocks, setLoadingLocationStocks] = useState(false)
   const [, startTransition] = useTransition()
 
   const MAX_VISIBLE_ITEMS = 30
@@ -97,6 +99,21 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     return null
   }, [item, selectedItemId, allItems])
 
+  // Fetch stock by location when an item is selected
+  useEffect(() => {
+    if (!activeItem || !currentTenant?.id) {
+      setLocationStocks([])
+      return
+    }
+    const itemType = activeItem.type === "raw" ? "raw_material"
+      : activeItem.type === "finished" ? "finished_product" : "packaging"
+    setLoadingLocationStocks(true)
+    fetchItemStockByLocation(currentTenant.id, itemType, activeItem.id)
+      .then((data) => setLocationStocks(data))
+      .catch(() => setLocationStocks([]))
+      .finally(() => setLoadingLocationStocks(false))
+  }, [activeItem?.id, currentTenant?.id])
+
   const filteredItems = useMemo(() => {
     const base = deferredSearch ? allItems.filter((i) => i.name.toLowerCase().includes(deferredSearch.toLowerCase())) : allItems
     return base.slice(0, MAX_VISIBLE_ITEMS)
@@ -115,6 +132,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     setFromLocationId("")
     setSelectedItemId("")
     setSearchQuery("")
+    setLocationStocks([])
     setDeferredSearch("")
   }
 
@@ -331,6 +349,57 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     )
   }
 
+  const renderLocationStockPanel = () => {
+    if (!activeItem) return null
+    const totalLocationStock = locationStocks.reduce((sum, ls) => sum + ls.quantity, 0)
+    const unassigned = activeItem.currentStock - totalLocationStock
+
+    return (
+      <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3 space-y-2">
+        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <Warehouse className="h-3.5 w-3.5" />
+          Repartition par depot
+          <span className="ml-auto font-semibold text-foreground">{activeItem.currentStock} {activeItem.unit}</span>
+        </div>
+        {loadingLocationStocks ? (
+          <div className="flex items-center justify-center py-2">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : locationStocks.length === 0 ? (
+          <p className="text-xs text-muted-foreground/70 italic py-1">
+            Aucune repartition - stock non affecte a un depot
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            {locationStocks.map((ls) => (
+              <div key={ls.locationId} className="flex items-center gap-2">
+                <MapPin className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                <span className="text-xs truncate flex-1">{ls.locationName}</span>
+                <Progress
+                  value={activeItem.currentStock > 0 ? (ls.quantity / activeItem.currentStock) * 100 : 0}
+                  className="h-1.5 w-16"
+                />
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-semibold min-w-[60px] justify-center">
+                  {ls.quantity} {activeItem.unit}
+                </Badge>
+              </div>
+            ))}
+            {unassigned > 0 && (
+              <div className="flex items-center gap-2 opacity-60">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="text-xs truncate flex-1 italic">Non affecte</span>
+                <Progress value={activeItem.currentStock > 0 ? (unassigned / activeItem.currentStock) * 100 : 0} className="h-1.5 w-16" />
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-semibold min-w-[60px] justify-center">
+                  {unassigned} {activeItem.unit}
+                </Badge>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
 <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
     <DialogContent className="sm:max-w-lg max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100" showCloseButton={false}>
@@ -369,6 +438,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="entree" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
+                {renderLocationStockPanel()}
                 {renderQuantityField("primary")}
                 {renderReasonSelect(["Achat fournisseur", "Production", "Retour client", "Ajustement inventaire", "Don / Cadeau"])}
                 {renderLocationSelect("Destination", toLocationId, setToLocationId)}
@@ -383,6 +453,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="sortie" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
+                {renderLocationStockPanel()}
                 {renderQuantityField("destructive", true)}
                 {renderReasonSelect(["Vente", "Utilisation production", "Perte / Perime", "Ajustement inventaire", "Casse"])}
                 {renderLocationSelect("Depuis", fromLocationId, setFromLocationId)}
@@ -397,6 +468,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
             <TabsContent value="transfert" className="mt-5 space-y-4">
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 {renderItemSelector()}
+                {renderLocationStockPanel()}
                 {renderQuantityField("primary", true)}
                 <div className="space-y-3">
                   <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
