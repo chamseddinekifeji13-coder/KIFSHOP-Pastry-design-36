@@ -39,12 +39,22 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
   const [selectedColor, setSelectedColor] = useState(colorPalette[0])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
+  // Reset when drawer opens
   useEffect(() => {
     if (open) {
-      setCategories(existingCategories.map(c => ({ id: c.id, name: c.name, color: c.color })))
+      setInitialized(false)
     }
-  }, [open, existingCategories])
+  }, [open])
+
+  // Initialize categories from existing data only ONCE when drawer opens and data is loaded
+  useEffect(() => {
+    if (open && !initialized && existingCategories) {
+      setCategories(existingCategories.map(c => ({ id: c.id, name: c.name, color: c.color })))
+      setInitialized(true)
+    }
+  }, [open, initialized, existingCategories])
 
   const handleAdd = () => {
     if (!newName.trim()) { toast.error("Veuillez saisir un nom de categorie"); return }
@@ -63,18 +73,11 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
   const handleColorChange = (id: string, color: string) => setCategories(prev => prev.map(c => c.id === id ? { ...c, color } : c))
 
   const handleSave = async () => {
-    console.log("[v0] handleSave called, categories:", JSON.stringify(categories))
-    console.log("[v0] categories.length:", categories.length)
-    console.log("[v0] existingCategories:", JSON.stringify(existingCategories))
-    console.log("[v0] currentTenant:", currentTenant?.id)
-    
     if (categories.some(c => !c.name.trim())) { toast.error("Certaines categories n'ont pas de nom"); return }
     
     setSaving(true)
     try {
-      console.log("[v0] Calling saveCategories with", categories.length, "categories")
       const success = await saveCategories(currentTenant.id, categories)
-      console.log("[v0] saveCategories returned:", success)
       if (success) {
         const added = categories.filter(c => c.isNew).length
         const removed = existingCategories.length - categories.filter(c => !c.isNew).length
