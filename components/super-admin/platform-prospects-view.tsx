@@ -9,12 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Search, Users, TrendingUp, CalendarClock, Sparkles, Phone, Mail, MapPin, GripVertical, LayoutGrid, List } from "lucide-react"
+import { fetchPlatformProspects, fetchProspectStats, updatePlatformProspect } from "@/lib/super-admin/prospect-actions"
 import {
-  fetchPlatformProspects, fetchProspectStats,
-  updatePlatformProspect,
   type PlatformProspect, type ProspectStatus, type ProspectSource,
-  STATUS_LABELS, STATUS_COLORS, SOURCE_LABELS,
-} from "@/lib/super-admin/prospect-actions"
+  STATUS_LABELS, STATUS_COLORS, SOURCE_LABELS, PIPELINE_ORDER,
+} from "@/lib/super-admin/prospect-types"
 import { NewProspectDrawer } from "./new-prospect-drawer"
 import { ProspectDetailDrawer } from "./prospect-detail-drawer"
 import { toast } from "sonner"
