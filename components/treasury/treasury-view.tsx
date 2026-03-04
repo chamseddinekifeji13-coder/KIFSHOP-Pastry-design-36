@@ -17,16 +17,16 @@ export function TreasuryView() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const allTransactions = transactions || []
-  const totalInflow = allTransactions.filter(t => t.type === "entree").reduce((sum, t) => sum + t.amount, 0)
-  const totalOutflow = allTransactions.filter(t => t.type === "sortie").reduce((sum, t) => sum + t.amount, 0)
+  const totalInflow = allTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
+  const totalOutflow = allTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0)
   const cashFlow = totalInflow - totalOutflow
 
   const today = new Date().toISOString().split("T")[0]
-  const todayIn = allTransactions.filter(t => t.type === "entree" && t.createdAt?.startsWith(today)).reduce((sum, t) => sum + t.amount, 0)
-  const todayOut = allTransactions.filter(t => t.type === "sortie" && t.createdAt?.startsWith(today)).reduce((sum, t) => sum + t.amount, 0)
+  const todayIn = allTransactions.filter(t => t.type === "income" && t.createdAt?.startsWith(today)).reduce((sum, t) => sum + t.amount, 0)
+  const todayOut = allTransactions.filter(t => t.type === "expense" && t.createdAt?.startsWith(today)).reduce((sum, t) => sum + t.amount, 0)
 
   const expensesByCategory = useMemo(() => {
-    const expenses = allTransactions.filter(t => t.type === "sortie")
+    const expenses = allTransactions.filter(t => t.type === "expense")
     const grouped: Record<string, number> = {}
     expenses.forEach(t => { grouped[t.category] = (grouped[t.category] || 0) + t.amount })
     return Object.entries(grouped).map(([name, value]) => ({ name, value }))
@@ -73,13 +73,13 @@ export function TreasuryView() {
                       <TableCell className="text-muted-foreground">{new Date(t.createdAt).toLocaleDateString("fr-TN")}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {t.type === "entree" ? <ArrowUpCircle className="h-4 w-4 text-primary" /> : <ArrowDownCircle className="h-4 w-4 text-destructive" />}
+                          {t.type === "income" ? <ArrowUpCircle className="h-4 w-4 text-primary" /> : <ArrowDownCircle className="h-4 w-4 text-destructive" />}
                           {t.description || t.category}
                         </div>
                       </TableCell>
                       <TableCell><Badge variant="secondary">{t.category}</Badge></TableCell>
-                      <TableCell className={`text-right font-medium ${t.type === "entree" ? "text-primary" : "text-destructive"}`}>
-                        {t.type === "entree" ? "+" : "-"}{t.amount.toLocaleString("fr-TN")} TND
+                      <TableCell className={`text-right font-medium ${t.type === "income" ? "text-primary" : "text-destructive"}`}>
+                        {t.type === "income" ? "+" : "-"}{t.amount.toLocaleString("fr-TN")} TND
                       </TableCell>
                     </TableRow>
                   ))}
