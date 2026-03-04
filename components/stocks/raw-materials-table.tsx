@@ -24,20 +24,47 @@ interface RawMaterialsTableProps {
 
 export function RawMaterialsTable({ materials, storageLocations, onItemClick, onAdd }: RawMaterialsTableProps) {
   const [locationFilter, setLocationFilter] = useState("all")
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingMaterial, setEditingMaterial] = useState<RawMaterial | null>(null)
   const [editName, setEditName] = useState("")
+  const [editPrice, setEditPrice] = useState("")
+  const [editMinStock, setEditMinStock] = useState("")
+  const [editUnit, setEditUnit] = useState("")
+  const [editLocationId, setEditLocationId] = useState("")
   const [isSaving, setIsSaving] = useState(false)
 
-  const locMap = new Map((storageLocations || []).map(l => [l.id, l]))
-
-  const filtered = locationFilter === "all"
-    ? materials
+  const filtered = locationFilter === "all" ? materials
     : locationFilter === "unassigned"
       ? materials.filter(m => !m.storageLocationId)
       : materials.filter(m => m.storageLocationId === locationFilter)
+
   const handleEditClick = (material: RawMaterial) => {
-    setEditingId(material.id)
+    setEditingMaterial(material)
     setEditName(material.name)
+    setEditPrice(String(material.pricePerUnit || ""))
+    setEditMinStock(String(material.minStock || ""))
+    setEditUnit(material.unit || "kg")
+    setEditLocationId(material.storageLocationId || "")
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingMaterial || !editName.trim()) return
+    if (!editPrice || Number(editPrice) < 0) { toast.error("Prix invalide"); return }
+    setIsSaving(true)
+    try {
+      await updateRawMaterial(editingMaterial.id, {
+        name: editName.trim(),
+        pricePerUnit: Number(editPrice),
+        minStock: Number(editMinStock) || 0,
+        unit: editUnit,
+        storageLocationId: editLocationId || null,
+      })
+      toast.success("Article modifie avec succes")
+      setEditingMaterial(null)
+    } catch (err: unknown) {
+      toast.error("Erreur lors de la modification")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleSaveEdit = async () => {
@@ -179,25 +206,59 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
       </CardContent>
     </Card>
 
-    <Dialog open={!!editingId} onOpenChange={() => editingId && setEditingId(null)}>
-      <DialogContent>
+    <Dialog open={!!editingMaterial} onOpenChange={() => setEditingMaterial(null)}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Modifier le nom</DialogTitle>
+          <DialogTitle>Modifier l&apos;article</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div>
-            <Label htmlFor="edit-name">Nouveau nom</Label>
-            <Input
-              id="edit-name"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              placeholder="Entrez le nouveau nom"
-            />
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Nom *</Label>
+            <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Nom de l'article" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-price">Prix unitaire (TND) *</Label>
+              <Input id="edit-price" type="number" min="0" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="0.00" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-min">Seuil minimum</Label>
+              <Input id="edit-min" type="number" min="0" value={editMinStock} onChange={(e) => setEditMinStock(e.target.value)} placeholder="0" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-unit">Unite</Label>
+              <Select value={editUnit} onValueChange={setEditUnit}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                  <SelectItem value="L">L</SelectItem>
+                  <SelectItem value="mL">mL</SelectItem>
+                  <SelectItem value="pcs">pcs</SelectItem>
+                  <SelectItem value="sachets">sachets</SelectItem>
+                  <SelectItem value="unite">unite</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Depot</Label>
+              <Select value={editLocationId} onValueChange={setEditLocationId}>
+                <SelectTrigger><SelectValue placeholder="Non assigne" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Non assigne</SelectItem>
+                  {(storageLocations || []).filter(l => l.isActive).map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setEditingId(null)}>Annuler</Button>
-          <Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? "Saving..." : "Enregistrer"}</Button>
+          <Button variant="outline" onClick={() => setEditingMaterial(null)}>Annuler</Button>
+          <Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? "Enregistrement..." : "Enregistrer"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
