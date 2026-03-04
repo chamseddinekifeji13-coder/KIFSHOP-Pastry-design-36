@@ -29,6 +29,9 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
   const [isSaving, setIsSaving] = useState(false)
 
   const locMap = new Map((storageLocations || []).map(l => [l.id, l]))
+  console.log("[v0] storageLocations count:", (storageLocations || []).length, "locMap size:", locMap.size)
+  console.log("[v0] first 3 materials storageLocationId:", materials.slice(0, 3).map(m => ({ name: m.name, locId: m.storageLocationId })))
+  console.log("[v0] first 3 locMap entries:", Array.from(locMap.entries()).slice(0, 3).map(([k, v]) => ({ id: k, name: v.name })))
 
   const filtered = locationFilter === "all"
     ? materials
