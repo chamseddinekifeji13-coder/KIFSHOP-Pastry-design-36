@@ -775,6 +775,23 @@ export async function deletePackaging(id: string): Promise<boolean> {
   return true
 }
 
+export async function updatePackaging(id: string, data: Partial<{
+  name: string; type: string; unit: string; price: number; minStock: number; description: string; storageLocationId: string | null
+}>): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (data.name !== undefined) updates.name = data.name
+  if (data.type !== undefined) updates.type = data.type
+  if (data.unit !== undefined) updates.unit = data.unit
+  if (data.price !== undefined) updates.price = data.price
+  if (data.minStock !== undefined) updates.min_stock = data.minStock
+  if (data.description !== undefined) updates.description = data.description
+  if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId
+  const { error } = await supabase.from("packaging").update(updates).eq("id", id)
+  if (error) { console.error("Error updating packaging:", error.message); return false }
+  return true
+}
+
 // ─── Consumables (Consommables) ─────────────────────────────────
 
 export interface Consumable {
@@ -867,6 +884,24 @@ export async function createConsumable(tenantId: string, data: {
     price: Number(row.price), supplier: row.supplier,
     storageLocationId: row.storage_location_id || null, createdAt: row.created_at,
   }
+}
+
+export async function updateConsumable(id: string, data: Partial<{
+  name: string; category: string; unit: string; price: number; minStock: number; description: string; supplier: string; storageLocationId: string | null
+}>): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (data.name !== undefined) updates.name = data.name
+  if (data.category !== undefined) updates.category = data.category
+  if (data.unit !== undefined) updates.unit = data.unit
+  if (data.price !== undefined) updates.price = data.price
+  if (data.minStock !== undefined) updates.min_stock = data.minStock
+  if (data.description !== undefined) updates.description = data.description
+  if (data.supplier !== undefined) updates.supplier = data.supplier
+  if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId
+  const { error } = await supabase.from("consumables").update(updates).eq("id", id)
+  if (error) { console.error("Error updating consumable:", error.message); return false }
+  return true
 }
 
 export async function deleteConsumable(id: string): Promise<boolean> {

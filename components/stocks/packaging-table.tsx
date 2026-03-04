@@ -1,10 +1,18 @@
 "use client"
 
-import { Package, AlertTriangle } from "lucide-react"
+import { useState } from "react"
+import { Package, AlertTriangle, Edit2 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Packaging } from "@/lib/stocks/actions"
+import { updatePackaging } from "@/lib/stocks/actions"
+import { toast } from "sonner"
 
 const typeLabels: Record<string, string> = {
   boite: "Boite",
@@ -24,6 +32,39 @@ interface PackagingTableProps {
 }
 
 export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
+  const [editingItem, setEditingItem] = useState<Packaging | null>(null)
+  const [editName, setEditName] = useState("")
+  const [editPrice, setEditPrice] = useState("")
+  const [editMinStock, setEditMinStock] = useState("")
+  const [editUnit, setEditUnit] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleEditClick = (item: Packaging) => {
+    setEditingItem(item)
+    setEditName(item.name)
+    setEditPrice(String(item.price || ""))
+    setEditMinStock(String(item.minStock || ""))
+    setEditUnit(item.unit || "pcs")
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingItem || !editName.trim()) return
+    setIsSaving(true)
+    try {
+      await updatePackaging(editingItem.id, {
+        name: editName.trim(),
+        price: Number(editPrice),
+        minStock: Number(editMinStock) || 0,
+        unit: editUnit,
+      })
+      toast.success("Emballage modifie avec succes")
+      setEditingItem(null)
+    } catch {
+      toast.error("Erreur lors de la modification")
+    } finally {
+      setIsSaving(false)
+    }
+  }
   if (items.length === 0) {
     return (
       <Card>
@@ -39,6 +80,7 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
   }
 
   return (
+    <>
     <Card>
       <CardContent className="p-0">
         <Table>
@@ -72,6 +114,9 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                           <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description}</p>
                         )}
                       </div>
+                      <Button variant="ghost" size="sm" className="ml-auto h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleEditClick(item) }}>
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -107,5 +152,47 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
         </Table>
       </CardContent>
     </Card>
+
+    <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Modifier l&apos;emballage</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Nom *</Label>
+            <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Prix unitaire (TND) *</Label>
+              <Input type="number" min="0" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Seuil minimum</Label>
+              <Input type="number" min="0" value={editMinStock} onChange={(e) => setEditMinStock(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Unite</Label>
+            <Select value={editUnit} onValueChange={setEditUnit}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pcs">pcs</SelectItem>
+                <SelectItem value="unite">unite</SelectItem>
+                <SelectItem value="kg">kg</SelectItem>
+                <SelectItem value="rouleau">rouleau</SelectItem>
+                <SelectItem value="metre">metre</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setEditingItem(null)}>Annuler</Button>
+          <Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? "Enregistrement..." : "Enregistrer"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

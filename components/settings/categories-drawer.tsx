@@ -39,12 +39,22 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
   const [selectedColor, setSelectedColor] = useState(colorPalette[0])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [initialized, setInitialized] = useState(false)
 
+  // Reset when drawer opens
   useEffect(() => {
     if (open) {
-      setCategories(existingCategories.map(c => ({ id: c.id, name: c.name, color: c.color })))
+      setInitialized(false)
     }
-  }, [open, existingCategories])
+  }, [open])
+
+  // Initialize categories from existing data only ONCE when drawer opens and data is loaded
+  useEffect(() => {
+    if (open && !initialized && existingCategories) {
+      setCategories(existingCategories.map(c => ({ id: c.id, name: c.name, color: c.color })))
+      setInitialized(true)
+    }
+  }, [open, initialized, existingCategories])
 
   const handleAdd = () => {
     if (!newName.trim()) { toast.error("Veuillez saisir un nom de categorie"); return }
@@ -80,7 +90,7 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
         toast.error("Erreur lors de la sauvegarde des categories")
       }
     } catch (error) {
-      console.error("Error saving categories:", error)
+      console.error("[v0] Error saving categories:", error)
       toast.error("Une erreur est survenue")
     } finally {
       setSaving(false)
