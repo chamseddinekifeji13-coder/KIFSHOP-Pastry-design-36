@@ -1,0 +1,300 @@
+"use client"
+
+import { useState } from "react"
+import {
+  Search, Phone, User, ShieldAlert, Star, AlertTriangle,
+  RotateCcw, Download, Loader2, ChevronRight, Filter,
+  Megaphone, TrendingUp, TrendingDown, Hash, Ban,
+} from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select"
+import { useTenant } from "@/lib/tenant-context"
+import { useClients } from "@/hooks/use-tenant-data"
+import { updateClient, deleteClient, type Client } from "@/lib/clients/actions"
+import { toast } from "sonner"
+import { useI18n } from "@/lib/i18n/context"
+import { exportToCSV, formatDateForCSV, formatAmountForCSV } from "@/lib/csv-export"
+import { ClientDetailDrawer } from "./client-detail-drawer"
+
+const statusConfig: Record<string, { label: string; color: string; icon: typeof Star }> = {
+  normal: { label: "Normal", color: "bg-muted text-muted-foreground", icon: User },
+  vip: { label: "VIP", color: "bg-emerald-100 text-emerald-700", icon: Star },
+  warning: { label: "Attention", color: "bg-amber-100 text-amber-700", icon: AlertTriangle },
+  blacklisted: { label: "Blackliste", color: "bg-red-100 text-red-700", icon: Ban },
+}
+
+export function ClientsView() {
+  const { t } = useI18n()
+  const { currentTenant } = useTenant()
+  const { data: clients = [], isLoading, mutate } = useClients()
+  const [search, setSearch] = useState("")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const filtered = clients.filter((c) => {
+    const matchSearch = !search ||
+      (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      c.phone.includes(search)
+    const matchStatus = filterStatus === "all" || c.status === filterStatus
+    return matchSearch && matchStatus
+  })
+
+  const stats = {
+    total: clients.length,
+    vip: clients.filter((c) => c.status === "vip").length,
+    warning: clients.filter((c) => c.status === "warning").length,
+    blacklisted: clients.filter((c) => c.status === "blacklisted").length,
+    totalRevenue: clients.reduce((sum, c) => sum + c.totalSpent, 0),
+  }
+
+  const handleStatusChange = async (clientId: string, newStatus: string) => {
+    const ok = await updateClient(clientId, { status: newStatus })
+    if (ok) { toast.success("Statut mis a jour"); mutate() }
+    else toast.error("Erreur de mise a jour")
+  }
+
+  const handleDelete = async (clientId: string) => {
+    const ok = await deleteClient(clientId)
+    if (ok) { toast.success("Client supprime"); mutate() }
+    else toast.error("Erreur de suppression")
+  }
+
+  const handleExport = () => {
+    setIsExporting(true)
+    try {
+      exportToCSV({
+        filename: "clients",
+        headers: ["Nom", "Telephone", "Statut", "Commandes", "Total depense", "Retours", "Date creation"],
+        data: filtered.map((c) => [
+          c.name || "Sans nom",
+          c.phone,
+          statusConfig[c.status]?.label || c.status,
+          c.totalOrders,
+          formatAmountForCSV(c.totalSpent),
+          c.returnCount,
+          formatDateForCSV(c.createdAt),
+        ]),
+      })
+      toast.success("Export CSV termine")
+    } catch {
+      toast.error("Erreur d'export")
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Base Clients</h1>
+          <p className="text-muted-foreground">
+            {stats.total} clients enregistres
+          </p>
+        </div>
+        <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+          {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+          Export CSV
+        </Button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-xs text-muted-foreground">Total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100">
+                <Star className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.vip}</p>
+                <p className="text-xs text-muted-foreground">VIP</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.warning}</p>
+                <p className="text-xs text-muted-foreground">Attention</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-100">
+                <Ban className="h-4 w-4 text-red-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.blacklisted}</p>
+                <p className="text-xs text-muted-foreground">Blacklistes</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <TrendingUp className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{stats.totalRevenue.toFixed(0)}</p>
+                <p className="text-xs text-muted-foreground">CA Total (TND)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher par nom ou telephone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <Filter className="h-4 w-4 mr-2" />
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tous les statuts</SelectItem>
+            <SelectItem value="normal">Normal</SelectItem>
+            <SelectItem value="vip">VIP</SelectItem>
+            <SelectItem value="warning">Attention</SelectItem>
+            <SelectItem value="blacklisted">Blackliste</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Client List */}
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <User className="h-12 w-12 text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground font-medium">Aucun client trouve</p>
+            <p className="text-sm text-muted-foreground/60 mt-1">
+              Les clients seront ajoutes automatiquement via les commandes rapides
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((client) => {
+            const cfg = statusConfig[client.status] || statusConfig.normal
+            const StatusIcon = cfg.icon
+            return (
+              <Card
+                key={client.id}
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => setSelectedClient(client)}
+              >
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                      client.status === "vip" ? "bg-emerald-100 text-emerald-700" :
+                      client.status === "blacklisted" ? "bg-red-100 text-red-700" :
+                      client.status === "warning" ? "bg-amber-100 text-amber-700" :
+                      "bg-muted text-muted-foreground"
+                    }`}>
+                      {client.name ? client.name.charAt(0).toUpperCase() : <Phone className="h-4 w-4" />}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold truncate">{client.name || "Client sans nom"}</p>
+                        <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${cfg.color}`}>
+                          <StatusIcon className="h-3 w-3 mr-0.5" />
+                          {cfg.label}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {client.phone}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="hidden sm:flex items-center gap-6 text-sm">
+                      <div className="text-center">
+                        <p className="font-semibold">{client.totalOrders}</p>
+                        <p className="text-[10px] text-muted-foreground">Cmd</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold">{client.totalSpent.toFixed(0)}</p>
+                        <p className="text-[10px] text-muted-foreground">TND</p>
+                      </div>
+                      <div className="text-center">
+                        <p className={`font-semibold ${client.returnCount > 0 ? "text-red-600" : ""}`}>
+                          {client.returnCount}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">Retours</p>
+                      </div>
+                    </div>
+
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Client Detail Drawer */}
+      <ClientDetailDrawer
+        client={selectedClient}
+        open={!!selectedClient}
+        onOpenChange={(open) => { if (!open) setSelectedClient(null) }}
+        onStatusChange={handleStatusChange}
+        onDelete={handleDelete}
+        onUpdated={() => mutate()}
+      />
+    </div>
+  )
+}
