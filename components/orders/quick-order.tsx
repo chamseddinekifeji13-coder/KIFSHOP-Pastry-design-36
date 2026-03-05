@@ -264,6 +264,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
           clientName: clientName.trim() || client.name,
           amount: total,
           itemsDescription: itemsDesc,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
           notes: notes.trim() || undefined,
           source,
           deliveryType,

@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
       source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
+      items,
     } = body
 
     if (!clientId || !phone || typeof amount !== "number" || amount <= 0) {
@@ -41,13 +42,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Trop de retours. Commande bloquee." }, { status: 403 })
     }
 
+    // Validate source against allowed values
+    const allowedSources = ["whatsapp", "messenger", "phone", "web", "instagram", "comptoir", "tiktok"]
+    const validSource = allowedSources.includes(source) ? source : "phone"
+
     // Insert into orders table (single source of truth)
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
         tenant_id: session.tenantId,
         client_id: clientId,
-        customer_name: clientName || null,
+        customer_name: clientName || phone || "Client",
         customer_phone: phone,
         customer_address: address || null,
         total: amount,
@@ -56,13 +61,13 @@ export async function POST(request: Request) {
         delivery_type: deliveryType || "pickup",
         courier: courier || null,
         gouvernorat: gouvernorat || null,
-        source: source || "phone",
+        source: validSource,
         delivery_date: deliveryDate || null,
         notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
         confirmed_by: session.activeProfileId,
         confirmed_by_name: session.displayName,
         truecaller_verified: truecallerVerified || false,
-        created_by: session.activeProfileId,
+        created_by: session.authUserId,
       })
       .select()
       .single()
@@ -70,6 +75,26 @@ export async function POST(request: Request) {
     if (orderError) {
       console.error("Order creation error:", orderError)
       return NextResponse.json({ error: "Erreur creation commande" }, { status: 500 })
+    }
+
+    // Insert order items if provided
+    if (items && Array.isArray(items) && items.length > 0) {
+      const orderItems = items.map((item: { productId: string; name: string; quantity: number; price: number }) => ({
+        order_id: order.id,
+        finished_product_id: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+      }))
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(orderItems)
+
+      if (itemsError) {
+        console.error("Order items insertion error:", itemsError)
+        // Order was created, items failed - log but don't fail the whole request
+      }
     }
 
     // Update client stats
