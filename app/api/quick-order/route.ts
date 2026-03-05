@@ -10,7 +10,10 @@ export async function POST(request: Request) {
 
     // 2. Parse body
     const body = await request.json()
-    const { clientId, phone, clientName, amount, itemsDescription, notes } = body
+    const {
+      clientId, phone, clientName, amount, itemsDescription, notes,
+      source, deliveryType, courier, shippingCost, deliveryDate, address, truecallerVerified,
+    } = body
 
     if (!clientId || !phone || typeof amount !== "number" || amount <= 0) {
       return NextResponse.json(
@@ -63,6 +66,13 @@ export async function POST(request: Request) {
         status: "confirmed",
         confirmed_by: session.activeProfileId,
         confirmed_by_name: session.displayName,
+        source: source || "phone",
+        delivery_type: deliveryType || "pickup",
+        courier: courier || null,
+        shipping_cost: shippingCost || 0,
+        delivery_date: deliveryDate || null,
+        address: address || null,
+        truecaller_verified: truecallerVerified || false,
       })
       .select()
       .single()
