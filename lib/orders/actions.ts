@@ -23,6 +23,7 @@ export interface Order {
   status: "nouveau" | "en-preparation" | "pret" | "en-livraison" | "livre"
   deliveryType: "pickup" | "delivery"
   courier?: string
+  gouvernorat?: string
   trackingNumber?: string
   source: "whatsapp" | "messenger" | "phone" | "web" | "instagram" | "tiktok" | "comptoir"
   paymentStatus: "paid" | "unpaid" | "partial"
@@ -82,6 +83,7 @@ export interface CreateOrderData {
   customerAddress?: string
   deliveryType: "pickup" | "delivery"
   courier?: string
+  gouvernorat?: string
   shippingCost?: number
   source: string
   deposit?: number
@@ -141,6 +143,7 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
     status: o.status,
     deliveryType: o.delivery_type,
     courier: o.courier || undefined,
+    gouvernorat: o.gouvernorat || undefined,
     trackingNumber: o.tracking_number || undefined,
     source: o.source,
     paymentStatus: o.payment_status,
@@ -184,6 +187,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       status: "nouveau",
       delivery_type: data.deliveryType,
       courier: data.courier || null,
+      gouvernorat: data.gouvernorat || null,
       source: data.source,
       payment_status: paymentStatus,
       delivery_date: data.deliveryDate || null,
@@ -238,6 +242,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     status: "nouveau",
     deliveryType: order.delivery_type,
     courier: order.courier || undefined,
+    gouvernorat: order.gouvernorat || undefined,
     source: order.source,
     paymentStatus,
     createdAt: order.created_at,

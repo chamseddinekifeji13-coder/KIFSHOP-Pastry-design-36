@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
-      source, deliveryType, courier, shippingCost, deliveryDate, address, truecallerVerified,
+      source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
     } = body
 
     if (!clientId || !phone || typeof amount !== "number" || amount <= 0) {
@@ -55,6 +55,7 @@ export async function POST(request: Request) {
         status: "nouveau",
         delivery_type: deliveryType || "pickup",
         courier: courier || null,
+        gouvernorat: gouvernorat || null,
         source: source || "phone",
         delivery_date: deliveryDate || null,
         notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
