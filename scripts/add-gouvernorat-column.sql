@@ -1,2 +1,3 @@
 -- Add gouvernorat column to orders table
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS gouvernorat TEXT DEFAULT NULL;
+-- Run via Supabase SQL Editor if needed:
+-- ALTER TABLE orders ADD COLUMN IF NOT EXISTS gouvernorat TEXT DEFAULT NULL;
