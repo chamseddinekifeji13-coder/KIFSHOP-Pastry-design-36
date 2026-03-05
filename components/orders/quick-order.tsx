@@ -23,6 +23,7 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
+  ChevronsUpDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +41,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +98,13 @@ const couriers = [
   { id: "autre", name: "Autre coursier", defaultCost: 0 },
 ]
 
+const gouvernorats = [
+  "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
+  "Jendouba", "Kairouan", "Kasserine", "Kebili", "Le Kef", "Mahdia",
+  "La Manouba", "Medenine", "Monastir", "Nabeul", "Sfax", "Sidi Bouzid",
+  "Siliana", "Sousse", "Tataouine", "Tozeur", "Tunis", "Zaghouan",
+]
+
 export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
   const {
@@ -109,10 +131,12 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   const [source, setSource] = useState<string>("phone")
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
+  const [gouvernorat, setGouvernorat] = useState("")
   const [shippingCost, setShippingCost] = useState("")
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
   const [selectedProduct, setSelectedProduct] = useState("")
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -171,19 +195,21 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     }
   }
 
-  const handleAddItem = () => {
-    if (!selectedProduct) return
-    const product = products.find(p => p.id === selectedProduct)
+  const handleAddItem = (productId?: string) => {
+    const pid = productId || selectedProduct
+    if (!pid) return
+    const product = products.find(p => p.id === pid)
     if (!product) return
-    const existing = items.find(i => i.productId === selectedProduct)
+    const existing = items.find(i => i.productId === pid)
     if (existing) {
       setItems(items.map(i =>
-        i.productId === selectedProduct ? { ...i, quantity: i.quantity + 1 } : i
+        i.productId === pid ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
       setItems([...items, { productId: product.id, name: product.name, quantity: 1, price: product.selling_price }])
     }
     setSelectedProduct("")
+    setProductSearchOpen(false)
   }
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
@@ -242,6 +268,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
           source,
           deliveryType,
           courier: deliveryType === "delivery" ? courier : undefined,
+          gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
           shippingCost: shipping,
           deliveryDate: deliveryDate || undefined,
           address: deliveryType === "delivery" ? clientAddress.trim() : undefined,
@@ -273,10 +300,12 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setSource("phone")
     setDeliveryType("pickup")
     setCourier("")
+    setGouvernorat("")
     setShippingCost("")
     setDeliveryDate("")
     setItems([])
     setSelectedProduct("")
+    setProductSearchOpen(false)
     setNotes("")
     setSuccess(false)
     clearClient()
@@ -577,6 +606,19 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                       {deliveryType === "delivery" && (
                         <>
                           <div className="space-y-2">
+                            <Label className="text-xs font-medium">Gouvernorat</Label>
+                            <Select value={gouvernorat} onValueChange={setGouvernorat}>
+                              <SelectTrigger className="bg-muted/50 border-0">
+                                <SelectValue placeholder="Choisir le gouvernorat" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {gouvernorats.map(g => (
+                                  <SelectItem key={g} value={g}>{g}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
                             <Label className="text-xs font-medium">
                               <MapPin className="h-3 w-3 inline mr-1" />
                               Adresse de livraison *
@@ -641,24 +683,57 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                       ) : products.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-4 text-center">Aucun produit disponible.</p>
                       ) : (
-                        <div className="flex gap-2">
-                          <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                            <SelectTrigger className="flex-1 bg-muted/50 border-0">
-                              <SelectValue placeholder="Selectionner un produit" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products.map(product => (
-                                <SelectItem key={product.id} value={product.id}>
-                                  {product.name} - {product.selling_price.toLocaleString("fr-TN")} TND
-                                  {product.current_stock <= 0 && " (Rupture)"}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button onClick={handleAddItem} disabled={!selectedProduct} size="icon" className="rounded-lg shrink-0">
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={productSearchOpen}
+                              className="w-full justify-between bg-muted/50 border-0 font-normal h-10"
+                            >
+                              <span className="truncate text-muted-foreground">
+                                <Search className="h-3.5 w-3.5 inline mr-2" />
+                                Rechercher un article...
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Tapez pour chercher..." />
+                              <CommandList>
+                                <CommandEmpty>Aucun produit trouve.</CommandEmpty>
+                                <CommandGroup>
+                                  {products.map(product => (
+                                    <CommandItem
+                                      key={product.id}
+                                      value={product.name}
+                                      onSelect={() => handleAddItem(product.id)}
+                                      className="cursor-pointer"
+                                    >
+                                      <div className="flex items-center justify-between w-full gap-2">
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="text-sm font-medium truncate">{product.name}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {product.selling_price.toLocaleString("fr-TN")} TND
+                                            {product.current_stock <= 0 && (
+                                              <span className="ml-1 text-destructive">(Rupture)</span>
+                                            )}
+                                          </span>
+                                        </div>
+                                        {items.some(i => i.productId === product.id) && (
+                                          <Badge className="bg-primary/10 text-primary text-xs shrink-0">
+                                            {items.find(i => i.productId === product.id)?.quantity}x
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       )}
 
                       {items.length > 0 && (

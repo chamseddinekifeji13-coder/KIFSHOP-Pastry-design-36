@@ -1023,6 +1023,12 @@ export function OrdersView() {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Livraison</h4>
                     <div className="rounded-lg border p-3 space-y-2">
+                      {selectedOrder.gouvernorat && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">Gouvernorat</span>
+                          <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Transporteur</span>
                         <span className="font-medium">{selectedOrder.courier ? courierNames[selectedOrder.courier] || selectedOrder.courier : "-"}</span>
