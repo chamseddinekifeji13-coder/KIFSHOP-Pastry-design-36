@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useTenant } from "@/lib/tenant-context"
-import { useAgentStats, useQuickOrders } from "@/hooks/use-tenant-data"
+import { useAgentStats, useClientOrders } from "@/hooks/use-tenant-data"
 import { type AgentStats } from "@/lib/clients/actions"
 import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV, formatAmountForCSV } from "@/lib/csv-export"
@@ -20,14 +20,14 @@ import { toast } from "sonner"
 export function AgentPerformanceView() {
   const { t } = useI18n()
   const { data: agents = [], isLoading } = useAgentStats()
-  const { data: allOrders = [] } = useQuickOrders()
+  const { data: allOrders = [] } = useClientOrders()
   const [isExporting, setIsExporting] = useState(false)
 
   // Global stats
-  const totalConfirmed = allOrders.filter((o) => o.status === "confirmed" || o.status === "delivered").length
-  const totalReturned = allOrders.filter((o) => o.status === "returned").length
-  const totalRevenue = allOrders.filter((o) => o.status !== "cancelled" && o.status !== "returned")
-    .reduce((sum, o) => sum + o.amount, 0)
+  const totalConfirmed = allOrders.filter((o) => o.status !== "annule" && o.returnStatus !== "returned").length
+  const totalReturned = allOrders.filter((o) => o.returnStatus === "returned").length
+  const totalRevenue = allOrders.filter((o) => o.status !== "annule" && o.returnStatus !== "returned")
+    .reduce((sum, o) => sum + o.total, 0)
   const globalReturnRate = totalConfirmed > 0 ? Math.round((totalReturned / totalConfirmed) * 100) : 0
 
   // Best & worst agents

@@ -16,14 +16,13 @@ export interface Client {
   updatedAt: string
 }
 
-export interface QuickOrderRecord {
+export interface OrderRecord {
   id: string
   tenantId: string
-  clientId: string
-  phone: string
+  clientId: string | null
+  phone: string | null
   clientName: string | null
-  amount: number
-  itemsDescription: string | null
+  total: number
   status: string
   notes: string | null
   source: string | null
@@ -31,14 +30,15 @@ export interface QuickOrderRecord {
   courier: string | null
   shippingCost: number
   deliveryDate: string | null
-  address: string | null
+  deliveryAddress: string | null
   truecallerVerified: boolean
   confirmedBy: string | null
   confirmedByName: string | null
   returnedBy: string | null
   returnedByName: string | null
+  returnStatus: string | null
+  paymentStatus: string | null
   createdAt: string
-  updatedAt: string
 }
 
 export interface AgentStats {
@@ -61,11 +61,7 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching clients:", error)
-    return []
-  }
-
+  if (error) { console.error("Error fetching clients:", error); return [] }
   return (data || []).map(mapClient)
 }
 
@@ -96,11 +92,7 @@ export async function updateClient(
   if (updates.status !== undefined) dbUpdates.status = updates.status
   if (updates.notes !== undefined) dbUpdates.notes = updates.notes
 
-  const { error } = await supabase
-    .from("clients")
-    .update(dbUpdates)
-    .eq("id", clientId)
-
+  const { error } = await supabase.from("clients").update(dbUpdates).eq("id", clientId)
   if (error) { console.error("Error updating client:", error); return false }
   return true
 }
@@ -114,43 +106,36 @@ export async function deleteClient(clientId: string): Promise<boolean> {
   return true
 }
 
-// ─── Fetch Client Quick Orders (history) ──────────────────────
+// ─── Fetch Client Orders (history) ────────────────────────────
+// Now queries the unified `orders` table using client_id
 
-export async function fetchClientOrders(clientId: string): Promise<QuickOrderRecord[]> {
+export async function fetchClientOrders(clientId: string): Promise<OrderRecord[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .select("*")
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching client orders:", error)
-    return []
-  }
-
-  return (data || []).map(mapQuickOrder)
+  if (error) { console.error("Error fetching client orders:", error); return [] }
+  return (data || []).map(mapOrder)
 }
 
-// ─── Fetch All Quick Orders ───────────────────────────────────
+// ─── Fetch All Orders (for stats) ─────────────────────────────
 
-export async function fetchQuickOrders(tenantId: string): Promise<QuickOrderRecord[]> {
+export async function fetchAllOrders(tenantId: string): Promise<OrderRecord[]> {
   const supabase = createClient()
   const { data, error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching quick orders:", error)
-    return []
-  }
-
-  return (data || []).map(mapQuickOrder)
+  if (error) { console.error("Error fetching orders:", error); return [] }
+  return (data || []).map(mapOrder)
 }
 
-// ─── Mark Quick Order as Returned ─────────────────────────────
+// ─── Mark Order as Returned ───────────────────────────────────
 
 export async function markOrderReturned(
   orderId: string,
@@ -159,11 +144,10 @@ export async function markOrderReturned(
 ): Promise<boolean> {
   const supabase = createClient()
 
-  // Update the order
   const { data: order, error: orderError } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .update({
-      status: "returned",
+      return_status: "returned",
       returned_by: agentId,
       returned_by_name: agentName,
       updated_at: new Date().toISOString(),
@@ -174,43 +158,40 @@ export async function markOrderReturned(
 
   if (orderError || !order) { console.error("Error marking returned:", orderError); return false }
 
-  // Increment client return count
-  const { data: client } = await supabase
-    .from("clients")
-    .select("return_count")
-    .eq("id", order.client_id)
-    .single()
-
-  if (client) {
-    await supabase
+  if (order.client_id) {
+    const { data: client } = await supabase
       .from("clients")
-      .update({
-        return_count: (client.return_count || 0) + 1,
-        updated_at: new Date().toISOString(),
-      })
+      .select("return_count")
       .eq("id", order.client_id)
+      .single()
+
+    if (client) {
+      await supabase
+        .from("clients")
+        .update({
+          return_count: (client.return_count || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.client_id)
+    }
   }
 
   return true
 }
 
 // ─── Agent Performance Stats ──────────────────────────────────
+// Aggregates from the unified `orders` table
 
 export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
   const supabase = createClient()
 
-  // Fetch all quick orders for the tenant
   const { data: orders, error } = await supabase
-    .from("quick_orders")
-    .select("confirmed_by, confirmed_by_name, returned_by, returned_by_name, amount, status")
+    .from("orders")
+    .select("confirmed_by, confirmed_by_name, returned_by, returned_by_name, total, return_status")
     .eq("tenant_id", tenantId)
 
-  if (error || !orders) {
-    console.error("Error fetching agent stats:", error)
-    return []
-  }
+  if (error || !orders) { console.error("Error fetching agent stats:", error); return [] }
 
-  // Aggregate by agent
   const agentMap = new Map<string, AgentStats>()
 
   for (const o of orders) {
@@ -219,16 +200,13 @@ export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
         agentMap.set(o.confirmed_by, {
           agentId: o.confirmed_by,
           agentName: o.confirmed_by_name || "Inconnu",
-          totalConfirmed: 0,
-          totalReturned: 0,
-          totalRevenue: 0,
-          confirmationRate: 0,
-          returnRate: 0,
+          totalConfirmed: 0, totalReturned: 0, totalRevenue: 0,
+          confirmationRate: 0, returnRate: 0,
         })
       }
       const agent = agentMap.get(o.confirmed_by)!
       agent.totalConfirmed++
-      agent.totalRevenue += Number(o.amount) || 0
+      agent.totalRevenue += Number(o.total) || 0
     }
 
     if (o.returned_by) {
@@ -236,29 +214,24 @@ export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
         agentMap.set(o.returned_by, {
           agentId: o.returned_by,
           agentName: o.returned_by_name || "Inconnu",
-          totalConfirmed: 0,
-          totalReturned: 0,
-          totalRevenue: 0,
-          confirmationRate: 0,
-          returnRate: 0,
+          totalConfirmed: 0, totalReturned: 0, totalRevenue: 0,
+          confirmationRate: 0, returnRate: 0,
         })
       }
-      const agent = agentMap.get(o.returned_by)!
-      agent.totalReturned++
+      agentMap.get(o.returned_by)!.totalReturned++
     }
   }
 
-  // Calculate rates
-  const stats = Array.from(agentMap.values()).map((a) => {
-    const total = a.totalConfirmed + a.totalReturned
-    return {
-      ...a,
-      confirmationRate: total > 0 ? Math.round((a.totalConfirmed / total) * 100) : 0,
-      returnRate: a.totalConfirmed > 0 ? Math.round((a.totalReturned / a.totalConfirmed) * 100) : 0,
-    }
-  })
-
-  return stats.sort((a, b) => b.totalConfirmed - a.totalConfirmed)
+  return Array.from(agentMap.values())
+    .map((a) => {
+      const total = a.totalConfirmed + a.totalReturned
+      return {
+        ...a,
+        confirmationRate: total > 0 ? Math.round((a.totalConfirmed / total) * 100) : 0,
+        returnRate: a.totalConfirmed > 0 ? Math.round((a.totalReturned / a.totalConfirmed) * 100) : 0,
+      }
+    })
+    .sort((a, b) => b.totalConfirmed - a.totalConfirmed)
 }
 
 // ─── Mappers ──────────────────────────────────────────────────
@@ -281,15 +254,14 @@ function mapClient(row: any): Client {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapQuickOrder(row: any): QuickOrderRecord {
+function mapOrder(row: any): OrderRecord {
   return {
     id: row.id,
     tenantId: row.tenant_id,
     clientId: row.client_id,
-    phone: row.phone,
-    clientName: row.client_name,
-    amount: Number(row.amount) || 0,
-    itemsDescription: row.items_description,
+    phone: row.customer_phone,
+    clientName: row.customer_name,
+    total: Number(row.total) || 0,
     status: row.status,
     notes: row.notes,
     source: row.source,
@@ -297,13 +269,14 @@ function mapQuickOrder(row: any): QuickOrderRecord {
     courier: row.courier,
     shippingCost: Number(row.shipping_cost) || 0,
     deliveryDate: row.delivery_date,
-    address: row.address,
+    deliveryAddress: row.delivery_address || row.customer_address,
     truecallerVerified: row.truecaller_verified || false,
     confirmedBy: row.confirmed_by,
     confirmedByName: row.confirmed_by_name,
     returnedBy: row.returned_by,
     returnedByName: row.returned_by_name,
+    returnStatus: row.return_status,
+    paymentStatus: row.payment_status,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
   }
 }
