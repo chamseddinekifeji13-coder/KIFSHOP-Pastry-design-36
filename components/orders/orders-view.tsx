@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, X, Trash2,
   Building2, User, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye,
+  FileText, Download, Printer, Eye, Zap,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,6 +51,7 @@ import { InvoicePreview } from "./invoice-preview"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
+import { QuickOrder } from "./quick-order"
 import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV } from "@/lib/csv-export"
 
@@ -125,6 +126,7 @@ export function OrdersView() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [newOrderOpen, setNewOrderOpen] = useState(false)
+  const [quickOrderOpen, setQuickOrderOpen] = useState(false)
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
@@ -603,6 +605,14 @@ export function OrdersView() {
           >
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
+          </Button>
+          <Button
+            variant="secondary"
+            className="bg-amber-500 text-white hover:bg-amber-600"
+            onClick={() => setQuickOrderOpen(true)}
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            Commande Rapide
           </Button>
           <Button onClick={() => setNewOrderOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -1842,8 +1852,11 @@ export function OrdersView() {
         </DialogContent>
       </Dialog>
 
-      {/* New Order Drawer */}
-      <NewOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+  {/* Quick Order Dialog */}
+  <QuickOrder open={quickOrderOpen} onOpenChange={setQuickOrderOpen} onOrderCreated={() => mutate()} />
+
+  {/* New Order Drawer */}
+  <NewOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
     </div>
   )
 }
