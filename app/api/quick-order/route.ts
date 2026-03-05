@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 5. Create quick order
+    // 5. Create quick order (with agent tracking)
     const { data: order, error: orderError } = await supabase
       .from("quick_orders")
       .insert({
@@ -61,6 +61,8 @@ export async function POST(request: Request) {
         items_description: itemsDescription || null,
         notes: notes || null,
         status: "confirmed",
+        confirmed_by: session.activeProfileId,
+        confirmed_by_name: session.displayName,
       })
       .select()
       .single()

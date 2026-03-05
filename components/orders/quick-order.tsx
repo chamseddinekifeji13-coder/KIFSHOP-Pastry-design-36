@@ -49,7 +49,7 @@ interface QuickOrderProps {
 }
 
 export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderProps) {
-  const { currentTenant } = useTenant()
+  const { currentTenant, currentUser } = useTenant()
   const {
     client,
     isLoading: clientLoading,
@@ -211,8 +211,12 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                 </div>
                 Commande Rapide
               </DialogTitle>
-              <DialogDescription className="text-primary-foreground/70 mt-1">
-                Telephone = identite client. 6 secondes max.
+              <DialogDescription className="text-primary-foreground/70 mt-1 flex items-center justify-between">
+                <span>Telephone = identite client. 6 secondes max.</span>
+                <span className="inline-flex items-center gap-1.5 bg-primary-foreground/15 text-primary-foreground text-xs font-medium px-2.5 py-1 rounded-full">
+                  <User className="h-3 w-3" />
+                  {currentUser.name}
+                </span>
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -226,6 +230,9 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
               <p className="text-lg font-semibold text-foreground">Commande enregistree !</p>
               <p className="text-sm text-muted-foreground mt-1">
                 {client?.name || client?.phone} &mdash; {parseFloat(amount).toFixed(3)} TND
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Confirmee par <span className="font-medium text-foreground">{currentUser.name}</span>
               </p>
             </div>
           ) : (
