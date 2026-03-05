@@ -20,12 +20,14 @@ export function DashboardView() {
 
       <KPICards />
 
+      {/* Quick Actions - prominent at top */}
+      <QuickActions />
+
       <div className="grid gap-6 lg:grid-cols-3">
         <RevenueChart />
         <div className="space-y-6">
           <AlertsPanel />
           <OnlineSalesWidget />
-          <QuickActions />
         </div>
       </div>
     </div>

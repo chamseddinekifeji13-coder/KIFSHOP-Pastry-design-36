@@ -50,40 +50,38 @@ export function QuickActions() {
             Actions rapides
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {/* Quick Order button - highlighted at the top */}
-          <Button
-            variant="default"
-            className="w-full justify-start h-auto py-3"
-            onClick={() => setQuickOrderOpen(true)}
-          >
-            <Zap className="h-4 w-4 mr-3" />
-            <div className="flex flex-col items-start">
-              <span className="font-medium">Commande Rapide</span>
-              <span className="text-xs text-primary-foreground/70 font-normal">
-                Telephone = commande en 6 sec
-              </span>
-            </div>
-          </Button>
-
-          {actions.map((action) => (
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {/* Quick Order button - highlighted first */}
             <Button
-              key={action.title}
-              variant={action.variant}
-              className="w-full justify-start h-auto py-3"
-              asChild
+              variant="default"
+              className="h-auto py-4 flex flex-col items-center gap-2 col-span-2 sm:col-span-3 md:col-span-1"
+              onClick={() => setQuickOrderOpen(true)}
             >
-              <Link href={action.href}>
-                <action.icon className="h-4 w-4 mr-3" />
-                <div className="flex flex-col items-start">
-                  <span className="font-medium">{action.title}</span>
-                  <span className="text-xs text-muted-foreground font-normal">
+              <Zap className="h-5 w-5" />
+              <span className="font-semibold text-sm">Commande Rapide</span>
+              <span className="text-[10px] text-primary-foreground/70 font-normal leading-tight">
+                6 sec
+              </span>
+            </Button>
+
+            {actions.map((action) => (
+              <Button
+                key={action.title}
+                variant={action.variant}
+                className="h-auto py-4 flex flex-col items-center gap-2"
+                asChild
+              >
+                <Link href={action.href}>
+                  <action.icon className="h-5 w-5" />
+                  <span className="font-medium text-sm">{action.title}</span>
+                  <span className="text-[10px] text-muted-foreground font-normal leading-tight">
                     {action.description}
                   </span>
-                </div>
-              </Link>
-            </Button>
-          ))}
+                </Link>
+              </Button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
