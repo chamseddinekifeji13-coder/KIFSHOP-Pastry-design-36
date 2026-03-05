@@ -51,32 +51,32 @@ const navigation = [
     ],
   },
   {
+    titleKey: "nav.commerce",
+    fallback: "Commerce",
+    items: [
+      { titleKey: "nav.orders", fallback: "Commandes", href: "/commandes", icon: ShoppingCart },
+      { titleKey: "nav.store", fallback: "E-Boutique", href: "/boutique", icon: Store },
+      { titleKey: "nav.channels", fallback: "Canaux de vente", href: "/canaux", icon: Radio },
+    ],
+  },
+  {
+    titleKey: "nav.crm",
+    fallback: "CRM",
+    items: [
+      { titleKey: "nav.clients", fallback: "Clients", href: "/clients", icon: Users },
+      { titleKey: "nav.prospects", fallback: "Prospects", href: "/prospects", icon: UserPlus },
+      { titleKey: "nav.campaigns", fallback: "Campagnes", href: "/campagnes", icon: Megaphone },
+      { titleKey: "nav.performance", fallback: "Performance", href: "/performance", icon: BarChart3 },
+    ],
+  },
+  {
     titleKey: "nav.operations",
     fallback: "Operations",
     items: [
       { titleKey: "nav.stocks", fallback: "Stocks", href: "/stocks", icon: Package },
       { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
-      { titleKey: "nav.orders", fallback: "Commandes", href: "/commandes", icon: ShoppingCart },
-      { titleKey: "nav.clients", fallback: "Clients", href: "/clients", icon: Users },
-      { titleKey: "nav.prospects", fallback: "Prospects", href: "/prospects", icon: UserPlus },
-      { titleKey: "nav.performance", fallback: "Performance", href: "/performance", icon: BarChart3 },
-      { titleKey: "nav.campaigns", fallback: "Campagnes", href: "/campagnes", icon: Megaphone },
-    ],
-  },
-  {
-    titleKey: "nav.purchases",
-    fallback: "Achats",
-    items: [
       { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },
-    ],
-  },
-  {
-    titleKey: "nav.online_sales",
-    fallback: "Ventes en ligne",
-    items: [
-      { titleKey: "nav.store", fallback: "E-Boutique", href: "/boutique", icon: Store },
-      { titleKey: "nav.channels", fallback: "Canaux de vente", href: "/canaux", icon: Radio },
     ],
   },
   {
