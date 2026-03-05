@@ -4,11 +4,9 @@ import { createClient } from "@/lib/supabase/server"
 
 export async function POST(request: Request) {
   try {
-    // 1. Authenticate
     const session = await getServerSession()
     const supabase = await createClient()
 
-    // 2. Parse body
     const body = await request.json()
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
@@ -22,7 +20,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 3. Verify client exists and belongs to this tenant
+    // Verify client exists and belongs to this tenant
     const { data: client, error: clientError } = await supabase
       .from("clients")
       .select("id, status, return_count, tenant_id")
@@ -31,66 +29,68 @@ export async function POST(request: Request) {
       .single()
 
     if (clientError || !client) {
-      return NextResponse.json(
-        { error: "Client non trouve" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Client non trouve" }, { status: 404 })
     }
 
-    // 4. Business rules
+    // Business rules
     if (client.status === "blacklisted") {
-      return NextResponse.json(
-        { error: "Client blackliste. Commande refusee." },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: "Client blackliste. Commande refusee." }, { status: 403 })
     }
 
     if (client.return_count >= 2) {
-      return NextResponse.json(
-        { error: "Trop de retours. Commande bloquee." },
-        { status: 403 }
-      )
+      return NextResponse.json({ error: "Trop de retours. Commande bloquee." }, { status: 403 })
     }
 
-    // 5. Create quick order (with agent tracking)
+    // Insert into orders table (single source of truth)
     const { data: order, error: orderError } = await supabase
-      .from("quick_orders")
+      .from("orders")
       .insert({
         tenant_id: session.tenantId,
         client_id: clientId,
-        phone: phone,
-        client_name: clientName || null,
-        amount: amount,
-        items_description: itemsDescription || null,
-        notes: notes || null,
-        status: "confirmed",
-        confirmed_by: session.activeProfileId,
-        confirmed_by_name: session.displayName,
-        source: source || "phone",
+        customer_name: clientName || null,
+        customer_phone: phone,
+        customer_address: address || null,
+        total: amount,
+        shipping_cost: shippingCost || 0,
+        status: "nouveau",
         delivery_type: deliveryType || "pickup",
         courier: courier || null,
-        shipping_cost: shippingCost || 0,
+        source: source || "phone",
         delivery_date: deliveryDate || null,
-        address: address || null,
+        notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
+        confirmed_by: session.activeProfileId,
+        confirmed_by_name: session.displayName,
         truecaller_verified: truecallerVerified || false,
+        created_by: session.activeProfileId,
       })
       .select()
       .single()
 
     if (orderError) {
-      console.error("Quick order creation error:", orderError)
-      return NextResponse.json(
-        { error: "Erreur creation commande" },
-        { status: 500 }
-      )
+      console.error("Order creation error:", orderError)
+      return NextResponse.json({ error: "Erreur creation commande" }, { status: 500 })
     }
 
-    // 6. Update client stats
+    // Update client stats
+    const { count: orderCount } = await supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", clientId)
+
+    const { data: allOrders } = await supabase
+      .from("orders")
+      .select("total")
+      .eq("client_id", clientId)
+
+    const totalSpent = allOrders
+      ? allOrders.reduce((sum: number, o: { total: number }) => sum + Number(o.total), 0)
+      : 0
+
     await supabase
       .from("clients")
       .update({
-        total_orders: client.return_count >= 0 ? (await getClientOrderCount(supabase, clientId)) : 1,
-        total_spent: (await getClientTotalSpent(supabase, clientId)),
+        total_orders: orderCount ?? 1,
+        total_spent: totalSpent,
         updated_at: new Date().toISOString(),
       })
       .eq("id", clientId)
@@ -103,25 +103,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getClientOrderCount(supabase: any, clientId: string): Promise<number> {
-  const { count } = await supabase
-    .from("quick_orders")
-    .select("id", { count: "exact", head: true })
-    .eq("client_id", clientId)
-
-  return count ?? 0
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getClientTotalSpent(supabase: any, clientId: string): Promise<number> {
-  const { data } = await supabase
-    .from("quick_orders")
-    .select("amount")
-    .eq("client_id", clientId)
-
-  if (!data) return 0
-  return data.reduce((sum: number, o: { amount: number }) => sum + Number(o.amount), 0)
 }

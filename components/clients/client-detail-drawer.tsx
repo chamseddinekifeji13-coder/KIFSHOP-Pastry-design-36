@@ -20,7 +20,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader,
   DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
-import { type Client, type QuickOrderRecord, fetchClientOrders, updateClient } from "@/lib/clients/actions"
+import { type Client, type OrderRecord, fetchClientOrders, updateClient } from "@/lib/clients/actions"
 import { toast } from "sonner"
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -31,11 +31,12 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 }
 
 const orderStatusConfig: Record<string, { label: string; color: string }> = {
-  pending: { label: "En attente", color: "bg-blue-100 text-blue-700" },
-  confirmed: { label: "Confirmee", color: "bg-emerald-100 text-emerald-700" },
-  delivered: { label: "Livree", color: "bg-muted text-muted-foreground" },
-  cancelled: { label: "Annulee", color: "bg-red-100 text-red-700" },
-  returned: { label: "Retournee", color: "bg-amber-100 text-amber-700" },
+  nouveau: { label: "Nouveau", color: "bg-blue-100 text-blue-700" },
+  "en-preparation": { label: "En preparation", color: "bg-amber-100 text-amber-700" },
+  pret: { label: "Pret", color: "bg-emerald-100 text-emerald-700" },
+  "en-livraison": { label: "En livraison", color: "bg-purple-100 text-purple-700" },
+  livre: { label: "Livre", color: "bg-muted text-muted-foreground" },
+  annule: { label: "Annule", color: "bg-red-100 text-red-700" },
 }
 
 interface ClientDetailDrawerProps {
@@ -50,7 +51,7 @@ interface ClientDetailDrawerProps {
 export function ClientDetailDrawer({
   client, open, onOpenChange, onStatusChange, onDelete, onUpdated,
 }: ClientDetailDrawerProps) {
-  const [orders, setOrders] = useState<QuickOrderRecord[]>([])
+  const [orders, setOrders] = useState<OrderRecord[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
@@ -166,7 +167,7 @@ export function ClientDetailDrawer({
               ) : (
                 <div className="space-y-2">
                   {orders.map((order) => {
-                    const oCfg = orderStatusConfig[order.status] || orderStatusConfig.pending
+                    const oCfg = orderStatusConfig[order.status] || orderStatusConfig.nouveau
                     return (
                       <div key={order.id} className="rounded-lg border bg-card p-3">
                         <div className="flex items-center justify-between mb-2">
@@ -187,9 +188,9 @@ export function ClientDetailDrawer({
 
                         <div className="flex items-center justify-between">
                           <div className="text-sm">
-                            <p className="font-semibold">{Number(order.amount).toFixed(3)} TND</p>
-                            {order.itemsDescription && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{order.itemsDescription}</p>
+                            <p className="font-semibold">{Number(order.total).toFixed(3)} TND</p>
+                            {order.notes && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{order.notes}</p>
                             )}
                           </div>
                           <div className="text-right text-[10px] text-muted-foreground">
