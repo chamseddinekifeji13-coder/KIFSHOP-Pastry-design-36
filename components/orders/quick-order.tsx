@@ -201,13 +201,13 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden border-border shadow-lg rounded-xl">
+        <DialogContent showCloseButton={false} className="sm:max-w-[480px] p-0 gap-0 overflow-hidden border-border shadow-lg rounded-xl">
           {/* Header */}
           <div className="bg-primary px-6 py-5">
             <DialogHeader>
               <DialogTitle className="text-primary-foreground flex items-center gap-2.5 text-lg">
                 <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary-foreground/15">
-                  <Zap className="h-4.5 w-4.5 text-primary-foreground" />
+                  <Zap className="h-5 w-5 text-primary-foreground" />
                 </div>
                 Commande Rapide
               </DialogTitle>
