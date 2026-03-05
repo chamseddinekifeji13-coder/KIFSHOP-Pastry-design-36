@@ -28,9 +28,9 @@ export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier"
 
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
-  owner: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres", "/support"],
-  gerant: ["/dashboard", "/commandes", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/parametres", "/support"],
-  vendeur: ["/commandes", "/canaux", "/prospects", "/support"],
+  owner: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
+  gerant: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
+  vendeur: ["/commandes", "/clients", "/canaux", "/prospects", "/support"],
   magasinier: ["/stocks", "/inventaire", "/support"],
   achat: ["/approvisionnement", "/support"],
   caissier: ["/tresorerie", "/support"],

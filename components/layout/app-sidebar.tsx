@@ -16,6 +16,9 @@ import {
   UserPlus,
   Lock,
   LifeBuoy,
+  Users,
+  BarChart3,
+  Megaphone,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -55,7 +58,10 @@ const navigation = [
       { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
       { titleKey: "nav.orders", fallback: "Commandes", href: "/commandes", icon: ShoppingCart },
+      { titleKey: "nav.clients", fallback: "Clients", href: "/clients", icon: Users },
       { titleKey: "nav.prospects", fallback: "Prospects", href: "/prospects", icon: UserPlus },
+      { titleKey: "nav.performance", fallback: "Performance", href: "/performance", icon: BarChart3 },
+      { titleKey: "nav.campaigns", fallback: "Campagnes", href: "/campagnes", icon: Megaphone },
     ],
   },
   {
