@@ -509,6 +509,530 @@ export async function getClientDeliveryHistory(
   return { shipments, stats: { total, delivered, returned, returnRate } }
 }
 
+// ─── Sync Delivered with Client Counter ───────────────────────
+// Increments the client's delivered_count when a shipment is marked as delivered
+
+export async function syncDeliveredWithClient(
+  shipmentId: string,
+  tenantId: string
+): Promise<{ success: boolean; clientId?: string; clientName?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Get the shipment with order details
+  const { data: shipment } = await supabase
+    .from("best_delivery_shipments")
+    .select("order_id, customer_name, customer_phone")
+    .eq("id", shipmentId)
+    .single()
+
+  if (!shipment) {
+    console.error("Shipment not found")
+    return { success: false }
+  }
+
+  // Find the order to get client_id
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, client_id, customer_phone, total_amount")
+    .eq("id", shipment.order_id)
+    .single()
+
+  let clientId = order?.client_id
+
+  // If no client_id on order, try to find client by phone
+  if (!clientId && (shipment.customer_phone || order?.customer_phone)) {
+    const phone = shipment.customer_phone || order?.customer_phone
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("phone", phone)
+      .single()
+
+    clientId = client?.id
+  }
+
+  if (!clientId) {
+    console.error("No client found for this shipment")
+    return { success: false }
+  }
+
+  // Get current client data
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id, name, delivered_count, total_orders, total_spent, status")
+    .eq("id", clientId)
+    .single()
+
+  if (!client) {
+    return { success: false }
+  }
+
+  // Increment delivered_count and total_orders
+  const newDeliveredCount = (client.delivered_count || 0) + 1
+  const newTotalOrders = (client.total_orders || 0) + 1
+  const orderAmount = order?.total_amount || 0
+  const newTotalSpent = (client.total_spent || 0) + orderAmount
+
+  // Auto-upgrade to VIP if 10+ successful deliveries
+  let newStatus = client.status
+  if (newDeliveredCount >= 10 && client.status === "normal") {
+    newStatus = "vip"
+  }
+
+  const { error: updateError } = await supabase
+    .from("clients")
+    .update({
+      delivered_count: newDeliveredCount,
+      total_orders: newTotalOrders,
+      total_spent: newTotalSpent,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", clientId)
+
+  if (updateError) {
+    console.error("Error updating client delivered count:", updateError.message)
+    return { success: false }
+  }
+
+  // Update order status to delivered
+  if (order) {
+    await supabase
+      .from("orders")
+      .update({
+        status: "delivered",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", order.id)
+
+    // Record in status history
+    await supabase.from("order_status_history").insert({
+      order_id: order.id,
+      tenant_id: tenantId,
+      from_status: null,
+      to_status: "delivered",
+      changed_by: user?.id || null,
+      changed_by_name: user?.user_metadata?.display_name || user?.email || "Best Delivery",
+      note: `Livre via Best Delivery - Client: ${shipment.customer_name}`,
+    })
+  }
+
+  return { success: true, clientId, clientName: client.name || shipment.customer_name }
+}
+
+// ─── Enhanced Status Update with Full Sync ────────────────────
+
+export async function updateShipmentStatusWithFullSync(
+  shipmentId: string,
+  tenantId: string,
+  status: DeliveryStatus,
+  notes?: string
+): Promise<{ success: boolean; clientSynced?: boolean; clientName?: string; action?: string }> {
+  const supabase = createClient()
+
+  const updates: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (notes !== undefined) {
+    updates.notes = notes
+  }
+
+  const { error } = await supabase
+    .from("best_delivery_shipments")
+    .update(updates)
+    .eq("id", shipmentId)
+
+  if (error) {
+    console.error("Error updating shipment status:", error.message)
+    return { success: false }
+  }
+
+  // Sync with client based on status
+  if (status === "returned") {
+    const syncResult = await syncReturnWithClient(shipmentId, tenantId)
+    return {
+      success: true,
+      clientSynced: syncResult.success,
+      clientName: syncResult.clientName,
+      action: "retour",
+    }
+  }
+
+  if (status === "delivered") {
+    const syncResult = await syncDeliveredWithClient(shipmentId, tenantId)
+    return {
+      success: true,
+      clientSynced: syncResult.success,
+      clientName: syncResult.clientName,
+      action: "livraison",
+    }
+  }
+
+  return { success: true }
+}
+
+// ─── Bulk Sync Delivered ──────────────────────────────────────
+
+export async function bulkSyncDelivered(tenantId: string): Promise<{
+  total: number
+  synced: number
+  failed: number
+  details: Array<{ shipmentId: string; clientName: string; success: boolean }>
+}> {
+  const supabase = createClient()
+
+  const { data: shipments } = await supabase
+    .from("best_delivery_shipments")
+    .select("id, customer_name")
+    .eq("tenant_id", tenantId)
+    .eq("status", "delivered")
+
+  if (!shipments || shipments.length === 0) {
+    return { total: 0, synced: 0, failed: 0, details: [] }
+  }
+
+  const details: Array<{ shipmentId: string; clientName: string; success: boolean }> = []
+  let synced = 0
+  let failed = 0
+
+  for (const shipment of shipments) {
+    const result = await syncDeliveredWithClient(shipment.id, tenantId)
+    details.push({
+      shipmentId: shipment.id,
+      clientName: result.clientName || shipment.customer_name,
+      success: result.success,
+    })
+    if (result.success) synced++
+    else failed++
+  }
+
+  return { total: shipments.length, synced, failed, details }
+}
+
+// ─── Import CSV Functions ─────────────────────────────────────
+
+export interface CSVImportRow {
+  orderNumber?: string
+  trackingNumber?: string
+  customerName: string
+  customerPhone?: string
+  customerAddress: string
+  status: DeliveryStatus
+  notes?: string
+  deliveryDate?: string
+}
+
+export interface ImportResult {
+  total: number
+  imported: number
+  updated: number
+  failed: number
+  errors: Array<{ row: number; error: string }>
+  deliveredSynced: number
+  returnedSynced: number
+}
+
+export async function parseCSVContent(content: string): Promise<{
+  rows: CSVImportRow[]
+  errors: Array<{ row: number; error: string }>
+}> {
+  const lines = content.trim().split("\n")
+  const rows: CSVImportRow[] = []
+  const errors: Array<{ row: number; error: string }> = []
+
+  if (lines.length < 2) {
+    errors.push({ row: 0, error: "Le fichier doit contenir au moins une ligne d'en-tete et une ligne de donnees" })
+    return { rows, errors }
+  }
+
+  // Parse header (first line)
+  const headerLine = lines[0].toLowerCase()
+  const headers = headerLine.split(/[,;]/).map((h) => h.trim().replace(/"/g, ""))
+
+  // Map French/English headers to our fields
+  const headerMap: Record<string, keyof CSVImportRow> = {
+    "numero_commande": "orderNumber",
+    "n_commande": "orderNumber",
+    "order_number": "orderNumber",
+    "numero commande": "orderNumber",
+    "ref": "orderNumber",
+    "reference": "orderNumber",
+    "tracking": "trackingNumber",
+    "numero_suivi": "trackingNumber",
+    "n_suivi": "trackingNumber",
+    "tracking_number": "trackingNumber",
+    "client": "customerName",
+    "nom_client": "customerName",
+    "customer_name": "customerName",
+    "nom": "customerName",
+    "telephone": "customerPhone",
+    "phone": "customerPhone",
+    "tel": "customerPhone",
+    "customer_phone": "customerPhone",
+    "adresse": "customerAddress",
+    "address": "customerAddress",
+    "customer_address": "customerAddress",
+    "statut": "status",
+    "status": "status",
+    "etat": "status",
+    "notes": "notes",
+    "commentaire": "notes",
+    "comment": "notes",
+    "date_livraison": "deliveryDate",
+    "delivery_date": "deliveryDate",
+    "date": "deliveryDate",
+  }
+
+  // Find column indices
+  const columnIndices: Partial<Record<keyof CSVImportRow, number>> = {}
+  headers.forEach((header, index) => {
+    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, "_")
+    for (const [key, field] of Object.entries(headerMap)) {
+      if (normalizedHeader.includes(key.replace(/[^a-z0-9_]/g, "_")) || header === key) {
+        columnIndices[field] = index
+        break
+      }
+    }
+  })
+
+  // Map status values
+  const statusMap: Record<string, DeliveryStatus> = {
+    "livre": "delivered",
+    "livré": "delivered",
+    "delivered": "delivered",
+    "livree": "delivered",
+    "livrée": "delivered",
+    "retour": "returned",
+    "returned": "returned",
+    "retourne": "returned",
+    "retourné": "returned",
+    "echec": "failed",
+    "echoue": "failed",
+    "échoué": "failed",
+    "failed": "failed",
+    "en_cours": "in_transit",
+    "in_transit": "in_transit",
+    "en transit": "in_transit",
+    "transit": "in_transit",
+    "envoye": "sent",
+    "envoyé": "sent",
+    "sent": "sent",
+    "en_attente": "pending",
+    "pending": "pending",
+    "attente": "pending",
+  }
+
+  // Parse data rows
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+
+    // Handle CSV with quotes
+    const values: string[] = []
+    let current = ""
+    let inQuotes = false
+    
+    for (const char of line) {
+      if (char === '"') {
+        inQuotes = !inQuotes
+      } else if ((char === "," || char === ";") && !inQuotes) {
+        values.push(current.trim())
+        current = ""
+      } else {
+        current += char
+      }
+    }
+    values.push(current.trim())
+
+    // Extract fields
+    const customerName = columnIndices.customerName !== undefined 
+      ? values[columnIndices.customerName]?.replace(/"/g, "") 
+      : ""
+    
+    const customerAddress = columnIndices.customerAddress !== undefined 
+      ? values[columnIndices.customerAddress]?.replace(/"/g, "") 
+      : ""
+
+    if (!customerName) {
+      errors.push({ row: i + 1, error: "Nom client manquant" })
+      continue
+    }
+
+    if (!customerAddress) {
+      errors.push({ row: i + 1, error: "Adresse manquante" })
+      continue
+    }
+
+    const rawStatus = columnIndices.status !== undefined 
+      ? values[columnIndices.status]?.toLowerCase().replace(/"/g, "").trim() 
+      : "pending"
+    
+    const status = statusMap[rawStatus] || "pending"
+
+    rows.push({
+      orderNumber: columnIndices.orderNumber !== undefined 
+        ? values[columnIndices.orderNumber]?.replace(/"/g, "") 
+        : undefined,
+      trackingNumber: columnIndices.trackingNumber !== undefined 
+        ? values[columnIndices.trackingNumber]?.replace(/"/g, "") 
+        : undefined,
+      customerName,
+      customerPhone: columnIndices.customerPhone !== undefined 
+        ? values[columnIndices.customerPhone]?.replace(/"/g, "") 
+        : undefined,
+      customerAddress,
+      status,
+      notes: columnIndices.notes !== undefined 
+        ? values[columnIndices.notes]?.replace(/"/g, "") 
+        : undefined,
+      deliveryDate: columnIndices.deliveryDate !== undefined 
+        ? values[columnIndices.deliveryDate]?.replace(/"/g, "") 
+        : undefined,
+    })
+  }
+
+  return { rows, errors }
+}
+
+export async function importDeliveryReport(
+  tenantId: string,
+  rows: CSVImportRow[],
+  syncClients: boolean = true
+): Promise<ImportResult> {
+  const supabase = createClient()
+  const result: ImportResult = {
+    total: rows.length,
+    imported: 0,
+    updated: 0,
+    failed: 0,
+    errors: [],
+    deliveredSynced: 0,
+    returnedSynced: 0,
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+
+    try {
+      // Check if shipment already exists by tracking number or order number
+      let existingShipment = null
+      
+      if (row.trackingNumber) {
+        const { data } = await supabase
+          .from("best_delivery_shipments")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("tracking_number", row.trackingNumber)
+          .single()
+        existingShipment = data
+      }
+
+      if (!existingShipment && row.orderNumber) {
+        const { data } = await supabase
+          .from("best_delivery_shipments")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("order_number", row.orderNumber)
+          .single()
+        existingShipment = data
+      }
+
+      if (existingShipment) {
+        // Update existing shipment
+        const { error } = await supabase
+          .from("best_delivery_shipments")
+          .update({
+            status: row.status,
+            notes: row.notes || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingShipment.id)
+
+        if (error) {
+          result.errors.push({ row: i + 2, error: `Erreur mise a jour: ${error.message}` })
+          result.failed++
+          continue
+        }
+
+        result.updated++
+
+        // Sync with client if requested
+        if (syncClients) {
+          if (row.status === "delivered") {
+            const syncResult = await syncDeliveredWithClient(existingShipment.id, tenantId)
+            if (syncResult.success) result.deliveredSynced++
+          } else if (row.status === "returned") {
+            const syncResult = await syncReturnWithClient(existingShipment.id, tenantId)
+            if (syncResult.success) result.returnedSynced++
+          }
+        }
+      } else {
+        // Find order by order number if provided
+        let orderId = crypto.randomUUID()
+        
+        if (row.orderNumber) {
+          const { data: order } = await supabase
+            .from("orders")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .eq("order_number", row.orderNumber)
+            .single()
+          
+          if (order) {
+            orderId = order.id
+          }
+        }
+
+        // Create new shipment
+        const { data: newShipment, error } = await supabase
+          .from("best_delivery_shipments")
+          .insert({
+            tenant_id: tenantId,
+            order_id: orderId,
+            order_number: row.orderNumber || null,
+            customer_name: row.customerName,
+            customer_phone: row.customerPhone || null,
+            customer_address: row.customerAddress,
+            tracking_number: row.trackingNumber || null,
+            status: row.status,
+            notes: row.notes || null,
+            exported_at: row.deliveryDate || new Date().toISOString(),
+          })
+          .select("id")
+          .single()
+
+        if (error || !newShipment) {
+          result.errors.push({ row: i + 2, error: `Erreur creation: ${error?.message}` })
+          result.failed++
+          continue
+        }
+
+        result.imported++
+
+        // Sync with client if requested
+        if (syncClients) {
+          if (row.status === "delivered") {
+            const syncResult = await syncDeliveredWithClient(newShipment.id, tenantId)
+            if (syncResult.success) result.deliveredSynced++
+          } else if (row.status === "returned") {
+            const syncResult = await syncReturnWithClient(newShipment.id, tenantId)
+            if (syncResult.success) result.returnedSynced++
+          }
+        }
+      }
+    } catch (err) {
+      result.errors.push({ row: i + 2, error: `Erreur inattendue: ${(err as Error).message}` })
+      result.failed++
+    }
+  }
+
+  return result
+}
+
 // ─── Export Functions ─────────────────────────────────────────
 
 export async function exportDeliveryReport(tenantId: string): Promise<{ headers: string[]; data: unknown[][] }> {

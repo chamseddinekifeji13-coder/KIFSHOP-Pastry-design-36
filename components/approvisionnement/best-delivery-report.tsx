@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import {
   Truck, Package, CheckCircle2, XCircle, RotateCcw, Clock,
   TrendingUp, TrendingDown, Download, RefreshCw, Eye,
-  Search, Filter, Calendar, BarChart3, Loader2,
+  Search, Filter, Calendar, BarChart3, Loader2, Upload,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,8 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDeliveryShipments } from "@/hooks/use-tenant-data"
 import {
   calculateDeliveryStats, calculateDeliveryTrends,
-  updateShipmentStatusWithSync, exportDeliveryReport,
-  bulkSyncReturns,
+  updateShipmentStatusWithFullSync, exportDeliveryReport,
+  bulkSyncReturns, bulkSyncDelivered,
   type DeliveryShipment, type DeliveryStatus,
 } from "@/lib/delivery/actions"
 import { useTenant } from "@/lib/tenant-context"
@@ -39,6 +39,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts"
+import { DeliveryImportDialog } from "./delivery-import-dialog"
 
 const statusConfig: Record<DeliveryStatus, { label: string; color: string; icon: typeof Truck; bgClass: string }> = {
   pending: { label: "En attente", color: "#6b7280", icon: Clock, bgClass: "bg-gray-100 text-gray-800" },
@@ -85,6 +86,7 @@ export function BestDeliveryReport() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
 
   // Calculate statistics
   const stats = useMemo(() => calculateDeliveryStats(shipments), [shipments])
@@ -148,7 +150,7 @@ export function BestDeliveryReport() {
     if (!selectedShipment || isUpdating) return
     setIsUpdating(true)
 
-    const result = await updateShipmentStatusWithSync(
+    const result = await updateShipmentStatusWithFullSync(
       selectedShipment.id,
       currentTenant.id,
       newStatus,
@@ -157,10 +159,14 @@ export function BestDeliveryReport() {
     
     if (result.success) {
       if (newStatus === "returned" && result.clientSynced) {
-        toast.success("Statut mis a jour + Compteur client incremente", {
+        toast.success("Statut mis a jour + Compteur retour incremente", {
           description: `Retour enregistre pour ${result.clientName || selectedShipment.customerName}`,
         })
-      } else if (newStatus === "returned" && !result.clientSynced) {
+      } else if (newStatus === "delivered" && result.clientSynced) {
+        toast.success("Statut mis a jour + Compteur livraison incremente", {
+          description: `Livraison enregistree pour ${result.clientName || selectedShipment.customerName}`,
+        })
+      } else if ((newStatus === "returned" || newStatus === "delivered") && !result.clientSynced) {
         toast.warning("Statut mis a jour", {
           description: "Attention: Le compteur client n'a pas pu etre mis a jour (client non trouve)",
         })
@@ -180,13 +186,21 @@ export function BestDeliveryReport() {
 
   const handleBulkSync = async () => {
     setIsSyncing(true)
-    const result = await bulkSyncReturns(currentTenant.id)
     
-    if (result.total === 0) {
-      toast.info("Aucun retour a synchroniser")
+    // Sync both returns and deliveries
+    const [returnsResult, deliveredResult] = await Promise.all([
+      bulkSyncReturns(currentTenant.id),
+      bulkSyncDelivered(currentTenant.id),
+    ])
+    
+    const totalSynced = returnsResult.synced + deliveredResult.synced
+    const totalProcessed = returnsResult.total + deliveredResult.total
+    
+    if (totalProcessed === 0) {
+      toast.info("Aucune expedition a synchroniser")
     } else {
       toast.success(`Synchronisation terminee`, {
-        description: `${result.synced} retours synchronises sur ${result.total}`,
+        description: `${deliveredResult.synced} livraisons et ${returnsResult.synced} retours synchronises`,
       })
       mutate()
     }
@@ -244,15 +258,19 @@ export function BestDeliveryReport() {
           <Button 
             variant="outline" 
             onClick={handleBulkSync} 
-            disabled={isSyncing || stats.returned === 0}
-            title="Synchroniser les retours avec les compteurs clients"
+            disabled={isSyncing || (stats.returned === 0 && stats.delivered === 0)}
+            title="Synchroniser les livraisons et retours avec les compteurs clients"
           >
             {isSyncing ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
               <RotateCcw className="mr-2 h-4 w-4" />
             )}
-            Sync Clients ({stats.returned})
+            Sync Clients
+          </Button>
+          <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Importer CSV
           </Button>
           <Button variant="outline" onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
@@ -752,12 +770,30 @@ export function BestDeliveryReport() {
                   <RotateCcw className="h-4 w-4 text-violet-600 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-violet-800">
-                      Synchronisation automatique
+                      Synchronisation automatique - Retour
                     </p>
                     <p className="text-xs text-violet-600 mt-0.5">
                       Le compteur de retours du client sera automatiquement incremente. 
                       Si le client atteint 3 retours, son statut passera en {"\""}warning{"\""}.
                       A partir de 5 retours, il sera {"\""}blackliste{"\""}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {newStatus === "delivered" && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-emerald-800">
+                      Synchronisation automatique - Livraison
+                    </p>
+                    <p className="text-xs text-emerald-600 mt-0.5">
+                      Le compteur de livraisons reussies du client sera automatiquement incremente.
+                      Le total des commandes et le montant depense seront mis a jour.
+                      A partir de 10 livraisons reussies, le client passera en statut {"\""}VIP{"\""}.
                     </p>
                   </div>
                 </div>
@@ -788,6 +824,13 @@ export function BestDeliveryReport() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import Dialog */}
+      <DeliveryImportDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onImportComplete={() => mutate()}
+      />
     </div>
   )
 }
