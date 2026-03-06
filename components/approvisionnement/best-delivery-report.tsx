@@ -28,7 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDeliveryShipments } from "@/hooks/use-tenant-data"
 import {
   calculateDeliveryStats, calculateDeliveryTrends,
-  updateShipmentStatus, exportDeliveryReport,
+  updateShipmentStatusWithSync, exportDeliveryReport,
+  bulkSyncReturns,
   type DeliveryShipment, type DeliveryStatus,
 } from "@/lib/delivery/actions"
 import { useTenant } from "@/lib/tenant-context"
@@ -83,6 +84,7 @@ export function BestDeliveryReport() {
   const [statusNotes, setStatusNotes] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   // Calculate statistics
   const stats = useMemo(() => calculateDeliveryStats(shipments), [shipments])
@@ -146,11 +148,27 @@ export function BestDeliveryReport() {
     if (!selectedShipment || isUpdating) return
     setIsUpdating(true)
 
-    const ok = await updateShipmentStatus(selectedShipment.id, newStatus, statusNotes || undefined)
-    if (ok) {
-      toast.success("Statut mis a jour", {
-        description: `Expedition -> ${statusConfig[newStatus].label}`,
-      })
+    const result = await updateShipmentStatusWithSync(
+      selectedShipment.id,
+      currentTenant.id,
+      newStatus,
+      statusNotes || undefined
+    )
+    
+    if (result.success) {
+      if (newStatus === "returned" && result.clientSynced) {
+        toast.success("Statut mis a jour + Compteur client incremente", {
+          description: `Retour enregistre pour ${result.clientName || selectedShipment.customerName}`,
+        })
+      } else if (newStatus === "returned" && !result.clientSynced) {
+        toast.warning("Statut mis a jour", {
+          description: "Attention: Le compteur client n'a pas pu etre mis a jour (client non trouve)",
+        })
+      } else {
+        toast.success("Statut mis a jour", {
+          description: `Expedition -> ${statusConfig[newStatus].label}`,
+        })
+      }
       mutate()
       setStatusDialogOpen(false)
       setSelectedShipment(null)
@@ -158,6 +176,21 @@ export function BestDeliveryReport() {
       toast.error("Erreur lors de la mise a jour")
     }
     setIsUpdating(false)
+  }
+
+  const handleBulkSync = async () => {
+    setIsSyncing(true)
+    const result = await bulkSyncReturns(currentTenant.id)
+    
+    if (result.total === 0) {
+      toast.info("Aucun retour a synchroniser")
+    } else {
+      toast.success(`Synchronisation terminee`, {
+        description: `${result.synced} retours synchronises sur ${result.total}`,
+      })
+      mutate()
+    }
+    setIsSyncing(false)
   }
 
   const handleExport = async () => {
@@ -203,10 +236,23 @@ export function BestDeliveryReport() {
             Suivi des expeditions et performances de livraison
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => mutate()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Actualiser
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleBulkSync} 
+            disabled={isSyncing || stats.returned === 0}
+            title="Synchroniser les retours avec les compteurs clients"
+          >
+            {isSyncing ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-2 h-4 w-4" />
+            )}
+            Sync Clients ({stats.returned})
           </Button>
           <Button variant="outline" onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
@@ -699,6 +745,25 @@ export function BestDeliveryReport() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {newStatus === "returned" && (
+              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                <div className="flex items-start gap-2">
+                  <RotateCcw className="h-4 w-4 text-violet-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-violet-800">
+                      Synchronisation automatique
+                    </p>
+                    <p className="text-xs text-violet-600 mt-0.5">
+                      Le compteur de retours du client sera automatiquement incremente. 
+                      Si le client atteint 3 retours, son statut passera en {"\""}warning{"\""}.
+                      A partir de 5 retours, il sera {"\""}blackliste{"\""}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Notes (optionnel)</Label>
               <Textarea

@@ -263,6 +263,252 @@ export async function deleteShipment(shipmentId: string): Promise<boolean> {
   return true
 }
 
+// ─── Sync Return with Client Counter ──────────────────────────
+// Increments the client's return_count when a shipment is marked as returned
+
+export async function syncReturnWithClient(
+  shipmentId: string,
+  tenantId: string
+): Promise<{ success: boolean; clientId?: string; clientName?: string }> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Get the shipment with order details
+  const { data: shipment } = await supabase
+    .from("best_delivery_shipments")
+    .select("order_id, customer_name, customer_phone")
+    .eq("id", shipmentId)
+    .single()
+
+  if (!shipment) {
+    console.error("Shipment not found")
+    return { success: false }
+  }
+
+  // Find the order to get client_id
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, client_id, customer_phone")
+    .eq("id", shipment.order_id)
+    .single()
+
+  let clientId = order?.client_id
+
+  // If no client_id on order, try to find client by phone
+  if (!clientId && (shipment.customer_phone || order?.customer_phone)) {
+    const phone = shipment.customer_phone || order?.customer_phone
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("phone", phone)
+      .single()
+
+    clientId = client?.id
+  }
+
+  if (!clientId) {
+    console.error("No client found for this shipment")
+    return { success: false }
+  }
+
+  // Get current client data
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id, name, return_count, status")
+    .eq("id", clientId)
+    .single()
+
+  if (!client) {
+    return { success: false }
+  }
+
+  // Increment return_count
+  const newReturnCount = (client.return_count || 0) + 1
+
+  // Auto-update status based on return count
+  let newStatus = client.status
+  if (newReturnCount >= 5 && client.status !== "blacklisted") {
+    newStatus = "blacklisted"
+  } else if (newReturnCount >= 3 && client.status === "normal") {
+    newStatus = "warning"
+  }
+
+  const { error: updateError } = await supabase
+    .from("clients")
+    .update({
+      return_count: newReturnCount,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", clientId)
+
+  if (updateError) {
+    console.error("Error updating client return count:", updateError.message)
+    return { success: false }
+  }
+
+  // Update order return_status
+  if (order) {
+    await supabase
+      .from("orders")
+      .update({
+        return_status: "returned",
+        returned_by: user?.id || null,
+        returned_by_name: user?.user_metadata?.display_name || user?.email || "Best Delivery",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", order.id)
+
+    // Record in status history
+    await supabase.from("order_status_history").insert({
+      order_id: order.id,
+      tenant_id: tenantId,
+      from_status: null,
+      to_status: "retour-best-delivery",
+      changed_by: user?.id || null,
+      changed_by_name: user?.user_metadata?.display_name || user?.email || "Systeme",
+      note: `Retour via Best Delivery - Client: ${shipment.customer_name}`,
+    })
+  }
+
+  return { success: true, clientId, clientName: client.name || shipment.customer_name }
+}
+
+// ─── Update Shipment Status with Client Sync ──────────────────
+// Enhanced version that syncs with client when status is "returned"
+
+export async function updateShipmentStatusWithSync(
+  shipmentId: string,
+  tenantId: string,
+  status: DeliveryStatus,
+  notes?: string
+): Promise<{ success: boolean; clientSynced?: boolean; clientName?: string }> {
+  const supabase = createClient()
+
+  const updates: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (notes !== undefined) {
+    updates.notes = notes
+  }
+
+  const { error } = await supabase
+    .from("best_delivery_shipments")
+    .update(updates)
+    .eq("id", shipmentId)
+
+  if (error) {
+    console.error("Error updating shipment status:", error.message)
+    return { success: false }
+  }
+
+  // If status is "returned", sync with client counter
+  if (status === "returned") {
+    const syncResult = await syncReturnWithClient(shipmentId, tenantId)
+    return {
+      success: true,
+      clientSynced: syncResult.success,
+      clientName: syncResult.clientName,
+    }
+  }
+
+  return { success: true }
+}
+
+// ─── Bulk Sync Returns ────────────────────────────────────────
+// Sync all returned shipments with client counters
+
+export async function bulkSyncReturns(tenantId: string): Promise<{
+  total: number
+  synced: number
+  failed: number
+  details: Array<{ shipmentId: string; clientName: string; success: boolean }>
+}> {
+  const supabase = createClient()
+
+  // Get all returned shipments that haven't been synced
+  const { data: shipments } = await supabase
+    .from("best_delivery_shipments")
+    .select("id, customer_name")
+    .eq("tenant_id", tenantId)
+    .eq("status", "returned")
+
+  if (!shipments || shipments.length === 0) {
+    return { total: 0, synced: 0, failed: 0, details: [] }
+  }
+
+  const details: Array<{ shipmentId: string; clientName: string; success: boolean }> = []
+  let synced = 0
+  let failed = 0
+
+  for (const shipment of shipments) {
+    const result = await syncReturnWithClient(shipment.id, tenantId)
+    details.push({
+      shipmentId: shipment.id,
+      clientName: result.clientName || shipment.customer_name,
+      success: result.success,
+    })
+    if (result.success) synced++
+    else failed++
+  }
+
+  return { total: shipments.length, synced, failed, details }
+}
+
+// ─── Get Client Return History from Best Delivery ─────────────
+
+export async function getClientDeliveryHistory(
+  tenantId: string,
+  clientPhone: string
+): Promise<{
+  shipments: DeliveryShipment[]
+  stats: { total: number; delivered: number; returned: number; returnRate: number }
+}> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("best_delivery_shipments")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("customer_phone", clientPhone)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching client delivery history:", error.message)
+    return { shipments: [], stats: { total: 0, delivered: 0, returned: 0, returnRate: 0 } }
+  }
+
+  const shipments = (data || []).map((s) => ({
+    id: s.id,
+    tenantId: s.tenant_id,
+    orderId: s.order_id,
+    orderNumber: s.order_number,
+    customerName: s.customer_name,
+    customerPhone: s.customer_phone,
+    customerAddress: s.customer_address,
+    deliveryType: s.delivery_type,
+    trackingNumber: s.tracking_number,
+    shipmentId: s.shipment_id,
+    status: s.status as DeliveryStatus,
+    notes: s.notes,
+    exportedAt: s.exported_at,
+    responseData: s.response_data,
+    errorMessage: s.error_message,
+    createdAt: s.created_at,
+    updatedAt: s.updated_at,
+  }))
+
+  const total = shipments.length
+  const delivered = shipments.filter((s) => s.status === "delivered").length
+  const returned = shipments.filter((s) => s.status === "returned").length
+  const returnRate = total > 0 ? (returned / total) * 100 : 0
+
+  return { shipments, stats: { total, delivered, returned, returnRate } }
+}
+
 // ─── Export Functions ─────────────────────────────────────────
 
 export async function exportDeliveryReport(tenantId: string): Promise<{ headers: string[]; data: unknown[][] }> {
