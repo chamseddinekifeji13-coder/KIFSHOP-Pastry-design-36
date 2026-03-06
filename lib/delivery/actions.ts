@@ -809,6 +809,8 @@ export async function parseCSVContent(content: string): Promise<{
 
   // Find column indices
   const columnIndices: Partial<Record<keyof CSVImportRow, number>> = {}
+  console.log("[v0] Headers found:", headers)
+  
   headers.forEach((header, index) => {
     const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "")
     const cleanHeader = header.toLowerCase().trim()
@@ -817,11 +819,14 @@ export async function parseCSVContent(content: string): Promise<{
       const normalizedKey = key.replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "")
       // Match exact header, normalized version, or if header contains key
       if (cleanHeader === key || normalizedHeader === normalizedKey || normalizedHeader.includes(normalizedKey)) {
+        console.log(`[v0] Column '${header}' (index ${index}) mapped to '${field}' via key '${key}'`)
         columnIndices[field] = index
         break
       }
     }
   })
+  
+  console.log("[v0] Column indices:", columnIndices)
 
   // Map status values (including Best Delivery statuses)
   const statusMap: Record<string, DeliveryStatus> = {
@@ -892,6 +897,8 @@ export async function parseCSVContent(content: string): Promise<{
     let customerPhone = columnIndices.customerPhone !== undefined 
       ? values[columnIndices.customerPhone]?.replace(/"/g, "").trim() 
       : undefined
+    
+    console.log(`[v0] Row ${i}: customerPhone index=${columnIndices.customerPhone}, raw value='${columnIndices.customerPhone !== undefined ? values[columnIndices.customerPhone] : 'N/A'}', parsed='${customerPhone}'`)
 
     let customerName = rawCustomerName
     let customerAddress = columnIndices.customerAddress !== undefined 
