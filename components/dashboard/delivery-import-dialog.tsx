@@ -223,8 +223,8 @@ export function DeliveryImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
             Import Rapport Best Delivery
@@ -234,6 +234,7 @@ export function DeliveryImportDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex-1 overflow-y-auto min-h-0">
         {/* Step: Upload */}
         {step === "upload" && (
           <div className="space-y-4">
@@ -257,9 +258,8 @@ export function DeliveryImportDialog({
 
 Exemple:
 Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
-104807639707;mariem 23232024 *;53.8;2026-02-02;0000-00-00;2026-02-03;Livrée
-104807907553;azza 22919861 nahj thamer;53.8;2026-02-02;0000-00-00;2026-02-03;Livrée"
-                    className="min-h-[200px] font-mono text-xs"
+104807639707;mariem 23232024 *;53.8;2026-02-02;0000-00-00;2026-02-03;Livrée"
+                    className="min-h-[120px] max-h-[40vh] font-mono text-xs"
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
                   />
@@ -545,10 +545,11 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                 </AlertDescription>
               </Alert>
             )}
-          </div>
+</div>
         )}
-
-        <DialogFooter>
+        </div>
+        
+        <DialogFooter className="flex-shrink-0">
           {step === "upload" && (
             <Button variant="outline" onClick={handleClose}>
               Annuler
