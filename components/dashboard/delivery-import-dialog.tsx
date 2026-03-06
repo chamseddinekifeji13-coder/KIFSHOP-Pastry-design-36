@@ -359,14 +359,13 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                   setFile(null)
                   setPastedText("")
                   setParsedRows([])
-                    setParseErrors([])
-                    setStep("upload")
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+                  setParseErrors([])
+                  setStep("upload")
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
 
             {/* Stats Preview */}
             <div className="grid grid-cols-3 gap-3">
