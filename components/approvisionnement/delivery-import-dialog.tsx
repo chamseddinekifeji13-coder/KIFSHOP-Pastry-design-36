@@ -170,10 +170,11 @@ export function DeliveryImportDialog({
   }
 
   const downloadTemplate = () => {
-    const template = `numero_commande;tracking;client;telephone;adresse;statut;notes;date_livraison
-CMD-001;TRK-12345;Mohamed Ben Ali;+216 12 345 678;Tunis, Rue de la Liberte;livre;RAS;2024-01-15
-CMD-002;TRK-12346;Fatima Trabelsi;+216 98 765 432;Sfax, Avenue Habib Bourguiba;retour;Client absent;2024-01-15
-CMD-003;TRK-12347;Ahmed Bouazizi;+216 55 555 555;Sousse, Rue de la Paix;livre;;2024-01-16`
+    // Template matching Best Delivery format exactly
+    const template = `Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
+104807639707;mariem 23232024 *;53.8;2026-02-02;0000-00-00 00:00:00;2026-02-03 16:35:10;Livrée
+104807907553;azza 22919861 nahj hbib thamer;53.8;2026-02-02;0000-00-00 00:00:00;2026-02-03 19:37:43;Livrée
+104812017823;HANIN TLILI 54434722 CENTER;30.900;2026-02-02;0000-00-00 00:00:00;2026-02-07 10:10:38;Retour Expéditeur`
 
     const blob = new Blob([template], { type: "text/csv;charset=utf-8;" })
     const link = document.createElement("a")
@@ -236,9 +237,11 @@ CMD-003;TRK-12347;Ahmed Bouazizi;+216 55 555 555;Sousse, Rue de la Paix;livre;;2
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <strong>Colonnes attendues:</strong> numero_commande, tracking, client, telephone, adresse, statut, notes, date_livraison.
+                <strong>Format Best Delivery:</strong> Code, Nom, Prix, Date d{"'"}ajout, Date d{"'"}enlevement, Date livraison, Etat
                 <br />
-                <strong>Statuts valides:</strong> livre/delivered, retour/returned, echec/failed, en_transit, envoye/sent, en_attente/pending.
+                <strong>Statuts reconnus:</strong> Livree, Retour Expediteur, En cours, Ramasse, Annule, En attente
+                <br />
+                <span className="text-muted-foreground">Le telephone sera extrait automatiquement du champ Nom.</span>
               </AlertDescription>
             </Alert>
           </div>
@@ -326,9 +329,10 @@ CMD-003;TRK-12347;Ahmed Bouazizi;+216 55 555 555;Sousse, Rue de la Paix;livre;;2
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[100px]">N° Commande</TableHead>
+                      <TableHead className="w-[120px]">Code</TableHead>
                       <TableHead>Client</TableHead>
                       <TableHead>Telephone</TableHead>
+                      <TableHead className="w-[80px]">Prix</TableHead>
                       <TableHead className="w-[100px]">Statut</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -336,11 +340,14 @@ CMD-003;TRK-12347;Ahmed Bouazizi;+216 55 555 555;Sousse, Rue de la Paix;livre;;2
                     {parsedRows.slice(0, 10).map((row, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-mono text-xs">
-                          {row.orderNumber || row.trackingNumber || "-"}
+                          {row.trackingNumber || row.orderNumber || "-"}
                         </TableCell>
                         <TableCell className="text-sm">{row.customerName}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {row.customerPhone || "-"}
+                        </TableCell>
+                        <TableCell className="text-xs font-medium">
+                          {row.price ? `${row.price.toFixed(2)} DT` : "-"}
                         </TableCell>
                         <TableCell>
                           <Badge className={statusLabels[row.status]?.color || ""}>
@@ -351,7 +358,7 @@ CMD-003;TRK-12347;Ahmed Bouazizi;+216 55 555 555;Sousse, Rue de la Paix;livre;;2
                     ))}
                     {parsedRows.length > 10 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-xs text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-xs text-muted-foreground">
                           ... et {parsedRows.length - 10} autres lignes
                         </TableCell>
                       </TableRow>

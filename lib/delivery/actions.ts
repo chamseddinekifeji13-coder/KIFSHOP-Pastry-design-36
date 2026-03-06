@@ -724,6 +724,9 @@ export interface CSVImportRow {
   status: DeliveryStatus
   notes?: string
   deliveryDate?: string
+  price?: number
+  dateAdded?: string
+  pickupDate?: string
 }
 
 export interface ImportResult {
@@ -753,8 +756,21 @@ export async function parseCSVContent(content: string): Promise<{
   const headerLine = lines[0].toLowerCase()
   const headers = headerLine.split(/[,;]/).map((h) => h.trim().replace(/"/g, ""))
 
-  // Map French/English headers to our fields
+  // Map French/English headers to our fields (including Best Delivery format)
   const headerMap: Record<string, keyof CSVImportRow> = {
+    // Best Delivery columns
+    "code": "trackingNumber",
+    "nom": "customerName",
+    "prix": "price",
+    "date d'ajout": "dateAdded",
+    "date_d_ajout": "dateAdded",
+    "date d'enlèvement": "pickupDate",
+    "date_d_enlevement": "pickupDate",
+    "date livraison": "deliveryDate",
+    "date_livraison": "deliveryDate",
+    "etat": "status",
+    "état": "status",
+    // Standard columns
     "numero_commande": "orderNumber",
     "n_commande": "orderNumber",
     "order_number": "orderNumber",
@@ -768,7 +784,6 @@ export async function parseCSVContent(content: string): Promise<{
     "client": "customerName",
     "nom_client": "customerName",
     "customer_name": "customerName",
-    "nom": "customerName",
     "telephone": "customerPhone",
     "phone": "customerPhone",
     "tel": "customerPhone",
@@ -778,13 +793,13 @@ export async function parseCSVContent(content: string): Promise<{
     "customer_address": "customerAddress",
     "statut": "status",
     "status": "status",
-    "etat": "status",
     "notes": "notes",
     "commentaire": "notes",
     "comment": "notes",
-    "date_livraison": "deliveryDate",
     "delivery_date": "deliveryDate",
     "date": "deliveryDate",
+    "montant": "price",
+    "amount": "price",
   }
 
   // Find column indices
@@ -799,13 +814,26 @@ export async function parseCSVContent(content: string): Promise<{
     }
   })
 
-  // Map status values
+  // Map status values (including Best Delivery statuses)
   const statusMap: Record<string, DeliveryStatus> = {
+    // Best Delivery statuses
+    "livrée": "delivered",
+    "livree": "delivered",
+    "retour expéditeur": "returned",
+    "retour expediteur": "returned",
+    "retour_expediteur": "returned",
+    "en cours": "in_transit",
+    "en_cours": "in_transit",
+    "en attente": "pending",
+    "en_attente": "pending",
+    "ramassé": "sent",
+    "ramasse": "sent",
+    "annulé": "failed",
+    "annule": "failed",
+    // Standard statuses
     "livre": "delivered",
     "livré": "delivered",
     "delivered": "delivered",
-    "livree": "delivered",
-    "livrée": "delivered",
     "retour": "returned",
     "returned": "returned",
     "retourne": "returned",
@@ -814,14 +842,11 @@ export async function parseCSVContent(content: string): Promise<{
     "echoue": "failed",
     "échoué": "failed",
     "failed": "failed",
-    "en_cours": "in_transit",
     "in_transit": "in_transit",
-    "en transit": "in_transit",
     "transit": "in_transit",
     "envoye": "sent",
     "envoyé": "sent",
     "sent": "sent",
-    "en_attente": "pending",
     "pending": "pending",
     "attente": "pending",
   }
@@ -849,21 +874,45 @@ export async function parseCSVContent(content: string): Promise<{
     values.push(current.trim())
 
     // Extract fields
-    const customerName = columnIndices.customerName !== undefined 
-      ? values[columnIndices.customerName]?.replace(/"/g, "") 
+    let rawCustomerName = columnIndices.customerName !== undefined 
+      ? values[columnIndices.customerName]?.replace(/"/g, "").trim() 
       : ""
     
-    const customerAddress = columnIndices.customerAddress !== undefined 
-      ? values[columnIndices.customerAddress]?.replace(/"/g, "") 
+    // Best Delivery format: "Nom Telephone Adresse" in the Nom field
+    // Example: "mariem 23232024 *" or "HANIN TLILI 54434722 CENTER"
+    let customerPhone = columnIndices.customerPhone !== undefined 
+      ? values[columnIndices.customerPhone]?.replace(/"/g, "").trim() 
+      : undefined
+
+    let customerName = rawCustomerName
+    let customerAddress = columnIndices.customerAddress !== undefined 
+      ? values[columnIndices.customerAddress]?.replace(/"/g, "").trim() 
       : ""
+
+    // Parse Best Delivery format: extract phone from name field
+    // Phone is typically 8 digits in Tunisia
+    const phoneMatch = rawCustomerName.match(/(\d{8})/)
+    if (phoneMatch && !customerPhone) {
+      customerPhone = phoneMatch[1]
+      // Split name field: everything before phone is name, everything after is address hint
+      const parts = rawCustomerName.split(phoneMatch[1])
+      customerName = parts[0].trim()
+      // If there's text after phone and no address, use it as address
+      if (parts[1] && !customerAddress) {
+        const afterPhone = parts[1].replace(/^\s*\*?\s*/, "").trim()
+        if (afterPhone && afterPhone !== "*") {
+          customerAddress = afterPhone
+        }
+      }
+    }
+
+    // If no address found, use a placeholder (Best Delivery may not include full address in export)
+    if (!customerAddress) {
+      customerAddress = "Adresse via Best Delivery"
+    }
 
     if (!customerName) {
       errors.push({ row: i + 1, error: "Nom client manquant" })
-      continue
-    }
-
-    if (!customerAddress) {
-      errors.push({ row: i + 1, error: "Adresse manquante" })
       continue
     }
 
@@ -873,6 +922,12 @@ export async function parseCSVContent(content: string): Promise<{
     
     const status = statusMap[rawStatus] || "pending"
 
+    // Extract price if available
+    const priceStr = columnIndices.price !== undefined
+      ? values[columnIndices.price]?.replace(/"/g, "").trim()
+      : undefined
+    const price = priceStr ? parseFloat(priceStr) : undefined
+
     rows.push({
       orderNumber: columnIndices.orderNumber !== undefined 
         ? values[columnIndices.orderNumber]?.replace(/"/g, "") 
@@ -881,16 +936,21 @@ export async function parseCSVContent(content: string): Promise<{
         ? values[columnIndices.trackingNumber]?.replace(/"/g, "") 
         : undefined,
       customerName,
-      customerPhone: columnIndices.customerPhone !== undefined 
-        ? values[columnIndices.customerPhone]?.replace(/"/g, "") 
-        : undefined,
+      customerPhone,
       customerAddress,
       status,
+      price,
       notes: columnIndices.notes !== undefined 
         ? values[columnIndices.notes]?.replace(/"/g, "") 
         : undefined,
       deliveryDate: columnIndices.deliveryDate !== undefined 
         ? values[columnIndices.deliveryDate]?.replace(/"/g, "") 
+        : undefined,
+      dateAdded: columnIndices.dateAdded !== undefined
+        ? values[columnIndices.dateAdded]?.replace(/"/g, "")
+        : undefined,
+      pickupDate: columnIndices.pickupDate !== undefined
+        ? values[columnIndices.pickupDate]?.replace(/"/g, "")
         : undefined,
     })
   }
