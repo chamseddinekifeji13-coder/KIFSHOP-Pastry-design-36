@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS best_delivery_shipments (
   delivery_type TEXT, -- 'standard', 'express', etc
   tracking_number TEXT,
   shipment_id TEXT, -- Best Delivery shipment ID
-  status TEXT DEFAULT 'pending', -- 'pending', 'sent', 'in_transit', 'delivered', 'failed'
+  status TEXT DEFAULT 'pending', -- 'pending', 'sent', 'in_transit', 'delivered', 'failed', 'returned'
   notes TEXT,
   exported_at TIMESTAMP DEFAULT NOW(),
   response_data JSONB, -- Store the API response
