@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
+import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -37,6 +39,8 @@ import {
   Users,
   Package,
   RotateCcw,
+  ClipboardPaste,
+  FileUp,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
@@ -65,12 +69,15 @@ export function DeliveryImportDialog({
 
   const [step, setStep] = useState<ImportStep>("upload")
   const [file, setFile] = useState<File | null>(null)
+  const [pastedText, setPastedText] = useState("")
+  const [inputMethod, setInputMethod] = useState<"paste" | "file">("paste")
   const [parsedRows, setParsedRows] = useState<CSVImportRow[]>([])
   const [parseErrors, setParseErrors] = useState<Array<{ row: number; error: string }>>([])
   const [syncClients, setSyncClients] = useState(true)
   const [isImporting, setIsImporting] = useState(false)
   const [importProgress, setImportProgress] = useState(0)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [isParsing, setIsParsing] = useState(false)
 
   const statusLabels: Record<string, { label: string; color: string }> = {
     pending: { label: "En attente", color: "bg-gray-100 text-gray-800" },
@@ -80,6 +87,34 @@ export function DeliveryImportDialog({
     failed: { label: "Echec", color: "bg-red-100 text-red-800" },
     returned: { label: "Retour", color: "bg-violet-100 text-violet-800" },
   }
+
+  const handleParsePastedText = useCallback(async () => {
+    if (!pastedText.trim()) {
+      toast.error("Veuillez coller du texte d'abord")
+      return
+    }
+    
+    setIsParsing(true)
+    try {
+      const { rows, errors } = await parseCSVContent(pastedText)
+      
+      setParsedRows(rows)
+      setParseErrors(errors)
+      setStep("preview")
+      
+      if (rows.length === 0) {
+        toast.error("Aucune donnee valide trouvee dans le texte")
+      } else if (errors.length > 0) {
+        toast.warning(`${rows.length} lignes valides, ${errors.length} erreurs detectees`)
+      } else {
+        toast.success(`${rows.length} lignes pretes a importer`)
+      }
+    } catch {
+      toast.error("Erreur lors de l'analyse du texte")
+    } finally {
+      setIsParsing(false)
+    }
+  }, [pastedText])
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     setFile(selectedFile)
@@ -162,6 +197,7 @@ export function DeliveryImportDialog({
   const handleClose = () => {
     setStep("upload")
     setFile(null)
+    setPastedText("")
     setParsedRows([])
     setParseErrors([])
     setImportResult(null)
@@ -201,38 +237,86 @@ export function DeliveryImportDialog({
         {/* Step: Upload */}
         {step === "upload" && (
           <div className="space-y-4">
-            <div
-              className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors"
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleFileInputChange}
-                className="hidden"
-              />
-              <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-              <p className="text-sm font-medium">
-                Glissez-deposez votre fichier CSV ici
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                ou cliquez pour selectionner
-              </p>
-            </div>
+            <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "paste" | "file")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="paste" className="flex items-center gap-2">
+                  <ClipboardPaste className="h-4 w-4" />
+                  Coller le texte
+                </TabsTrigger>
+                <TabsTrigger value="file" className="flex items-center gap-2">
+                  <FileUp className="h-4 w-4" />
+                  Fichier CSV
+                </TabsTrigger>
+              </TabsList>
 
-            <div className="flex items-center justify-between">
-              <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                <Download className="mr-2 h-4 w-4" />
-                Telecharger le modele CSV
-              </Button>
-              
-              <div className="text-xs text-muted-foreground">
-                Formats acceptes: .csv (separateur: , ou ;)
-              </div>
-            </div>
+              {/* Paste Tab */}
+              <TabsContent value="paste" className="mt-4 space-y-4">
+                <div>
+                  <Textarea
+                    placeholder="Collez vos donnees CSV ici...
+
+Exemple:
+Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
+104807639707;mariem 23232024 *;53.8;2026-02-02;0000-00-00;2026-02-03;Livrée
+104807907553;azza 22919861 nahj thamer;53.8;2026-02-02;0000-00-00;2026-02-03;Livrée"
+                    className="min-h-[200px] font-mono text-xs"
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {pastedText.split("\n").filter(l => l.trim()).length} lignes detectees
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleParsePastedText} 
+                  disabled={!pastedText.trim() || isParsing}
+                  className="w-full"
+                >
+                  {isParsing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                  )}
+                  Analyser les donnees
+                </Button>
+              </TabsContent>
+
+              {/* File Tab */}
+              <TabsContent value="file" className="mt-4 space-y-4">
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                  onDrop={handleDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileInputChange}
+                    className="hidden"
+                  />
+                  <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm font-medium">
+                    Glissez-deposez votre fichier CSV ici
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ou cliquez pour selectionner
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Telecharger le modele CSV
+                  </Button>
+                  
+                  <div className="text-xs text-muted-foreground">
+                    Formats acceptes: .csv (separateur: , ou ;)
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <Alert>
               <AlertTriangle className="h-4 w-4" />
@@ -250,24 +334,31 @@ export function DeliveryImportDialog({
         {/* Step: Preview */}
         {step === "preview" && (
           <div className="space-y-4">
-            {file && (
-              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div className="flex items-center gap-3">
+            {/* Source indicator - file or pasted text */}
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div className="flex items-center gap-3">
+                {file ? (
                   <FileText className="h-8 w-8 text-blue-500" />
-                  <div>
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {parsedRows.length} lignes valides
-                      {parseErrors.length > 0 && `, ${parseErrors.length} erreurs`}
-                    </p>
-                  </div>
+                ) : (
+                  <ClipboardPaste className="h-8 w-8 text-green-500" />
+                )}
+                <div>
+                  <p className="text-sm font-medium">
+                    {file ? file.name : "Texte colle"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {parsedRows.length} lignes valides
+                    {parseErrors.length > 0 && `, ${parseErrors.length} erreurs`}
+                  </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFile(null)
-                    setParsedRows([])
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setFile(null)
+                  setPastedText("")
+                  setParsedRows([])
                     setParseErrors([])
                     setStep("upload")
                   }}
