@@ -12,6 +12,7 @@ import { getCriticalStock } from "@/lib/stocks/notifications"
 import { fetchProductionPlans } from "@/lib/planning/actions"
 import { fetchSalesChannels } from "@/lib/channels/actions"
 import { fetchClients, fetchAllOrders as fetchClientOrders, fetchAgentStats } from "@/lib/clients/actions"
+import { fetchDeliveryShipments } from "@/lib/delivery/actions"
 
 function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T>) {
   const { currentTenant, isLoading: tenantLoading } = useTenant()
@@ -149,4 +150,8 @@ export function useDueReminders() {
     () => fetchDueReminders(tenantId),
     { revalidateOnFocus: true, refreshInterval: 60000, dedupingInterval: 10000 }
   )
+}
+
+export function useDeliveryShipments() {
+  return useTenantQuery("delivery-shipments", fetchDeliveryShipments)
 }

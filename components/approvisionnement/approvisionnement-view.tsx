@@ -17,6 +17,7 @@ import { NewInvoiceDrawer } from "./new-invoice-drawer"
 import { PurchaseInvoicesList } from "./purchase-invoices-list"
 import { NewDeliveryNoteDrawer } from "./new-delivery-note-drawer"
 import { DeliveryNotesList } from "./delivery-notes-list"
+import { BestDeliveryReport } from "./best-delivery-report"
 import { useCallback } from "react"
 import { useI18n } from "@/lib/i18n/context"
 
@@ -164,6 +165,7 @@ export function ApprovisionnementView() {
           <TabsTrigger value="suppliers"><Users className="mr-2 h-4 w-4" />Fournisseurs</TabsTrigger>
           <TabsTrigger value="best-prices"><Trophy className="mr-2 h-4 w-4" />Meilleurs Prix</TabsTrigger>
           <TabsTrigger value="price-history"><History className="mr-2 h-4 w-4" />Historique Prix</TabsTrigger>
+          <TabsTrigger value="best-delivery"><Truck className="mr-2 h-4 w-4" />Best Delivery</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-4">
@@ -316,6 +318,10 @@ export function ApprovisionnementView() {
               suppliers={allSuppliers.map(s => ({ id: s.id, name: s.name }))}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="best-delivery" className="mt-4">
+          <BestDeliveryReport />
         </TabsContent>
       </Tabs>
 
