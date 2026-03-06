@@ -785,9 +785,14 @@ export async function parseCSVContent(content: string): Promise<{
     "nom_client": "customerName",
     "customer_name": "customerName",
     "telephone": "customerPhone",
+    "téléphone": "customerPhone",
     "phone": "customerPhone",
     "tel": "customerPhone",
+    "tél": "customerPhone",
+    "numero_telephone": "customerPhone",
+    "num_tel": "customerPhone",
     "customer_phone": "customerPhone",
+    "mobile": "customerPhone",
     "adresse": "customerAddress",
     "address": "customerAddress",
     "customer_address": "customerAddress",
@@ -805,9 +810,13 @@ export async function parseCSVContent(content: string): Promise<{
   // Find column indices
   const columnIndices: Partial<Record<keyof CSVImportRow, number>> = {}
   headers.forEach((header, index) => {
-    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, "_")
+    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "")
+    const cleanHeader = header.toLowerCase().trim()
+    
     for (const [key, field] of Object.entries(headerMap)) {
-      if (normalizedHeader.includes(key.replace(/[^a-z0-9_]/g, "_")) || header === key) {
+      const normalizedKey = key.replace(/[^a-z0-9_]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "")
+      // Match exact header, normalized version, or if header contains key
+      if (cleanHeader === key || normalizedHeader === normalizedKey || normalizedHeader.includes(normalizedKey)) {
         columnIndices[field] = index
         break
       }
@@ -889,10 +898,10 @@ export async function parseCSVContent(content: string): Promise<{
       ? values[columnIndices.customerAddress]?.replace(/"/g, "").trim() 
       : ""
 
-    // Parse Best Delivery format: extract phone from name field
+    // Parse Best Delivery format: extract phone from name field if not already set
     // Phone is typically 8 digits in Tunisia
     const phoneMatch = rawCustomerName.match(/(\d{8})/)
-    if (phoneMatch && !customerPhone) {
+    if (phoneMatch && (!customerPhone || customerPhone === "")) {
       customerPhone = phoneMatch[1]
       // Split name field: everything before phone is name, everything after is address hint
       const parts = rawCustomerName.split(phoneMatch[1])
@@ -902,6 +911,18 @@ export async function parseCSVContent(content: string): Promise<{
         const afterPhone = parts[1].replace(/^\s*\*?\s*/, "").trim()
         if (afterPhone && afterPhone !== "*") {
           customerAddress = afterPhone
+        }
+      }
+    }
+    
+    // Ensure phone is cleaned (remove spaces, dashes, etc.)
+    if (customerPhone) {
+      customerPhone = customerPhone.replace(/[\s\-\.]/g, "").trim()
+      // If phone doesn't look valid (not 8 digits), try to extract 8 digits
+      if (!/^\d{8}$/.test(customerPhone)) {
+        const extractedPhone = customerPhone.match(/(\d{8})/)
+        if (extractedPhone) {
+          customerPhone = extractedPhone[1]
         }
       }
     }
