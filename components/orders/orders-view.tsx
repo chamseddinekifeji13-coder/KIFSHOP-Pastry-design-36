@@ -52,7 +52,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
 import { QuickOrder } from "./quick-order"
-import { BulkImportDialog } from "./bulk-import-dialog"
 import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV } from "@/lib/csv-export"
 
