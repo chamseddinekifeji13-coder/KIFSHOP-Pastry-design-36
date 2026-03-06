@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, X, Trash2,
   Building2, User, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Zap, Upload,
+  FileText, Download, Printer, Eye, Zap,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -127,7 +127,6 @@ export function OrdersView() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [newOrderOpen, setNewOrderOpen] = useState(false)
   const [quickOrderOpen, setQuickOrderOpen] = useState(false)
-  const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
@@ -439,7 +438,7 @@ export function OrdersView() {
     setActionLoading(false)
   }
 
-  // ─── Document Handlers ────────────────────────���────────────
+  // ─── Document Handlers ────────────────────────�����───────────
 
   const handleGenerateDocument = async (type: DocumentType) => {
     if (!selectedOrder || generatingDoc) return
@@ -607,13 +606,7 @@ export function OrdersView() {
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => setBulkImportOpen(true)}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Import en Masse
-          </Button>
+          
           <Button
             variant="secondary"
             className="bg-amber-500 text-white hover:bg-amber-600"
@@ -1872,8 +1865,7 @@ export function OrdersView() {
 {/* New Order Drawer */}
 <NewOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
 
-{/* Bulk Import Dialog */}
-<BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImportComplete={() => mutate()} />
+
 </div>
   )
 }
