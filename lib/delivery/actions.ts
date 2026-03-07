@@ -995,9 +995,10 @@ export async function importDeliveryReport(
     const row = rows[i]
 
     try {
-      // Check if shipment already exists by tracking number or order number
+      // Check if shipment already exists by tracking number, order number, or customer name + phone combination
       let existingShipment = null
       
+      // Priority 1: Check by tracking number (most reliable)
       if (row.trackingNumber) {
         const { data } = await supabase
           .from("best_delivery_shipments")
@@ -1008,12 +1009,29 @@ export async function importDeliveryReport(
         existingShipment = data
       }
 
+      // Priority 2: Check by order number
       if (!existingShipment && row.orderNumber) {
         const { data } = await supabase
           .from("best_delivery_shipments")
           .select("id")
           .eq("tenant_id", tenantId)
           .eq("order_number", row.orderNumber)
+          .single()
+        existingShipment = data
+      }
+
+      // Priority 3: Check by customer name + phone + similar date (within same week) to catch duplicates
+      if (!existingShipment && row.customerName && row.customerPhone) {
+        const oneWeekAgo = new Date()
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+        
+        const { data } = await supabase
+          .from("best_delivery_shipments")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .ilike("customer_name", row.customerName)
+          .eq("customer_phone", row.customerPhone)
+          .gte("created_at", oneWeekAgo.toISOString())
           .single()
         existingShipment = data
       }
