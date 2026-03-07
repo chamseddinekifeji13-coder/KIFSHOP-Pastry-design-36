@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { v4 as uuidv4 } from "uuid"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -1113,7 +1114,7 @@ export async function importDeliveryReport(
         }
       } else {
         // Find order by order number if provided
-        let orderId = crypto.randomUUID()
+        let orderId = uuidv4()
         
         if (row.orderNumber) {
           const { data: order } = await supabase
