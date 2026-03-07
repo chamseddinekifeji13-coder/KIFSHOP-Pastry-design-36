@@ -566,6 +566,7 @@ export function BestDeliveryReport() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Client</TableHead>
+                      <TableHead>Telephone</TableHead>
                       <TableHead>N° Commande</TableHead>
                       <TableHead>N° Suivi</TableHead>
                       <TableHead>Statut</TableHead>
@@ -580,14 +581,19 @@ export function BestDeliveryReport() {
                       return (
                         <TableRow key={shipment.id}>
                           <TableCell>
-                            <div>
-                              <p className="font-medium">{shipment.customerName}</p>
-                              {shipment.customerPhone && (
-                                <p className="text-xs text-muted-foreground">
-                                  {shipment.customerPhone}
-                                </p>
-                              )}
-                            </div>
+                            <p className="font-medium">{shipment.customerName}</p>
+                          </TableCell>
+                          <TableCell>
+                            {shipment.customerPhone ? (
+                              <a 
+                                href={`tel:${shipment.customerPhone}`}
+                                className="font-mono text-sm text-primary hover:underline"
+                              >
+                                {shipment.customerPhone}
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
                           </TableCell>
                           <TableCell>
                             <span className="font-mono text-sm">
