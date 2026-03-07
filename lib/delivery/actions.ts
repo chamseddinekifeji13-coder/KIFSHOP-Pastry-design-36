@@ -721,6 +721,7 @@ export interface CSVImportRow {
   customerName: string
   customerPhone?: string
   customerAddress: string
+  fees?: number
   status: DeliveryStatus
   notes?: string
   deliveryDate?: string
@@ -761,7 +762,10 @@ export async function parseCSVContent(content: string): Promise<{
     // Best Delivery columns
     "code": "trackingNumber",
     "nom": "customerName",
+    "client": "customerName",
     "prix": "price",
+    "etat": "status",
+    "frais": "fees",
     "date d'ajout": "dateAdded",
     "date_d_ajout": "dateAdded",
     "date d'enlèvement": "pickupDate",
@@ -785,9 +789,13 @@ export async function parseCSVContent(content: string): Promise<{
     "nom_client": "customerName",
     "customer_name": "customerName",
     "telephone": "customerPhone",
+    "téléphone": "customerPhone",
     "phone": "customerPhone",
     "tel": "customerPhone",
+    "tél": "customerPhone",
     "customer_phone": "customerPhone",
+    "numero_telephone": "customerPhone",
+    "num_tel": "customerPhone",
     "adresse": "customerAddress",
     "address": "customerAddress",
     "customer_address": "customerAddress",
@@ -805,9 +813,10 @@ export async function parseCSVContent(content: string): Promise<{
   // Find column indices
   const columnIndices: Partial<Record<keyof CSVImportRow, number>> = {}
   headers.forEach((header, index) => {
-    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9_]/g, "_")
+    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9àâäéèêëïîôùûüç]/g, "_")
     for (const [key, field] of Object.entries(headerMap)) {
-      if (normalizedHeader.includes(key.replace(/[^a-z0-9_]/g, "_")) || header === key) {
+      const normalizedKey = key.toLowerCase().replace(/[^a-z0-9àâäéèêëïîôùûüç]/g, "_")
+      if (normalizedHeader.includes(normalizedKey) || normalizedHeader === normalizedKey || header.toLowerCase() === key.toLowerCase()) {
         columnIndices[field] = index
         break
       }
@@ -833,6 +842,7 @@ export async function parseCSVContent(content: string): Promise<{
     // Standard statuses
     "livre": "delivered",
     "livré": "delivered",
+    "livr": "delivered",
     "delivered": "delivered",
     "retour": "returned",
     "returned": "returned",
@@ -928,6 +938,12 @@ export async function parseCSVContent(content: string): Promise<{
       : undefined
     const price = priceStr ? parseFloat(priceStr) : undefined
 
+    // Extract fees if available
+    const feesStr = columnIndices.fees !== undefined
+      ? values[columnIndices.fees]?.replace(/"/g, "").trim()
+      : undefined
+    const fees = feesStr ? parseFloat(feesStr) : undefined
+
     rows.push({
       orderNumber: columnIndices.orderNumber !== undefined 
         ? values[columnIndices.orderNumber]?.replace(/"/g, "") 
@@ -940,6 +956,7 @@ export async function parseCSVContent(content: string): Promise<{
       customerAddress,
       status,
       price,
+      fees,
       notes: columnIndices.notes !== undefined 
         ? values[columnIndices.notes]?.replace(/"/g, "") 
         : undefined,
