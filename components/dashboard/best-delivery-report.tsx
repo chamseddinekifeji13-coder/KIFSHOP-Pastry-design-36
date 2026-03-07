@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import {
   Truck, Package, CheckCircle2, XCircle, RotateCcw, Clock,
   TrendingUp, TrendingDown, Download, RefreshCw, Eye,
-  Search, Filter, Calendar, BarChart3, Loader2, Upload,
+  Search, Filter, Calendar, BarChart3, Loader2, Upload, Trash2,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,11 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDeliveryShipments } from "@/hooks/use-tenant-data"
@@ -87,6 +92,37 @@ export function BestDeliveryReport() {
   const [isExporting, setIsExporting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [deleteNoPhoneOpen, setDeleteNoPhoneOpen] = useState(false)
+  const [isDeletingNoPhone, setIsDeletingNoPhone] = useState(false)
+
+  // Shipments without phone number
+  const shipmentsWithoutPhone = useMemo(
+    () => shipments.filter((s) => !s.customerPhone || s.customerPhone.trim() === ""),
+    [shipments]
+  )
+
+  const handleDeleteWithoutPhone = async () => {
+    if (!currentTenant?.id) return
+    setIsDeletingNoPhone(true)
+    try {
+      const { createClient } = await import("@/lib/supabase/client")
+      const supabase = createClient()
+      const { error, count } = await supabase
+        .from("best_delivery_shipments")
+        .delete({ count: "exact" })
+        .eq("tenant_id", currentTenant.id)
+        .or("customer_phone.is.null,customer_phone.eq.")
+      if (error) throw error
+      toast.success(`${count ?? shipmentsWithoutPhone.length} expedition(s) sans telephone supprimee(s)`)
+      mutate()
+      setDeleteNoPhoneOpen(false)
+    } catch (err) {
+      console.error("[v0] delete without phone error:", err)
+      toast.error("Erreur lors de la suppression")
+    } finally {
+      setIsDeletingNoPhone(false)
+    }
+  }
 
   // Calculate statistics
   const stats = useMemo(() => calculateDeliveryStats(shipments), [shipments])
@@ -255,9 +291,9 @@ export function BestDeliveryReport() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Actualiser
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleBulkSync} 
+          <Button
+            variant="outline"
+            onClick={handleBulkSync}
             disabled={isSyncing || (stats.returned === 0 && stats.delivered === 0)}
             title="Synchroniser les livraisons et retours avec les compteurs clients"
           >
@@ -272,6 +308,15 @@ export function BestDeliveryReport() {
             <Upload className="mr-2 h-4 w-4" />
             Importer CSV
           </Button>
+          {shipmentsWithoutPhone.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteNoPhoneOpen(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer sans tel. ({shipmentsWithoutPhone.length})
+            </Button>
+          )}
           <Button variant="outline" onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -837,6 +882,31 @@ export function BestDeliveryReport() {
         onOpenChange={setImportDialogOpen}
         onImportComplete={() => mutate()}
       />
+
+      {/* Delete Without Phone Confirmation */}
+      <AlertDialog open={deleteNoPhoneOpen} onOpenChange={setDeleteNoPhoneOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer les expeditions sans telephone ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action supprimera definitivement <strong>{shipmentsWithoutPhone.length} expedition(s)</strong> dont le numero de telephone est vide. Cette action est irreversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogCancel>Annuler</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteWithoutPhone}
+            disabled={isDeletingNoPhone}
+            className="bg-destructive hover:bg-destructive/90"
+          >
+            {isDeletingNoPhone ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
+            Oui, supprimer
+          </AlertDialogAction>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
