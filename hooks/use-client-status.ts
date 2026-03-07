@@ -98,6 +98,9 @@ export function useClientStatus(): UseClientStatusReturn {
         }
 
         if (deliveryStats && deliveryStats.length > 0) {
+          console.log("[v0] Found delivery stats for phone:", cleanPhone, "count:", deliveryStats.length)
+          console.log("[v0] Sample statuses:", deliveryStats.slice(0, 3).map(s => s.status))
+          
           deliveryStats.forEach((shipment) => {
             if (isDelivered(shipment.status)) {
               deliveryCount++
@@ -106,6 +109,9 @@ export function useClientStatus(): UseClientStatusReturn {
               deliveryReturned++
             }
           })
+          console.log("[v0] Delivery count:", deliveryCount, "returned:", deliveryReturned)
+        } else {
+          console.log("[v0] No delivery stats found for phone:", cleanPhone)
         }
 
         const clientData: ClientData = {
@@ -142,6 +148,9 @@ export function useClientStatus(): UseClientStatusReturn {
       }
 
       if (existingShipments && existingShipments.length > 0) {
+        console.log("[v0] Found existing shipments for phone:", cleanPhone, "count:", existingShipments.length)
+        console.log("[v0] Sample shipments:", existingShipments.slice(0, 3))
+        
         // Get the most recent name
         customerName = existingShipments[0].customer_name || null
         
@@ -153,6 +162,9 @@ export function useClientStatus(): UseClientStatusReturn {
             deliveryReturned++
           }
         })
+        console.log("[v0] Calculated - name:", customerName, "delivery:", deliveryCount, "returned:", deliveryReturned)
+      } else {
+        console.log("[v0] No shipments found for phone:", cleanPhone)
       }
 
       // Auto-create new client with data from shipments if available
