@@ -304,26 +304,6 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                     ou cliquez pour selectionner
                   </p>
                 </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-muted-foreground">Ajoutes</p>
-                      <p className="text-2xl font-bold">{importResult.imported}</p>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-muted-foreground">Mise a jour</p>
-                      <p className="text-2xl font-bold">{importResult.updated}</p>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-muted-foreground">Ignores (doublons)</p>
-                      <p className="text-2xl font-bold">{importResult.skipped}</p>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-muted-foreground">Erreurs</p>
-                      <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
-                    </div>
-                  </div>
-                </div>
               </TabsContent>
             </Tabs>
 

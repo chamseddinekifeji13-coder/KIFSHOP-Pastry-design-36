@@ -96,12 +96,10 @@ export function BestDeliveryReport() {
   const [isDeletingNoPhone, setIsDeletingNoPhone] = useState(false)
 
   // Shipments without phone number
-  const shipmentsWithoutPhone = useMemo(() => {
-    const result = shipments.filter((s) => !s.customerPhone || s.customerPhone.trim() === "")
-    console.log("[v0] shipmentsWithoutPhone count:", result.length, "from total:", shipments.length)
-    console.log("[v0] sample without phone:", result.slice(0, 3))
-    return result
-  }, [shipments])
+  const shipmentsWithoutPhone = useMemo(
+    () => shipments.filter((s) => !s.customerPhone || s.customerPhone.trim() === ""),
+    [shipments]
+  )
 
   const handleDeleteWithoutPhone = async () => {
     if (!currentTenant?.id) return
