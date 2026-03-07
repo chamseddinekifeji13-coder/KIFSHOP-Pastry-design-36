@@ -4,7 +4,8 @@ import { useState, useMemo } from "react"
 import {
   Megaphone, Send, Users, Star, AlertTriangle, Filter,
   MessageCircle, Phone, CheckCircle2, Loader2, Copy, X,
-  Hash, TrendingUp, ChevronDown, Ban, User,
+  Hash, TrendingUp, ChevronDown, Ban, User, Truck, Calendar,
+  Bell, Package,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,10 +23,12 @@ import {
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
-import { useClients } from "@/hooks/use-tenant-data"
+import { useClients, useOrders } from "@/hooks/use-tenant-data"
 import { type Client } from "@/lib/clients/actions"
+import { type Order } from "@/lib/orders/actions"
 import { toast } from "sonner"
 import { useI18n } from "@/lib/i18n/context"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type Channel = "whatsapp" | "sms"
 
@@ -38,7 +41,10 @@ const statusFilter: Record<string, { label: string; color: string }> = {
 
 export function CampaignsView() {
   const { t } = useI18n()
+  const { currentTenant } = useTenant()
   const { data: clients = [], isLoading } = useClients()
+  const { data: orders = [], isLoading: ordersLoading } = useOrders()
+  const [activeTab, setActiveTab] = useState<"promo" | "delivery">("promo")
   const [step, setStep] = useState<"audience" | "compose" | "preview">("audience")
 
   // Audience filters
@@ -57,6 +63,81 @@ export function CampaignsView() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+
+  // Delivery notifications state
+  const [deliveryChannel, setDeliveryChannel] = useState<Channel>("whatsapp")
+  const [deliveryMessage, setDeliveryMessage] = useState(
+    "Bonjour {nom},\n\nVotre commande est prevue pour livraison aujourd'hui.\n\nAdresse: {adresse}\nMontant: {montant} TND\n\nMerci de votre confiance!\nKIFSHOP"
+  )
+  const [sendingDelivery, setSendingDelivery] = useState(false)
+  const [deliverySent, setDeliverySent] = useState(false)
+  const [selectedDeliveryOrders, setSelectedDeliveryOrders] = useState<string[]>([])
+
+  // Get today's date in YYYY-MM-DD format
+  const today = new Date().toISOString().split("T")[0]
+
+  // Filter orders with delivery date today and status "en-livraison" or "pret"
+  const todayDeliveryOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // Check if delivery date is today
+      const orderDeliveryDate = order.deliveryDate?.split("T")[0]
+      // Only include confirmed orders (en-livraison or pret status)
+      const isConfirmed = order.status === "en-livraison" || order.status === "pret"
+      return orderDeliveryDate === today && isConfirmed && order.deliveryType === "delivery"
+    })
+  }, [orders, today])
+
+  // Get selected orders for notification
+  const ordersToNotify = useMemo(() => {
+    if (selectedDeliveryOrders.length === 0) return todayDeliveryOrders
+    return todayDeliveryOrders.filter((o) => selectedDeliveryOrders.includes(o.id))
+  }, [todayDeliveryOrders, selectedDeliveryOrders])
+
+  // Process delivery message with order variables
+  const processedDeliveryMessage = (order: Order) => {
+    return deliveryMessage
+      .replace(/\{nom\}/g, order.customerName || "Cher(e) client(e)")
+      .replace(/\{telephone\}/g, order.customerPhone || "")
+      .replace(/\{adresse\}/g, order.customerAddress || order.deliveryAddress || "Non specifiee")
+      .replace(/\{montant\}/g, order.total.toFixed(0))
+      .replace(/\{statut\}/g, order.status === "en-livraison" ? "En livraison" : "Pret")
+  }
+
+  const handleToggleDeliveryOrder = (orderId: string) => {
+    setSelectedDeliveryOrders((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId]
+    )
+  }
+
+  const handleSelectAllDeliveryOrders = () => {
+    if (selectedDeliveryOrders.length === todayDeliveryOrders.length) {
+      setSelectedDeliveryOrders([])
+    } else {
+      setSelectedDeliveryOrders(todayDeliveryOrders.map((o) => o.id))
+    }
+  }
+
+  const handleCopyDeliveryNumbers = () => {
+    const numbers = ordersToNotify.map((o) => o.customerPhone).filter(Boolean).join("\n")
+    navigator.clipboard.writeText(numbers)
+    toast.success(`${ordersToNotify.length} numeros copies dans le presse-papiers`)
+  }
+
+  const handleCopyDeliveryMessage = () => {
+    navigator.clipboard.writeText(deliveryMessage)
+    toast.success("Message copie dans le presse-papiers")
+  }
+
+  const handleSendDeliveryNotifications = async () => {
+    setSendingDelivery(true)
+    // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
+    await new Promise((r) => setTimeout(r, 2000))
+    setSendingDelivery(false)
+    setDeliverySent(true)
+    toast.success(`Notifications envoyees a ${ordersToNotify.length} clients via ${deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}`)
+  }
 
   // Filter audience
   const audience = useMemo(() => {
@@ -99,7 +180,7 @@ export function CampaignsView() {
     toast.success(`Campagne "${campaignName}" envoyee a ${audience.length} clients via ${channel === "whatsapp" ? "WhatsApp" : "SMS"}`)
   }
 
-  if (isLoading) {
+  if (isLoading || ordersLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -112,15 +193,35 @@ export function CampaignsView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Campagnes Promotionnelles</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Campagnes & Notifications</h1>
           <p className="text-muted-foreground">
-            Creez et envoyez des messages a vos clients
+            Creez des campagnes et envoyez des notifications de livraison
           </p>
         </div>
       </div>
 
-      {/* Steps */}
-      <div className="flex items-center gap-2">
+      {/* Main Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "promo" | "delivery")}>
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="promo" className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4" />
+            Campagnes Promo
+          </TabsTrigger>
+          <TabsTrigger value="delivery" className="flex items-center gap-2">
+            <Truck className="h-4 w-4" />
+            Livraisons du Jour
+            {todayDeliveryOrders.length > 0 && (
+              <Badge className="ml-1 bg-primary text-primary-foreground text-[10px] px-1.5">
+                {todayDeliveryOrders.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Promotional Campaigns Tab */}
+        <TabsContent value="promo" className="space-y-6 mt-6">
+          {/* Steps */}
+          <div className="flex items-center gap-2">
         {["audience", "compose", "preview"].map((s, i) => {
           const labels = { audience: "1. Audience", compose: "2. Message", preview: "3. Apercu" }
           const isActive = s === step
@@ -469,6 +570,234 @@ export function CampaignsView() {
           </CardContent>
         </Card>
       )}
+        </TabsContent>
+
+        {/* Delivery Notifications Tab */}
+        <TabsContent value="delivery" className="space-y-6 mt-6">
+          {deliverySent ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                  </div>
+                  <p className="text-xl font-bold">Notifications envoyees !</p>
+                  <p className="text-muted-foreground mt-1">
+                    {ordersToNotify.length} clients ont ete avertis de leur livraison via {deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}
+                  </p>
+                  <Button className="mt-6" onClick={() => { setDeliverySent(false); setSelectedDeliveryOrders([]) }}>
+                    Nouvelle notification
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Orders to notify */}
+              <div className="lg:col-span-2 space-y-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Livraisons prevues aujourd'hui
+                      </CardTitle>
+                      {todayDeliveryOrders.length > 0 && (
+                        <Button variant="outline" size="sm" onClick={handleSelectAllDeliveryOrders}>
+                          {selectedDeliveryOrders.length === todayDeliveryOrders.length ? "Deselectioner tout" : "Selectionner tout"}
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {todayDeliveryOrders.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Package className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
+                        <p className="text-sm text-muted-foreground">Aucune livraison confirmee pour aujourd'hui</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Les commandes avec statut "Pret" ou "En livraison" et une date de livraison aujourd'hui apparaitront ici
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {todayDeliveryOrders.map((order) => (
+                          <div
+                            key={order.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                              selectedDeliveryOrders.includes(order.id) || selectedDeliveryOrders.length === 0
+                                ? "bg-primary/5 border-primary/20"
+                                : "bg-muted/30 opacity-60"
+                            }`}
+                            onClick={() => handleToggleDeliveryOrder(order.id)}
+                          >
+                            <Checkbox
+                              checked={selectedDeliveryOrders.length === 0 || selectedDeliveryOrders.includes(order.id)}
+                              onCheckedChange={() => handleToggleDeliveryOrder(order.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">{order.customerName}</span>
+                                <Badge variant="secondary" className={`text-[10px] px-1.5 ${
+                                  order.status === "en-livraison" ? "bg-orange-100 text-orange-700" : "bg-primary/10 text-primary"
+                                }`}>
+                                  {order.status === "en-livraison" ? "En livraison" : "Pret"}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {order.customerPhone} - {order.customerAddress || "Adresse non specifiee"}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-sm">{order.total.toFixed(0)} TND</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {order.items.length} article{order.items.length > 1 ? "s" : ""}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Message composition */}
+                {todayDeliveryOrders.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Message de notification
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label className="text-xs">Canal</Label>
+                        <Select value={deliveryChannel} onValueChange={(v) => setDeliveryChannel(v as Channel)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                            <SelectItem value="sms">SMS</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Message</Label>
+                        <Textarea
+                          value={deliveryMessage}
+                          onChange={(e) => setDeliveryMessage(e.target.value)}
+                          rows={6}
+                          className="font-mono text-sm"
+                        />
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          <p className="text-[10px] text-muted-foreground w-full mb-1">Variables disponibles :</p>
+                          {["{nom}", "{telephone}", "{adresse}", "{montant}", "{statut}"].map((v) => (
+                            <button
+                              key={v}
+                              onClick={() => setDeliveryMessage((m) => m + " " + v)}
+                              className="text-[10px] px-2 py-0.5 rounded bg-muted hover:bg-muted-foreground/10 text-muted-foreground font-mono"
+                            >
+                              {v}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Live preview */}
+                      <div className={`rounded-xl p-4 ${deliveryChannel === "whatsapp" ? "bg-emerald-50 border border-emerald-200" : "bg-blue-50 border border-blue-200"}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          {deliveryChannel === "whatsapp" ? (
+                            <MessageCircle className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <Phone className="h-4 w-4 text-blue-600" />
+                          )}
+                          <span className="text-xs font-semibold text-muted-foreground">
+                            Apercu {deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}
+                          </span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {ordersToNotify.length > 0 ? processedDeliveryMessage(ordersToNotify[0]) : deliveryMessage}
+                        </p>
+                        {ordersToNotify.length > 0 && (
+                          <p className="text-[10px] text-muted-foreground mt-2">
+                            Apercu pour: {ordersToNotify[0].customerName}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Summary sidebar */}
+              <div>
+                <Card>
+                  <CardContent className="pt-6 space-y-4">
+                    <div className="text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-100 mx-auto mb-3">
+                        <Bell className="h-7 w-7 text-orange-600" />
+                      </div>
+                      <p className="text-3xl font-bold">{ordersToNotify.length}</p>
+                      <p className="text-sm text-muted-foreground">clients a notifier</p>
+                    </div>
+                    <Separator />
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">En livraison</span>
+                        <span className="font-medium">{ordersToNotify.filter(o => o.status === "en-livraison").length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pret</span>
+                        <span className="font-medium">{ordersToNotify.filter(o => o.status === "pret").length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total livraisons</span>
+                        <span className="font-medium">
+                          {ordersToNotify.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")} TND
+                        </span>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleCopyDeliveryNumbers}
+                        disabled={ordersToNotify.length === 0}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copier numeros
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleCopyDeliveryMessage}
+                        disabled={ordersToNotify.length === 0}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copier message
+                      </Button>
+                      <Button
+                        className="w-full"
+                        onClick={handleSendDeliveryNotifications}
+                        disabled={ordersToNotify.length === 0 || sendingDelivery}
+                      >
+                        {sendingDelivery ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Send className="h-4 w-4 mr-2" />
+                        )}
+                        Envoyer notifications
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
