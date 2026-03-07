@@ -118,12 +118,20 @@ const isFailedStatus = (status: string) => {
 
 export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryStats {
   const total = shipments.length
+  
+  // Debug: log all statuses
+  const allStatuses = shipments.map(s => s.status).filter(Boolean)
+  console.log("[v0] All statuses in shipments:", allStatuses)
+  console.log("[v0] Total shipments:", total)
+  
   const pending = shipments.filter((s) => isPendingStatus(s.status)).length
   const sent = shipments.filter((s) => s.status === "sent").length
   const inTransit = shipments.filter((s) => isInTransitStatus(s.status)).length
   const delivered = shipments.filter((s) => isDeliveredStatus(s.status)).length
   const failed = shipments.filter((s) => isFailedStatus(s.status)).length
   const returned = shipments.filter((s) => isReturnedStatus(s.status)).length
+
+  console.log("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
 
   const completed = delivered + failed + returned
   const deliveryRate = completed > 0 ? (delivered / completed) * 100 : 0
