@@ -87,12 +87,22 @@ export function useClientStatus(): UseClientStatusReturn {
         let deliveryReturned = 0
         let deliveryTotal = 0
 
+        // Helper to check status (handles both normalized and CSV formats)
+        const isDelivered = (status: string) => {
+          const s = status?.toLowerCase() || ""
+          return s === "delivered" || s === "livree" || s === "livré" || s.startsWith("livr")
+        }
+        const isReturned = (status: string) => {
+          const s = status?.toLowerCase() || ""
+          return s === "returned" || s === "retour"
+        }
+
         if (deliveryStats && deliveryStats.length > 0) {
           deliveryStats.forEach((shipment) => {
-            if (shipment.status === "delivered") {
+            if (isDelivered(shipment.status)) {
               deliveryCount++
               deliveryTotal += Number(shipment.price) || 0
-            } else if (shipment.status === "returned") {
+            } else if (isReturned(shipment.status)) {
               deliveryReturned++
             }
           })
@@ -121,15 +131,25 @@ export function useClientStatus(): UseClientStatusReturn {
       let deliveryReturned = 0
       let deliveryTotal = 0
 
+      // Helper to check status (handles both normalized and CSV formats)
+      const isDeliveredStatus = (status: string) => {
+        const s = status?.toLowerCase() || ""
+        return s === "delivered" || s === "livree" || s === "livré" || s.startsWith("livr")
+      }
+      const isReturnedStatus = (status: string) => {
+        const s = status?.toLowerCase() || ""
+        return s === "returned" || s === "retour"
+      }
+
       if (existingShipments && existingShipments.length > 0) {
         // Get the most recent name
         customerName = existingShipments[0].customer_name || null
         
         existingShipments.forEach((shipment) => {
-          if (shipment.status === "delivered") {
+          if (isDeliveredStatus(shipment.status)) {
             deliveryCount++
             deliveryTotal += Number(shipment.price) || 0
-          } else if (shipment.status === "returned") {
+          } else if (isReturnedStatus(shipment.status)) {
             deliveryReturned++
           }
         })

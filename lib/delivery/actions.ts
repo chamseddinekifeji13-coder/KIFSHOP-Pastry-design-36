@@ -94,14 +94,36 @@ export async function fetchDeliveryShipments(tenantId: string): Promise<Delivery
 
 // ─── Calculate Statistics ─────────────────────────────────────
 
+// Helper functions for status checking (handles both normalized and CSV formats)
+const isDeliveredStatus = (status: string) => {
+  const s = status?.toLowerCase() || ""
+  return s === "delivered" || s === "livree" || s === "livré" || s.startsWith("livr")
+}
+const isReturnedStatus = (status: string) => {
+  const s = status?.toLowerCase() || ""
+  return s === "returned" || s === "retour"
+}
+const isPendingStatus = (status: string) => {
+  const s = status?.toLowerCase() || ""
+  return s === "pending" || s === "en_attente" || s === "en attente"
+}
+const isInTransitStatus = (status: string) => {
+  const s = status?.toLowerCase() || ""
+  return s === "in_transit" || s === "sent" || s === "en_transit" || s === "transit"
+}
+const isFailedStatus = (status: string) => {
+  const s = status?.toLowerCase() || ""
+  return s === "failed" || s === "echec" || s === "échoué"
+}
+
 export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryStats {
   const total = shipments.length
-  const pending = shipments.filter((s) => s.status === "pending").length
+  const pending = shipments.filter((s) => isPendingStatus(s.status)).length
   const sent = shipments.filter((s) => s.status === "sent").length
-  const inTransit = shipments.filter((s) => s.status === "in_transit").length
-  const delivered = shipments.filter((s) => s.status === "delivered").length
-  const failed = shipments.filter((s) => s.status === "failed").length
-  const returned = shipments.filter((s) => s.status === "returned").length
+  const inTransit = shipments.filter((s) => isInTransitStatus(s.status)).length
+  const delivered = shipments.filter((s) => isDeliveredStatus(s.status)).length
+  const failed = shipments.filter((s) => isFailedStatus(s.status)).length
+  const returned = shipments.filter((s) => isReturnedStatus(s.status)).length
 
   const completed = delivered + failed + returned
   const deliveryRate = completed > 0 ? (delivered / completed) * 100 : 0
@@ -436,7 +458,7 @@ export async function bulkSyncReturns(tenantId: string): Promise<{
     .from("best_delivery_shipments")
     .select("id, customer_name")
     .eq("tenant_id", tenantId)
-    .or("status.eq.returned,status.ilike.retour")
+    .or("status.eq.returned,status.ilike.%retour%")
 
   if (!shipments || shipments.length === 0) {
     return { total: 0, synced: 0, failed: 0, details: [] }
@@ -691,7 +713,7 @@ export async function bulkSyncDelivered(tenantId: string): Promise<{
     .from("best_delivery_shipments")
     .select("id, customer_name")
     .eq("tenant_id", tenantId)
-    .or("status.eq.delivered,status.ilike.livr%")
+    .or("status.eq.delivered,status.ilike.livr%,status.ilike.livree%")
 
   if (!shipments || shipments.length === 0) {
     return { total: 0, synced: 0, failed: 0, details: [] }
