@@ -1023,6 +1023,9 @@ export async function importDeliveryReport(
         const { error } = await supabase
           .from("best_delivery_shipments")
           .update({
+            customer_name: row.customerName,
+            customer_phone: row.customerPhone || null,
+            customer_address: row.customerAddress,
             status: row.status,
             notes: row.notes || null,
             updated_at: new Date().toISOString(),
