@@ -482,21 +482,27 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                             <Hash className="h-3 w-3" />
                             <span className="text-[10px] font-medium uppercase">Cmd</span>
                           </div>
-                          <p className="text-sm font-bold text-foreground tabular-nums">{client.total_orders}</p>
+                          <p className="text-sm font-bold text-foreground tabular-nums">
+                            {(client.total_orders || 0) + (client.delivery_count || 0)}
+                          </p>
                         </div>
                         <div className="bg-background rounded-lg px-3 py-2 text-center border border-border/50">
                           <div className="flex items-center justify-center gap-1 text-muted-foreground mb-0.5">
                             <TrendingUp className="h-3 w-3" />
                             <span className="text-[10px] font-medium uppercase">Total</span>
                           </div>
-                          <p className="text-sm font-bold text-foreground tabular-nums">{client.total_spent.toFixed(0)}</p>
+                          <p className="text-sm font-bold text-foreground tabular-nums">
+                            {((client.total_spent || 0) + (client.delivery_total || 0)).toFixed(0)}
+                          </p>
                         </div>
                         <div className="bg-background rounded-lg px-3 py-2 text-center border border-border/50">
                           <div className="flex items-center justify-center gap-1 text-muted-foreground mb-0.5">
                             <RotateCcw className="h-3 w-3" />
                             <span className="text-[10px] font-medium uppercase">Retours</span>
                           </div>
-                          <p className={`text-sm font-bold tabular-nums ${client.return_count >= 2 ? "text-red-600" : "text-foreground"}`}>{client.return_count}</p>
+                          <p className={`text-sm font-bold tabular-nums ${(client.return_count + (client.delivery_returned || 0)) >= 2 ? "text-red-600" : "text-foreground"}`}>
+                            {(client.return_count || 0) + (client.delivery_returned || 0)}
+                          </p>
                         </div>
                       </div>
 

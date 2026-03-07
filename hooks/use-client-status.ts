@@ -13,6 +13,10 @@ export interface ClientData {
   total_spent: number
   notes: string | null
   created_at: string
+  // Best Delivery stats
+  delivery_count?: number
+  delivery_returned?: number
+  delivery_total?: number
 }
 
 interface UseClientStatusReturn {
@@ -72,24 +76,76 @@ export function useClientStatus(): UseClientStatusReturn {
       }
 
       if (data) {
+        // Also fetch delivery stats from best_delivery_shipments
+        const { data: deliveryStats } = await supabase
+          .from("best_delivery_shipments")
+          .select("status, price")
+          .eq("tenant_id", tenantId)
+          .eq("customer_phone", cleanPhone)
+
+        let deliveryCount = 0
+        let deliveryReturned = 0
+        let deliveryTotal = 0
+
+        if (deliveryStats && deliveryStats.length > 0) {
+          deliveryStats.forEach((shipment) => {
+            if (shipment.status === "delivered") {
+              deliveryCount++
+              deliveryTotal += Number(shipment.price) || 0
+            } else if (shipment.status === "returned") {
+              deliveryReturned++
+            }
+          })
+        }
+
         const clientData: ClientData = {
           ...data,
           total_spent: Number(data.total_spent),
+          delivery_count: deliveryCount,
+          delivery_returned: deliveryReturned,
+          delivery_total: deliveryTotal,
         }
         setClient(clientData)
         return clientData
       }
 
-      // Auto-create new client
+      // Check best_delivery_shipments for existing data before creating new client
+      const { data: existingShipments } = await supabase
+        .from("best_delivery_shipments")
+        .select("customer_name, status, price")
+        .eq("tenant_id", tenantId)
+        .eq("customer_phone", cleanPhone)
+
+      let customerName: string | null = null
+      let deliveryCount = 0
+      let deliveryReturned = 0
+      let deliveryTotal = 0
+
+      if (existingShipments && existingShipments.length > 0) {
+        // Get the most recent name
+        customerName = existingShipments[0].customer_name || null
+        
+        existingShipments.forEach((shipment) => {
+          if (shipment.status === "delivered") {
+            deliveryCount++
+            deliveryTotal += Number(shipment.price) || 0
+          } else if (shipment.status === "returned") {
+            deliveryReturned++
+          }
+        })
+      }
+
+      // Auto-create new client with data from shipments if available
       const { data: newClient, error: createError } = await supabase
         .from("clients")
         .insert({
           tenant_id: tenantId,
           phone: cleanPhone,
+          name: customerName,
           status: "normal",
-          return_count: 0,
-          total_orders: 0,
-          total_spent: 0,
+          return_count: deliveryReturned,
+          total_orders: deliveryCount,
+          total_spent: deliveryTotal,
         })
         .select()
         .single()
@@ -103,9 +159,12 @@ export function useClientStatus(): UseClientStatusReturn {
       const newClientData: ClientData = {
         ...newClient,
         total_spent: Number(newClient.total_spent),
+        delivery_count: deliveryCount,
+        delivery_returned: deliveryReturned,
+        delivery_total: deliveryTotal,
       }
       setClient(newClientData)
-      setIsNewClient(true)
+      setIsNewClient(existingShipments?.length === 0)
       return newClientData
     } catch {
       setError("Erreur reseau")
