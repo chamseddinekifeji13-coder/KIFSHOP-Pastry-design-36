@@ -4,7 +4,7 @@ import { useState } from "react"
 import {
   Search, Phone, User, ShieldAlert, Star, AlertTriangle,
   RotateCcw, Download, Loader2, ChevronRight, Filter,
-  Megaphone, TrendingUp, TrendingDown, Hash, Ban,
+  Megaphone, TrendingUp, TrendingDown, Hash, Ban, Trash2,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,15 @@ import { Input } from "@/components/ui/input"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useTenant } from "@/lib/tenant-context"
 import { useClients } from "@/hooks/use-tenant-data"
 import { updateClient, deleteClient, type Client } from "@/lib/clients/actions"
@@ -36,6 +45,8 @@ export function ClientsView() {
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [showDeleteNoPhoneDialog, setShowDeleteNoPhoneDialog] = useState(false)
+  const [isDeletingNoPhone, setIsDeletingNoPhone] = useState(false)
 
   const filtered = clients.filter((c) => {
     const matchSearch = !search ||
@@ -44,6 +55,9 @@ export function ClientsView() {
     const matchStatus = filterStatus === "all" || c.status === filterStatus
     return matchSearch && matchStatus
   })
+
+  // Count clients without phone
+  const clientsWithoutPhone = clients.filter((c) => !c.phone || c.phone.trim() === "")
 
   const stats = {
     total: clients.length,
@@ -89,6 +103,33 @@ export function ClientsView() {
     }
   }
 
+  const handleDeleteClientsWithoutPhone = async () => {
+    setIsDeletingNoPhone(true)
+    try {
+      const response = await fetch("/api/clients/delete-without-phone", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        toast.error(error.error || "Erreur lors de la suppression")
+        return
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        toast.success(`${result.deleted || clientsWithoutPhone.length} clients sans telephone supprimes`)
+        mutate()
+        setShowDeleteNoPhoneDialog(false)
+      }
+    } catch (error) {
+      console.error("Delete error:", error)
+      toast.error("Une erreur est survenue")
+    } finally {
+      setIsDeletingNoPhone(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -107,10 +148,22 @@ export function ClientsView() {
             {stats.total} clients enregistres
           </p>
         </div>
-        <Button variant="outline" onClick={handleExport} disabled={isExporting}>
-          {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-          Export CSV
-        </Button>
+        <div className="flex gap-2">
+          {clientsWithoutPhone.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowDeleteNoPhoneDialog(true)}
+              size="sm"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Supprimer {clientsWithoutPhone.length} sans tel.
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -295,6 +348,43 @@ export function ClientsView() {
         onDelete={handleDelete}
         onUpdated={() => mutate()}
       />
+
+      {/* Delete Clients Without Phone Dialog */}
+      <AlertDialog open={showDeleteNoPhoneDialog} onOpenChange={setShowDeleteNoPhoneDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer les clients sans numero de telephone?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action supprimera de facon permanente {clientsWithoutPhone.length} clients qui n'ont pas de numero de telephone. Cette action ne peut pas etre annulee.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
+            <p className="text-sm font-medium text-destructive">
+              ⚠️ {clientsWithoutPhone.length} client{clientsWithoutPhone.length > 1 ? "s" : ""} seront supprimes
+            </p>
+          </div>
+          <div className="space-y-2">
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteClientsWithoutPhone}
+              disabled={isDeletingNoPhone}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingNoPhone ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression en cours...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Oui, supprimer
+                </>
+              )}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

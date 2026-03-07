@@ -735,6 +735,7 @@ export interface ImportResult {
   imported: number
   updated: number
   failed: number
+  skipped: number
   errors: Array<{ row: number; error: string }>
   deliveredSynced: number
   returnedSynced: number
@@ -978,26 +979,69 @@ export async function parseCSVContent(content: string): Promise<{
 export async function importDeliveryReport(
   tenantId: string,
   rows: CSVImportRow[],
-  syncClients: boolean = true
+  syncClients: boolean = false
 ): Promise<ImportResult> {
   const supabase = createClient()
+
   const result: ImportResult = {
     total: rows.length,
     imported: 0,
     updated: 0,
     failed: 0,
+    skipped: 0,
     errors: [],
     deliveredSynced: 0,
     returnedSynced: 0,
   }
 
+  // Track duplicates within the CSV file itself
+  const seenInFile = new Map<string, number>()
+  const duplicatesInFile: Set<number> = new Set()
+
+  // First pass: detect duplicates within the file
+  rows.forEach((row, index) => {
+    let uniqueKey = ""
+
+    // Use tracking number as primary key
+    if (row.trackingNumber) {
+      uniqueKey = `tracking:${row.trackingNumber}`
+    }
+    // Use order number as secondary key
+    else if (row.orderNumber) {
+      uniqueKey = `order:${row.orderNumber}`
+    }
+    // Use customer name + phone as tertiary key
+    else if (row.customerName && row.customerPhone) {
+      uniqueKey = `customer:${row.customerName.toLowerCase().trim()}:${row.customerPhone}`
+    }
+
+    if (uniqueKey) {
+      if (seenInFile.has(uniqueKey)) {
+        duplicatesInFile.add(index)
+      } else {
+        seenInFile.set(uniqueKey, index)
+      }
+    }
+  })
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
 
+    // Skip if this row is a duplicate within the file
+    if (duplicatesInFile.has(i)) {
+      result.skipped++
+      result.errors.push({
+        row: i + 2,
+        error: "Doublon detecte dans le fichier (ligne ignoree)",
+      })
+      continue
+    }
+
     try {
-      // Check if shipment already exists by tracking number or order number
+      // Check if shipment already exists by tracking number, order number, or customer name + phone combination
       let existingShipment = null
       
+      // Priority 1: Check by tracking number (most reliable)
       if (row.trackingNumber) {
         const { data } = await supabase
           .from("best_delivery_shipments")
@@ -1008,12 +1052,29 @@ export async function importDeliveryReport(
         existingShipment = data
       }
 
+      // Priority 2: Check by order number
       if (!existingShipment && row.orderNumber) {
         const { data } = await supabase
           .from("best_delivery_shipments")
           .select("id")
           .eq("tenant_id", tenantId)
           .eq("order_number", row.orderNumber)
+          .single()
+        existingShipment = data
+      }
+
+      // Priority 3: Check by customer name + phone + similar date (within same week) to catch duplicates
+      if (!existingShipment && row.customerName && row.customerPhone) {
+        const oneWeekAgo = new Date()
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+        
+        const { data } = await supabase
+          .from("best_delivery_shipments")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .ilike("customer_name", row.customerName)
+          .eq("customer_phone", row.customerPhone)
+          .gte("created_at", oneWeekAgo.toISOString())
           .single()
         existingShipment = data
       }
