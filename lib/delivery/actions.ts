@@ -735,6 +735,7 @@ export interface ImportResult {
   imported: number
   updated: number
   failed: number
+  skipped: number
   errors: Array<{ row: number; error: string }>
   deliveredSynced: number
   returnedSynced: number
@@ -978,21 +979,63 @@ export async function parseCSVContent(content: string): Promise<{
 export async function importDeliveryReport(
   tenantId: string,
   rows: CSVImportRow[],
-  syncClients: boolean = true
+  syncClients: boolean = false
 ): Promise<ImportResult> {
   const supabase = createClient()
+
   const result: ImportResult = {
     total: rows.length,
     imported: 0,
     updated: 0,
     failed: 0,
+    skipped: 0,
     errors: [],
     deliveredSynced: 0,
     returnedSynced: 0,
   }
 
+  // Track duplicates within the CSV file itself
+  const seenInFile = new Map<string, number>()
+  const duplicatesInFile: Set<number> = new Set()
+
+  // First pass: detect duplicates within the file
+  rows.forEach((row, index) => {
+    let uniqueKey = ""
+
+    // Use tracking number as primary key
+    if (row.trackingNumber) {
+      uniqueKey = `tracking:${row.trackingNumber}`
+    }
+    // Use order number as secondary key
+    else if (row.orderNumber) {
+      uniqueKey = `order:${row.orderNumber}`
+    }
+    // Use customer name + phone as tertiary key
+    else if (row.customerName && row.customerPhone) {
+      uniqueKey = `customer:${row.customerName.toLowerCase().trim()}:${row.customerPhone}`
+    }
+
+    if (uniqueKey) {
+      if (seenInFile.has(uniqueKey)) {
+        duplicatesInFile.add(index)
+      } else {
+        seenInFile.set(uniqueKey, index)
+      }
+    }
+  })
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
+
+    // Skip if this row is a duplicate within the file
+    if (duplicatesInFile.has(i)) {
+      result.skipped++
+      result.errors.push({
+        row: i + 2,
+        error: "Doublon detecte dans le fichier (ligne ignoree)",
+      })
+      continue
+    }
 
     try {
       // Check if shipment already exists by tracking number, order number, or customer name + phone combination

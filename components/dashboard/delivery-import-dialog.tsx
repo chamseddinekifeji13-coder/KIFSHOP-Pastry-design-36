@@ -305,14 +305,23 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Telecharger le modele CSV
-                  </Button>
-                  
-                  <div className="text-xs text-muted-foreground">
-                    Formats acceptes: .csv (separateur: , ou ;)
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-muted-foreground">Ajoutes</p>
+                      <p className="text-2xl font-bold">{importResult.imported}</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-muted-foreground">Mise a jour</p>
+                      <p className="text-2xl font-bold">{importResult.updated}</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-muted-foreground">Ignores (doublons)</p>
+                      <p className="text-2xl font-bold">{importResult.skipped}</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-muted-foreground">Erreurs</p>
+                      <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
