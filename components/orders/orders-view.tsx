@@ -52,6 +52,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { NewOrderDrawer } from "./new-order-drawer"
 import { QuickOrder } from "./quick-order"
+import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV } from "@/lib/csv-export"
 
@@ -126,7 +127,6 @@ export function OrdersView() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [newOrderOpen, setNewOrderOpen] = useState(false)
-  const [quickOrderOpen, setQuickOrderOpen] = useState(false)
   const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
@@ -607,14 +607,6 @@ export function OrdersView() {
             Export CSV
           </Button>
           
-          <Button
-            variant="secondary"
-            className="bg-amber-500 text-white hover:bg-amber-600"
-            onClick={() => setQuickOrderOpen(true)}
-          >
-            <Zap className="mr-2 h-4 w-4" />
-            Commande Rapide
-          </Button>
           <Button onClick={() => setNewOrderOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             {t("orders.new_order")}
@@ -1859,12 +1851,12 @@ export function OrdersView() {
         </DialogContent>
       </Dialog>
 
-  {/* Quick Order Dialog */}
-  <QuickOrder open={quickOrderOpen} onOpenChange={setQuickOrderOpen} onOrderCreated={() => mutate()} />
+  {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
+  <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
 
-{/* New Order Drawer */}
-<NewOrderDrawer open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
-
+  {/* Keep old components for backward compatibility with other imports */}
+  <QuickOrder open={false} onOpenChange={() => {}} onOrderCreated={() => mutate()} />
+  <NewOrderDrawer open={false} onOpenChange={() => {}} onCreated={() => mutate()} />
 
 </div>
   )
