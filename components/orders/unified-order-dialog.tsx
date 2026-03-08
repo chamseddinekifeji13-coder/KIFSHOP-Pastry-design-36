@@ -23,6 +23,9 @@ import {
   Trash2,
   ShieldCheck,
   ChevronsUpDown,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -125,6 +128,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
 
   // Client info (for new clients)
   const [clientName, setClientName] = useState("")
+  const [clientNameEditMode, setClientNameEditMode] = useState(false)
+  const [clientNameEdit, setClientNameEdit] = useState("")
   const [clientAddress, setClientAddress] = useState("")
 
   // Order fields
@@ -186,6 +191,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     const result = await lookupClient(cleanPhone, currentTenant.id)
     if (result && result.name) {
       setClientName(result.name)
+      setClientNameEdit(result.name)
     }
   }, [phone, currentTenant.id, lookupClient])
 
@@ -194,6 +200,42 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
       e.preventDefault()
       handlePhoneLookup()
     }
+  }
+
+  // Edit client name
+  const handleEditClientName = async () => {
+    if (!client?.id || !clientNameEdit.trim()) return
+    
+    try {
+      const supabase = createSupabaseClient()
+      const { error } = await supabase
+        .from("clients")
+        .update({ 
+          name: clientNameEdit.trim(),
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", client.id)
+      
+      if (error) {
+        console.error("[v0] Error updating client name:", error)
+        toast.error("Erreur mise à jour client")
+        return
+      }
+
+      // Update local state
+      setClientName(clientNameEdit.trim())
+      setClientNameEditMode(false)
+      setClientNameEdit("")
+      toast.success("Nom du client mis à jour")
+    } catch (err) {
+      console.error("[v0] Exception updating client:", err)
+      toast.error("Erreur lors de la mise à jour")
+    }
+  }
+
+  const handleCancelEditClientName = () => {
+    setClientNameEditMode(false)
+    setClientNameEdit("")
   }
 
   // Add item to order
@@ -315,6 +357,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setPhone("")
     setTruecallerVerified(false)
     setClientName("")
+    setClientNameEditMode(false)
+    setClientNameEdit("")
     setClientAddress("")
     setSource("phone")
     setDeliveryType("pickup")
@@ -476,7 +520,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                   {client && (
                     <div className={`rounded-xl border-2 p-4 space-y-3 transition-all ${getCardBorder()}`}>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <div className={`flex items-center justify-center h-10 w-10 rounded-full shrink-0 ${
                             client.status === "vip" ? "bg-emerald-100" :
                             client.status === "warning" ? "bg-amber-100" :
@@ -487,17 +531,67 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                              client.status === "blacklisted" ? <Ban className="h-4 w-4 text-red-600" /> :
                              <User className="h-4 w-4 text-muted-foreground" />}
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm text-foreground truncate">
-                              {client.name || "Client sans nom"}
-                              {isNewClient && (
-                                <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Nouveau</span>
-                              )}
-                            </p>
-                            <p className="text-xs text-muted-foreground tabular-nums mt-0.5">{client.phone}</p>
+                          <div className="min-w-0 flex-1">
+                            {clientNameEditMode ? (
+                              <div className="flex gap-2 items-center">
+                                <Input
+                                  autoFocus
+                                  value={clientNameEdit}
+                                  onChange={(e) => setClientNameEdit(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleEditClientName()
+                                    if (e.key === "Escape") handleCancelEditClientName()
+                                  }}
+                                  placeholder="Nom du client"
+                                  className="h-8 text-sm"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleEditClientName}
+                                  className="h-8 px-2"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleCancelEditClientName}
+                                  className="h-8 px-2"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="font-semibold text-sm text-foreground truncate">
+                                  {clientName || client.name || "Client sans nom"}
+                                  {isNewClient && (
+                                    <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Nouveau</span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground tabular-nums mt-0.5">{client.phone}</p>
+                              </>
+                            )}
                           </div>
                         </div>
-                        {getStatusBadge()}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {!clientNameEditMode && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setClientNameEdit(clientName || client.name || "")
+                                setClientNameEditMode(true)
+                              }}
+                              className="h-8 px-2"
+                              title="Éditer le nom du client"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {getStatusBadge()}
+                        </div>
                       </div>
 
                       {/* Stats */}
