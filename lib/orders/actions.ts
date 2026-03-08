@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { getActiveProfileCookie } from "@/lib/active-profile"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -163,6 +164,10 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
+  // Get active profile (employee/agent who is creating the order)
+  const activeProfile = await getActiveProfileCookie()
+  const creatorName = activeProfile?.displayName || user.user_metadata?.display_name || user.email || null
+
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
   const total = subtotal + shipping
@@ -218,14 +223,14 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     console.error("Error creating order items:", itemsError.message)
   }
 
-  // Record initial status history (reuse `user` from auth check above)
+  // Record initial status history (use active profile name if available)
   await supabase.from("order_status_history").insert({
     order_id: order.id,
     tenant_id: data.tenantId,
     from_status: null,
     to_status: "nouveau",
     changed_by: user.id,
-    changed_by_name: user.user_metadata?.display_name || user.email || null,
+    changed_by_name: creatorName,
     note: "Commande creee",
   })
 
@@ -292,13 +297,16 @@ export async function updateOrderStatus(
 
   // Record status history
   const { data: { user } } = await supabase.auth.getUser()
+  const activeProfile = await getActiveProfileCookie()
+  const changerName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: fromStatus,
     to_status: newStatus,
     changed_by: user?.id || null,
-    changed_by_name: user?.user_metadata?.display_name || user?.email || null,
+    changed_by_name: changerName,
     note: note || null,
   })
 
@@ -335,13 +343,16 @@ export async function updatePaymentStatus(
 
   // Record as note in history
   const { data: { user } } = await supabase.auth.getUser()
+  const activeProfile = await getActiveProfileCookie()
+  const updaterName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: null,
     to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
     changed_by: user?.id || null,
-    changed_by_name: user?.user_metadata?.display_name || user?.email || null,
+    changed_by_name: updaterName,
     note: paymentStatus === "paid"
       ? "Paiement complet enregistre"
       : `Acompte de ${newDeposit} TND enregistre`,
@@ -524,13 +535,16 @@ export async function recordPaymentCollection(
   ].filter(Boolean).join(" - ")
 
   // Record in status history
+  const activeProfile = await getActiveProfileCookie()
+  const recorderName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  
   await supabase.from("order_status_history").insert({
     order_id: data.orderId,
     tenant_id: data.tenantId,
     from_status: null,
     to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
     changed_by: user?.id || null,
-    changed_by_name: user?.user_metadata?.display_name || user?.email || null,
+    changed_by_name: recorderName,
     note: noteText,
   })
 
