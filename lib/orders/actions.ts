@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/client"
-import { getActiveProfileCookie } from "@/lib/active-profile"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -296,6 +295,7 @@ export async function updateOrderStatus(
   }
 
   // Record status history
+  const { getActiveProfileCookie } = await import("@/lib/active-profile")
   const { data: { user } } = await supabase.auth.getUser()
   const activeProfile = await getActiveProfileCookie()
   const changerName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
@@ -535,6 +535,7 @@ export async function recordPaymentCollection(
   ].filter(Boolean).join(" - ")
 
   // Record in status history
+  const { getActiveProfileCookie } = await import("@/lib/active-profile")
   const activeProfile = await getActiveProfileCookie()
   const recorderName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
   
