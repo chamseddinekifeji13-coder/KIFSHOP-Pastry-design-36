@@ -100,7 +100,7 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
   const supabase = createClient()
 
   const { data: orders, error } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
@@ -112,50 +112,41 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
 
   if (!orders || orders.length === 0) return []
 
-  // Fetch all order items in one query
-  const orderIds = orders.map((o) => o.id)
-  const { data: allItems } = await supabase
-    .from("order_items")
-    .select("*")
-    .in("order_id", orderIds)
-
-  const itemsByOrder = new Map<string, OrderItem[]>()
-  allItems?.forEach((item) => {
-    const list = itemsByOrder.get(item.order_id) || []
-    list.push({
-      id: item.id,
-      productId: item.finished_product_id,
-      name: item.name,
-      quantity: Number(item.quantity),
-      price: Number(item.unit_price),
-    })
-    itemsByOrder.set(item.order_id, list)
+  // quick_orders stores items as JSONB, so no need for separate query
+  return orders.map((o) => {
+    const items = Array.isArray(o.items) ? o.items : []
+    
+    return {
+      id: o.id,
+      tenantId: o.tenant_id,
+      customerName: o.client_name || "",
+      customerPhone: o.phone || "",
+      customerAddress: undefined,
+      items: items.map((item: any) => ({
+        id: item.id || "",
+        productId: item.productId || "",
+        name: item.name || "",
+        quantity: Number(item.quantity || 1),
+        price: Number(item.price || 0),
+      })),
+      total: Number(o.total),
+      deposit: 0,
+      shippingCost: 0,
+      status: o.status || "nouveau",
+      deliveryType: "pickup",
+      courier: undefined,
+      gouvernorat: undefined,
+      trackingNumber: undefined,
+      source: o.source || "comptoir",
+      paymentStatus: "unpaid",
+      createdAt: o.created_at,
+      deliveryDate: undefined,
+      estimatedDeliveryAt: undefined,
+      deliveredAt: undefined,
+      deliveryAddress: undefined,
+      notes: o.notes || undefined,
+    }
   })
-
-  return orders.map((o) => ({
-    id: o.id,
-    tenantId: o.tenant_id,
-    customerName: o.customer_name,
-    customerPhone: o.customer_phone || "",
-    customerAddress: o.customer_address || undefined,
-    items: itemsByOrder.get(o.id) || [],
-    total: Number(o.total),
-    deposit: Number(o.deposit),
-    shippingCost: Number(o.shipping_cost || 0),
-    status: o.status,
-    deliveryType: o.delivery_type,
-    courier: o.courier || undefined,
-    gouvernorat: o.gouvernorat || undefined,
-    trackingNumber: o.tracking_number || undefined,
-    source: o.source,
-    paymentStatus: o.payment_status,
-    createdAt: o.created_at,
-    deliveryDate: o.delivery_date || undefined,
-    estimatedDeliveryAt: o.estimated_delivery_at || undefined,
-    deliveredAt: o.delivered_at || undefined,
-    deliveryAddress: o.delivery_address || undefined,
-    notes: o.notes || undefined,
-  }))
 }
 
 // ─── Create Order ─────────────────────────────────────────────
@@ -180,7 +171,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
 
   // Insert order
   const { data: order, error } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .insert({
       tenant_id: data.tenantId,
       customer_name: data.customerName,
@@ -257,7 +248,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   }
 }
 
-// ─── Update Order Status ────────────────────────────────────�����─
+// ─── Update Order Status ────────────────────────��───────────�����─
 
 export async function updateOrderStatus(
   orderId: string,
@@ -269,7 +260,7 @@ export async function updateOrderStatus(
 
   // Get current status
   const { data: current } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .select("status")
     .eq("id", orderId)
     .single()
@@ -287,7 +278,7 @@ export async function updateOrderStatus(
   }
 
   const { error } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .update(updates)
     .eq("id", orderId)
 
@@ -334,7 +325,7 @@ export async function updatePaymentStatus(
   }
 
   const { error } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .update(updates)
     .eq("id", orderId)
 
@@ -385,7 +376,7 @@ export async function updateDeliveryInfo(
   if (data.shippingCost !== undefined) updates.shipping_cost = data.shippingCost
 
   const { error } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .update(updates)
     .eq("id", orderId)
 
@@ -493,7 +484,7 @@ export async function recordPaymentCollection(
 
   // Get order total to determine payment status
   const { data: order } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .select("total")
     .eq("id", data.orderId)
     .single()
@@ -506,7 +497,7 @@ export async function recordPaymentCollection(
 
   // Update order payment status and deposit
   await supabase
-    .from("orders")
+    .from("quick_orders")
     .update({
       payment_status: paymentStatus,
       deposit: totalCollected,
@@ -581,7 +572,7 @@ export async function deletePaymentCollection(
   const totalCollected = (remaining || []).reduce((sum, p) => sum + Number(p.amount), 0)
 
   const { data: order } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .select("total")
     .eq("id", orderId)
     .single()
@@ -593,7 +584,7 @@ export async function deletePaymentCollection(
   else if (totalCollected > 0) paymentStatus = "partial"
 
   await supabase
-    .from("orders")
+    .from("quick_orders")
     .update({
       payment_status: paymentStatus,
       deposit: totalCollected,
@@ -610,7 +601,7 @@ export async function deleteOrder(orderId: string): Promise<boolean> {
   const supabase = createClient()
 
   const { error } = await supabase
-    .from("orders")
+    .from("quick_orders")
     .delete()
     .eq("id", orderId)
 
