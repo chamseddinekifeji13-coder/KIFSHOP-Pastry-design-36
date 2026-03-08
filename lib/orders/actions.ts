@@ -148,7 +148,6 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
     }
   })
 }
-}
 
 // ─── Create Order ─────────────────────────────────────────────
 
@@ -249,7 +248,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   }
 }
 
-// ─── Update Order Status ────────────────────────────────────�����─
+// ─── Update Order Status ────────────────────────��───────────�����─
 
 export async function updateOrderStatus(
   orderId: string,
