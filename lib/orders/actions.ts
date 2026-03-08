@@ -1,5 +1,3 @@
-"use server"
-
 import { createClient } from "@/lib/supabase/client"
 
 // ─── Types ────────────────────────────────────────────────────
@@ -157,6 +155,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
   // Get active profile (employee/agent who is creating the order)
+  const { getActiveProfileCookie } = await import("@/lib/active-profile")
   const activeProfile = await getActiveProfileCookie()
   const creatorName = activeProfile?.displayName || user.user_metadata?.display_name || user.email || null
 
@@ -336,6 +335,7 @@ export async function updatePaymentStatus(
 
   // Record as note in history
   const { data: { user } } = await supabase.auth.getUser()
+  const { getActiveProfileCookie } = await import("@/lib/active-profile")
   const activeProfile = await getActiveProfileCookie()
   const updaterName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
   
