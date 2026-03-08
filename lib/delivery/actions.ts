@@ -773,6 +773,39 @@ export interface ImportResult {
   returnedSynced: number
 }
 
+// Helper function to parse and validate dates
+function parseAndValidateDate(dateStr?: string): string | undefined {
+  if (!dateStr || dateStr === "" || dateStr === "undefined" || dateStr === "null") {
+    return undefined
+  }
+
+  // Remove quotes and extra whitespace
+  dateStr = dateStr.trim()
+  
+  // If it's just a number or single character, it's invalid
+  if (/^\d+$/.test(dateStr) && dateStr.length <= 2) {
+    console.log("[v0] Skipping invalid date:", dateStr)
+    return undefined
+  }
+
+  try {
+    // Try parsing as ISO date or common formats
+    const date = new Date(dateStr)
+    
+    // Check if it's a valid date
+    if (isNaN(date.getTime())) {
+      console.log("[v0] Invalid date format:", dateStr)
+      return undefined
+    }
+
+    // Return ISO string for database storage
+    return date.toISOString()
+  } catch (e) {
+    console.log("[v0] Error parsing date:", dateStr, e)
+    return undefined
+  }
+}
+
 export async function parseCSVContent(content: string): Promise<{
   rows: CSVImportRow[]
   errors: Array<{ row: number; error: string }>
@@ -939,7 +972,38 @@ export async function parseCSVContent(content: string): Promise<{
     
     // Convert scientific notation to regular number if needed
     if (trackingNumber && trackingNumber.includes("E")) {
-      try {
+    try {
+      // Validate required fields
+      if (!row.customerName || row.customerName.trim() === "") {
+        result.errors.push({ row: i + 2, error: "Nom client manquant ou vide" })
+        result.failed++
+        continue
+      }
+
+      if (!row.customerPhone || row.customerPhone.trim() === "") {
+        result.errors.push({ row: i + 2, error: "Telephone client manquant" })
+        result.failed++
+        continue
+      }
+
+      // Check if any date is invalid
+      if (row.deliveryDate && isNaN(new Date(row.deliveryDate).getTime())) {
+        result.errors.push({ row: i + 2, error: `Date livraison invalide: "${row.deliveryDate}"` })
+        result.failed++
+        continue
+      }
+
+      if (row.dateAdded && isNaN(new Date(row.dateAdded).getTime())) {
+        result.errors.push({ row: i + 2, error: `Date ajoutee invalide: "${row.dateAdded}"` })
+        result.failed++
+        continue
+      }
+
+      if (row.pickupDate && isNaN(new Date(row.pickupDate).getTime())) {
+        result.errors.push({ row: i + 2, error: `Date retrait invalide: "${row.pickupDate}"` })
+        result.failed++
+        continue
+      }
         const num = parseFloat(trackingNumber)
         trackingNumber = Math.floor(num).toString()
       } catch (e) {
@@ -1018,13 +1082,13 @@ export async function parseCSVContent(content: string): Promise<{
         ? values[columnIndices.notes]?.replace(/"/g, "") 
         : undefined,
       deliveryDate: columnIndices.deliveryDate !== undefined 
-        ? values[columnIndices.deliveryDate]?.replace(/"/g, "") 
+        ? parseAndValidateDate(values[columnIndices.deliveryDate]?.replace(/"/g, "").trim())
         : undefined,
       dateAdded: columnIndices.dateAdded !== undefined
-        ? values[columnIndices.dateAdded]?.replace(/"/g, "")
+        ? parseAndValidateDate(values[columnIndices.dateAdded]?.replace(/"/g, "").trim())
         : undefined,
       pickupDate: columnIndices.pickupDate !== undefined
-        ? values[columnIndices.pickupDate]?.replace(/"/g, "")
+        ? parseAndValidateDate(values[columnIndices.pickupDate]?.replace(/"/g, "").trim())
         : undefined,
     })
   }
