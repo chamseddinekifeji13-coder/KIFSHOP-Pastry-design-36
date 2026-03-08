@@ -790,6 +790,17 @@ export async function parseCSVContent(content: string): Promise<{
   const headerLine = lines[0].toLowerCase()
   const headers = headerLine.split(/[,;]/).map((h) => h.trim().replace(/"/g, ""))
 
+  // Normalize accents and special characters in headers
+  const normalizeText = (text: string): string => {
+    return text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "")
+  }
+
   // Map French/English headers to our fields (including Best Delivery format)
   const headerMap: Record<string, keyof CSVImportRow> = {
     // Best Delivery columns
@@ -846,10 +857,10 @@ export async function parseCSVContent(content: string): Promise<{
   // Find column indices
   const columnIndices: Partial<Record<keyof CSVImportRow, number>> = {}
   headers.forEach((header, index) => {
-    const normalizedHeader = header.toLowerCase().replace(/[^a-z0-9àâäéèêëïîôùûüç]/g, "_")
+    const normalizedHeader = normalizeText(header)
     for (const [key, field] of Object.entries(headerMap)) {
-      const normalizedKey = key.toLowerCase().replace(/[^a-z0-9àâäéèêëïîôùûüç]/g, "_")
-      if (normalizedHeader.includes(normalizedKey) || normalizedHeader === normalizedKey || header.toLowerCase() === key.toLowerCase()) {
+      const normalizedKey = normalizeText(key)
+      if (normalizedHeader.includes(normalizedKey) || normalizedHeader === normalizedKey) {
         columnIndices[field] = index
         break
       }
@@ -921,6 +932,21 @@ export async function parseCSVContent(content: string): Promise<{
       ? values[columnIndices.customerName]?.replace(/"/g, "").trim() 
       : ""
     
+    // Handle scientific notation in tracking numbers (e.g., "1,08E+11")
+    let trackingNumber = columnIndices.trackingNumber !== undefined 
+      ? values[columnIndices.trackingNumber]?.replace(/"/g, "").trim()
+      : undefined
+    
+    // Convert scientific notation to regular number if needed
+    if (trackingNumber && trackingNumber.includes("E")) {
+      try {
+        const num = parseFloat(trackingNumber)
+        trackingNumber = Math.floor(num).toString()
+      } catch (e) {
+        // Keep as is if conversion fails
+      }
+    }
+    
     // Best Delivery format: "Nom Telephone Adresse" in the Nom field
     // Example: "mariem 23232024 *" or "HANIN TLILI 54434722 CENTER"
     let customerPhone = columnIndices.customerPhone !== undefined 
@@ -981,9 +1007,7 @@ export async function parseCSVContent(content: string): Promise<{
       orderNumber: columnIndices.orderNumber !== undefined 
         ? values[columnIndices.orderNumber]?.replace(/"/g, "") 
         : undefined,
-      trackingNumber: columnIndices.trackingNumber !== undefined 
-        ? values[columnIndices.trackingNumber]?.replace(/"/g, "") 
-        : undefined,
+      trackingNumber: trackingNumber,
       customerName,
       customerPhone,
       customerAddress,
