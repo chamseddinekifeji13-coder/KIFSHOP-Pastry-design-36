@@ -252,10 +252,23 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
 
     setSubmitting(true)
     try {
-      // Update client name if new
-      if (isNewClient && clientName.trim()) {
+      // Update client name if new - IMPORTANT: Must happen before order creation
+      if (isNewClient && clientName.trim() && client?.id) {
         const supabase = createSupabaseClient()
-        await supabase.from("clients").update({ name: clientName.trim(), updated_at: new Date().toISOString() }).eq("id", client.id)
+        const { error: updateError } = await supabase
+          .from("clients")
+          .update({ 
+            name: clientName.trim(),
+            updated_at: new Date().toISOString() 
+          })
+          .eq("id", client.id)
+        
+        if (updateError) {
+          console.error("[v0] Error updating client name:", updateError)
+          toast.error("Erreur mise à jour client")
+          setSubmitting(false)
+          return
+        }
       }
 
       const itemsDesc = items.map(i => `${i.quantity}x ${i.name}`).join(", ")
