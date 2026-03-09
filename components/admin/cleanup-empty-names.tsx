@@ -10,6 +10,7 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
+  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
@@ -71,7 +72,7 @@ export function CleanupEmptyNames() {
             <p className="mt-3 font-semibold text-foreground">Cette action est irréversible.</p>
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <div className="flex gap-3">
+        <AlertDialogFooter>
           <AlertDialogCancel>Annuler</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCleanup}
@@ -87,7 +88,7 @@ export function CleanupEmptyNames() {
               "Supprimer les enregistrements vides"
             )}
           </AlertDialogAction>
-        </div>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   )
