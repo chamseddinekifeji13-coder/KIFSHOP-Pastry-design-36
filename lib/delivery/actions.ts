@@ -294,13 +294,86 @@ export async function deleteShipment(shipmentId: string): Promise<boolean> {
   return true
 }
 
+// ─── Find or Create Client from Shipment ──────────────────────
+// Centralized function to find existing client or create a new one
+
+async function findOrCreateClientFromShipment(
+  supabase: ReturnType<typeof createClient>,
+  shipment: { order_id: string; customer_name: string; customer_phone: string },
+  tenantId: string
+): Promise<{ clientId: string | null; clientName: string | null; wasCreated: boolean }> {
+  // Step 1: Try to find client via order -> client_id
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, client_id, customer_phone")
+    .eq("id", shipment.order_id)
+    .single()
+
+  if (order?.client_id) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id, name")
+      .eq("id", order.client_id)
+      .single()
+    
+    if (client) {
+      return { clientId: client.id, clientName: client.name, wasCreated: false }
+    }
+  }
+
+  // Step 2: Try to find client by phone number
+  const phone = shipment.customer_phone || order?.customer_phone
+  if (phone) {
+    const { data: clientByPhone } = await supabase
+      .from("clients")
+      .select("id, name")
+      .eq("tenant_id", tenantId)
+      .eq("phone", phone)
+      .single()
+    
+    if (clientByPhone) {
+      return { clientId: clientByPhone.id, clientName: clientByPhone.name, wasCreated: false }
+    }
+  }
+
+  // Step 3: Create a new client if we have enough info
+  if (phone && shipment.customer_name) {
+    const { data: newClient, error: createError } = await supabase
+      .from("clients")
+      .insert({
+        tenant_id: tenantId,
+        name: shipment.customer_name,
+        phone: phone,
+        status: "normal",
+        return_count: 0,
+        delivered_count: 0,
+        total_orders: 0,
+        total_spent: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select("id, name")
+      .single()
+
+    if (!createError && newClient) {
+      console.log(`[v0] Created new client: ${newClient.name} (${phone})`)
+      return { clientId: newClient.id, clientName: newClient.name, wasCreated: true }
+    } else {
+      console.error("[v0] Failed to create client:", createError?.message)
+    }
+  }
+
+  // No client found and couldn't create one
+  return { clientId: null, clientName: null, wasCreated: false }
+}
+
 // ─── Sync Return with Client Counter ──────────────────────────
 // Increments the client's return_count when a shipment is marked as returned
 
 export async function syncReturnWithClient(
   shipmentId: string,
   tenantId: string
-): Promise<{ success: boolean; clientId?: string; clientName?: string }> {
+): Promise<{ success: boolean; clientId?: string; clientName?: string; wasCreated?: boolean }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -316,32 +389,24 @@ export async function syncReturnWithClient(
     return { success: false }
   }
 
-  // Find the order to get client_id
+  // Use centralized function to find or create client
+  const { clientId, clientName, wasCreated } = await findOrCreateClientFromShipment(
+    supabase,
+    shipment,
+    tenantId
+  )
+
+  if (!clientId) {
+    console.error("No client found and couldn't create one for this shipment")
+    return { success: false }
+  }
+
+  // Get the order for later updates
   const { data: order } = await supabase
     .from("orders")
     .select("id, client_id, customer_phone")
     .eq("id", shipment.order_id)
     .single()
-
-  let clientId = order?.client_id
-
-  // If no client_id on order, try to find client by phone
-  if (!clientId && (shipment.customer_phone || order?.customer_phone)) {
-    const phone = shipment.customer_phone || order?.customer_phone
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("phone", phone)
-      .single()
-
-    clientId = client?.id
-  }
-
-  if (!clientId) {
-    console.error("No client found for this shipment")
-    return { success: false }
-  }
 
   // Get current client data
   const { data: client } = await supabase
@@ -403,7 +468,7 @@ export async function syncReturnWithClient(
     })
   }
 
-  return { success: true, clientId, clientName: client.name || shipment.customer_name }
+  return { success: true, clientId, clientName: clientName || client.name || shipment.customer_name, wasCreated }
 }
 
 // ─── Update Shipment Status with Client Sync ──────────────────
@@ -547,7 +612,7 @@ export async function getClientDeliveryHistory(
 export async function syncDeliveredWithClient(
   shipmentId: string,
   tenantId: string
-): Promise<{ success: boolean; clientId?: string; clientName?: string }> {
+): Promise<{ success: boolean; clientId?: string; clientName?: string; wasCreated?: boolean }> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -563,32 +628,24 @@ export async function syncDeliveredWithClient(
     return { success: false }
   }
 
-  // Find the order to get client_id
+  // Use centralized function to find or create client
+  const { clientId, clientName, wasCreated } = await findOrCreateClientFromShipment(
+    supabase,
+    shipment,
+    tenantId
+  )
+
+  if (!clientId) {
+    console.error("No client found and couldn't create one for this shipment")
+    return { success: false }
+  }
+
+  // Get the order for later updates
   const { data: order } = await supabase
     .from("orders")
     .select("id, client_id, customer_phone, total_amount")
     .eq("id", shipment.order_id)
     .single()
-
-  let clientId = order?.client_id
-
-  // If no client_id on order, try to find client by phone
-  if (!clientId && (shipment.customer_phone || order?.customer_phone)) {
-    const phone = shipment.customer_phone || order?.customer_phone
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("tenant_id", tenantId)
-      .eq("phone", phone)
-      .single()
-
-    clientId = client?.id
-  }
-
-  if (!clientId) {
-    console.error("No client found for this shipment")
-    return { success: false }
-  }
 
   // Get current client data
   const { data: client } = await supabase
@@ -651,7 +708,7 @@ export async function syncDeliveredWithClient(
     })
   }
 
-  return { success: true, clientId, clientName: client.name || shipment.customer_name }
+  return { success: true, clientId, clientName: clientName || client.name || shipment.customer_name, wasCreated }
 }
 
 // ─── Enhanced Status Update with Full Sync ────────────────────
@@ -661,7 +718,7 @@ export async function updateShipmentStatusWithFullSync(
   tenantId: string,
   status: DeliveryStatus,
   notes?: string
-): Promise<{ success: boolean; clientSynced?: boolean; clientName?: string; action?: string }> {
+): Promise<{ success: boolean; clientSynced?: boolean; clientName?: string; action?: string; clientCreated?: boolean }> {
   const supabase = createClient()
 
   const updates: Record<string, unknown> = {
@@ -691,6 +748,7 @@ export async function updateShipmentStatusWithFullSync(
       clientSynced: syncResult.success,
       clientName: syncResult.clientName,
       action: "retour",
+      clientCreated: syncResult.wasCreated,
     }
   }
 
@@ -701,6 +759,7 @@ export async function updateShipmentStatusWithFullSync(
       clientSynced: syncResult.success,
       clientName: syncResult.clientName,
       action: "livraison",
+      clientCreated: syncResult.wasCreated,
     }
   }
 

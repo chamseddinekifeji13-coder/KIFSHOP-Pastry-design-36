@@ -194,16 +194,22 @@ export function BestDeliveryReport() {
       
       if (result.success) {
         if (newStatus === "returned" && result.clientSynced) {
-          toast.success("Statut mis a jour + Compteur retour incremente", {
-            description: `Retour enregistre pour ${result.clientName || selectedShipment.customerName}`,
+          const clientInfo = result.clientCreated 
+            ? `Nouveau client cree: ${result.clientName || selectedShipment.customerName}`
+            : `Retour enregistre pour ${result.clientName || selectedShipment.customerName}`
+          toast.success(result.clientCreated ? "Client cree + Compteur retour incremente" : "Statut mis a jour + Compteur retour incremente", {
+            description: clientInfo,
           })
         } else if (newStatus === "delivered" && result.clientSynced) {
-          toast.success("Statut mis a jour + Compteur livraison incremente", {
-            description: `Livraison enregistree pour ${result.clientName || selectedShipment.customerName}`,
+          const clientInfo = result.clientCreated 
+            ? `Nouveau client cree: ${result.clientName || selectedShipment.customerName}`
+            : `Livraison enregistree pour ${result.clientName || selectedShipment.customerName}`
+          toast.success(result.clientCreated ? "Client cree + Compteur livraison incremente" : "Statut mis a jour + Compteur livraison incremente", {
+            description: clientInfo,
           })
         } else if ((newStatus === "returned" || newStatus === "delivered") && !result.clientSynced) {
           toast.warning("Statut mis a jour", {
-            description: "Attention: Le compteur client n'a pas pu etre mis a jour (client non trouve)",
+            description: "Attention: Le compteur client n'a pas pu etre mis a jour (donnees insuffisantes pour creer le client)",
           })
         } else {
           toast.success("Statut mis a jour", {
