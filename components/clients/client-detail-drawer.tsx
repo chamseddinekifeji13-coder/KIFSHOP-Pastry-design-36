@@ -56,9 +56,12 @@ export function ClientDetailDrawer({
   const [notes, setNotes] = useState("")
   const [savingNotes, setSavingNotes] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [localClient, setLocalClient] = useState<Client | null>(client)
 
   useEffect(() => {
     if (client && open) {
+      setLocalClient(client)
       setNotes(client.notes || "")
       setLoadingOrders(true)
       fetchClientOrders(client.id)
@@ -74,16 +77,17 @@ export function ClientDetailDrawer({
     }
   }, [client, open])
 
-  if (!client) return null
+  if (!client || !localClient) return null
 
-  const cfg = statusConfig[client.status] || statusConfig.normal
+  const cfg = statusConfig[localClient.status] || statusConfig.normal
 
   const handleSaveNotes = async () => {
     setSavingNotes(true)
     try {
-      const ok = await updateClient(client.id, { notes })
+      const ok = await updateClient(localClient.id, { notes })
       if (ok) {
         toast.success("Notes sauvegardees")
+        setLocalClient({ ...localClient, notes })
         onUpdated()
       } else {
         toast.error("Erreur lors de la sauvegarde")
@@ -121,13 +125,13 @@ export function ClientDetailDrawer({
           <SheetHeader className="pb-4">
             <SheetTitle className="flex items-center gap-3">
               <div className={`flex h-11 w-11 items-center justify-center rounded-full text-base font-bold ${cfg.bg} ${cfg.color}`}>
-                {client.name ? client.name.charAt(0).toUpperCase() : <Phone className="h-5 w-5" />}
+                {localClient.name ? localClient.name.charAt(0).toUpperCase() : <Phone className="h-5 w-5" />}
               </div>
               <div>
-                <p className="text-lg font-bold">{client.name || "Client sans nom"}</p>
+                <p className="text-lg font-bold">{localClient.name || "Client sans nom"}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" />{client.phone}
+                    <Phone className="h-3 w-3" />{localClient.phone}
                   </span>
                   <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${cfg.bg} ${cfg.color}`}>
                     {cfg.label}
@@ -142,18 +146,18 @@ export function ClientDetailDrawer({
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border bg-card p-3 text-center">
                 <ShoppingCart className="h-4 w-4 mx-auto text-primary mb-1" />
-                <p className="text-xl font-bold">{client.totalOrders}</p>
+                <p className="text-xl font-bold">{localClient.totalOrders}</p>
                 <p className="text-[10px] text-muted-foreground">Commandes</p>
               </div>
               <div className="rounded-xl border bg-card p-3 text-center">
                 <TrendingUp className="h-4 w-4 mx-auto text-primary mb-1" />
-                <p className="text-xl font-bold">{client.totalSpent.toFixed(0)}</p>
+                <p className="text-xl font-bold">{(localClient.totalSpent ?? 0).toFixed(0)}</p>
                 <p className="text-[10px] text-muted-foreground">TND depense</p>
               </div>
               <div className="rounded-xl border bg-card p-3 text-center">
                 <RotateCcw className="h-4 w-4 mx-auto text-red-500 mb-1" />
-                <p className={`text-xl font-bold ${client.returnCount > 0 ? "text-red-600" : ""}`}>
-                  {client.returnCount}
+                <p className={`text-xl font-bold ${(localClient.returnCount ?? 0) > 0 ? "text-red-600" : ""}`}>
+                  {localClient.returnCount}
                 </p>
                 <p className="text-[10px] text-muted-foreground">Retours</p>
               </div>
@@ -164,7 +168,7 @@ export function ClientDetailDrawer({
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Modifier le statut
               </p>
-              <Select value={client.status} onValueChange={(v) => onStatusChange(client.id, v)}>
+              <Select value={localClient.status} onValueChange={(v) => onStatusChange(localClient.id, v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -265,7 +269,7 @@ export function ClientDetailDrawer({
                 size="sm"
                 className="mt-2"
                 onClick={handleSaveNotes}
-                disabled={savingNotes || notes === (client.notes || "")}
+                disabled={savingNotes || notes === (localClient.notes || "")}
               >
                 {savingNotes ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
                 Sauvegarder
@@ -276,8 +280,8 @@ export function ClientDetailDrawer({
 
             {/* Infos */}
             <div className="text-xs text-muted-foreground space-y-1">
-              <p>Client depuis: {formatDate(client.createdAt)}</p>
-              <p>Derniere MAJ: {formatDate(client.updatedAt)}</p>
+              <p>Client depuis: {formatDate(localClient.createdAt)}</p>
+              <p>Derniere MAJ: {formatDate(localClient.updatedAt)}</p>
             </div>
 
             {/* Delete */}
@@ -300,20 +304,31 @@ export function ClientDetailDrawer({
           <DialogHeader>
             <DialogTitle>Supprimer ce client ?</DialogTitle>
             <DialogDescription>
-              Cette action est irreversible. Toutes les donnees de {client.name || client.phone} seront supprimees.
+              Cette action est irreversible. Toutes les donnees de {localClient.name || localClient.phone} seront supprimees.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)}>Annuler</Button>
+            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)} disabled={deleting}>
+              Annuler
+            </Button>
             <Button
               variant="destructive"
-              onClick={() => {
-                onDelete(client.id)
-                setConfirmDeleteOpen(false)
-                onOpenChange(false)
+              onClick={async () => {
+                setDeleting(true)
+                try {
+                  await onDelete(localClient.id)
+                  setConfirmDeleteOpen(false)
+                  onOpenChange(false)
+                } catch (err) {
+                  console.error("Erreur suppression:", err)
+                  toast.error("Erreur lors de la suppression")
+                  setDeleting(false)
+                }
               }}
+              disabled={deleting}
             >
-              Supprimer
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+              {deleting ? "Suppression..." : "Supprimer"}
             </Button>
           </DialogFooter>
         </DialogContent>
