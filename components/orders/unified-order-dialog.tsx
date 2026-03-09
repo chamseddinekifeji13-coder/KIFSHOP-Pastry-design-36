@@ -276,9 +276,6 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const handleRemoveItem = useCallback((productId: string) => {
     setItems(items.filter(i => i.productId !== productId))
   }, [items])
-    setSelectedProduct("")
-    setProductSearchOpen(false)
-  }
 
   // Update quantity
   const handleUpdateQuantity = (productId: string, delta: number) => {
@@ -291,11 +288,6 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         )
         .filter(item => item.quantity > 0)
     )
-  }
-
-  // Remove item
-  const handleRemoveItem = (productId: string) => {
-    setItems(items.filter(i => i.productId !== productId))
   }
 
   const subtotal = useMemo(
