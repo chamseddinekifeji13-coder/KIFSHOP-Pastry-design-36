@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Phone, Star, AlertTriangle, Ban, User, Clock,
   ShoppingCart, TrendingUp, RotateCcw, Loader2, Trash2,
@@ -61,10 +61,16 @@ export function ClientDetailDrawer({
     if (client && open) {
       setNotes(client.notes || "")
       setLoadingOrders(true)
-      fetchClientOrders(client.id).then((data) => {
-        setOrders(data)
-        setLoadingOrders(false)
-      })
+      fetchClientOrders(client.id)
+        .then((data) => {
+          setOrders(data || [])
+          setLoadingOrders(false)
+        })
+        .catch((err) => {
+          console.error("Erreur chargement commandes:", err)
+          toast.error("Impossible de charger les commandes")
+          setLoadingOrders(false)
+        })
     }
   }, [client, open])
 
@@ -74,15 +80,39 @@ export function ClientDetailDrawer({
 
   const handleSaveNotes = async () => {
     setSavingNotes(true)
-    const ok = await updateClient(client.id, { notes })
-    if (ok) { toast.success("Notes sauvegardees"); onUpdated() }
-    else toast.error("Erreur")
-    setSavingNotes(false)
+    try {
+      const ok = await updateClient(client.id, { notes })
+      if (ok) {
+        toast.success("Notes sauvegardees")
+        onUpdated()
+      } else {
+        toast.error("Erreur lors de la sauvegarde")
+      }
+    } catch (err) {
+      console.error("Erreur sauvegarde notes:", err)
+      toast.error(err instanceof Error ? err.message : "Erreur reseau")
+    } finally {
+      setSavingNotes(false)
+    }
   }
 
   const formatDate = (d: string) => {
-    return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    try {
+      return new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    } catch {
+      return "Date invalide"
+    }
   }
+
+  // Memoize order configs for performance
+  const orderConfigs = useMemo(() => {
+    return orders.map((order) => ({
+      ...order,
+      config: orderStatusConfig[order.status] || orderStatusConfig.nouveau,
+      formattedTotal: (Number(order.total) ?? 0).toFixed(3),
+      formattedDate: formatDate(order.createdAt),
+    }))
+  }, [orders])
 
   return (
     <>
@@ -166,35 +196,34 @@ export function ClientDetailDrawer({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {orders.map((order) => {
-                    const oCfg = orderStatusConfig[order.status] || orderStatusConfig.nouveau
+                  {orderConfigs.map((orderItem) => {
                     return (
-                      <div key={order.id} className="rounded-lg border bg-card p-3">
+                      <div key={orderItem.id} className="rounded-lg border bg-card p-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className={`text-[10px] ${oCfg.color}`}>
-                              {oCfg.label}
+                            <Badge variant="secondary" className={`text-[10px] ${orderItem.config.color}`}>
+                              {orderItem.config.label}
                             </Badge>
-                            {order.truecallerVerified && (
+                            {orderItem.truecallerVerified && (
                               <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700">
                                 Truecaller
                               </Badge>
                             )}
                           </div>
                           <span className="text-xs text-muted-foreground">
-                            {formatDate(order.createdAt)}
+                            {orderItem.formattedDate}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
                           <div className="text-sm">
-                            <p className="font-semibold">{Number(order.total).toFixed(3)} TND</p>
-                            {order.notes && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{order.notes}</p>
+                            <p className="font-semibold">{orderItem.formattedTotal} TND</p>
+                            {orderItem.notes && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{orderItem.notes}</p>
                             )}
                           </div>
                           <div className="text-right text-[10px] text-muted-foreground">
-                            {order.deliveryType === "delivery" ? (
+                            {orderItem.deliveryType === "delivery" ? (
                               <span className="flex items-center gap-1"><Truck className="h-3 w-3" /> Livraison</span>
                             ) : (
                               <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> Retrait</span>
@@ -202,12 +231,12 @@ export function ClientDetailDrawer({
                           </div>
                         </div>
 
-                        {order.confirmedByName && (
+                        {orderItem.confirmedByName && (
                           <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            Confirme par {order.confirmedByName}
-                            {order.returnedByName && (
-                              <span className="text-red-500 ml-2">| Retourne par {order.returnedByName}</span>
+                            Confirme par {orderItem.confirmedByName}
+                            {orderItem.returnedByName && (
+                              <span className="text-red-500 ml-2">| Retourne par {orderItem.returnedByName}</span>
                             )}
                           </p>
                         )}
