@@ -8,45 +8,68 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Clean raw_materials
-    const { data: deletedRaw, error: errorRaw } = await supabase
+    // Clean raw_materials - get IDs first, then delete
+    const { data: emptyRaw } = await supabase
       .from("raw_materials")
-      .delete()
+      .select("id")
       .or('name.is.null,name.eq.""')
+    
+    let deletedRawCount = 0
+    if (emptyRaw && emptyRaw.length > 0) {
+      const { error: errorRaw } = await supabase
+        .from("raw_materials")
+        .delete()
+        .in("id", emptyRaw.map(r => r.id))
+      if (errorRaw) throw errorRaw
+      deletedRawCount = emptyRaw.length
+    }
 
     // Clean finished_products
-    const { data: deletedFinished, error: errorFinished } = await supabase
+    const { data: emptyFinished } = await supabase
       .from("finished_products")
-      .delete()
+      .select("id")
       .or('name.is.null,name.eq.""')
+    
+    let deletedFinishedCount = 0
+    if (emptyFinished && emptyFinished.length > 0) {
+      const { error: errorFinished } = await supabase
+        .from("finished_products")
+        .delete()
+        .in("id", emptyFinished.map(f => f.id))
+      if (errorFinished) throw errorFinished
+      deletedFinishedCount = emptyFinished.length
+    }
 
     // Clean packaging
-    const { data: deletedPackaging, error: errorPackaging } = await supabase
+    const { data: emptyPackaging } = await supabase
       .from("packaging")
-      .delete()
+      .select("id")
       .or('name.is.null,name.eq.""')
-
-    if (errorRaw || errorFinished || errorPackaging) {
-      console.error("Cleanup errors:", { errorRaw, errorFinished, errorPackaging })
-      return NextResponse.json(
-        { error: "Erreur lors du nettoyage" },
-        { status: 500 }
-      )
+    
+    let deletedPackagingCount = 0
+    if (emptyPackaging && emptyPackaging.length > 0) {
+      const { error: errorPackaging } = await supabase
+        .from("packaging")
+        .delete()
+        .in("id", emptyPackaging.map(p => p.id))
+      if (errorPackaging) throw errorPackaging
+      deletedPackagingCount = emptyPackaging.length
     }
 
     return NextResponse.json({
       success: true,
       message: "Nettoyage complété",
       deleted: {
-        raw_materials: deletedRaw?.length || 0,
-        finished_products: deletedFinished?.length || 0,
-        packaging: deletedPackaging?.length || 0
+        raw_materials: deletedRawCount,
+        finished_products: deletedFinishedCount,
+        packaging: deletedPackagingCount,
+        total: deletedRawCount + deletedFinishedCount + deletedPackagingCount
       }
     })
   } catch (error) {
     console.error("Cleanup error:", error)
     return NextResponse.json(
-      { error: "Erreur serveur lors du nettoyage" },
+      { error: error instanceof Error ? error.message : "Erreur serveur lors du nettoyage" },
       { status: 500 }
     )
   }
