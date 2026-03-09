@@ -6,9 +6,9 @@ import useSWR from "swr"
 import {
   Plus, MessageCircle, Globe, Store, Phone, CreditCard,
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
-  ArrowRight, AlertCircle, Loader2, Banknote, Wallet, X, Trash2,
-  Building2, User, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Zap,
+  ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
+  Building2, RotateCcw, FileWarning, Check, XCircle,
+  FileText, Download, Printer, Eye,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,10 +50,7 @@ import {
 import { InvoicePreview } from "./invoice-preview"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { NewOrderDrawer } from "./new-order-drawer"
-import { QuickOrder } from "./quick-order"
 import { UnifiedOrderDialog } from "./unified-order-dialog"
-import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV } from "@/lib/csv-export"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -120,7 +117,6 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
 }
 
 export function OrdersView() {
-  const { t } = useI18n()
   const { currentTenant, isLoading: tenantLoading } = useTenant()
   const searchParams = useSearchParams()
 
@@ -243,6 +239,11 @@ export function OrdersView() {
   }
 
   const handleExportOrders = async () => {
+    if (orders.length === 0) {
+      toast.error("Aucune commande à exporter")
+      return
+    }
+
     setIsExporting(true)
     try {
       const { headers, data } = await exportOrdersToCSV(currentTenant.id)
@@ -315,7 +316,12 @@ export function OrdersView() {
 
     if (ok) {
       const newDeposit = selectedOrder.deposit + amount
-      const newStatus = newDeposit >= selectedOrder.total ? "paid" : "partial"
+      const newStatus: Order["paymentStatus"] =
+        newDeposit >= selectedOrder.total
+          ? "paid"
+          : newDeposit > 0
+            ? "partial"
+            : "unpaid"
       toast.success("Encaissement enregistre", {
         description: `${amount.toLocaleString("fr-TN")} TND - ${paymentMethodLabels[payMethod]}`,
       })
@@ -459,11 +465,25 @@ export function OrdersView() {
   const handlePrintDocument = (invoice: Invoice) => {
     setPreviewInvoice(invoice)
     setPreviewOpen(true)
-    setTimeout(() => {
-      const printWindow = window.open("", "_blank")
-      if (!printWindow) return
+
+    const tryPrint = (attempts = 0) => {
       const previewEl = document.getElementById("invoice-print-area")
-      if (!previewEl) return
+
+      if (!previewEl) {
+        if (attempts < 10) {
+          setTimeout(() => tryPrint(attempts + 1), 200)
+        } else {
+          toast.error("Impossible de charger l'aperçu du document")
+        }
+        return
+      }
+
+      const printWindow = window.open("", "_blank")
+      if (!printWindow) {
+        toast.error("Popup bloquée. Autorisez les popups pour imprimer.")
+        return
+      }
+
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
@@ -472,7 +492,9 @@ export function OrdersView() {
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
           </style>
         </head>
         <body>${previewEl.innerHTML}</body>
@@ -481,13 +503,15 @@ export function OrdersView() {
       printWindow.document.close()
       printWindow.focus()
       printWindow.print()
-    }, 300)
+    }
+
+    setTimeout(() => tryPrint(), 300)
   }
 
   const handleDownloadPdf = async (invoice: Invoice) => {
     setPreviewInvoice(invoice)
     setPreviewOpen(true)
-    // Use dynamic import for html2canvas + jspdf
+
     try {
       const [html2canvasModule, jsPDFModule] = await Promise.all([
         import("html2canvas"),
@@ -496,20 +520,30 @@ export function OrdersView() {
       const html2canvas = html2canvasModule.default
       const { jsPDF } = jsPDFModule
 
-      setTimeout(async () => {
-        const el = document.getElementById("invoice-print-area")
-        if (!el) return
-        const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#ffffff" })
-        const imgData = canvas.toDataURL("image/png")
-        const pdf = new jsPDF("p", "mm", "a4")
-        const pdfWidth = pdf.internal.pageSize.getWidth()
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
-        pdf.save(`${invoice.documentNumber}.pdf`)
-        setPreviewOpen(false)
-      }, 500)
+      const waitForElement = (attempts = 0): Promise<HTMLElement> => {
+        return new Promise((resolve, reject) => {
+          const el = document.getElementById("invoice-print-area")
+          if (el) return resolve(el)
+          if (attempts >= 10) return reject(new Error("Element introuvable"))
+          setTimeout(() => resolve(waitForElement(attempts + 1)), 200)
+        })
+      }
+
+      const el = await waitForElement()
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      })
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight)
+      pdf.save(`${invoice.documentNumber}.pdf`)
     } catch {
       toast.error("Erreur lors du telechargement PDF")
+    } finally {
       setPreviewOpen(false)
     }
   }
