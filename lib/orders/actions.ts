@@ -207,10 +207,8 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
-  // Get active profile (employee/agent who is creating the order)
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
-  const activeProfile = await getActiveProfileCookie()
-  const creatorName = activeProfile?.displayName || user.user_metadata?.display_name || user.email || null
+  // Get creator name from auth user
+  const creatorName = user.user_metadata?.display_name || user.email || null
 
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
@@ -340,10 +338,8 @@ export async function updateOrderStatus(
   }
 
   // Record status history
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
   const { data: { user } } = await supabase.auth.getUser()
-  const activeProfile = await getActiveProfileCookie()
-  const changerName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  const changerName = user?.user_metadata?.display_name || user?.email || null
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
@@ -388,9 +384,7 @@ export async function updatePaymentStatus(
 
   // Record as note in history
   const { data: { user } } = await supabase.auth.getUser()
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
-  const activeProfile = await getActiveProfileCookie()
-  const updaterName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  const updaterName = user?.user_metadata?.display_name || user?.email || null
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
@@ -581,9 +575,8 @@ export async function recordPaymentCollection(
   ].filter(Boolean).join(" - ")
 
   // Record in status history
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
-  const activeProfile = await getActiveProfileCookie()
-  const recorderName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  const activeProfile = null // Profile tracking removed to avoid server-only imports in client contexts
+  const recorderName = user?.user_metadata?.display_name || user?.email || null
   
   await supabase.from("order_status_history").insert({
     order_id: data.orderId,
