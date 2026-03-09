@@ -94,56 +94,109 @@ export interface CreateOrderData {
 
 // ─── Fetch Orders ─────────────────────────────────────────────
 
+// Helper function to map delivery status to order status
+function mapDeliveryStatus(status: string): string {
+  const statusMap: Record<string, string> = {
+    "en attente": "en-livraison",
+    pending: "en-livraison",
+    delivered: "livre",
+    livree: "livre",
+    failed: "en-livraison",
+    returned: "en-livraison",
+  }
+  
+  const normalized = status?.toLowerCase().trim() || ""
+  return statusMap[normalized] || "en-livraison"
+}
+
 export async function fetchOrders(tenantId: string): Promise<Order[]> {
   const supabase = createClient()
+  const orders: Order[] = []
 
-  const { data: orders, error } = await supabase
+  // Fetch from best_delivery_shipments (old imported orders)
+  const { data: shipments } = await supabase
+    .from("best_delivery_shipments")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+
+  if (shipments && shipments.length > 0) {
+    shipments.forEach((s) => {
+      orders.push({
+        id: s.id,
+        tenantId: s.tenant_id,
+        customerName: s.customer_name || "",
+        customerPhone: s.customer_phone || "",
+        customerAddress: s.customer_address || undefined,
+        items: [],
+        total: Number(s.price || 0),
+        deposit: 0,
+        shippingCost: Number(s.fees || 0),
+        status: mapDeliveryStatus(s.status),
+        deliveryType: "delivery",
+        courier: s.courier || undefined,
+        gouvernorat: s.gouvernorat || undefined,
+        trackingNumber: s.tracking_number || undefined,
+        source: "best-delivery",
+        paymentStatus: "unpaid",
+        createdAt: s.created_at,
+        deliveryDate: s.delivery_date || undefined,
+        estimatedDeliveryAt: undefined,
+        deliveredAt: s.delivered_at || undefined,
+        deliveryAddress: s.customer_address || undefined,
+        notes: s.notes || undefined,
+      })
+    })
+  }
+
+  // Fetch from quick_orders (new system orders)
+  const { data: quickOrders } = await supabase
     .from("quick_orders")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching orders:", error.message)
-    return []
+  if (quickOrders && quickOrders.length > 0) {
+    quickOrders.forEach((o) => {
+      const items = Array.isArray(o.items) ? o.items : []
+      orders.push({
+        id: o.id,
+        tenantId: o.tenant_id,
+        customerName: o.client_name || "",
+        customerPhone: o.phone || "",
+        customerAddress: undefined,
+        items: items.map((item: any) => ({
+          id: item.id || "",
+          productId: item.productId || "",
+          name: item.name || "",
+          quantity: Number(item.quantity || 1),
+          price: Number(item.price || 0),
+        })),
+        total: Number(o.total),
+        deposit: 0,
+        shippingCost: 0,
+        status: o.status || "nouveau",
+        deliveryType: "pickup",
+        courier: undefined,
+        gouvernorat: undefined,
+        trackingNumber: undefined,
+        source: o.source || "comptoir",
+        paymentStatus: "unpaid",
+        createdAt: o.created_at,
+        deliveryDate: undefined,
+        estimatedDeliveryAt: undefined,
+        deliveredAt: undefined,
+        deliveryAddress: undefined,
+        notes: o.notes || undefined,
+      })
+    })
   }
 
-  if (!orders || orders.length === 0) return []
-
-  // quick_orders stores items as JSONB, so no need for separate query
-  return orders.map((o) => {
-    const items = Array.isArray(o.items) ? o.items : []
-    
-    return {
-      id: o.id,
-      tenantId: o.tenant_id,
-      customerName: o.client_name || "",
-      customerPhone: o.phone || "",
-      customerAddress: undefined,
-      items: items.map((item: any) => ({
-        id: item.id || "",
-        productId: item.productId || "",
-        name: item.name || "",
-        quantity: Number(item.quantity || 1),
-        price: Number(item.price || 0),
-      })),
-      total: Number(o.total),
-      deposit: 0,
-      shippingCost: 0,
-      status: o.status || "nouveau",
-      deliveryType: "pickup",
-      courier: undefined,
-      gouvernorat: undefined,
-      trackingNumber: undefined,
-      source: o.source || "comptoir",
-      paymentStatus: "unpaid",
-      createdAt: o.created_at,
-      deliveryDate: undefined,
-      estimatedDeliveryAt: undefined,
-      deliveredAt: undefined,
-      deliveryAddress: undefined,
-      notes: o.notes || undefined,
-    }
+  // Sort by creation date descending
+  return orders.sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime()
+    const dateB = new Date(b.createdAt).getTime()
+    return dateB - dateA
   })
 }
 
@@ -154,10 +207,8 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
-  // Get active profile (employee/agent who is creating the order)
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
-  const activeProfile = await getActiveProfileCookie()
-  const creatorName = activeProfile?.displayName || user.user_metadata?.display_name || user.email || null
+  // Get creator name from auth user
+  const creatorName = user.user_metadata?.display_name || user.email || null
 
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
@@ -287,10 +338,8 @@ export async function updateOrderStatus(
   }
 
   // Record status history
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
   const { data: { user } } = await supabase.auth.getUser()
-  const activeProfile = await getActiveProfileCookie()
-  const changerName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  const changerName = user?.user_metadata?.display_name || user?.email || null
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
@@ -335,9 +384,7 @@ export async function updatePaymentStatus(
 
   // Record as note in history
   const { data: { user } } = await supabase.auth.getUser()
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
-  const activeProfile = await getActiveProfileCookie()
-  const updaterName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  const updaterName = user?.user_metadata?.display_name || user?.email || null
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
@@ -528,9 +575,8 @@ export async function recordPaymentCollection(
   ].filter(Boolean).join(" - ")
 
   // Record in status history
-  const { getActiveProfileCookie } = await import("@/lib/active-profile")
-  const activeProfile = await getActiveProfileCookie()
-  const recorderName = activeProfile?.displayName || user?.user_metadata?.display_name || user?.email || null
+  const activeProfile = null // Profile tracking removed to avoid server-only imports in client contexts
+  const recorderName = user?.user_metadata?.display_name || user?.email || null
   
   await supabase.from("order_status_history").insert({
     order_id: data.orderId,
