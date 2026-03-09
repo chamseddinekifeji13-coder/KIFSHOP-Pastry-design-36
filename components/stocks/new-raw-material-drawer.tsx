@@ -18,8 +18,8 @@ const UNITS = [
   { value: "g", label: "Grammes (g)" },
   { value: "L", label: "Litres (L)" },
   { value: "mL", label: "Millilitres (mL)" },
-  { value: "pcs", label: "Pieces (pcs)" },
-  { value: "boites", label: "Boites" },
+  { value: "pcs", label: "Pièces (pcs)" },
+  { value: "boîtes", label: "Boîtes" },
   { value: "sachets", label: "Sachets" },
 ]
 
@@ -33,6 +33,8 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   const { currentTenant } = useTenant()
   const { data: storageLocations } = useStorageLocations()
   const [saving, setSaving] = useState(false)
+  
+  // États du formulaire
   const [name, setName] = useState("")
   const [unit, setUnit] = useState("kg")
   const [currentStock, setCurrentStock] = useState("")
@@ -45,17 +47,41 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   const activeLocations = (storageLocations || []).filter(l => l.isActive)
 
   function resetForm() {
-    setName(""); setUnit("kg"); setCurrentStock("")
-    setMinStock("5"); setPricePerUnit(""); setSupplier(""); setBarcode(""); setStorageLocationId("")
+    setName("")
+    setUnit("kg")
+    setCurrentStock("")
+    setMinStock("5")
+    setPricePerUnit("")
+    setSupplier("")
+    setBarcode("")
+    setStorageLocationId("")
+  }
+
+  function validateNumber(value: string, defaultValue: number = 0): number {
+    const num = Number(value)
+    return isNaN(num) || num < 0 ? defaultValue : num
   }
 
   async function handleSubmit() {
-    if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
-    if (!storageLocationId || storageLocationId === "none") { toast.error("Le depot est obligatoire", { description: "Veuillez selectionner un emplacement de stockage" }); return }
-    if (!pricePerUnit || Number(pricePerUnit) <= 0) { toast.error("Le prix unitaire est obligatoire"); return }
+    if (!name.trim()) { 
+      toast.error("Le nom est obligatoire") 
+      return 
+    }
+    if (!storageLocationId || storageLocationId === "none") { 
+      toast.error("Le dépôt est obligatoire", { 
+        description: "Veuillez sélectionner un emplacement de stockage" 
+      }) 
+      return 
+    }
+    if (!pricePerUnit || validateNumber(pricePerUnit) <= 0) { 
+      toast.error("Le prix unitaire est obligatoire") 
+      return 
+    }
 
     if (!currentTenant.id || currentTenant.id === "__fallback__") {
-      toast.error("Session non initialisee", { description: "Veuillez rafraichir la page" })
+      toast.error("Session non initialisée", { 
+        description: "Veuillez rafraîchir la page" 
+      })
       return
     }
 
@@ -64,27 +90,27 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
       const result = await createRawMaterial(currentTenant.id, {
         name: name.trim(),
         unit,
-        currentStock: Number(currentStock) || 0,
-        minStock: Number(minStock) || 5,
-        pricePerUnit: Number(pricePerUnit) || 0,
+        currentStock: validateNumber(currentStock),
+        minStock: validateNumber(minStock, 5),
+        pricePerUnit: validateNumber(pricePerUnit),
         supplier: supplier.trim() || undefined,
         barcode: barcode.trim() || undefined,
         storageLocationId: storageLocationId || undefined,
       })
       if (result) {
-        toast.success("Matiere premiere ajoutee", { description: name.trim() })
+        toast.success("Matière première ajoutée", { description: name.trim() })
         resetForm()
         onOpenChange(false)
         onSuccess?.()
       } else {
-        toast.error("Erreur lors de la creation")
+        toast.error("Erreur lors de la création")
       }
-    } catch (err: any) {
-      const msg = err?.message || ""
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ""
       if (msg.startsWith("DUPLICATE:")) {
-        toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+        toast.error("Doublon détecté", { description: msg.replace("DUPLICATE:", "") })
       } else if (msg.startsWith("SIMILAR:")) {
-        toast.error("Matiere premiere similaire detectee", { 
+        toast.error("Matière première similaire détectée", { 
           description: msg.replace("SIMILAR:", "") 
         })
       } else {
@@ -96,41 +122,41 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   }
 
   return (
-<Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto [&>button[data-slot=dialog-close]]:absolute [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:opacity-80 [&>button[data-slot=dialog-close]]:hover:opacity-100 [&>button[data-slot=dialog-close]]:z-50">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-br from-[#4A7C59] to-[#3d6a4b] p-6 text-white">
+        <div className="bg-gradient-to-br from-primary to-primary/80 p-6 text-primary-foreground">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                <FlaskConical className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/20 backdrop-blur-sm">
+                <FlaskConical className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <DialogTitle className="text-white text-lg">Nouvelle matiere premiere</DialogTitle>
-                <p className="text-white/80 text-sm">Farine, sucre, beurre, oeufs...</p>
+                <DialogTitle className="text-primary-foreground text-lg">Nouvelle matière première</DialogTitle>
+                <p className="text-primary-foreground/80 text-sm">Farine, sucre, beurre, œufs...</p>
               </div>
             </div>
           </DialogHeader>
         </div>
 
         <div className="flex-1 p-6 space-y-5">
-          {/* Info generale */}
+          {/* Info générale */}
           <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <FlaskConical className="h-4 w-4 text-[#4A7C59]" />
+              <FlaskConical className="h-4 w-4 text-primary" aria-hidden="true" />
               Informations
             </h3>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Nom *</Label>
-              <Input placeholder="Ex: Farine T55, Sucre glace, Beurre..." value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="name" className="text-xs text-muted-foreground">Nom *</Label>
+              <Input id="name" placeholder="Ex: Farine T55, Sucre glace, Beurre..." value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Unite *</Label>
+                <Label htmlFor="unit" className="text-xs text-muted-foreground">Unité *</Label>
                 <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="unit" className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => (
                       <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
@@ -139,20 +165,24 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Fournisseur</Label>
-                <Input placeholder="Ex: Moulin du Sud" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+                <Label htmlFor="supplier" className="text-xs text-muted-foreground">Fournisseur</Label>
+                <Input id="supplier" placeholder="Ex: Moulin du Sud" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Code-barres</Label>
-                <BarcodeInput value={barcode} onChange={setBarcode} />
+                <Label htmlFor="barcode" className="text-xs text-muted-foreground">Code-barres</Label>
+                <BarcodeInput id="barcode" value={barcode} onChange={setBarcode} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> Emplacement *</Label>
+                <Label htmlFor="location" className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" aria-hidden="true" /> Emplacement *
+                </Label>
                 <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                  <SelectTrigger className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}><SelectValue placeholder="Choisir un depot (obligatoire)" /></SelectTrigger>
+                  <SelectTrigger id="location" className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}>
+                    <SelectValue placeholder="Choisir un dépôt (obligatoire)" />
+                  </SelectTrigger>
                   <SelectContent>
                     {activeLocations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</SelectItem>
@@ -166,22 +196,22 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
           {/* Stock & Prix */}
           <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-[#4A7C59]/10 text-[#4A7C59] text-xs font-bold">S</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-primary text-xs font-bold">S</span>
               Stock et prix
             </h3>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Stock actuel</Label>
-                <Input type="number" min="0" step="0.1" placeholder="0" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
+                <Label htmlFor="currentStock" className="text-xs text-muted-foreground">Stock actuel</Label>
+                <Input id="currentStock" type="number" min="0" step="0.1" placeholder="0" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Seuil min.</Label>
-                <Input type="number" min="0" step="0.1" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+                <Label htmlFor="minStock" className="text-xs text-muted-foreground">Seuil min.</Label>
+                <Input id="minStock" type="number" min="0" step="0.1" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Prix/u (TND) *</Label>
-                <Input type="number" min="0" step="0.001" placeholder="0.000" value={pricePerUnit} onChange={(e) => setPricePerUnit(e.target.value)} />
+                <Label htmlFor="price" className="text-xs text-muted-foreground">Prix/u (TND) *</Label>
+                <Input id="price" type="number" min="0" step="0.001" placeholder="0.000" value={pricePerUnit} onChange={(e) => setPricePerUnit(e.target.value)} />
               </div>
             </div>
           </div>
@@ -192,8 +222,12 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
           <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>
             Annuler
           </Button>
-          <Button className="flex-1 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white" onClick={handleSubmit} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
+          <Button className="flex-1" onClick={handleSubmit} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <FlaskConical className="mr-2 h-4 w-4" aria-hidden="true" />
+            )}
             {saving ? "Enregistrement..." : "Ajouter"}
           </Button>
         </div>
