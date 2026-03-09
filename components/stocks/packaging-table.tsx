@@ -15,14 +15,14 @@ import { updatePackaging } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 
 const typeLabels: Record<string, string> = {
-  boite: "Boite",
+  boîte: "Boîte",
   plateau: "Plateau",
   sachet: "Sachet",
   pot: "Pot",
   film: "Film alimentaire",
   papier: "Papier",
   ruban: "Ruban",
-  etiquette: "Etiquette",
+  étiquette: "Étiquette",
   autre: "Autre",
 }
 
@@ -49,15 +49,24 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
 
   const handleSaveEdit = async () => {
     if (!editingItem || !editName.trim()) return
+    
+    const price = Number(editPrice)
+    const minStock = Number(editMinStock)
+    
+    if (isNaN(price) || price < 0) {
+      toast.error("Veuillez entrer un prix valide")
+      return
+    }
+    
     setIsSaving(true)
     try {
       await updatePackaging(editingItem.id, {
         name: editName.trim(),
-        price: Number(editPrice),
-        minStock: Number(editMinStock) || 0,
+        price: price,
+        minStock: minStock || 0,
         unit: editUnit,
       })
-      toast.success("Emballage modifie avec succes")
+      toast.success("Emballage modifié avec succès")
       setEditingItem(null)
     } catch {
       toast.error("Erreur lors de la modification")
@@ -69,10 +78,10 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16">
-          <Package className="h-10 w-10 text-muted-foreground/50 mb-3" />
-          <p className="text-sm font-medium">Aucun emballage enregistre</p>
+          <Package className="h-10 w-10 text-muted-foreground/50 mb-3" aria-hidden="true" />
+          <p className="text-sm font-medium">Aucun emballage enregistré</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Ajoutez vos boites, plateaux et emballages
+            Ajoutez vos boîtes, plateaux et emballages
           </p>
         </CardContent>
       </Card>
@@ -105,8 +114,8 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#D4A373]/10">
-                        <Package className="h-4 w-4 text-[#D4A373]" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/10">
+                        <Package className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
                       </div>
                       <div>
                         <p className="font-medium">{item.name}</p>
@@ -114,8 +123,14 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                           <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description}</p>
                         )}
                       </div>
-                      <Button variant="ghost" size="sm" className="ml-auto h-6 w-6 p-0" onClick={(e) => { e.stopPropagation(); handleEditClick(item) }}>
-                        <Edit2 className="h-3 w-3" />
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="ml-auto h-6 w-6 p-0" 
+                        onClick={(e) => { e.stopPropagation(); handleEditClick(item) }}
+                        aria-label={`Modifier ${item.name}`}
+                      >
+                        <Edit2 className="h-3 w-3" aria-hidden="true" />
                       </Button>
                     </div>
                   </TableCell>
@@ -131,16 +146,16 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                     {item.minStock} {item.unit}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {item.price.toFixed(3)} TND
+                    {(item.price || 0).toFixed(3)} TND
                   </TableCell>
                   <TableCell>
                     {isLow ? (
                       <Badge variant="destructive" className="gap-1">
-                        <AlertTriangle className="h-3 w-3" />
+                        <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                         Stock bas
                       </Badge>
                     ) : (
-                      <Badge className="bg-[#4A7C59]/10 text-[#4A7C59] hover:bg-[#4A7C59]/20 border-0">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0">
                         OK
                       </Badge>
                     )}
@@ -160,36 +175,51 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Nom *</Label>
-            <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            <Label htmlFor="edit-name">Nom *</Label>
+            <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Prix unitaire (TND) *</Label>
-              <Input type="number" min="0" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+              <Label htmlFor="edit-price">Prix unitaire (TND) *</Label>
+              <Input 
+                id="edit-price"
+                type="number" 
+                min="0" 
+                step="0.001" 
+                value={editPrice} 
+                onChange={(e) => setEditPrice(e.target.value)} 
+              />
             </div>
             <div className="space-y-2">
-              <Label>Seuil minimum</Label>
-              <Input type="number" min="0" value={editMinStock} onChange={(e) => setEditMinStock(e.target.value)} />
+              <Label htmlFor="edit-min">Seuil minimum</Label>
+              <Input 
+                id="edit-min"
+                type="number" 
+                min="0" 
+                value={editMinStock} 
+                onChange={(e) => setEditMinStock(e.target.value)} 
+              />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Unite</Label>
+            <Label htmlFor="edit-unit">Unité</Label>
             <Select value={editUnit} onValueChange={setEditUnit}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger id="edit-unit"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="pcs">pcs</SelectItem>
-                <SelectItem value="unite">unite</SelectItem>
+                <SelectItem value="unité">unité</SelectItem>
                 <SelectItem value="kg">kg</SelectItem>
                 <SelectItem value="rouleau">rouleau</SelectItem>
-                <SelectItem value="metre">metre</SelectItem>
+                <SelectItem value="mètre">mètre</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setEditingItem(null)}>Annuler</Button>
-          <Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? "Enregistrement..." : "Enregistrer"}</Button>
+          <Button onClick={handleSaveEdit} disabled={isSaving || !editName.trim()}>
+            {isSaving ? "Enregistrement..." : "Enregistrer"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
