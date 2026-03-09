@@ -1,7 +1,7 @@
 "use client"
 
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Loader2,
   Search,
@@ -69,7 +69,7 @@ import {
 } from "@/lib/super-admin/actions"
 
 
-const TYPE_LABELS: Record<string, string> = {
+const TYPE_LABELS: Record<"raw_material" | "finished_product" | "packaging", string> = {
   raw_material: "Matiere premiere",
   finished_product: "Produit fini",
   packaging: "Emballage",
@@ -126,6 +126,7 @@ export function AdminArticlesList() {
   const [tenantFilter, setTenantFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
 
 
   // Edit unit dialog
@@ -161,15 +162,32 @@ export function AdminArticlesList() {
   }, [loadData])
 
 
-  // Filtered articles
-  const filtered = articles.filter((a) => {
-    if (typeFilter !== "all" && a.type !== typeFilter) return false
-    if (search) {
-      const s = search.toLowerCase()
-      if (!a.name.toLowerCase().includes(s) && !a.tenant_name.toLowerCase().includes(s)) return false
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+
+  // Reset form when editing article changes
+  useEffect(() => {
+    if (editingArticle) {
+      setNewUnit(editingArticle.unit)
     }
-    return true
-  })
+  }, [editingArticle])
+
+
+  // Filtered articles with memoization
+  const filtered = useMemo(() => {
+    return articles.filter((a) => {
+      if (typeFilter !== "all" && a.type !== typeFilter) return false
+      if (debouncedSearch) {
+        const s = debouncedSearch.toLowerCase()
+        if (!a.name.toLowerCase().includes(s) && !a.tenant_name.toLowerCase().includes(s)) return false
+      }
+      return true
+    })
+  }, [articles, typeFilter, debouncedSearch])
 
 
   // Stats
@@ -201,7 +219,7 @@ export function AdminArticlesList() {
     setUpdatingUnit(true)
     try {
       await adminUpdateArticleUnit(editingArticle.tenant_id, editingArticle.type, editingArticle.id, newUnit)
-      toast.success(`Unite de "${editingArticle.name}" modifiee: ${editingArticle.unit} -> ${newUnit}`)
+      toast.success(`Unite de "${editingArticle.name}" modifiee: ${editingArticle.unit} → ${newUnit}`)
       setEditingArticle(null)
       setNewUnit("")
       loadData()
@@ -364,10 +382,10 @@ export function AdminArticlesList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-right text-sm tabular-nums">
-                        {article.currentStock.toLocaleString("fr-FR")}
+                        {article.currentStock?.toLocaleString("fr-FR") ?? "—"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm tabular-nums">
-                        {article.price.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} DT
+                        {article.price?.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) ?? "—"} DT
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -379,10 +397,7 @@ export function AdminArticlesList() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => {
-                                setEditingArticle(article)
-                                setNewUnit(article.unit)
-                              }}
+                              onClick={() => setEditingArticle(article)}
                             >
                               <Pencil className="h-3.5 w-3.5 mr-2" />
                               Modifier l{"'"}unite
@@ -414,7 +429,7 @@ export function AdminArticlesList() {
             <DialogTitle>Modifier l{"'"}unite</DialogTitle>
             <DialogDescription>
               Changer l{"'"}unite de mesure de {"\""}{editingArticle?.name}{"\""}
-              {" "}({TYPE_LABELS[editingArticle?.type || ""] || ""})
+              {" "}({TYPE_LABELS[editingArticle?.type as "raw_material" | "finished_product" | "packaging"] || ""})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
