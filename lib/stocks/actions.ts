@@ -148,6 +148,15 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
 export async function createRawMaterial(tenantId: string, data: {
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; barcode?: string; storageLocationId?: string
 }): Promise<RawMaterial | null> {
+  // Validate required fields - prevent null/empty names
+  const trimmedName = data.name?.trim()
+  if (!trimmedName || trimmedName.length === 0) {
+    throw new Error("Le nom de la matière première est obligatoire")
+  }
+  if (trimmedName.length < 2) {
+    throw new Error("Le nom doit contenir au moins 2 caractères")
+  }
+  
   const { supabase } = await verifyAuthAndTenant(tenantId)
   
   // Check for exact and similar duplicates
@@ -188,11 +197,22 @@ export async function createRawMaterial(tenantId: string, data: {
 export async function updateRawMaterial(id: string, data: Partial<{
   name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; barcode: string; storageLocationId: string | null
 }>): Promise<boolean> {
+  // Validate name if provided - prevent null/empty names
+  if (data.name !== undefined) {
+    const trimmedName = data.name?.trim()
+    if (!trimmedName || trimmedName.length === 0) {
+      throw new Error("Le nom de la matière première est obligatoire")
+    }
+    if (trimmedName.length < 2) {
+      throw new Error("Le nom doit contenir au moins 2 caractères")
+    }
+  }
+  
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Session expiree")
+  if (!user) throw new Error("Session expirée")
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (data.name !== undefined) updates.name = data.name
+  if (data.name !== undefined) updates.name = data.name.trim()
   if (data.unit !== undefined) updates.unit = data.unit
   if (data.currentStock !== undefined) updates.current_stock = data.currentStock
   if (data.minStock !== undefined) updates.min_stock = data.minStock
@@ -381,6 +401,15 @@ export async function createFinishedProduct(tenantId: string, data: {
   name: string; categoryId?: string; unit: string; currentStock: number; minStock: number;
   sellingPrice: number; costPrice: number; description?: string; weight?: string
 }): Promise<FinishedProduct | null> {
+  // Validate required fields - prevent null/empty names
+  const trimmedName = data.name?.trim()
+  if (!trimmedName || trimmedName.length === 0) {
+    throw new Error("Le nom du produit fini est obligatoire")
+  }
+  if (trimmedName.length < 2) {
+    throw new Error("Le nom doit contenir au moins 2 caractères")
+  }
+  
   const supabase = createClient()
   
   // Check for exact and similar duplicates
@@ -717,6 +746,15 @@ export async function createPackaging(tenantId: string, data: {
   name: string; type: string; unit: string; currentStock: number;
   minStock: number; price: number; description?: string; storageLocationId?: string
 }): Promise<Packaging | null> {
+  // Validate required fields - prevent null/empty names
+  const trimmedName = data.name?.trim()
+  if (!trimmedName || trimmedName.length === 0) {
+    throw new Error("Le nom de l'emballage est obligatoire")
+  }
+  if (trimmedName.length < 2) {
+    throw new Error("Le nom doit contenir au moins 2 caractères")
+  }
+  
   const supabase = createClient()
   
   // Check for exact and similar duplicates by name + type
