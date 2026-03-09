@@ -183,6 +183,12 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     loadProducts()
   }, [open, currentTenant.id, tenantLoading])
 
+  // Validation téléphone Tunisien (8 chiffres)
+  const isValidPhone = useMemo(
+    () => /^\d{8}$/.test(phone.replace(/\s/g, "")),
+    [phone]
+  )
+
   // Phone lookup handler
   const handlePhoneLookup = useCallback(async () => {
     const cleanPhone = phone.replace(/\s/g, "").trim()
@@ -302,12 +308,6 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   )
   const total = subtotal + shipping
 
-  // Validation téléphone Tunisien (8 chiffres)
-  const isValidPhone = useMemo(
-    () => /^\d{8}$/.test(phone.replace(/\s/g, "")),
-    [phone]
-  )
-
   // Submit order
   const handleSubmit = useCallback(async () => {
     if (!client || isBlocked || hasExcessiveReturns || submitting) return
@@ -374,18 +374,39 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
       }
 
       setSuccess(true)
-      toast.success("Commande enregistree !")
+      toast.success("Commande enregistrée !")
       onOrderCreated?.()
-      setTimeout(() => handleClose(), 1500)
+      // Close after delay
+      setTimeout(() => {
+        setPhone("")
+        setTruecallerVerified(false)
+        setClientName("")
+        setClientNameEditMode(false)
+        setClientNameEdit("")
+        setClientAddress("")
+        setSource("phone")
+        setDeliveryType("pickup")
+        setCourier("")
+        setGouvernorat("")
+        setShippingCost("")
+        setDeliveryDate("")
+        setItems([])
+        setSelectedProduct("")
+        setProductSearchOpen(false)
+        setNotes("")
+        setSuccess(false)
+        clearClient()
+        onOpenChange(false)
+      }, 1500)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur creation commande")
+      toast.error(err instanceof Error ? err.message : "Erreur création commande")
     } finally {
       setSubmitting(false)
     }
-  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, handleClose])
+  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, clearClient, onOpenChange])
 
   // Close handler
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setPhone("")
     setTruecallerVerified(false)
     setClientName("")
@@ -405,7 +426,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setSuccess(false)
     clearClient()
     onOpenChange(false)
-  }
+  }, [clearClient, onOpenChange])
 
   // Reset returns
   const handleResetReturns = async () => {
