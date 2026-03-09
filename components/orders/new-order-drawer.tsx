@@ -67,6 +67,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   const { currentTenant, isLoading: tenantLoading } = useTenant()
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
+  const [loadingError, setLoadingError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const [customerName, setCustomerName] = useState("")
@@ -85,6 +86,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   const [deliveryDate, setDeliveryDate] = useState("")
   const [duplicateWarning, setDuplicateWarning] = useState<{ show: boolean; existingOrder?: { id: string; createdAt: string; total: number } }>({ show: false })
   const submitLockRef = useRef(false)
+  const isMountedRef = useRef(true)
 
   const couriers = [
     { id: "aramex", name: "Aramex", defaultCost: 8 },
@@ -102,25 +104,52 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   ]
 
   useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!open || tenantLoading || currentTenant.id === "__fallback__") return
 
     async function loadProducts() {
       setLoadingProducts(true)
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from("finished_products")
-        .select("id, name, selling_price, current_stock")
-        .eq("tenant_id", currentTenant.id)
-        .order("name")
+      setLoadingError(null)
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("finished_products")
+          .select("id, name, selling_price, current_stock")
+          .eq("tenant_id", currentTenant.id)
+          .order("name")
 
-      if (!error && data) {
-        setProducts(data.map((p) => ({
-          ...p,
-          selling_price: Number(p.selling_price),
-          current_stock: Number(p.current_stock),
-        })))
+        if (!isMountedRef.current) return
+
+        if (error) {
+          setLoadingError("Erreur lors du chargement des produits")
+          console.error("Product load error:", error)
+          toast.error("Impossible de charger les produits")
+          return
+        }
+
+        if (data) {
+          setProducts(data.map((p) => ({
+            ...p,
+            selling_price: Number(p.selling_price),
+            current_stock: Number(p.current_stock),
+          })))
+        }
+      } catch (err) {
+        if (!isMountedRef.current) return
+        console.error("Product load exception:", err)
+        setLoadingError("Erreur reseau lors du chargement")
+        toast.error("Erreur reseau")
+      } finally {
+        if (isMountedRef.current) {
+          setLoadingProducts(false)
+        }
       }
-      setLoadingProducts(false)
     }
 
     loadProducts()
@@ -184,67 +213,89 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
 
   // Check for duplicate orders: same customer + similar total + same day
   const checkDuplicate = async (): Promise<{ id: string; createdAt: string; total: number } | null> => {
+    if (!isMountedRef.current) return null
+    
     const supabase = createClient()
     const today = new Date()
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+    // Fix: Use UTC to match server timezone
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())).toISOString()
 
-    const { data } = await supabase
-      .from("orders")
-      .select("id, created_at, total")
-      .eq("tenant_id", currentTenant.id)
-      .eq("customer_name", customerName.trim())
-      .gte("created_at", startOfDay)
-      .order("created_at", { ascending: false })
-      .limit(5)
+    try {
+      const { data } = await supabase
+        .from("orders")
+        .select("id, created_at, total")
+        .eq("tenant_id", currentTenant.id)
+        .eq("customer_name", customerName.trim())
+        .gte("created_at", startOfDay)
+        .order("created_at", { ascending: false })
+        .limit(5)
 
-    if (!data || data.length === 0) return null
+      if (!isMountedRef.current) return null
 
-    // Check if any existing order has the same total (strong indicator of duplicate)
-    const match = data.find(o => Math.abs(Number(o.total) - total) < 0.01)
-    if (match) return { id: match.id, createdAt: match.created_at, total: Number(match.total) }
+      if (!data || data.length === 0) return null
 
-    return null
+      // Check if any existing order has the same total (strong indicator of duplicate)
+      // Fix: Use better tolerance for 3-decimal precision
+      const match = data.find(o => Math.abs(Number(o.total) - total) < 0.005)
+      if (match) return { id: match.id, createdAt: match.created_at, total: Number(match.total) }
+
+      return null
+    } catch (err) {
+      if (!isMountedRef.current) return null
+      console.error("Duplicate check error:", err)
+      return null
+    }
   }
 
   const performCreate = async () => {
     // Hard lock to prevent any concurrent submissions
-    if (submitLockRef.current) return
+    if (submitLockRef.current || !isMountedRef.current) return
     submitLockRef.current = true
     setSubmitting(true)
 
-    const result = await createOrder({
-      tenantId: currentTenant.id,
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
-      customerAddress: deliveryType === "delivery" ? customerAddress.trim() : undefined,
-      deliveryType,
-    courier: deliveryType === "delivery" ? courier : undefined,
-    gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
-    shippingCost: shipping,
-    source,
-      deposit: Number(deposit) || 0,
-      notes: notes.trim() || undefined,
-      deliveryDate: deliveryDate || undefined,
-      items: items.map(i => ({
-        productId: i.productId,
-        name: i.name,
-        quantity: i.quantity,
-        price: i.price,
-      })),
-    })
-
-    setSubmitting(false)
-    submitLockRef.current = false
-
-    if (result) {
-      toast.success("Commande creee", {
-        description: `Commande de ${total.toLocaleString("fr-TN")} TND pour ${customerName}`,
+    try {
+      const result = await createOrder({
+        tenantId: currentTenant.id,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        customerAddress: deliveryType === "delivery" ? customerAddress.trim() : undefined,
+        deliveryType,
+        courier: deliveryType === "delivery" ? courier : undefined,
+        gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
+        shippingCost: shipping,
+        source,
+        deposit: Number(deposit) || 0,
+        notes: notes.trim() || undefined,
+        deliveryDate: deliveryDate || undefined,
+        items: items.map(i => ({
+          productId: i.productId,
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+        })),
       })
-      resetForm()
-      onOpenChange(false)
-      onCreated?.()
-    } else {
-      toast.error("Erreur lors de la creation de la commande")
+
+      if (!isMountedRef.current) return
+
+      if (result) {
+        toast.success("Commande creee", {
+          description: `Commande de ${total.toLocaleString("fr-TN")} TND pour ${customerName}`,
+        })
+        resetForm()
+        onOpenChange(false)
+        onCreated?.()
+      } else {
+        toast.error("Erreur lors de la creation de la commande")
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return
+      console.error("Order creation error:", err)
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la creation")
+    } finally {
+      if (isMountedRef.current) {
+        setSubmitting(false)
+        submitLockRef.current = false
+      }
     }
   }
 
@@ -269,18 +320,31 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
       return
     }
 
+    // Validate delivery date is not in the past
+    if (deliveryDate) {
+      const selectedDate = new Date(deliveryDate)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (selectedDate < today) {
+        toast.error("La date de livraison ne peut pas etre dans le passe")
+        return
+      }
+    }
+
     setSubmitting(true)
 
     // Check for potential duplicate
     const duplicate = await checkDuplicate()
 
     if (duplicate) {
+      if (!isMountedRef.current) return
       setSubmitting(false)
       setDuplicateWarning({ show: true, existingOrder: duplicate })
       return
     }
 
     // No duplicate found, proceed
+    if (!isMountedRef.current) return
     setSubmitting(false)
     await performCreate()
   }
@@ -460,7 +524,14 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
                 </div>
               ) : products.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">
-                  Aucun produit disponible. Ajoutez des produits finis dans Stocks.
+                  {loadingError ? (
+                    <span className="text-destructive flex items-center justify-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      {loadingError}
+                    </span>
+                  ) : (
+                    "Aucun produit disponible. Ajoutez des produits finis dans Stocks."
+                  )}
                 </p>
               ) : (
                 <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
