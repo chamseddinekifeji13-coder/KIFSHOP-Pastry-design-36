@@ -10,7 +10,7 @@ import { QuickOrder } from "@/components/orders/quick-order"
 const actions = [
   {
     title: "Nouvelle commande",
-    description: "Creer une commande client",
+    description: "Créer une commande client",
     icon: ShoppingCart,
     href: "/commandes?action=new",
     variant: "outline" as const,
@@ -31,7 +31,7 @@ const actions = [
   },
   {
     title: "E-Boutique",
-    description: "Gerer le catalogue",
+    description: "Gérer le catalogue",
     icon: Store,
     href: "/boutique",
     variant: "outline" as const,
@@ -46,7 +46,7 @@ export function QuickActions() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Actions rapides
           </CardTitle>
         </CardHeader>
@@ -58,29 +58,32 @@ export function QuickActions() {
               className="h-auto py-4 flex flex-col items-center gap-2 col-span-2 sm:col-span-3 md:col-span-1"
               onClick={() => setQuickOrderOpen(true)}
             >
-              <Zap className="h-5 w-5" />
+              <Zap className="h-5 w-5" aria-hidden="true" />
               <span className="font-semibold text-sm">Commande Rapide</span>
               <span className="text-[10px] text-primary-foreground/70 font-normal leading-tight">
                 6 sec
               </span>
             </Button>
 
-            {actions.map((action) => (
-              <Button
-                key={action.title}
-                variant={action.variant}
-                className="h-auto py-4 flex flex-col items-center gap-2"
-                asChild
-              >
-                <Link href={action.href}>
-                  <action.icon className="h-5 w-5" />
-                  <span className="font-medium text-sm">{action.title}</span>
-                  <span className="text-[10px] text-muted-foreground font-normal leading-tight">
-                    {action.description}
-                  </span>
-                </Link>
-              </Button>
-            ))}
+            {actions.map((action) => {
+              const Icon = action.icon
+              return (
+                <Button
+                  key={action.title}
+                  variant={action.variant}
+                  className="h-auto py-4 flex flex-col items-center gap-2"
+                  asChild
+                >
+                  <Link href={action.href}>
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                    <span className="font-medium text-sm">{action.title}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal leading-tight">
+                      {action.description}
+                    </span>
+                  </Link>
+                </Button>
+              )
+            })}
           </div>
         </CardContent>
       </Card>
