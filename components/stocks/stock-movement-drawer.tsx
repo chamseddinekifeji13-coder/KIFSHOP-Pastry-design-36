@@ -198,8 +198,8 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
       } else {
         toast.error("Erreur lors de l'enregistrement")
       }
-    } catch (err: any) {
-      const msg = err?.message || ""
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ""
       if (msg.startsWith("STOCK_INSUFFISANT:")) {
         toast.error("Stock insuffisant", { description: msg.replace("STOCK_INSUFFISANT:", "") })
       } else {
