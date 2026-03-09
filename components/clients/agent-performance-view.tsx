@@ -1,38 +1,53 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
   Users, TrendingUp, TrendingDown, Award, RotateCcw,
   Loader2, Download, BarChart3, CheckCircle2, XCircle,
-  ArrowUpRight, ArrowDownRight, Medal,
+  ArrowUpRight, ArrowDownRight, Medal, AlertTriangle,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { useTenant } from "@/lib/tenant-context"
 import { useAgentStats, useClientOrders } from "@/hooks/use-tenant-data"
 import { type AgentStats } from "@/lib/clients/actions"
-import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV, formatAmountForCSV } from "@/lib/csv-export"
 import { toast } from "sonner"
 
 export function AgentPerformanceView() {
-  const { t } = useI18n()
   const { data: agents = [], isLoading } = useAgentStats()
   const { data: allOrders = [] } = useClientOrders()
   const [isExporting, setIsExporting] = useState(false)
 
-  // Global stats
-  const totalConfirmed = allOrders.filter((o) => o.status !== "annule" && o.returnStatus !== "returned").length
-  const totalReturned = allOrders.filter((o) => o.returnStatus === "returned").length
-  const totalRevenue = allOrders.filter((o) => o.status !== "annule" && o.returnStatus !== "returned")
-    .reduce((sum, o) => sum + o.total, 0)
-  const globalReturnRate = totalConfirmed > 0 ? Math.round((totalReturned / totalConfirmed) * 100) : 0
+  // Global stats with memoization and null safety
+  const stats = useMemo(() => {
+    const confirmed = allOrders?.filter((o) => o?.status !== "annule" && o?.returnStatus !== "returned") ?? []
+    const returned = allOrders?.filter((o) => o?.returnStatus === "returned") ?? []
+    const revenue = confirmed.reduce((sum, o) => sum + (o?.total ?? 0), 0)
+    const confirmCount = confirmed.length
+    const returnCount = returned.length
+    const returnRate = confirmCount > 0 ? Math.round((returnCount / confirmCount) * 100) : 0
 
-  // Best & worst agents
-  const bestAgent = agents.length > 0 ? agents.reduce((best, a) => a.totalConfirmed > best.totalConfirmed ? a : best) : null
-  const worstReturnRate = agents.length > 0 ? agents.reduce((worst, a) => a.returnRate > worst.returnRate ? a : worst) : null
+    return {
+      totalConfirmed: confirmCount,
+      totalReturned: returnCount,
+      totalRevenue: revenue,
+      globalReturnRate: returnRate,
+    }
+  }, [allOrders])
+
+  // Best & worst agents with memoization
+  const agentComparisons = useMemo(() => {
+    const best = agents && agents.length > 0 
+      ? agents.reduce((best, a) => (a?.totalConfirmed ?? 0) > (best?.totalConfirmed ?? 0) ? a : best)
+      : null
+    const worst = agents && agents.length > 0
+      ? agents.reduce((worst, a) => (a?.returnRate ?? 0) > (worst?.returnRate ?? 0) ? a : worst)
+      : null
+
+    return { best, worst }
+  }, [agents])
 
   const handleExport = () => {
     setIsExporting(true)
@@ -90,7 +105,7 @@ export function AgentPerformanceView() {
                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalConfirmed}</p>
+                <p className="text-2xl font-bold">{stats.totalConfirmed}</p>
                 <p className="text-xs text-muted-foreground">Confirmations</p>
               </div>
             </div>
@@ -103,8 +118,8 @@ export function AgentPerformanceView() {
                 <RotateCcw className="h-4 w-4 text-red-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalReturned}</p>
-                <p className="text-xs text-muted-foreground">Retours ({globalReturnRate}%)</p>
+                <p className="text-2xl font-bold">{stats.totalReturned}</p>
+                <p className="text-xs text-muted-foreground">Retours ({stats.globalReturnRate}%)</p>
               </div>
             </div>
           </CardContent>
@@ -116,7 +131,7 @@ export function AgentPerformanceView() {
                 <TrendingUp className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalRevenue.toFixed(0)}</p>
+                <p className="text-2xl font-bold">{stats.totalRevenue.toFixed(0)}</p>
                 <p className="text-xs text-muted-foreground">CA Total (TND)</p>
               </div>
             </div>
@@ -138,9 +153,9 @@ export function AgentPerformanceView() {
       </div>
 
       {/* Top Performers */}
-      {(bestAgent || worstReturnRate) && (
+      {(agentComparisons.best || agentComparisons.worst) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {bestAgent && (
+          {agentComparisons.best && (
             <Card className="border-emerald-200 bg-emerald-50/30">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
@@ -149,9 +164,9 @@ export function AgentPerformanceView() {
                   </div>
                   <div className="flex-1">
                     <p className="text-xs text-emerald-600 font-semibold uppercase tracking-wider">Meilleur vendeur</p>
-                    <p className="font-bold text-lg">{bestAgent.agentName}</p>
+                    <p className="font-bold text-lg">{agentComparisons.best?.agentName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {bestAgent.totalConfirmed} confirmations | {bestAgent.totalRevenue.toFixed(0)} TND
+                      {agentComparisons.best?.totalConfirmed} confirmations | {agentComparisons.best?.totalRevenue.toFixed(0)} TND
                     </p>
                   </div>
                   <ArrowUpRight className="h-5 w-5 text-emerald-600" />
@@ -159,18 +174,18 @@ export function AgentPerformanceView() {
               </CardContent>
             </Card>
           )}
-          {worstReturnRate && worstReturnRate.returnRate > 0 && (
+          {agentComparisons.worst && agentComparisons.worst.returnRate > 0 && agentComparisons.worst.agentId !== agentComparisons.best?.agentId && (
             <Card className="border-red-200 bg-red-50/30">
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                    <AlertTriangleIcon className="h-5 w-5 text-red-600" />
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
                   </div>
                   <div className="flex-1">
                     <p className="text-xs text-red-600 font-semibold uppercase tracking-wider">Plus de retours</p>
-                    <p className="font-bold text-lg">{worstReturnRate.agentName}</p>
+                    <p className="font-bold text-lg">{agentComparisons.worst?.agentName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {worstReturnRate.totalReturned} retours | Taux: {worstReturnRate.returnRate}%
+                      {agentComparisons.worst?.totalReturned} retours | Taux: {agentComparisons.worst?.returnRate}%
                     </p>
                   </div>
                   <ArrowDownRight className="h-5 w-5 text-red-600" />
@@ -195,7 +210,7 @@ export function AgentPerformanceView() {
       ) : (
         <div className="space-y-3">
           {agents.map((agent, index) => (
-            <Card key={agent.agentId} className="hover:shadow-md transition-shadow">
+            <Card key={agent?.agentId || `agent-${index}`} className="hover:shadow-md transition-shadow">
               <CardContent className="py-4">
                 <div className="flex items-center gap-4">
                   {/* Rank */}
@@ -210,22 +225,22 @@ export function AgentPerformanceView() {
 
                   {/* Agent Info */}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold">{agent.agentName}</p>
+                    <p className="font-semibold">{agent?.agentName}</p>
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                        {agent.totalConfirmed} confirmations
+                        {agent?.totalConfirmed ?? 0} confirmations
                       </span>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <RotateCcw className="h-3 w-3 text-red-500" />
-                        {agent.totalReturned} retours
+                        {agent?.totalReturned ?? 0} retours
                       </span>
                     </div>
                   </div>
 
                   {/* Revenue */}
                   <div className="text-right hidden sm:block">
-                    <p className="font-bold text-primary">{agent.totalRevenue.toFixed(0)} TND</p>
+                    <p className="font-bold text-primary">{(agent?.totalRevenue ?? 0).toFixed(0)} TND</p>
                     <p className="text-[10px] text-muted-foreground">chiffre d'affaires</p>
                   </div>
 
@@ -234,15 +249,15 @@ export function AgentPerformanceView() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-muted-foreground">Taux retour</span>
                       <span className={`text-xs font-semibold ${
-                        agent.returnRate > 20 ? "text-red-600" :
-                        agent.returnRate > 10 ? "text-amber-600" :
+                        (agent?.returnRate ?? 0) > 20 ? "text-red-600" :
+                        (agent?.returnRate ?? 0) > 10 ? "text-amber-600" :
                         "text-emerald-600"
                       }`}>
-                        {agent.returnRate}%
+                        {agent?.returnRate ?? 0}%
                       </span>
                     </div>
                     <Progress
-                      value={agent.returnRate}
+                      value={agent?.returnRate ?? 0}
                       className="h-1.5"
                     />
                   </div>
@@ -253,16 +268,5 @@ export function AgentPerformanceView() {
         </div>
       )}
     </div>
-  )
-}
-
-// Small helper to avoid naming conflict with lucide-react import
-function AlertTriangleIcon(props: React.SVGProps<SVGSVGElement> & { className?: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
-      <path d="M12 9v4" /><path d="M12 17h.01" />
-    </svg>
   )
 }
