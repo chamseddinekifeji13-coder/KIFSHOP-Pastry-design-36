@@ -41,7 +41,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
 
   const handleEditClick = (material: RawMaterial) => {
     setEditingMaterial(material)
-    setEditName(material.name)
+    setEditName(material.name || "")
     setEditPrice(String(material.pricePerUnit || ""))
     setEditMinStock(String(material.minStock || ""))
     setEditUnit(material.unit || "kg")
@@ -147,9 +147,9 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                 const pct = maxStock > 0 ? Math.min((material.currentStock / maxStock) * 100, 100) : 0
                 const loc = material.storageLocationId ? locMap.get(material.storageLocationId) : null
                 return (
-                  <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(material.id, material.name, material.unit)}>
+                  <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onItemClick(material.id, material.name || "", material.unit)}>
                 <TableCell>
-                  <span className="font-medium">{material.name}</span>
+                  <span className="font-medium">{material.name || <span className="text-muted-foreground italic">Sans nom</span>}</span>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -158,7 +158,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                       e.stopPropagation()
                       handleEditClick(material)
                     }}
-                    aria-label={`Modifier ${material.name}`}
+                    aria-label={`Modifier ${material.name || "cet article"}`}
                   >
                     <Edit2 className="h-3 w-3" aria-hidden="true" />
                   </Button>

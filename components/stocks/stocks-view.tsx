@@ -57,19 +57,19 @@ export function StocksView() {
   const query = searchQuery.toLowerCase().trim()
 
   const filteredRawMaterials = (rawMaterials || []).filter((m) =>
-    !query || m.name.toLowerCase().includes(query) || (m.unit || "").toLowerCase().includes(query)
+    !query || (m.name || "").toLowerCase().includes(query) || (m.unit || "").toLowerCase().includes(query)
   )
 
   const filteredFinishedProducts = (finishedProducts || []).filter((p) =>
-    !query || p.name.toLowerCase().includes(query) || (p.unit || "").toLowerCase().includes(query)
+    !query || (p.name || "").toLowerCase().includes(query) || (p.unit || "").toLowerCase().includes(query)
   )
 
   const filteredPackaging = (packaging || []).filter((p) =>
-    !query || p.name.toLowerCase().includes(query) || (p.type || "").toLowerCase().includes(query) || (p.description || "").toLowerCase().includes(query)
+    !query || (p.name || "").toLowerCase().includes(query) || (p.type || "").toLowerCase().includes(query) || (p.description || "").toLowerCase().includes(query)
   )
 
   const filteredConsumables = (consumables || []).filter((c) =>
-    !query || c.name.toLowerCase().includes(query) || (c.category || "").toLowerCase().includes(query) || (c.description || "").toLowerCase().includes(query)
+    !query || (c.name || "").toLowerCase().includes(query) || (c.category || "").toLowerCase().includes(query) || (c.description || "").toLowerCase().includes(query)
   )
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
@@ -189,7 +189,7 @@ export function StocksView() {
 
       {query && (
         <p className="text-sm text-muted-foreground">
-          {filteredRawMaterials.length + filteredFinishedProducts.length + filteredPackaging.length + filteredConsumables.length} resultat(s) pour &quot;{searchQuery}&quot;
+          {filteredRawMaterials.length + filteredFinishedProducts.length + filteredPackaging.length + filteredConsumables.length} résultat(s) pour &quot;{searchQuery}&quot;
         </p>
       )}
 
@@ -276,8 +276,8 @@ export function StocksView() {
               {query ? (
                 <>
                   <Search className="h-12 w-12 text-muted-foreground/50" />
-                  <h3 className="mt-4 text-lg font-semibold">Aucun resultat</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{"Aucun emballage ne correspond a \""}{searchQuery}{"\""}</p>
+                  <h3 className="mt-4 text-lg font-semibold">Aucun résultat</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{"Aucun emballage ne correspond à \""}{searchQuery}{"\""}</p>
                   <Button variant="outline" className="mt-4" onClick={() => setSearchQuery("")}>
                     Effacer la recherche
                   </Button>
@@ -286,8 +286,8 @@ export function StocksView() {
                 <>
                   <Gift className="h-12 w-12 text-muted-foreground/50" />
                   <h3 className="mt-4 text-lg font-semibold">Aucun emballage</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Ajoutez vos boites, plateaux et sachets</p>
-                  <Button className="mt-4 bg-[#D4A373] hover:bg-[#c4956a] text-white" onClick={() => setNewPackagingOpen(true)}>
+                  <p className="text-sm text-muted-foreground mt-1">Ajoutez vos boîtes, plateaux et sachets</p>
+                  <Button className="mt-4" onClick={() => setNewPackagingOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Ajouter un emballage
                   </Button>
@@ -310,8 +310,8 @@ export function StocksView() {
               {query ? (
                 <>
                   <Search className="h-12 w-12 text-muted-foreground/50" />
-                  <h3 className="mt-4 text-lg font-semibold">Aucun resultat</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{"Aucun consommable ne correspond a \""}{searchQuery}{"\""}</p>
+                  <h3 className="mt-4 text-lg font-semibold">Aucun résultat</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{"Aucun consommable ne correspond à \""}{searchQuery}{"\""}</p>
                   <Button variant="outline" className="mt-4" onClick={() => setSearchQuery("")}>
                     Effacer la recherche
                   </Button>
@@ -321,7 +321,7 @@ export function StocksView() {
                   <Wrench className="h-12 w-12 text-muted-foreground/50" />
                   <h3 className="mt-4 text-lg font-semibold">Aucun consommable</h3>
                   <p className="text-sm text-muted-foreground mt-1">Ajoutez vos produits de nettoyage, fournitures, etc.</p>
-                  <Button className="mt-4 bg-blue-500 hover:bg-blue-600 text-white" onClick={() => setNewConsumableOpen(true)}>
+                  <Button className="mt-4" onClick={() => setNewConsumableOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Ajouter un consommable
                   </Button>

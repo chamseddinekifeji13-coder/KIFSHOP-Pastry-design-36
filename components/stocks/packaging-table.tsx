@@ -41,7 +41,7 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
 
   const handleEditClick = (item: Packaging) => {
     setEditingItem(item)
-    setEditName(item.name)
+    setEditName(item.name || "")
     setEditPrice(String(item.price || ""))
     setEditMinStock(String(item.minStock || ""))
     setEditUnit(item.unit || "pcs")
@@ -110,7 +110,7 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                 <TableRow
                   key={item.id}
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => onItemClick?.(item.id, item.name)}
+                  onClick={() => onItemClick?.(item.id, item.name || "")}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -118,7 +118,7 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                         <Package className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
                       </div>
                       <div>
-                        <p className="font-medium">{item.name}</p>
+                        <p className="font-medium">{item.name || <span className="text-muted-foreground italic">Sans nom</span>}</p>
                         {item.description && (
                           <p className="text-xs text-muted-foreground truncate max-w-[200px]">{item.description}</p>
                         )}
@@ -128,7 +128,7 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
                         size="sm" 
                         className="ml-auto h-6 w-6 p-0" 
                         onClick={(e) => { e.stopPropagation(); handleEditClick(item) }}
-                        aria-label={`Modifier ${item.name}`}
+                        aria-label={`Modifier ${item.name || "cet emballage"}`}
                       >
                         <Edit2 className="h-3 w-3" aria-hidden="true" />
                       </Button>

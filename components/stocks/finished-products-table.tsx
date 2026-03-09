@@ -55,10 +55,10 @@ export function FinishedProductsTable({ products, onItemClick }: FinishedProduct
                     <TableRow
                       key={product.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => onItemClick(product.id, product.name)}
+                      onClick={() => onItemClick(product.id, product.name || "")}
                     >
                       <TableCell>
-                        <span className="font-medium">{product.name}</span>
+                        <span className="font-medium">{product.name || <span className="text-muted-foreground italic">Sans nom</span>}</span>
                       </TableCell>
                       <TableCell>
                         <span className={isLowStock ? "text-destructive font-semibold" : ""}>
