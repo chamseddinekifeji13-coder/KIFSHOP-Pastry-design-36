@@ -15,6 +15,7 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, usePackaging } from "@/hooks/use-tenant-data"
 import { addFinishedProduct, addRecipe, setProductPackaging } from "@/lib/stocks/actions"
+import type { RawMaterial, Category, Packaging } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 
@@ -68,33 +69,40 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const [selectedPackaging, setSelectedPackaging] = useState("")
   const [packagingQty, setPackagingQty] = useState("1")
 
-  const allCategories = [...categories.map((c: any) => c.name), ...customCategories]
-  const units = ["plateau", "piece", "pcs", "boite", "coffret", "pot", "kg", "g"]
+  const allCategories = [...categories.map((c: Category) => c.name), ...customCategories]
+  const units = ["plateau", "pièce", "pcs", "boîte", "coffret", "pot", "kg", "g"]
 
   const handleAddCategory = () => {
     if (!newCategory.trim()) return
     if (allCategories.some((c: string) => c.toLowerCase() === newCategory.trim().toLowerCase())) {
-      toast.error("Cette categorie existe deja"); return
+      toast.error("Cette catégorie existe déjà")
+      return
     }
     setCustomCategories(prev => [...prev, newCategory.trim()])
     setCategory(newCategory.trim())
-    setNewCategory(""); setShowNewCategory(false)
+    setNewCategory("")
+    setShowNewCategory(false)
   }
 
   const addIngredient = () => {
     if (!selectedMaterial || !ingredientQty) {
-      toast.error("Selectionnez une matiere premiere et une quantite"); return
+      toast.error("Sélectionnez une matière première et une quantité")
+      return
     }
-    const material = rawMaterials.find((m: any) => m.id === selectedMaterial)
+    const material = rawMaterials.find((m: RawMaterial) => m.id === selectedMaterial)
     if (!material) return
     if (ingredients.some(i => i.materialId === selectedMaterial)) {
-      toast.error("Cette matiere premiere est deja dans la recette"); return
+      toast.error("Cette matière première est déjà dans la recette")
+      return
     }
     setIngredients(prev => [...prev, {
-      materialId: material.id, name: material.name,
-      quantity: ingredientQty, unit: material.unit,
+      materialId: material.id,
+      name: material.name,
+      quantity: ingredientQty,
+      unit: material.unit,
     }])
-    setSelectedMaterial(""); setIngredientQty("")
+    setSelectedMaterial("")
+    setIngredientQty("")
   }
 
   const removeIngredient = (materialId: string) => {
@@ -103,18 +111,24 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
 
   const addPackagingLine = () => {
     if (!selectedPackaging || !packagingQty) {
-      toast.error("Selectionnez un emballage et une quantite"); return
+      toast.error("Sélectionnez un emballage et une quantité")
+      return
     }
-    const pkg = packagingItems.find((p: any) => p.id === selectedPackaging)
+    const pkg = packagingItems.find((p: Packaging) => p.id === selectedPackaging)
     if (!pkg) return
     if (packagingLines.some(l => l.packagingId === selectedPackaging)) {
-      toast.error("Cet emballage est deja ajoute"); return
+      toast.error("Cet emballage est déjà ajouté")
+      return
     }
     setPackagingLines(prev => [...prev, {
-      packagingId: pkg.id, name: pkg.name,
-      quantity: packagingQty, unitPrice: pkg.price, unit: pkg.unit,
+      packagingId: pkg.id,
+      name: pkg.name,
+      quantity: packagingQty,
+      unitPrice: pkg.price,
+      unit: pkg.unit,
     }])
-    setSelectedPackaging(""); setPackagingQty("1")
+    setSelectedPackaging("")
+    setPackagingQty("1")
   }
 
   const removePackagingLine = (packagingId: string) => {
@@ -125,33 +139,64 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     (sum, l) => sum + (Number(l.quantity) * l.unitPrice), 0
   )
 
-  const availablePackaging = packagingItems.filter((p: any) => !packagingLines.some(l => l.packagingId === p.id))
+  const availablePackaging = packagingItems.filter((p: Packaging) => !packagingLines.some(l => l.packagingId === p.id))
 
   const resetForm = () => {
-    setName(""); setCategory(""); setUnit(""); setPrice(""); setInitialQty(""); setDescription("")
-    setHasRecipe(true); setYieldQty("1"); setYieldUnit(""); setIngredients([])
-    setSelectedMaterial(""); setIngredientQty("")
-    setPackagingLines([]); setSelectedPackaging(""); setPackagingQty("1")
+    setName("")
+    setCategory("")
+    setUnit("")
+    setPrice("")
+    setInitialQty("")
+    setDescription("")
+    setHasRecipe(true)
+    setYieldQty("1")
+    setYieldUnit("")
+    setIngredients([])
+    setSelectedMaterial("")
+    setIngredientQty("")
+    setPackagingLines([])
+    setSelectedPackaging("")
+    setPackagingQty("1")
+  }
+
+  function validateNumber(value: string, defaultValue: number = 0): number {
+    const num = Number(value)
+    return isNaN(num) || num < 0 ? defaultValue : num
   }
 
   const handleSubmit = async () => {
-    if (!name.trim()) { toast.error("Veuillez saisir le nom du produit"); return }
-    if (!category) { toast.error("Veuillez selectionner une categorie"); return }
-    if (!unit) { toast.error("Veuillez selectionner l'unite de mesure"); return }
-    if (!price) { toast.error("Veuillez saisir le prix de vente"); return }
-    if (hasRecipe && ingredients.length === 0) { toast.error("Ajoutez au moins un ingredient a la recette"); return }
+    if (!name.trim()) {
+      toast.error("Veuillez saisir le nom du produit")
+      return
+    }
+    if (!category) {
+      toast.error("Veuillez sélectionner une catégorie")
+      return
+    }
+    if (!unit) {
+      toast.error("Veuillez sélectionner l'unité de mesure")
+      return
+    }
+    if (!price) {
+      toast.error("Veuillez saisir le prix de vente")
+      return
+    }
+    if (hasRecipe && ingredients.length === 0) {
+      toast.error("Ajoutez au moins un ingrédient à la recette")
+      return
+    }
 
     setSaving(true)
     try {
       // Find categoryId from category name
-      const categoryObj = categories.find((c: any) => c.name === category)
+      const categoryObj = categories.find((c: Category) => c.name === category)
       const product = await addFinishedProduct(currentTenant.id, {
         name: name.trim(),
         categoryId: categoryObj?.id,
         unit,
-        sellingPrice: parseFloat(price),
+        sellingPrice: validateNumber(price),
         costPrice: 0,
-        currentStock: initialQty ? parseFloat(initialQty) : 0,
+        currentStock: initialQty ? validateNumber(initialQty) : 0,
         minStock: 0,
         description: description.trim() || undefined,
       })
@@ -161,11 +206,12 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           name: name.trim(),
           finishedProductId: product.id,
           category,
-          yieldQuantity: parseFloat(yieldQty) || 1,
+          yieldQuantity: validateNumber(yieldQty, 1),
           yieldUnit: yieldUnit || unit,
           ingredients: ingredients.map(ing => ({
             rawMaterialId: ing.materialId,
-            quantity: parseFloat(ing.quantity), unit: ing.unit,
+            quantity: validateNumber(ing.quantity),
+            unit: ing.unit,
           })),
         })
       }
@@ -173,49 +219,50 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       // Save packaging links + recalculate cost
       if (product && packagingLines.length > 0) {
         await setProductPackaging(product.id, packagingLines.map(l => ({
-          packagingId: l.packagingId, quantity: Number(l.quantity),
+          packagingId: l.packagingId,
+          quantity: Number(l.quantity),
         })))
       }
 
-      toast.success("Produit fini cree avec succes", {
+      toast.success("Produit fini créé avec succès", {
         description: hasRecipe
-          ? `"${name}" avec sa fiche technique (${ingredients.length} ingredients)`
+          ? `"${name}" avec sa fiche technique (${ingredients.length} ingrédients)`
           : `"${name}" sans recette`,
       })
       mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
       resetForm()
       onOpenChange(false)
-    } catch (err: any) {
-      const msg = err?.message || ""
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ""
       if (msg.startsWith("DUPLICATE:")) {
-        toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+        toast.error("Doublon détecté", { description: msg.replace("DUPLICATE:", "") })
       } else if (msg.startsWith("SIMILAR:")) {
-        toast.error("Produit similaire detecte", { 
+        toast.error("Produit similaire détecté", { 
           description: msg.replace("SIMILAR:", ""),
           action: { label: "Continuer", onClick: () => {} }
         })
       } else {
-        toast.error("Erreur", { description: msg || "Erreur lors de la creation du produit" })
+        toast.error("Erreur", { description: msg || "Erreur lors de la création du produit" })
       }
     } finally {
       setSaving(false)
     }
   }
 
-  const availableMaterials = rawMaterials.filter((m: any) => !ingredients.some(i => i.materialId === m.id))
+  const availableMaterials = rawMaterials.filter((m: RawMaterial) => !ingredients.some(i => i.materialId === m.id))
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto [&>button[data-slot=dialog-close]]:absolute [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:opacity-80 [&>button[data-slot=dialog-close]]:hover:opacity-100 [&>button[data-slot=dialog-close]]:z-50">
         <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
           <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <CakeSlice className="h-5 w-5" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-foreground/20 backdrop-blur-sm">
+              <CakeSlice className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
               <h2 className="text-lg font-semibold">Nouveau produit fini</h2>
-              <p className="text-sm text-primary-foreground/70">Creez un produit et sa fiche technique</p>
+              <p className="text-sm text-primary-foreground/70">Créez un produit et sa fiche technique</p>
             </div>
           </div>
         </div>
@@ -223,57 +270,57 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
         <div className="flex-1 px-6 py-6 space-y-5">
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <CakeSlice className="h-3.5 w-3.5" /> Informations du produit
+              <CakeSlice className="h-3.5 w-3.5" aria-hidden="true" /> Informations du produit
             </div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Nom du produit *</Label>
-                <Input placeholder="Ex: Baklawa aux pistaches" value={name} onChange={(e) => setName(e.target.value)}
+                <Label htmlFor="product-name" className="text-xs font-medium">Nom du produit *</Label>
+                <Input id="product-name" placeholder="Ex: Baklawa aux pistaches" value={name} onChange={(e) => setName(e.target.value)}
                   className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">Categorie *</Label>
+                  <Label htmlFor="category" className="text-xs font-medium">Catégorie *</Label>
                   {showNewCategory ? (
                     <div className="flex gap-1.5">
-                      <Input placeholder="Nom" value={newCategory} onChange={(e) => setNewCategory(e.target.value)}
+                      <Input id="new-category" placeholder="Nom" value={newCategory} onChange={(e) => setNewCategory(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory() }} className="flex-1 bg-muted/50 border-0" />
-                      <Button size="icon" variant="outline" onClick={handleAddCategory} className="shrink-0 rounded-lg"><Plus className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => setShowNewCategory(false)} className="shrink-0"><X className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline" onClick={handleAddCategory} className="shrink-0 rounded-lg" aria-label="Ajouter une catégorie"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
+                      <Button size="icon" variant="ghost" onClick={() => setShowNewCategory(false)} className="shrink-0" aria-label="Annuler"><X className="h-4 w-4" aria-hidden="true" /></Button>
                     </div>
                   ) : (
                     <div className="flex gap-1.5">
                       <Select value={category} onValueChange={setCategory}>
-                        <SelectTrigger className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
+                        <SelectTrigger id="category" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
                         <SelectContent>{allCategories.map((c: string) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>
                       </Select>
-                      <Button size="icon" variant="outline" onClick={() => setShowNewCategory(true)} className="shrink-0 rounded-lg"><Plus className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline" onClick={() => setShowNewCategory(true)} className="shrink-0 rounded-lg" aria-label="Ajouter une catégorie"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
                     </div>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">Unite *</Label>
+                  <Label htmlFor="unit" className="text-xs font-medium">Unité *</Label>
                   <Select value={unit} onValueChange={(v) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
-                    <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
+                    <SelectTrigger id="unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
                     <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">Prix de vente (TND) *</Label>
-                  <Input type="number" step="0.1" placeholder="0.00" value={price} onChange={(e) => setPrice(e.target.value)}
+                  <Label htmlFor="price" className="text-xs font-medium">Prix de vente (TND) *</Label>
+                  <Input id="price" type="number" step="0.1" placeholder="0.00" value={price} onChange={(e) => setPrice(e.target.value)}
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">Stock initial</Label>
-                  <Input type="number" placeholder="0" value={initialQty} onChange={(e) => setInitialQty(e.target.value)}
+                  <Label htmlFor="initial-qty" className="text-xs font-medium">Stock initial</Label>
+                  <Input id="initial-qty" type="number" placeholder="0" value={initialQty} onChange={(e) => setInitialQty(e.target.value)}
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Description (optionnel)</Label>
-                <Textarea placeholder="Decrivez le produit..." value={description} onChange={(e) => setDescription(e.target.value)}
+                <Label htmlFor="description" className="text-xs font-medium">Description (optionnel)</Label>
+                <Textarea id="description" placeholder="Décrivez le produit..." value={description} onChange={(e) => setDescription(e.target.value)}
                   rows={2} className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
               </div>
             </div>
@@ -282,10 +329,10 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <FlaskConical className="h-3.5 w-3.5" /> Fiche technique (Recette)
+                <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" /> Fiche technique (Recette)
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{hasRecipe ? "Active" : "Desactivee"}</span>
+                <span className="text-xs text-muted-foreground">{hasRecipe ? "Activée" : "Désactivée"}</span>
                 <Switch checked={hasRecipe} onCheckedChange={setHasRecipe} />
               </div>
             </div>
@@ -293,34 +340,34 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Rendement</Label>
-                    <Input type="number" placeholder="Ex: 20" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
+                    <Label htmlFor="yield-qty" className="text-xs font-medium">Rendement</Label>
+                    <Input id="yield-qty" type="number" placeholder="Ex: 20" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
                       className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Unite rendement</Label>
+                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unité rendement</Label>
                     <Select value={yieldUnit} onValueChange={setYieldUnit}>
-                      <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
+                      <SelectTrigger id="yield-unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
                       <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingredient</Label>
+                  <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingrédient</Label>
                   <div className="flex gap-2">
                     <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
-                      <SelectTrigger className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matiere premiere" /></SelectTrigger>
-                      <SelectContent>{availableMaterials.map((m: any) => (<SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>))}</SelectContent>
+                      <SelectTrigger id="material" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matière première" /></SelectTrigger>
+                      <SelectContent>{availableMaterials.map((m: RawMaterial) => (<SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>))}</SelectContent>
                     </Select>
                     <Input type="number" step="0.01" placeholder="Qte" value={ingredientQty} onChange={(e) => setIngredientQty(e.target.value)}
                       className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
-                    <Button size="icon" variant="outline" onClick={addIngredient} className="shrink-0 rounded-lg"><Plus className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" onClick={addIngredient} className="shrink-0 rounded-lg" aria-label="Ajouter un ingrédient"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
                   </div>
                 </div>
                 {ingredients.length > 0 ? (
                   <div className="rounded-lg border divide-y">
                     <div className="px-3 py-2 bg-muted/50">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ingredients ({ingredients.length})</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ingrédients ({ingredients.length})</p>
                     </div>
                     {ingredients.map((ing) => (
                       <div key={ing.materialId} className="flex items-center justify-between p-3 text-sm group">
@@ -329,30 +376,30 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                           <Badge variant="secondary" className="text-xs rounded-full bg-primary/10 text-primary border-0">{ing.quantity} {ing.unit}</Badge>
                         </div>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeIngredient(ing.materialId)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                          onClick={() => removeIngredient(ing.materialId)} aria-label={`Supprimer ${ing.name}`}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Aucun ingredient ajoute</div>
+                  <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Aucun ingrédient ajouté</div>
                 )}
                 {ingredients.length > 0 && price && (
                   <div className="rounded-xl bg-primary/5 border border-primary/10 p-3 space-y-1">
-                    <div className="flex items-center gap-2"><Scale className="h-3.5 w-3.5 text-primary" /><p className="text-xs font-semibold text-primary">Estimation</p></div>
-                    <p className="text-sm"><span className="font-semibold">{ingredients.length}</span> matieres premieres pour <span className="font-semibold">{yieldQty || 1}</span> {yieldUnit || unit || "unites"}</p>
-                    <p className="text-xs text-muted-foreground">Prix de vente: {Number(price).toLocaleString("fr-TN")} TND / {unit || "unite"}</p>
+                    <div className="flex items-center gap-2"><Scale className="h-3.5 w-3.5 text-primary" aria-hidden="true" /><p className="text-xs font-semibold text-primary">Estimation</p></div>
+                    <p className="text-sm"><span className="font-semibold">{ingredients.length}</span> matières premières pour <span className="font-semibold">{yieldQty || 1}</span> {yieldUnit || unit || "unités"}</p>
+                    <p className="text-xs text-muted-foreground">Prix de vente: {Number(price).toLocaleString("fr-TN")} TND / {unit || "unité"}</p>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Fiche technique desactivee. Vous pourrez en creer une plus tard.</div>
+              <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">Fiche technique désactivée. Vous pourrez en créer une plus tard.</div>
             )}
           </div>
 
           {/* ── Section Emballage ── */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <Package className="h-3.5 w-3.5" /> Emballage du produit
+              <Package className="h-3.5 w-3.5" aria-hidden="true" /> Emballage du produit
             </div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="space-y-2">
