@@ -19,6 +19,20 @@ export function DashboardView() {
   // Only owner and gerant can access Best Delivery
   const canAccessDelivery = currentRole === "owner" || currentRole === "gerant"
 
+  // Contenu réutilisable extrait pour éviter la duplication
+  const OverviewContent = () => (
+    <>
+      <KPICards />
+      <div className="grid gap-6 lg:grid-cols-3">
+        <RevenueChart />
+        <div className="space-y-6">
+          <AlertsPanel />
+          <OnlineSalesWidget />
+        </div>
+      </div>
+    </>
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -34,24 +48,17 @@ export function DashboardView() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview" className="flex items-center gap-2">
-              <LayoutDashboard className="h-4 w-4" />
-              Vue generale
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+              {t("dashboard.overviewTab") || "Vue générale"}
             </TabsTrigger>
             <TabsTrigger value="best-delivery" className="flex items-center gap-2">
-              <Truck className="h-4 w-4" />
-              Best Delivery
+              <Truck className="h-4 w-4" aria-hidden="true" />
+              {t("dashboard.bestDeliveryTab") || "Best Delivery"}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <KPICards />
-            <div className="grid gap-6 lg:grid-cols-3">
-              <RevenueChart />
-              <div className="space-y-6">
-                <AlertsPanel />
-                <OnlineSalesWidget />
-              </div>
-            </div>
+            <OverviewContent />
           </TabsContent>
 
           <TabsContent value="best-delivery">
@@ -59,16 +66,7 @@ export function DashboardView() {
           </TabsContent>
         </Tabs>
       ) : (
-        <>
-          <KPICards />
-          <div className="grid gap-6 lg:grid-cols-3">
-            <RevenueChart />
-            <div className="space-y-6">
-              <AlertsPanel />
-              <OnlineSalesWidget />
-            </div>
-          </div>
-        </>
+        <OverviewContent />
       )}
     </div>
   )

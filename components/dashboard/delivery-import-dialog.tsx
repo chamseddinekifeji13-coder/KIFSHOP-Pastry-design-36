@@ -79,6 +79,7 @@ export function DeliveryImportDialog({
   const [importProgress, setImportProgress] = useState(0)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const [isParsing, setIsParsing] = useState(false)
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const statusLabels: Record<string, { label: string; color: string }> = {
     pending: { label: "En attente", color: "bg-gray-100 text-gray-800" },
@@ -119,6 +120,7 @@ export function DeliveryImportDialog({
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     setFile(selectedFile)
+    setIsParsing(true)
     
     try {
       const content = await selectedFile.text()
@@ -137,6 +139,8 @@ export function DeliveryImportDialog({
       }
     } catch {
       toast.error("Erreur lors de la lecture du fichier")
+    } finally {
+      setIsParsing(false)
     }
   }, [])
 
@@ -164,8 +168,8 @@ export function DeliveryImportDialog({
     setStep("importing")
     setImportProgress(0)
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
+    // Simulate progress with cleanup
+    progressIntervalRef.current = setInterval(() => {
       setImportProgress((prev) => Math.min(prev + 10, 90))
     }, 200)
 
@@ -189,13 +193,19 @@ export function DeliveryImportDialog({
     } catch {
       toast.error("Erreur lors de l'import")
       setStep("preview")
+      setImportProgress(0)
     } finally {
-      clearInterval(progressInterval)
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
       setIsImporting(false)
     }
   }
 
   const handleClose = () => {
+    if (isImporting) return
+    
     setStep("upload")
     setFile(null)
     setPastedText("")
@@ -214,10 +224,14 @@ export function DeliveryImportDialog({
 104812017823;HANIN TLILI 54434722 CENTER;30.900;2026-02-02;0000-00-00 00:00:00;2026-02-07 10:10:38;Retour Expéditeur`
 
     const blob = new Blob([template], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
-    link.href = URL.createObjectURL(blob)
+    link.href = url
     link.download = "template_import_best_delivery.csv"
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
     
     toast.success("Modele telecharge")
   }
@@ -556,6 +570,13 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                 Importer {parsedRows.length} ligne(s)
               </Button>
             </>
+          )}
+          
+          {step === "importing" && (
+            <Button disabled>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Import en cours...
+            </Button>
           )}
           
           {step === "complete" && (

@@ -50,17 +50,23 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
 
   const handleSaveEdit = async () => {
     if (!editingMaterial || !editName.trim()) return
-    if (!editPrice || Number(editPrice) < 0) { toast.error("Prix invalide"); return }
+    
+    const price = Number(editPrice)
+    if (isNaN(price) || price < 0) { 
+      toast.error("Prix invalide") 
+      return 
+    }
+    
     setIsSaving(true)
     try {
       await updateRawMaterial(editingMaterial.id, {
         name: editName.trim(),
-        pricePerUnit: Number(editPrice),
+        pricePerUnit: price,
         minStock: Number(editMinStock) || 0,
         unit: editUnit,
         storageLocationId: editLocationId || null,
       })
-      toast.success("Article modifie avec succes")
+      toast.success("Article modifié avec succès")
       setEditingMaterial(null)
     } catch (err: unknown) {
       toast.error("Erreur lors de la modification")
@@ -79,14 +85,14 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-3">
-            <FlaskConical className="h-6 w-6 text-muted-foreground" />
+            <FlaskConical className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
           </div>
-          <p className="text-sm font-medium">Aucune matiere premiere</p>
-          <p className="text-xs text-muted-foreground mt-1">Ajoutez vos ingredients : farine, sucre, beurre, oeufs...</p>
+          <p className="text-sm font-medium">Aucune matière première</p>
+          <p className="text-xs text-muted-foreground mt-1">Ajoutez vos ingrédients : farine, sucre, beurre, œufs...</p>
           {onAdd && (
-            <Button className="mt-4 bg-[#4A7C59] hover:bg-[#3d6a4b] text-white" onClick={onAdd}>
-              <Plus className="mr-2 h-4 w-4" />
-              Ajouter une matiere premiere
+            <Button className="mt-4" onClick={onAdd}>
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              Ajouter une matière première
             </Button>
           )}
         </CardContent>
@@ -101,7 +107,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
     <Card>
       {hasLocations && (
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+          <Filter className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <span className="text-xs text-muted-foreground">Emplacement:</span>
           <Select value={locationFilter} onValueChange={setLocationFilter}>
             <SelectTrigger className="h-7 w-[180px] text-xs">
@@ -109,7 +115,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous ({materials.length})</SelectItem>
-              <SelectItem value="unassigned">Non assigne ({materials.filter(m => !m.storageLocationId).length})</SelectItem>
+              <SelectItem value="unassigned">Non assigné ({materials.filter(m => !m.storageLocationId).length})</SelectItem>
               {(storageLocations || []).filter(l => l.isActive).map(loc => {
                 const count = materials.filter(m => m.storageLocationId === loc.id).length
                 return <SelectItem key={loc.id} value={loc.id}>{loc.name} ({count})</SelectItem>
@@ -128,9 +134,9 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
               <TableRow>
                 <TableHead>Article</TableHead>
                 {hasLocations && <TableHead className="hidden md:table-cell">Emplacement</TableHead>}
-                <TableHead>Quantite</TableHead>
+                <TableHead>Quantité</TableHead>
                 <TableHead className="hidden sm:table-cell">Niveau</TableHead>
-                <TableHead>Prix/Unite</TableHead>
+                <TableHead>Prix/Unité</TableHead>
                 <TableHead>Statut</TableHead>
               </TableRow>
             </TableHeader>
@@ -152,15 +158,16 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                       e.stopPropagation()
                       handleEditClick(material)
                     }}
+                    aria-label={`Modifier ${material.name}`}
                   >
-                    <Edit2 className="h-3 w-3" />
+                    <Edit2 className="h-3 w-3" aria-hidden="true" />
                   </Button>
                 </TableCell>
                     {hasLocations && (
                       <TableCell className="hidden md:table-cell">
                         {loc ? (
                           <Badge variant="outline" className="text-xs gap-1 font-normal">
-                            <MapPin className="h-3 w-3" />
+                            <MapPin className="h-3 w-3" aria-hidden="true" />
                             {loc.name}
                           </Badge>
                         ) : (
@@ -181,7 +188,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                         <Progress value={pct} className="h-2" indicatorClassName={status === "critical" ? "bg-destructive" : "bg-primary"} />
                       </div>
                     </TableCell>
-                    <TableCell>{material.pricePerUnit.toLocaleString("fr-TN")} TND</TableCell>
+                    <TableCell>{(material.pricePerUnit || 0).toLocaleString("fr-TN")} TND</TableCell>
                     <TableCell>
                       {status === "critical" ? <Badge variant="destructive">Critique</Badge> : <Badge variant="default" className="bg-primary">En stock</Badge>}
                     </TableCell>
@@ -207,7 +214,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-price">Prix unitaire (TND) *</Label>
-              <Input id="edit-price" type="number" min="0" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="0.00" />
+              <Input id="edit-price" type="number" min="0" step="0.001" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="0.000" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-min">Seuil minimum</Label>
@@ -216,9 +223,9 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-unit">Unite</Label>
+              <Label htmlFor="edit-unit">Unité</Label>
               <Select value={editUnit} onValueChange={setEditUnit}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="edit-unit"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="kg">kg</SelectItem>
                   <SelectItem value="g">g</SelectItem>
@@ -226,16 +233,16 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
                   <SelectItem value="mL">mL</SelectItem>
                   <SelectItem value="pcs">pcs</SelectItem>
                   <SelectItem value="sachets">sachets</SelectItem>
-                  <SelectItem value="unite">unite</SelectItem>
+                  <SelectItem value="unité">unité</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Depot</Label>
+              <Label htmlFor="edit-location">Dépôt</Label>
               <Select value={editLocationId} onValueChange={setEditLocationId}>
-                <SelectTrigger><SelectValue placeholder="Non assigne" /></SelectTrigger>
+                <SelectTrigger id="edit-location"><SelectValue placeholder="Non assigné" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Non assigne</SelectItem>
+                  <SelectItem value="none">Non assigné</SelectItem>
                   {(storageLocations || []).filter(l => l.isActive).map((loc) => (
                     <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
                   ))}
@@ -246,7 +253,7 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setEditingMaterial(null)}>Annuler</Button>
-          <Button onClick={handleSaveEdit} disabled={isSaving}>{isSaving ? "Enregistrement..." : "Enregistrer"}</Button>
+          <Button onClick={handleSaveEdit} disabled={isSaving || !editName.trim()}>{isSaving ? "Enregistrement..." : "Enregistrer"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

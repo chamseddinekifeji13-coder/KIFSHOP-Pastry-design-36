@@ -14,12 +14,12 @@ import { createConsumable, CONSUMABLE_CATEGORIES } from "@/lib/stocks/actions"
 import { useStorageLocations } from "@/hooks/use-tenant-data"
 
 const UNITS = [
-  { value: "unite", label: "Unite" },
-  { value: "pcs", label: "Pieces (pcs)" },
+  { value: "unité", label: "Unité" },
+  { value: "pcs", label: "Pièces (pcs)" },
   { value: "kg", label: "Kilogrammes (kg)" },
   { value: "L", label: "Litres (L)" },
   { value: "rouleaux", label: "Rouleaux" },
-  { value: "boites", label: "Boites" },
+  { value: "boîtes", label: "Boîtes" },
   { value: "lots", label: "Lots" },
 ]
 
@@ -34,10 +34,12 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
   const { data: storageLocations } = useStorageLocations()
   const activeLocations = (storageLocations || []).filter(l => l.isActive)
   const [saving, setSaving] = useState(false)
+  
+  // États du formulaire
   const [name, setName] = useState("")
   const [storageLocationId, setStorageLocationId] = useState("")
   const [category, setCategory] = useState("general")
-  const [unit, setUnit] = useState("unite")
+  const [unit, setUnit] = useState("unité")
   const [currentStock, setCurrentStock] = useState("")
   const [minStock, setMinStock] = useState("5")
   const [price, setPrice] = useState("")
@@ -45,39 +47,62 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
   const [supplier, setSupplier] = useState("")
 
   function resetForm() {
-    setName(""); setCategory("general"); setUnit("unite"); setStorageLocationId("")
-    setCurrentStock(""); setMinStock("5"); setPrice(""); setDescription(""); setSupplier("")
+    setName("")
+    setCategory("general")
+    setUnit("unité")
+    setStorageLocationId("")
+    setCurrentStock("")
+    setMinStock("5")
+    setPrice("")
+    setDescription("")
+    setSupplier("")
+  }
+
+  function validateNumber(value: string, defaultValue: number = 0): number {
+    const num = Number(value)
+    return isNaN(num) || num < 0 ? defaultValue : num
   }
 
   async function handleSubmit() {
-    if (!name.trim()) { toast.error("Le nom est obligatoire"); return }
-    if (!storageLocationId) { toast.error("Le depot est obligatoire", { description: "Veuillez selectionner un emplacement de stockage" }); return }
+    if (!name.trim()) { 
+      toast.error("Le nom est obligatoire") 
+      return 
+    }
+    if (!storageLocationId) { 
+      toast.error("Le dépôt est obligatoire", { 
+        description: "Veuillez sélectionner un emplacement de stockage" 
+      }) 
+      return 
+    }
 
     setSaving(true)
     try {
       const result = await createConsumable(currentTenant.id, {
-        name: name.trim(), category, unit,
-        currentStock: Number(currentStock) || 0,
-        minStock: Number(minStock) || 5,
-        price: Number(price) || 0,
+        name: name.trim(),
+        category,
+        unit,
+        currentStock: validateNumber(currentStock),
+        minStock: validateNumber(minStock, 5),
+        price: validateNumber(price),
         description: description.trim() || undefined,
         supplier: supplier.trim() || undefined,
         storageLocationId: storageLocationId || undefined,
       })
+      
       if (result) {
-        toast.success("Consommable ajoute", { description: name.trim() })
+        toast.success("Consommable ajouté", { description: name.trim() })
         resetForm()
         onOpenChange(false)
         onSuccess?.()
       } else {
-        toast.error("Erreur lors de la creation")
+        toast.error("Erreur lors de la création")
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ""
       if (msg.startsWith("DUPLICATE:")) {
-        toast.error("Doublon detecte", { description: msg.replace("DUPLICATE:", "") })
+        toast.error("Doublon détecté", { description: msg.replace("DUPLICATE:", "") })
       } else if (msg.startsWith("SIMILAR:")) {
-        toast.error("Consommable similaire detecte", { description: msg.replace("SIMILAR:", "") })
+        toast.error("Consommable similaire détecté", { description: msg.replace("SIMILAR:", "") })
       } else {
         toast.error("Erreur", { description: msg || "Erreur inattendue" })
       }
@@ -87,41 +112,41 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
   }
 
   return (
-<Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto [&>button[data-slot=dialog-close]]:absolute [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:opacity-80 [&>button[data-slot=dialog-close]]:hover:opacity-100 [&>button[data-slot=dialog-close]]:z-50">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-y-auto">
         {/* Header */}
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 text-white">
+        <div className="bg-gradient-to-br from-primary to-primary/80 p-6 text-primary-foreground">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                <Package className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/20 backdrop-blur-sm">
+                <Package className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <DialogTitle className="text-white text-lg">Nouveau consommable</DialogTitle>
-                <p className="text-white/80 text-sm">Produits non utilises comme matiere premiere</p>
+                <DialogTitle className="text-primary-foreground text-lg">Nouveau consommable</DialogTitle>
+                <p className="text-primary-foreground/80 text-sm">Produits non utilisés comme matière première</p>
               </div>
             </div>
           </DialogHeader>
         </div>
 
         <div className="flex-1 p-6 space-y-5">
-          {/* Info generale */}
+          {/* Info générale */}
           <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Package className="h-4 w-4 text-blue-500" />
-              Informations generales
+              <Package className="h-4 w-4 text-primary" aria-hidden="true" />
+              Informations générales
             </h3>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Nom *</Label>
-              <Input placeholder="Ex: Gants jetables, Liquide vaisselle..." value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="name" className="text-xs text-muted-foreground">Nom *</Label>
+              <Input id="name" placeholder="Ex: Gants jetables, Liquide vaisselle..." value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Categorie</Label>
+                <Label htmlFor="category" className="text-xs text-muted-foreground">Catégorie</Label>
                 <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="category"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(CONSUMABLE_CATEGORIES).map(([value, label]) => (
                       <SelectItem key={value} value={value}>{label}</SelectItem>
@@ -130,9 +155,9 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Unite</Label>
+                <Label htmlFor="unit" className="text-xs text-muted-foreground">Unité</Label>
                 <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="unit"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {UNITS.map((u) => (
                       <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
@@ -143,9 +168,10 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Description (optionnel)</Label>
+              <Label htmlFor="description" className="text-xs text-muted-foreground">Description (optionnel)</Label>
               <Textarea
-                placeholder="Marque, reference, usage..."
+                id="description"
+                placeholder="Marque, référence, usage..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
@@ -153,17 +179,21 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Fournisseur (optionnel)</Label>
-              <Input placeholder="Nom du fournisseur" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
+              <Label htmlFor="supplier" className="text-xs text-muted-foreground">Fournisseur (optionnel)</Label>
+              <Input id="supplier" placeholder="Nom du fournisseur" value={supplier} onChange={(e) => setSupplier(e.target.value)} />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> Depot / Emplacement *
+              <Label htmlFor="location" className="text-xs text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3 w-3" aria-hidden="true" /> 
+                Dépôt / Emplacement *
               </Label>
               <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                <SelectTrigger className={`w-full ${!storageLocationId ? "border-destructive/50" : ""}`}>
-                  <SelectValue placeholder="Choisir un depot (obligatoire)" />
+                <SelectTrigger 
+                  id="location"
+                  className={`w-full ${!storageLocationId ? "border-destructive/50" : ""}`}
+                >
+                  <SelectValue placeholder="Choisir un dépôt (obligatoire)" />
                 </SelectTrigger>
                 <SelectContent>
                   {activeLocations.map((loc) => (
@@ -179,22 +209,24 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
           {/* Stock & Prix */}
           <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-[#4A7C59]/10 text-[#4A7C59] text-xs font-bold">S</span>
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-primary text-xs font-bold">
+                S
+              </span>
               Stock et prix
             </h3>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Stock actuel</Label>
-                <Input type="number" min="0" placeholder="0" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
+                <Label htmlFor="currentStock" className="text-xs text-muted-foreground">Stock actuel</Label>
+                <Input id="currentStock" type="number" min="0" placeholder="0" value={currentStock} onChange={(e) => setCurrentStock(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Seuil minimum</Label>
-                <Input type="number" min="0" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+                <Label htmlFor="minStock" className="text-xs text-muted-foreground">Seuil minimum</Label>
+                <Input id="minStock" type="number" min="0" placeholder="5" value={minStock} onChange={(e) => setMinStock(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Prix unitaire (TND)</Label>
-                <Input type="number" min="0" step="0.001" placeholder="0.000" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <Label htmlFor="price" className="text-xs text-muted-foreground">Prix unitaire (TND)</Label>
+                <Input id="price" type="number" min="0" step="0.001" placeholder="0.000" value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
             </div>
           </div>
@@ -205,8 +237,12 @@ export function NewConsumableDrawer({ open, onOpenChange, onSuccess }: NewConsum
           <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={saving}>
             Annuler
           </Button>
-          <Button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white" onClick={handleSubmit} disabled={saving}>
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Package className="mr-2 h-4 w-4" />}
+          <Button className="flex-1" onClick={handleSubmit} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <Package className="mr-2 h-4 w-4" aria-hidden="true" />
+            )}
             {saving ? "Enregistrement..." : "Ajouter le consommable"}
           </Button>
         </div>

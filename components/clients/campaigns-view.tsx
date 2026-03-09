@@ -22,12 +22,10 @@ import {
   DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
-import { useTenant } from "@/lib/tenant-context"
 import { useClients, useOrders } from "@/hooks/use-tenant-data"
 import { type Client } from "@/lib/clients/actions"
 import { type Order } from "@/lib/orders/actions"
 import { toast } from "sonner"
-import { useI18n } from "@/lib/i18n/context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type Channel = "whatsapp" | "sms"
@@ -40,8 +38,6 @@ const statusFilter: Record<string, { label: string; color: string }> = {
 }
 
 export function CampaignsView() {
-  const { t } = useI18n()
-  const { currentTenant } = useTenant()
   const { data: clients = [], isLoading } = useClients()
   const { data: orders = [], isLoading: ordersLoading } = useOrders()
   const [activeTab, setActiveTab] = useState<"promo" | "delivery">("promo")
@@ -99,7 +95,7 @@ export function CampaignsView() {
       .replace(/\{nom\}/g, order.customerName || "Cher(e) client(e)")
       .replace(/\{telephone\}/g, order.customerPhone || "")
       .replace(/\{adresse\}/g, order.customerAddress || order.deliveryAddress || "Non specifiee")
-      .replace(/\{montant\}/g, order.total.toFixed(0))
+      .replace(/\{montant\}/g, (order.total ?? 0).toFixed(0))
       .replace(/\{statut\}/g, order.status === "en-livraison" ? "En livraison" : "Pret")
   }
 
@@ -132,11 +128,17 @@ export function CampaignsView() {
 
   const handleSendDeliveryNotifications = async () => {
     setSendingDelivery(true)
-    // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
-    await new Promise((r) => setTimeout(r, 2000))
-    setSendingDelivery(false)
-    setDeliverySent(true)
-    toast.success(`Notifications envoyees a ${ordersToNotify.length} clients via ${deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}`)
+    try {
+      // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
+      await new Promise((r) => setTimeout(r, 2000))
+      setDeliverySent(true)
+      toast.success(`Notifications envoyees a ${ordersToNotify.length} clients via ${deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}`)
+    } catch (err) {
+      console.error("Erreur envoi notifications livraison:", err)
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'envoi des notifications")
+    } finally {
+      setSendingDelivery(false)
+    }
   }
 
   // Filter audience
@@ -157,7 +159,7 @@ export function CampaignsView() {
       .replace(/\{nom\}/g, client.name || "Cher(e) client(e)")
       .replace(/\{telephone\}/g, client.phone)
       .replace(/\{total_commandes\}/g, String(client.totalOrders))
-      .replace(/\{total_depense\}/g, client.totalSpent.toFixed(0))
+      .replace(/\{total_depense\}/g, (client.totalSpent ?? 0).toFixed(0))
   }
 
   const handleCopyNumbers = () => {
@@ -173,11 +175,17 @@ export function CampaignsView() {
 
   const handleSendCampaign = async () => {
     setSending(true)
-    // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
-    await new Promise((r) => setTimeout(r, 2000))
-    setSending(false)
-    setSent(true)
-    toast.success(`Campagne "${campaignName}" envoyee a ${audience.length} clients via ${channel === "whatsapp" ? "WhatsApp" : "SMS"}`)
+    try {
+      // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
+      await new Promise((r) => setTimeout(r, 2000))
+      setSent(true)
+      toast.success(`Campagne "${campaignName}" envoyee a ${audience.length} clients via ${channel === "whatsapp" ? "WhatsApp" : "SMS"}`)
+    } catch (err) {
+      console.error("Erreur envoi campagne:", err)
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'envoi de la campagne")
+    } finally {
+      setSending(false)
+    }
   }
 
   if (isLoading || ordersLoading) {

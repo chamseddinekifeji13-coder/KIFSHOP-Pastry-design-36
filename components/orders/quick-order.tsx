@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import {
   Phone,
   Loader2,
@@ -158,33 +158,61 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   // Load products
   useEffect(() => {
     if (!open || tenantLoading || currentTenant.id === "__fallback__") return
+
+    let cancelled = false
+
     async function loadProducts() {
       setLoadingProducts(true)
-      const supabase = createSupabaseClient()
-      const { data, error } = await supabase
-        .from("finished_products")
-        .select("id, name, selling_price, current_stock")
-        .eq("tenant_id", currentTenant.id)
-        .order("name")
-      if (!error && data) {
-        setProducts(data.map((p) => ({
-          ...p,
-          selling_price: Number(p.selling_price),
-          current_stock: Number(p.current_stock),
-        })))
+      try {
+        const supabase = createSupabaseClient()
+        const { data, error } = await supabase
+          .from("finished_products")
+          .select("id, name, selling_price, current_stock")
+          .eq("tenant_id", currentTenant.id)
+          .order("name")
+
+        if (cancelled) return
+
+        if (!error && data) {
+          setProducts(data.map((p) => ({
+            ...p,
+            selling_price: Number(p.selling_price),
+            current_stock: Number(p.current_stock),
+          })))
+        } else if (error) {
+          console.error("Erreur chargement produits:", error)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Exception chargement produits:", err)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProducts(false)
+        }
       }
-      setLoadingProducts(false)
     }
+
     loadProducts()
+
+    return () => {
+      cancelled = true
+    }
   }, [open, currentTenant.id, tenantLoading])
 
   const handlePhoneLookup = useCallback(async () => {
     const cleanPhone = phone.replace(/\s/g, "").trim()
     if (cleanPhone.length < 4) return
     if (currentTenant.id === "__fallback__") return
-    const result = await lookupClient(cleanPhone, currentTenant.id)
-    if (result && result.name) {
-      setClientName(result.name)
+
+    try {
+      const result = await lookupClient(cleanPhone, currentTenant.id)
+      if (result && result.name) {
+        setClientName(result.name)
+      }
+    } catch (err) {
+      console.error("Erreur recherche client:", err)
+      toast.error("Erreur lors de la recherche du client")
     }
   }, [phone, currentTenant.id, lookupClient])
 
@@ -213,27 +241,39 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   }
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
-    setItems(items.map(item => {
-      if (item.productId === productId) {
-        const newQty = item.quantity + delta
-        return newQty > 0 ? { ...item, quantity: newQty } : item
-      }
-      return item
-    }).filter(item => item.quantity > 0))
+    setItems(prev =>
+      prev.map(item => {
+        if (item.productId === productId) {
+          const newQty = Math.max(1, item.quantity + delta)
+          return { ...item, quantity: newQty }
+        }
+        return item
+      })
+    )
   }
 
   const handleRemoveItem = (productId: string) => {
     setItems(items.filter(i => i.productId !== productId))
   }
 
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0)
-  const shipping = deliveryType === "delivery" ? (Number(shippingCost) || 0) : 0
+  const subtotal = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity * item.price, 0),
+    [items]
+  )
+  const shipping = useMemo(
+    () => deliveryType === "delivery" ? (Number(shippingCost) || 0) : 0,
+    [deliveryType, shippingCost]
+  )
   const total = subtotal + shipping
 
   const handleSubmit = async () => {
     if (!client || isBlocked || hasExcessiveReturns || submitting) return
     if (items.length === 0) {
       toast.error("Veuillez ajouter au moins un article")
+      return
+    }
+    if (total <= 0) {
+      toast.error("Le total de la commande doit être supérieur à 0")
       return
     }
     if (isNewClient && !clientName.trim()) {
@@ -250,7 +290,15 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       // Update client name if new
       if (isNewClient && clientName.trim()) {
         const supabase = createSupabaseClient()
-        await supabase.from("clients").update({ name: clientName.trim(), updated_at: new Date().toISOString() }).eq("id", client.id)
+        const { error: updateError } = await supabase
+          .from("clients")
+          .update({ name: clientName.trim(), updated_at: new Date().toISOString() })
+          .eq("id", client.id)
+
+        if (updateError) {
+          console.error("Erreur mise à jour client:", updateError)
+          // Non bloquant — on continue la création de commande
+        }
       }
 
       const itemsDesc = items.map(i => `${i.quantity}x ${i.name}`).join(", ")
@@ -308,6 +356,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setProductSearchOpen(false)
     setNotes("")
     setSuccess(false)
+    setSubmitting(false)
     clearClient()
     onOpenChange(false)
   }
@@ -483,7 +532,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                             <span className="text-[10px] font-medium uppercase">Cmd</span>
                           </div>
                           <p className="text-sm font-bold text-foreground tabular-nums">
-                            {(client.total_orders || 0) + (client.delivery_count || 0)}
+                            {(client.total_orders ?? 0) + (client.delivery_count ?? 0)}
                           </p>
                         </div>
                         <div className="bg-background rounded-lg px-3 py-2 text-center border border-border/50">
@@ -492,7 +541,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                             <span className="text-[10px] font-medium uppercase">Total</span>
                           </div>
                           <p className="text-sm font-bold text-foreground tabular-nums">
-                            {((client.total_spent || 0) + (client.delivery_total || 0)).toFixed(0)}
+                            {((client.total_spent ?? 0) + (client.delivery_total ?? 0)).toFixed(0)}
                           </p>
                         </div>
                         <div className="bg-background rounded-lg px-3 py-2 text-center border border-border/50">
@@ -500,8 +549,8 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                             <RotateCcw className="h-3 w-3" />
                             <span className="text-[10px] font-medium uppercase">Retours</span>
                           </div>
-                          <p className={`text-sm font-bold tabular-nums ${(client.return_count + (client.delivery_returned || 0)) >= 2 ? "text-red-600" : "text-foreground"}`}>
-                            {(client.return_count || 0) + (client.delivery_returned || 0)}
+                          <p className={`text-sm font-bold tabular-nums ${(client.return_count ?? 0) + (client.delivery_returned ?? 0) >= 2 ? "text-red-600" : "text-foreground"}`}>
+                            {(client.return_count ?? 0) + (client.delivery_returned ?? 0)}
                           </p>
                         </div>
                       </div>

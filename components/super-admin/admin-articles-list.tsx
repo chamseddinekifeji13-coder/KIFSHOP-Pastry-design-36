@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Loader2,
   Search,
@@ -67,11 +68,13 @@ import {
   type TenantOverview,
 } from "@/lib/super-admin/actions"
 
-const TYPE_LABELS: Record<string, string> = {
+
+const TYPE_LABELS: Record<"raw_material" | "finished_product" | "packaging", string> = {
   raw_material: "Matiere premiere",
   finished_product: "Produit fini",
   packaging: "Emballage",
 }
+
 
 const TYPE_SHORT: Record<string, string> = {
   raw_material: "MP",
@@ -79,9 +82,11 @@ const TYPE_SHORT: Record<string, string> = {
   packaging: "Emballage",
 }
 
+
 const AVAILABLE_UNITS = [
   "kg", "g", "L", "mL", "unite", "piece", "boite", "sachet", "carton", "plateau", "douzaine",
 ]
+
 
 function TypeBadge({ type }: { type: string }) {
   const styles: Record<string, string> = {
@@ -96,6 +101,7 @@ function TypeBadge({ type }: { type: string }) {
   )
 }
 
+
 function TypeIcon({ type }: { type: string }) {
   switch (type) {
     case "raw_material":
@@ -109,24 +115,30 @@ function TypeIcon({ type }: { type: string }) {
   }
 }
 
+
 export function AdminArticlesList() {
   const [articles, setArticles] = useState<AdminArticle[]>([])
   const [tenants, setTenants] = useState<TenantOverview[]>([])
   const [loading, setLoading] = useState(true)
 
+
   // Filters
   const [tenantFilter, setTenantFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
+
 
   // Edit unit dialog
   const [editingArticle, setEditingArticle] = useState<AdminArticle | null>(null)
   const [newUnit, setNewUnit] = useState("")
   const [updatingUnit, setUpdatingUnit] = useState(false)
 
+
   // Delete dialog
   const [deletingArticle, setDeletingArticle] = useState<AdminArticle | null>(null)
   const [deleting, setDeleting] = useState(false)
+
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -144,25 +156,46 @@ export function AdminArticlesList() {
     }
   }, [tenantFilter])
 
+
   useEffect(() => {
     loadData()
   }, [loadData])
 
-  // Filtered articles
-  const filtered = articles.filter((a) => {
-    if (typeFilter !== "all" && a.type !== typeFilter) return false
-    if (search) {
-      const s = search.toLowerCase()
-      if (!a.name.toLowerCase().includes(s) && !a.tenant_name.toLowerCase().includes(s)) return false
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+
+  // Reset form when editing article changes
+  useEffect(() => {
+    if (editingArticle) {
+      setNewUnit(editingArticle.unit)
     }
-    return true
-  })
+  }, [editingArticle])
+
+
+  // Filtered articles with memoization
+  const filtered = useMemo(() => {
+    return articles.filter((a) => {
+      if (typeFilter !== "all" && a.type !== typeFilter) return false
+      if (debouncedSearch) {
+        const s = debouncedSearch.toLowerCase()
+        if (!a.name.toLowerCase().includes(s) && !a.tenant_name.toLowerCase().includes(s)) return false
+      }
+      return true
+    })
+  }, [articles, typeFilter, debouncedSearch])
+
 
   // Stats
   const totalCount = articles.length
   const rmCount = articles.filter((a) => a.type === "raw_material").length
   const fpCount = articles.filter((a) => a.type === "finished_product").length
   const pkgCount = articles.filter((a) => a.type === "packaging").length
+
 
   // Handlers
   async function handleDeleteArticle() {
@@ -180,12 +213,13 @@ export function AdminArticlesList() {
     }
   }
 
+
   async function handleUpdateUnit() {
     if (!editingArticle || !newUnit) return
     setUpdatingUnit(true)
     try {
       await adminUpdateArticleUnit(editingArticle.tenant_id, editingArticle.type, editingArticle.id, newUnit)
-      toast.success(`Unite de "${editingArticle.name}" modifiee: ${editingArticle.unit} -> ${newUnit}`)
+      toast.success(`Unite de "${editingArticle.name}" modifiee: ${editingArticle.unit} → ${newUnit}`)
       setEditingArticle(null)
       setNewUnit("")
       loadData()
@@ -196,6 +230,7 @@ export function AdminArticlesList() {
     }
   }
 
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -203,6 +238,7 @@ export function AdminArticlesList() {
       </div>
     )
   }
+
 
   return (
     <div className="space-y-4 lg:space-y-6">
@@ -254,6 +290,7 @@ export function AdminArticlesList() {
         </Card>
       </div>
 
+
       {/* Filters + Table */}
       <Card>
         <CardContent className="p-4 lg:p-6">
@@ -296,6 +333,7 @@ export function AdminArticlesList() {
               </Select>
             </div>
           </div>
+
 
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">
@@ -344,10 +382,10 @@ export function AdminArticlesList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-right text-sm tabular-nums">
-                        {article.currentStock.toLocaleString("fr-FR")}
+                        {article.currentStock?.toLocaleString("fr-FR") ?? "—"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm tabular-nums">
-                        {article.price.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} DT
+                        {article.price?.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) ?? "—"} DT
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -359,10 +397,7 @@ export function AdminArticlesList() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => {
-                                setEditingArticle(article)
-                                setNewUnit(article.unit)
-                              }}
+                              onClick={() => setEditingArticle(article)}
                             >
                               <Pencil className="h-3.5 w-3.5 mr-2" />
                               Modifier l{"'"}unite
@@ -386,6 +421,7 @@ export function AdminArticlesList() {
         </CardContent>
       </Card>
 
+
       {/* Edit Unit Dialog */}
       <Dialog open={!!editingArticle} onOpenChange={(open) => { if (!open) setEditingArticle(null) }}>
         <DialogContent className="sm:max-w-md">
@@ -393,7 +429,7 @@ export function AdminArticlesList() {
             <DialogTitle>Modifier l{"'"}unite</DialogTitle>
             <DialogDescription>
               Changer l{"'"}unite de mesure de {"\""}{editingArticle?.name}{"\""}
-              {" "}({TYPE_LABELS[editingArticle?.type || ""] || ""})
+              {" "}({TYPE_LABELS[editingArticle?.type as "raw_material" | "finished_product" | "packaging"] || ""})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -435,6 +471,7 @@ export function AdminArticlesList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingArticle} onOpenChange={(open) => { if (!open) setDeletingArticle(null) }}>

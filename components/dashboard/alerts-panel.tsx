@@ -28,16 +28,24 @@ export function AlertsPanel() {
   const essentialAlerts = filterEssentialAlerts(stockAlerts)
   const readyOrders = (orders || []).filter((o) => o.status === "pret")
 
-  const totalIn = (transactions || []).filter((t) => t.type === "entree").reduce((sum, t) => sum + t.amount, 0)
-  const totalOut = (transactions || []).filter((t) => t.type === "sortie").reduce((sum, t) => sum + t.amount, 0)
+  const totalIn = (transactions || []).filter((t) => t.type === "entree").reduce((sum, t) => sum + (t.amount ?? 0), 0)
+  const totalOut = (transactions || []).filter((t) => t.type === "sortie").reduce((sum, t) => sum + (t.amount ?? 0), 0)
   const cashFlow = totalIn - totalOut
 
   const alerts: Alert[] = []
+  const usedIds = new Set<string>()
+
+  // Helper pour garantir l'unicite des cles
+  const addAlert = (alert: Alert) => {
+    const uniqueId = usedIds.has(alert.id) ? `${alert.id}-${Date.now()}-${Math.random()}` : alert.id
+    usedIds.add(uniqueId)
+    alerts.push({ ...alert, id: uniqueId })
+  }
 
   // Essential materials first (farine, sucre, beurre...)
   essentialAlerts.forEach((sa: StockAlert) => {
-    alerts.push({
-      id: sa.id,
+    addAlert({
+      id: `essential-${sa.id}`,
       type: sa.severity === "info" ? "warning" : sa.severity,
       icon: Flame,
       title: `${sa.materialName} - ESSENTIEL`,
@@ -49,8 +57,8 @@ export function AlertsPanel() {
   stockAlerts
     .filter((sa) => !essentialAlerts.some((ea) => ea.id === sa.id))
     .forEach((sa: StockAlert) => {
-      alerts.push({
-        id: sa.id,
+      addAlert({
+        id: `stock-${sa.id}`,
         type: sa.severity === "info" ? "warning" : sa.severity,
         icon: Package,
         title: `${sa.materialName} < ${sa.minStock}${sa.unit}`,
@@ -59,7 +67,7 @@ export function AlertsPanel() {
     })
 
   if (cashFlow < 1000 && (transactions || []).length > 0) {
-    alerts.push({
+    addAlert({
       id: "treasury",
       type: "warning",
       icon: Wallet,
@@ -69,7 +77,7 @@ export function AlertsPanel() {
   }
 
   if (readyOrders.length > 0) {
-    alerts.push({
+    addAlert({
       id: "ready-orders",
       type: "success",
       icon: CheckCircle,
@@ -83,6 +91,7 @@ export function AlertsPanel() {
       case "critical": return { bg: "bg-destructive/10", border: "border-destructive/20", icon: "text-destructive" }
       case "warning": return { bg: "bg-warning/10", border: "border-warning/20", icon: "text-warning" }
       case "success": return { bg: "bg-primary/10", border: "border-primary/20", icon: "text-primary" }
+      default: return { bg: "bg-muted", border: "border-muted", icon: "text-muted-foreground" }
     }
   }
 
@@ -104,7 +113,7 @@ export function AlertsPanel() {
       <CardContent className="space-y-3">
         {isLoading ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label="Chargement..." />
           </div>
         ) : alerts.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
@@ -113,9 +122,14 @@ export function AlertsPanel() {
         ) : (
           alerts.map((alert) => {
             const styles = getAlertStyles(alert.type)
+            const Icon = alert.icon
             return (
-              <div key={alert.id} className={`flex items-start gap-3 rounded-lg border p-3 ${styles.bg} ${styles.border}`}>
-                <alert.icon className={`h-4 w-4 mt-0.5 ${styles.icon}`} />
+              <div
+                key={alert.id}
+                className={`flex items-start gap-3 rounded-lg border p-3 ${styles.bg} ${styles.border}`}
+                role="alert"
+              >
+                <Icon className={`h-4 w-4 mt-0.5 ${styles.icon}`} aria-hidden="true" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium leading-tight">{alert.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{alert.description}</p>

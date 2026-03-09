@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
-  Search, Phone, User, ShieldAlert, Star, AlertTriangle,
-  RotateCcw, Download, Loader2, ChevronRight, Filter,
-  Megaphone, TrendingUp, TrendingDown, Hash, Ban, Trash2,
+  Search, Phone, User, Star, AlertTriangle,
+  Download, Loader2, ChevronRight, Filter,
+  TrendingUp, Ban, Trash2,
 } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,11 +27,10 @@ import { useTenant } from "@/lib/tenant-context"
 import { useClients } from "@/hooks/use-tenant-data"
 import { updateClient, deleteClient, type Client } from "@/lib/clients/actions"
 import { toast } from "sonner"
-import { useI18n } from "@/lib/i18n/context"
 import { exportToCSV, formatDateForCSV, formatAmountForCSV } from "@/lib/csv-export"
 import { ClientDetailDrawer } from "./client-detail-drawer"
 
-const statusConfig: Record<string, { label: string; color: string; icon: typeof Star }> = {
+const statusConfig: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   normal: { label: "Normal", color: "bg-muted text-muted-foreground", icon: User },
   vip: { label: "VIP", color: "bg-emerald-100 text-emerald-700", icon: Star },
   warning: { label: "Attention", color: "bg-amber-100 text-amber-700", icon: AlertTriangle },
@@ -38,7 +38,6 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 }
 
 export function ClientsView() {
-  const { t } = useI18n()
   const { currentTenant } = useTenant()
   const { data: clients = [], isLoading, mutate } = useClients()
   const [search, setSearch] = useState("")
@@ -48,35 +47,60 @@ export function ClientsView() {
   const [showDeleteNoPhoneDialog, setShowDeleteNoPhoneDialog] = useState(false)
   const [isDeletingNoPhone, setIsDeletingNoPhone] = useState(false)
 
-  const filtered = clients.filter((c) => {
-    const matchSearch = !search ||
-      (c.name || "").toLowerCase().includes(search.toLowerCase()) ||
-      c.phone.includes(search)
-    const matchStatus = filterStatus === "all" || c.status === filterStatus
-    return matchSearch && matchStatus
-  })
-
-  // Count clients without phone
-  const clientsWithoutPhone = clients.filter((c) => !c.phone || c.phone.trim() === "")
-
-  const stats = {
+  // Memoized statistics
+  const stats = useMemo(() => ({
     total: clients.length,
     vip: clients.filter((c) => c.status === "vip").length,
     warning: clients.filter((c) => c.status === "warning").length,
     blacklisted: clients.filter((c) => c.status === "blacklisted").length,
-    totalRevenue: clients.reduce((sum, c) => sum + c.totalSpent, 0),
-  }
+    totalRevenue: clients.reduce((sum, c) => sum + (c.totalSpent ?? 0), 0),
+  }), [clients])
+
+  // Memoized clients without phone
+  const clientsWithoutPhone = useMemo(() =>
+    clients.filter((c) => !c.phone?.trim()), [clients]
+  )
+
+  // Memoized filtered clients
+  const filtered = useMemo(() => {
+    const searchLower = search.toLowerCase()
+    return clients.filter((c) => {
+      const matchSearch = !search ||
+        (c.name || "").toLowerCase().includes(searchLower) ||
+        c.phone?.includes(search)
+      const matchStatus = filterStatus === "all" || c.status === filterStatus
+      return matchSearch && matchStatus
+    })
+  }, [clients, search, filterStatus])
 
   const handleStatusChange = async (clientId: string, newStatus: string) => {
-    const ok = await updateClient(clientId, { status: newStatus })
-    if (ok) { toast.success("Statut mis a jour"); mutate() }
-    else toast.error("Erreur de mise a jour")
+    try {
+      const ok = await updateClient(clientId, { status: newStatus })
+      if (ok) {
+        toast.success("Statut mis a jour")
+        mutate()
+      } else {
+        toast.error("Erreur de mise a jour")
+      }
+    } catch (error) {
+      console.error("Status change error:", error)
+      toast.error("Erreur reseau lors de la mise a jour")
+    }
   }
 
   const handleDelete = async (clientId: string) => {
-    const ok = await deleteClient(clientId)
-    if (ok) { toast.success("Client supprime"); mutate() }
-    else toast.error("Erreur de suppression")
+    try {
+      const ok = await deleteClient(clientId)
+      if (ok) {
+        toast.success("Client supprime")
+        mutate()
+      } else {
+        toast.error("Erreur de suppression")
+      }
+    } catch (error) {
+      console.error("Delete error:", error)
+      toast.error("Erreur reseau lors de la suppression")
+    }
   }
 
   const handleExport = () => {
@@ -319,7 +343,7 @@ export function ClientsView() {
                         <p className="text-[10px] text-muted-foreground">Cmd</p>
                       </div>
                       <div className="text-center">
-                        <p className="font-semibold">{client.totalSpent.toFixed(0)}</p>
+                        <p className="font-semibold">{(client.totalSpent ?? 0).toFixed(0)}</p>
                         <p className="text-[10px] text-muted-foreground">TND</p>
                       </div>
                       <div className="text-center">
@@ -363,7 +387,7 @@ export function ClientsView() {
               ⚠️ {clientsWithoutPhone.length} client{clientsWithoutPhone.length > 1 ? "s" : ""} seront supprimes
             </p>
           </div>
-          <div className="space-y-2">
+          <div className="flex gap-2 justify-end">
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteClientsWithoutPhone}

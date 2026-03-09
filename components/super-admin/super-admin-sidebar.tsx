@@ -65,9 +65,15 @@ export function SuperAdminSidebar() {
 
   async function handleSignOut() {
     setSigningOut(true)
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push("/auth/login")
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+      router.push("/auth/login")
+    } catch (err) {
+      console.error("Erreur lors de la déconnexion :", err)
+      setSigningOut(false)
+    }
   }
 
   return (

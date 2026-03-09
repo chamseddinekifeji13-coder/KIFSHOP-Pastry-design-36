@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import {
   Phone,
   Loader2,
@@ -137,7 +137,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
   const [gouvernorat, setGouvernorat] = useState("")
-  const [shippingCost, setShippingCost] = useState("")
+  const [shippingCost, setShippingCost] = useState("0")
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
   const [selectedProduct, setSelectedProduct] = useState("")
@@ -183,17 +183,29 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     loadProducts()
   }, [open, currentTenant.id, tenantLoading])
 
+  // Validation téléphone Tunisien (8 chiffres)
+  const isValidPhone = useMemo(
+    () => /^\d{8}$/.test(phone.replace(/\s/g, "")),
+    [phone]
+  )
+
   // Phone lookup handler
   const handlePhoneLookup = useCallback(async () => {
     const cleanPhone = phone.replace(/\s/g, "").trim()
-    if (cleanPhone.length < 4) return
+    if (!isValidPhone) return
     if (currentTenant.id === "__fallback__") return
-    const result = await lookupClient(cleanPhone, currentTenant.id)
-    if (result && result.name) {
-      setClientName(result.name)
-      setClientNameEdit(result.name)
+    
+    try {
+      const result = await lookupClient(cleanPhone, currentTenant.id)
+      if (result && result.name) {
+        setClientName(result.name)
+        setClientNameEdit(result.name)
+      }
+    } catch (err) {
+      console.error("[v0] Error lookup client:", err)
+      toast.error("Erreur lors de la recherche du client")
     }
-  }, [phone, currentTenant.id, lookupClient])
+  }, [phone, currentTenant.id, lookupClient, isValidPhone])
 
   const handlePhoneKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -222,10 +234,14 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         return
       }
 
-      // Update local state
+      // Update local state and re-lookup to sync hook
       setClientName(clientNameEdit.trim())
       setClientNameEditMode(false)
       setClientNameEdit("")
+      
+      // Re-lookup to update useClientStatus hook
+      await lookupClient(client.phone, currentTenant.id)
+      
       toast.success("Nom du client mis à jour")
     } catch (err) {
       console.error("[v0] Exception updating client:", err)
@@ -239,7 +255,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   }
 
   // Add item to order
-  const handleAddItem = (productId?: string) => {
+  const handleAddItem = useCallback((productId?: string) => {
     const pid = productId || selectedProduct
     if (!pid) return
     const product = products.find(p => p.id === pid)
@@ -254,17 +270,27 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     }
     setSelectedProduct("")
     setProductSearchOpen(false)
+  }, [selectedProduct, products, items])
+
+  // Remove item
+  const handleRemoveItem = useCallback((productId: string) => {
+    setItems(items.filter(i => i.productId !== productId))
+  }, [items])
+    setSelectedProduct("")
+    setProductSearchOpen(false)
   }
 
   // Update quantity
   const handleUpdateQuantity = (productId: string, delta: number) => {
-    setItems(items.map(item => {
-      if (item.productId === productId) {
-        const newQty = item.quantity + delta
-        return newQty > 0 ? { ...item, quantity: newQty } : item
-      }
-      return item
-    }).filter(item => item.quantity > 0))
+    setItems(prev =>
+      prev
+        .map(item =>
+          item.productId === productId
+            ? { ...item, quantity: item.quantity + delta }
+            : item
+        )
+        .filter(item => item.quantity > 0)
+    )
   }
 
   // Remove item
@@ -272,12 +298,18 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setItems(items.filter(i => i.productId !== productId))
   }
 
-  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0)
-  const shipping = deliveryType === "delivery" ? (Number(shippingCost) || 0) : 0
+  const subtotal = useMemo(
+    () => items.reduce((sum, item) => sum + (item.quantity * item.price), 0),
+    [items]
+  )
+  const shipping = useMemo(
+    () => deliveryType === "delivery" ? (Number(shippingCost) || 0) : 0,
+    [deliveryType, shippingCost]
+  )
   const total = subtotal + shipping
 
   // Submit order
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!client || isBlocked || hasExcessiveReturns || submitting) return
     if (items.length === 0) {
       toast.error("Veuillez ajouter au moins un article")
@@ -342,18 +374,39 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
       }
 
       setSuccess(true)
-      toast.success("Commande enregistree !")
+      toast.success("Commande enregistrée !")
       onOrderCreated?.()
-      setTimeout(() => handleClose(), 1500)
+      // Close after delay
+      setTimeout(() => {
+        setPhone("")
+        setTruecallerVerified(false)
+        setClientName("")
+        setClientNameEditMode(false)
+        setClientNameEdit("")
+        setClientAddress("")
+        setSource("phone")
+        setDeliveryType("pickup")
+        setCourier("")
+        setGouvernorat("")
+        setShippingCost("")
+        setDeliveryDate("")
+        setItems([])
+        setSelectedProduct("")
+        setProductSearchOpen(false)
+        setNotes("")
+        setSuccess(false)
+        clearClient()
+        onOpenChange(false)
+      }, 1500)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur creation commande")
+      toast.error(err instanceof Error ? err.message : "Erreur création commande")
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, clearClient, onOpenChange])
 
   // Close handler
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setPhone("")
     setTruecallerVerified(false)
     setClientName("")
@@ -373,7 +426,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setSuccess(false)
     clearClient()
     onOpenChange(false)
-  }
+  }, [clearClient, onOpenChange])
 
   // Reset returns
   const handleResetReturns = async () => {
@@ -383,7 +436,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     toast.success("Compteur de retours remis a zero")
   }
 
-  const canSubmit = client && !isBlocked && !hasExcessiveReturns && !submitting && items.length > 0
+  const canSubmit = client && !isBlocked && !hasExcessiveReturns && !submitting && items.length > 0 && (!isNewClient || clientName.trim())
   const clientOk = client && !isBlocked && !hasExcessiveReturns
 
   // Status badge
@@ -486,7 +539,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                       </div>
                       <Button
                         onClick={handlePhoneLookup}
-                        disabled={clientLoading || phone.replace(/\s/g, "").length < 4}
+                        disabled={clientLoading || !isValidPhone}
                         className="shrink-0"
                       >
                         {clientLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Chercher"}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Search, X, Loader2, History, Package, Box, Gift, Filter } from "lucide-react"
+import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Search, X, Loader2, History, Package, Box, Gift, Filter, type LucideIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,19 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useStockMovements, useRawMaterials, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
 import type { StockMovement } from "@/lib/stocks/actions"
 
-const MOVEMENT_LABELS: Record<string, { label: string; color: string; icon: typeof ArrowDownToLine }> = {
-  entry: { label: "Entree", color: "bg-emerald-100 text-emerald-700", icon: ArrowDownToLine },
-  exit: { label: "Sortie", color: "bg-red-100 text-red-700", icon: ArrowUpFromLine },
-  transfer: { label: "Transfert", color: "bg-blue-100 text-blue-700", icon: ArrowLeftRight },
-  adjustment: { label: "Ajustement", color: "bg-amber-100 text-amber-700", icon: ArrowLeftRight },
-  production_in: { label: "Production (entree)", color: "bg-purple-100 text-purple-700", icon: ArrowDownToLine },
-  production_out: { label: "Production (sortie)", color: "bg-purple-100 text-purple-700", icon: ArrowUpFromLine },
+const MOVEMENT_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: LucideIcon }> = {
+  entry: { label: "Entrée", variant: "default", icon: ArrowDownToLine },
+  exit: { label: "Sortie", variant: "destructive", icon: ArrowUpFromLine },
+  transfer: { label: "Transfert", variant: "secondary", icon: ArrowLeftRight },
+  adjustment: { label: "Ajustement", variant: "outline", icon: ArrowLeftRight },
+  production_in: { label: "Production (entrée)", variant: "default", icon: ArrowDownToLine },
+  production_out: { label: "Production (sortie)", variant: "destructive", icon: ArrowUpFromLine },
 }
 
-const ITEM_TYPE_LABELS: Record<string, { label: string; icon: typeof Package }> = {
-  raw_material: { label: "MP", icon: Package },
-  finished_product: { label: "PF", icon: Box },
-  packaging: { label: "Emb.", icon: Gift },
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  raw_material: "MP",
+  finished_product: "PF",
+  packaging: "Emb.",
 }
 
 function formatDate(dateStr: string) {
@@ -83,7 +83,7 @@ export function StockMovementsHistory() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
       </div>
     )
   }
@@ -91,10 +91,10 @@ export function StockMovementsHistory() {
   if (!movements || movements.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <History className="h-12 w-12 text-muted-foreground/50" />
+        <History className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
         <h3 className="mt-4 text-lg font-semibold">Aucun mouvement</h3>
         <p className="text-sm text-muted-foreground mt-1">
-          {"Les mouvements de stock (entrees, sorties, transferts) apparaitront ici"}
+          {"Les mouvements de stock (entrées, sorties, transferts) apparaîtront ici"}
         </p>
       </div>
     )
@@ -105,9 +105,9 @@ export function StockMovementsHistory() {
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <Input
-            placeholder="Rechercher article, motif, reference..."
+            placeholder="Rechercher article, motif, référence..."
             className="pl-9 pr-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -116,21 +116,22 @@ export function StockMovementsHistory() {
             <button
               onClick={() => setSearchQuery("")}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Effacer la recherche"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
               <span className="sr-only">Effacer</span>
             </button>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" />
+          <Filter className="h-4 w-4 text-muted-foreground hidden sm:block" aria-hidden="true" />
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[140px] h-9 text-xs">
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les types</SelectItem>
-              <SelectItem value="entry">Entrees</SelectItem>
+              <SelectItem value="entry">Entrées</SelectItem>
               <SelectItem value="exit">Sorties</SelectItem>
               <SelectItem value="transfer">Transferts</SelectItem>
               <SelectItem value="adjustment">Ajustements</SelectItem>
@@ -144,7 +145,7 @@ export function StockMovementsHistory() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous</SelectItem>
-              <SelectItem value="raw_material">Matieres P.</SelectItem>
+              <SelectItem value="raw_material">Matières P.</SelectItem>
               <SelectItem value="finished_product">Produits F.</SelectItem>
               <SelectItem value="packaging">Emballages</SelectItem>
             </SelectContent>
@@ -155,8 +156,9 @@ export function StockMovementsHistory() {
               size="sm"
               className="h-9 text-xs"
               onClick={() => { setFilterType("all"); setFilterItemType("all"); setSearchQuery("") }}
+              aria-label="Réinitialiser les filtres"
             >
-              <X className="h-3.5 w-3.5 mr-1" />
+              <X className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
               Effacer
             </Button>
           )}
@@ -178,7 +180,7 @@ export function StockMovementsHistory() {
                 <TableHead className="text-xs font-semibold w-[160px]">Date</TableHead>
                 <TableHead className="text-xs font-semibold">Type</TableHead>
                 <TableHead className="text-xs font-semibold">Article</TableHead>
-                <TableHead className="text-xs font-semibold text-right">Quantite</TableHead>
+                <TableHead className="text-xs font-semibold text-right">Quantité</TableHead>
                 <TableHead className="text-xs font-semibold">Motif</TableHead>
               </TableRow>
             </TableHeader>
@@ -191,9 +193,13 @@ export function StockMovementsHistory() {
                 </TableRow>
               ) : (
                 filtered.map((m) => {
-                  const moveMeta = MOVEMENT_LABELS[m.movementType] || { label: m.movementType, color: "bg-muted text-muted-foreground", icon: ArrowLeftRight }
+                  const moveMeta = MOVEMENT_LABELS[m.movementType] || { 
+                    label: m.movementType, 
+                    variant: "secondary" as const, 
+                    icon: ArrowLeftRight 
+                  }
                   const MoveIcon = moveMeta.icon
-                  const itemMeta = ITEM_TYPE_LABELS[m.itemType] || { label: m.itemType, icon: Package }
+                  const itemLabel = ITEM_TYPE_LABELS[m.itemType] || m.itemType
                   const isEntry = m.movementType === "entry" || m.movementType === "production_in"
 
                   return (
@@ -202,21 +208,21 @@ export function StockMovementsHistory() {
                         {formatDate(m.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className={`${moveMeta.color} gap-1 text-[10px] font-medium border-0`}>
-                          <MoveIcon className="h-3 w-3" />
+                        <Badge variant={moveMeta.variant} className="gap-1 text-[10px] font-medium">
+                          <MoveIcon className="h-3 w-3" aria-hidden="true" />
                           {moveMeta.label}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-                            {itemMeta.label}
+                            {itemLabel}
                           </span>
                           <span className="text-sm font-medium">{getItemName(m)}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <span className={`text-sm font-semibold tabular-nums ${isEntry ? "text-emerald-600" : "text-red-600"}`}>
+                        <span className={`text-sm font-semibold tabular-nums ${isEntry ? "text-primary" : "text-destructive"}`}>
                           {isEntry ? "+" : "-"}{m.quantity} {m.unit}
                         </span>
                       </TableCell>
