@@ -8,11 +8,11 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Clean raw_materials - get IDs first, then delete
+    // Clean raw_materials - get IDs first, then delete (chercher null, "", ou "-")
     const { data: emptyRaw } = await supabase
       .from("raw_materials")
       .select("id")
-      .or('name.is.null,name.eq.""')
+      .or('name.is.null,name.eq."",name.eq."-"')
     
     let deletedRawCount = 0
     if (emptyRaw && emptyRaw.length > 0) {
@@ -24,11 +24,11 @@ export async function POST(request: NextRequest) {
       deletedRawCount = emptyRaw.length
     }
 
-    // Clean finished_products
+    // Clean finished_products (chercher null, "", ou "-")
     const { data: emptyFinished } = await supabase
       .from("finished_products")
       .select("id")
-      .or('name.is.null,name.eq.""')
+      .or('name.is.null,name.eq."",name.eq."-"')
     
     let deletedFinishedCount = 0
     if (emptyFinished && emptyFinished.length > 0) {
@@ -40,11 +40,11 @@ export async function POST(request: NextRequest) {
       deletedFinishedCount = emptyFinished.length
     }
 
-    // Clean packaging
+    // Clean packaging (chercher null, "", ou "-")
     const { data: emptyPackaging } = await supabase
       .from("packaging")
       .select("id")
-      .or('name.is.null,name.eq.""')
+      .or('name.is.null,name.eq."",name.eq."-"')
     
     let deletedPackagingCount = 0
     if (emptyPackaging && emptyPackaging.length > 0) {
