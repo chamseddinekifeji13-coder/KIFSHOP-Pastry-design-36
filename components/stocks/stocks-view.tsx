@@ -17,6 +17,7 @@ import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
 import { StockHistoryChart } from "./stock-history-chart"
 import { StockMovementsHistory } from "./stock-movements-history"
+import { CleanupEmptyNames } from "@/components/admin/cleanup-empty-names"
 import { useRawMaterials, useFinishedProducts, usePackaging, useConsumables, useStorageLocations, useDeliveryNotes, usePurchaseInvoices } from "@/hooks/use-tenant-data"
 import { DeliveryNotesList } from "@/components/approvisionnement/delivery-notes-list"
 import { PurchaseInvoicesList } from "@/components/approvisionnement/purchase-invoices-list"
@@ -133,6 +134,7 @@ export function StocksView() {
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
           </Button>
+          <CleanupEmptyNames />
           {selectedTab === "raw" && (
             <Button variant="outline" onClick={() => setNewRawMaterialOpen(true)} className="bg-transparent">
               <Plus className="mr-2 h-4 w-4" />

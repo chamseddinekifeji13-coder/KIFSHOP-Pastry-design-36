@@ -98,16 +98,16 @@ export function InstallPrompt() {
     <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm animate-in slide-in-from-bottom-4 duration-500">
       <div className="rounded-xl border bg-card p-4 shadow-lg">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#4A7C59]/10">
-            <Download className="h-5 w-5 text-[#4A7C59]" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Download className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Installer KIFSHOP</p>
             <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              {"Accedez a KIFSHOP depuis votre ecran d'accueil, meme hors connexion."}
+              {"Accédez à KIFSHOP depuis votre écran d'accueil, même hors connexion."}
             </p>
             <div className="flex gap-2 mt-3">
-              <Button size="sm" className="h-8 bg-[#4A7C59] hover:bg-[#3D6B4A] text-xs" onClick={handleInstall}>
+              <Button size="sm" className="h-8 text-xs" onClick={handleInstall}>
                 Installer
               </Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={handleDismiss}>
@@ -116,7 +116,7 @@ export function InstallPrompt() {
             </div>
           </div>
           <button onClick={handleDismiss} className="shrink-0 p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground transition-colors" aria-label="Fermer">
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
