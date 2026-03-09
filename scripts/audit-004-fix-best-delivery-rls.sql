@@ -1,5 +1,5 @@
 -- =============================================
--- AUDIT FIX 004: Sécuriser les tables Best Delivery
+-- AUDIT FIX 004: Sécuriser les tables Best Delivery + Support + Sales
 -- Problème: RLS trop permissive (expose données entre tenants)
 -- =============================================
 
@@ -34,8 +34,3 @@ DROP POLICY IF EXISTS "Users can create their own records" ON public.sales_chann
 
 CREATE POLICY "sales_channels_tenant_access" ON public.sales_channels FOR ALL
   USING (tenant_id IN (SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()));
-
--- 6. Log des changements
-INSERT INTO public.audit_log (action, table_name, description, created_at)
-VALUES ('SECURITY_FIX', 'RLS_POLICIES', 'Fixed permissive RLS on multi-tenant tables', now())
-ON CONFLICT DO NOTHING;
