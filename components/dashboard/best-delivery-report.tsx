@@ -55,8 +55,6 @@ const statusConfig: Record<DeliveryStatus, { label: string; color: string; icon:
   returned: { label: "Retour", color: "#8b5cf6", icon: RotateCcw, bgClass: "bg-violet-100 text-violet-800" },
 }
 
-const CHART_COLORS = ["#10b981", "#8b5cf6", "#ef4444", "#f59e0b", "#3b82f6", "#6b7280"]
-
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("fr-TN", {
     day: "2-digit",
@@ -111,7 +109,7 @@ export function BestDeliveryReport() {
         .from("best_delivery_shipments")
         .delete({ count: "exact" })
         .eq("tenant_id", currentTenant.id)
-        .or("customer_phone.is.null,customer_phone.eq.")
+        .or('customer_phone.is.null,customer_phone.eq.""')
       if (error) throw error
       toast.success(`${count ?? shipmentsWithoutPhone.length} expedition(s) sans telephone supprimee(s)`)
       mutate()
@@ -151,17 +149,17 @@ export function BestDeliveryReport() {
 
     // Date filter
     if (dateFilter !== "all") {
-      const now = new Date()
-      const filterDate = new Date()
+      const today = new Date()
+      const filterDate = new Date(today)
       switch (dateFilter) {
         case "today":
           filterDate.setHours(0, 0, 0, 0)
           break
         case "week":
-          filterDate.setDate(now.getDate() - 7)
+          filterDate.setDate(filterDate.getDate() - 7)
           break
         case "month":
-          filterDate.setMonth(now.getMonth() - 1)
+          filterDate.setMonth(filterDate.getMonth() - 1)
           break
       }
       filtered = filtered.filter((s) => new Date(s.createdAt) >= filterDate)
@@ -186,61 +184,71 @@ export function BestDeliveryReport() {
     if (!selectedShipment || isUpdating) return
     setIsUpdating(true)
 
-    const result = await updateShipmentStatusWithFullSync(
-      selectedShipment.id,
-      currentTenant.id,
-      newStatus,
-      statusNotes || undefined
-    )
-    
-    if (result.success) {
-      if (newStatus === "returned" && result.clientSynced) {
-        toast.success("Statut mis a jour + Compteur retour incremente", {
-          description: `Retour enregistre pour ${result.clientName || selectedShipment.customerName}`,
-        })
-      } else if (newStatus === "delivered" && result.clientSynced) {
-        toast.success("Statut mis a jour + Compteur livraison incremente", {
-          description: `Livraison enregistree pour ${result.clientName || selectedShipment.customerName}`,
-        })
-      } else if ((newStatus === "returned" || newStatus === "delivered") && !result.clientSynced) {
-        toast.warning("Statut mis a jour", {
-          description: "Attention: Le compteur client n'a pas pu etre mis a jour (client non trouve)",
-        })
+    try {
+      const result = await updateShipmentStatusWithFullSync(
+        selectedShipment.id,
+        currentTenant.id,
+        newStatus,
+        statusNotes || undefined
+      )
+      
+      if (result.success) {
+        if (newStatus === "returned" && result.clientSynced) {
+          toast.success("Statut mis a jour + Compteur retour incremente", {
+            description: `Retour enregistre pour ${result.clientName || selectedShipment.customerName}`,
+          })
+        } else if (newStatus === "delivered" && result.clientSynced) {
+          toast.success("Statut mis a jour + Compteur livraison incremente", {
+            description: `Livraison enregistree pour ${result.clientName || selectedShipment.customerName}`,
+          })
+        } else if ((newStatus === "returned" || newStatus === "delivered") && !result.clientSynced) {
+          toast.warning("Statut mis a jour", {
+            description: "Attention: Le compteur client n'a pas pu etre mis a jour (client non trouve)",
+          })
+        } else {
+          toast.success("Statut mis a jour", {
+            description: `Expedition -> ${statusConfig[newStatus].label}`,
+          })
+        }
+        mutate()
+        setStatusDialogOpen(false)
+        setSelectedShipment(null)
       } else {
-        toast.success("Statut mis a jour", {
-          description: `Expedition -> ${statusConfig[newStatus].label}`,
-        })
+        toast.error("Erreur lors de la mise a jour")
       }
-      mutate()
-      setStatusDialogOpen(false)
-      setSelectedShipment(null)
-    } else {
+    } catch (err) {
+      console.error("[v0] Update status error:", err)
       toast.error("Erreur lors de la mise a jour")
+    } finally {
+      setIsUpdating(false)
     }
-    setIsUpdating(false)
   }
 
   const handleBulkSync = async () => {
     setIsSyncing(true)
-    
-    // Sync both returns and deliveries
-    const [returnsResult, deliveredResult] = await Promise.all([
-      bulkSyncReturns(currentTenant.id),
-      bulkSyncDelivered(currentTenant.id),
-    ])
-    
-    const totalSynced = returnsResult.synced + deliveredResult.synced
-    const totalProcessed = returnsResult.total + deliveredResult.total
-    
-    if (totalProcessed === 0) {
-      toast.info("Aucune expedition a synchroniser")
-    } else {
-      toast.success(`Synchronisation terminee`, {
-        description: `${deliveredResult.synced} livraisons et ${returnsResult.synced} retours synchronises`,
-      })
-      mutate()
+    try {
+      // Sync both returns and deliveries
+      const [returnsResult, deliveredResult] = await Promise.all([
+        bulkSyncReturns(currentTenant.id),
+        bulkSyncDelivered(currentTenant.id),
+      ])
+      
+      const totalProcessed = (returnsResult.total ?? 0) + (deliveredResult.total ?? 0)
+      
+      if (totalProcessed === 0) {
+        toast.info("Aucune expedition a synchroniser")
+      } else {
+        toast.success(`Synchronisation terminee`, {
+          description: `${deliveredResult.synced} livraisons et ${returnsResult.synced} retours synchronises`,
+        })
+        mutate()
+      }
+    } catch (err) {
+      console.error("[v0] Bulk sync error:", err)
+      toast.error("Erreur lors de la synchronisation")
+    } finally {
+      setIsSyncing(false)
     }
-    setIsSyncing(false)
   }
 
   const handleExport = async () => {
@@ -294,7 +302,7 @@ export function BestDeliveryReport() {
           <Button
             variant="outline"
             onClick={handleBulkSync}
-            disabled={isSyncing || (stats.returned === 0 && stats.delivered === 0)}
+            disabled={isSyncing}
             title="Synchroniser les livraisons et retours avec les compteurs clients"
           >
             {isSyncing ? (
@@ -892,19 +900,31 @@ export function BestDeliveryReport() {
               Cette action supprimera definitivement <strong>{shipmentsWithoutPhone.length} expedition(s)</strong> dont le numero de telephone est vide. Cette action est irreversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogCancel>Annuler</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDeleteWithoutPhone}
-            disabled={isDeletingNoPhone}
-            className="bg-destructive hover:bg-destructive/90"
-          >
-            {isDeletingNoPhone ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="mr-2 h-4 w-4" />
-            )}
-            Oui, supprimer
-          </AlertDialogAction>
+          <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mb-4">
+            <p className="text-sm font-medium text-destructive">
+              ⚠️ {shipmentsWithoutPhone.length} expedition{shipmentsWithoutPhone.length > 1 ? "s" : ""} seront supprimees
+            </p>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteWithoutPhone}
+              disabled={isDeletingNoPhone}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeletingNoPhone ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Oui, supprimer
+                </>
+              )}
+            </AlertDialogAction>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>
