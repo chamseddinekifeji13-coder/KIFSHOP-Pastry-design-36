@@ -8,18 +8,25 @@ import { useTransactions } from "@/hooks/use-tenant-data"
 
 const DAY_NAMES = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]
 
+function formatDateKey(date: Date): string {
+  return date.toLocaleDateString("fr-CA") // YYYY-MM-DD en fuseau local
+}
+
 export function RevenueChart() {
   const { data: transactions, isLoading } = useTransactions()
+
+  // Date fixee au montage pour eviter les decalages pendant le rendu
+  const today = useMemo(() => new Date(), [])
 
   const chartData = useMemo(() => {
     const last7Days = []
     for (let i = 6; i >= 0; i--) {
-      const date = new Date()
+      const date = new Date(today)
       date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split("T")[0]
+      const dateStr = formatDateKey(date)
       const dayRevenue = (transactions || [])
         .filter((t) => t.type === "entree" && t.createdAt?.startsWith(dateStr))
-        .reduce((sum, t) => sum + t.amount, 0)
+        .reduce((sum, t) => sum + (t.amount ?? 0), 0)
       last7Days.push({
         day: DAY_NAMES[date.getDay()],
         date: `${date.getDate()}/${date.getMonth() + 1}`,
@@ -27,10 +34,10 @@ export function RevenueChart() {
       })
     }
     return last7Days
-  }, [transactions])
+  }, [transactions, today])
 
   const totalRevenue = chartData.reduce((sum, d) => sum + d.revenue, 0)
-  const avgRevenue = Math.round(totalRevenue / 7)
+  const avgRevenue = Math.round(totalRevenue / 7) || 0
 
   return (
     <Card className="col-span-full lg:col-span-2">
@@ -43,7 +50,7 @@ export function RevenueChart() {
       <CardContent className="pt-0">
         {isLoading ? (
           <div className="flex items-center justify-center h-[280px]">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label="Chargement du graphique" />
           </div>
         ) : totalRevenue === 0 ? (
           <div className="flex items-center justify-center h-[280px]">
@@ -62,13 +69,13 @@ export function RevenueChart() {
                     return (
                       <div className="rounded-lg border bg-card p-2 shadow-sm">
                         <div className="text-xs text-muted-foreground">{d.day} ({d.date})</div>
-                        <div className="font-semibold">{d.revenue.toLocaleString("fr-TN")} TND</div>
+                        <div className="font-semibold">{Number(d.revenue).toLocaleString("fr-TN")} TND</div>
                       </div>
                     )
                   }
                   return null
                 }} />
-                <Bar dataKey="revenue" fill="#C17817" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
           </div>
