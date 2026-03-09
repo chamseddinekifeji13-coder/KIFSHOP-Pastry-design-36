@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Loader2,
   Search,
@@ -67,24 +67,26 @@ import {
   type TenantOverview,
 } from "@/lib/super-admin/actions"
 
-const TYPE_LABELS: Record<string, string> = {
-  raw_material: "Matiere premiere",
+type ArticleType = "raw_material" | "finished_product" | "packaging"
+
+const TYPE_LABELS: Record<ArticleType, string> = {
+  raw_material: "Matière première",
   finished_product: "Produit fini",
   packaging: "Emballage",
 }
 
-const TYPE_SHORT: Record<string, string> = {
+const TYPE_SHORT: Record<ArticleType, string> = {
   raw_material: "MP",
   finished_product: "PF",
   packaging: "Emballage",
 }
 
 const AVAILABLE_UNITS = [
-  "kg", "g", "L", "mL", "unite", "piece", "boite", "sachet", "carton", "plateau", "douzaine",
+  "kg", "g", "L", "mL", "unité", "pièce", "boîte", "sachet", "carton", "plateau", "douzaine",
 ]
 
-function TypeBadge({ type }: { type: string }) {
-  const styles: Record<string, string> = {
+function TypeBadge({ type }: { type: ArticleType }) {
+  const styles: Record<ArticleType, string> = {
     raw_material: "bg-emerald-50 text-emerald-700 border-emerald-200",
     finished_product: "bg-blue-50 text-blue-700 border-blue-200",
     packaging: "bg-orange-50 text-orange-700 border-orange-200",
@@ -96,7 +98,7 @@ function TypeBadge({ type }: { type: string }) {
   )
 }
 
-function TypeIcon({ type }: { type: string }) {
+function TypeIcon({ type }: { type: ArticleType }) {
   switch (type) {
     case "raw_material":
       return <FlaskConical className="h-4 w-4 text-emerald-600" />
@@ -148,15 +150,26 @@ export function AdminArticlesList() {
     loadData()
   }, [loadData])
 
-  // Filtered articles
-  const filtered = articles.filter((a) => {
-    if (typeFilter !== "all" && a.type !== typeFilter) return false
-    if (search) {
-      const s = search.toLowerCase()
-      if (!a.name.toLowerCase().includes(s) && !a.tenant_name.toLowerCase().includes(s)) return false
+  // Initialize newUnit when editingArticle changes
+  useEffect(() => {
+    if (editingArticle) {
+      setNewUnit(editingArticle.unit)
+    } else {
+      setNewUnit("")
     }
-    return true
-  })
+  }, [editingArticle])
+
+  // Filtered articles with memoization
+  const filtered = useMemo(() => {
+    return articles.filter((a) => {
+      if (typeFilter !== "all" && a.type !== typeFilter) return false
+      if (search) {
+        const s = search.toLowerCase()
+        if (!a.name.toLowerCase().includes(s) && !a.tenant_name.toLowerCase().includes(s)) return false
+      }
+      return true
+    })
+  }, [articles, typeFilter, search])
 
   // Stats
   const totalCount = articles.length
@@ -170,7 +183,7 @@ export function AdminArticlesList() {
     setDeleting(true)
     try {
       await adminDeleteArticle(deletingArticle.tenant_id, deletingArticle.type, deletingArticle.id)
-      toast.success(`Article "${deletingArticle.name}" supprime`)
+      toast.success(`Article "${deletingArticle.name}" supprimé`)
       setDeletingArticle(null)
       loadData()
     } catch (err) {
@@ -185,7 +198,7 @@ export function AdminArticlesList() {
     setUpdatingUnit(true)
     try {
       await adminUpdateArticleUnit(editingArticle.tenant_id, editingArticle.type, editingArticle.id, newUnit)
-      toast.success(`Unite de "${editingArticle.name}" modifiee: ${editingArticle.unit} -> ${newUnit}`)
+      toast.success(`Unité de "${editingArticle.name}" modifiée : ${editingArticle.unit} → ${newUnit}`)
       setEditingArticle(null)
       setNewUnit("")
       loadData()
@@ -226,7 +239,7 @@ export function AdminArticlesList() {
             </div>
             <div>
               <p className="text-2xl font-bold">{rmCount}</p>
-              <p className="text-xs text-muted-foreground">Matieres P.</p>
+              <p className="text-xs text-muted-foreground">Matières P.</p>
             </div>
           </CardContent>
         </Card>
@@ -274,7 +287,7 @@ export function AdminArticlesList() {
               </div>
               <Select value={tenantFilter} onValueChange={setTenantFilter}>
                 <SelectTrigger className="w-[140px] sm:w-[160px] h-8 text-xs">
-                  <SelectValue placeholder="Patisserie" />
+                  <SelectValue placeholder="Pâtisserie" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Toutes</SelectItem>
@@ -289,7 +302,7 @@ export function AdminArticlesList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous types</SelectItem>
-                  <SelectItem value="raw_material">Matieres P.</SelectItem>
+                  <SelectItem value="raw_material">Matières P.</SelectItem>
                   <SelectItem value="finished_product">Produits finis</SelectItem>
                   <SelectItem value="packaging">Emballages</SelectItem>
                 </SelectContent>
@@ -299,7 +312,7 @@ export function AdminArticlesList() {
 
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">
-              Aucun article trouve
+              Aucun article trouvé
             </div>
           ) : (
             <div className="rounded-md border overflow-x-auto">
@@ -308,8 +321,8 @@ export function AdminArticlesList() {
                   <TableRow>
                     <TableHead>Article</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead className="hidden sm:table-cell">Patisserie</TableHead>
-                    <TableHead className="hidden md:table-cell">Unite</TableHead>
+                    <TableHead className="hidden sm:table-cell">Pâtisserie</TableHead>
+                    <TableHead className="hidden md:table-cell">Unité</TableHead>
                     <TableHead className="hidden md:table-cell text-right">Stock</TableHead>
                     <TableHead className="hidden lg:table-cell text-right">Prix</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
@@ -320,7 +333,7 @@ export function AdminArticlesList() {
                     <TableRow key={`${article.type}-${article.id}`}>
                       <TableCell className="font-medium max-w-[200px]">
                         <div className="flex items-center gap-2">
-                          <TypeIcon type={article.type} />
+                          <TypeIcon type={article.type as ArticleType} />
                           <div className="min-w-0">
                             <p className="truncate text-sm">{article.name}</p>
                             <p className="sm:hidden text-xs text-muted-foreground truncate">
@@ -330,7 +343,7 @@ export function AdminArticlesList() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <TypeBadge type={article.type} />
+                        <TypeBadge type={article.type as ArticleType} />
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-sm">
                         <div className="flex items-center gap-1.5">
@@ -344,10 +357,10 @@ export function AdminArticlesList() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-right text-sm tabular-nums">
-                        {article.currentStock.toLocaleString("fr-FR")}
+                        {article.currentStock?.toLocaleString("fr-FR") ?? "—"}
                       </TableCell>
                       <TableCell className="hidden lg:table-cell text-right text-sm tabular-nums">
-                        {article.price.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} DT
+                        {article.price?.toLocaleString("fr-FR", { minimumFractionDigits: 2 }) ?? "—"} DT
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -361,11 +374,10 @@ export function AdminArticlesList() {
                             <DropdownMenuItem
                               onClick={() => {
                                 setEditingArticle(article)
-                                setNewUnit(article.unit)
                               }}
                             >
                               <Pencil className="h-3.5 w-3.5 mr-2" />
-                              Modifier l{"'"}unite
+                              Modifier l'unité
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive"
@@ -390,21 +402,21 @@ export function AdminArticlesList() {
       <Dialog open={!!editingArticle} onOpenChange={(open) => { if (!open) setEditingArticle(null) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Modifier l{"'"}unite</DialogTitle>
+            <DialogTitle>Modifier l'unité</DialogTitle>
             <DialogDescription>
-              Changer l{"'"}unite de mesure de {"\""}{editingArticle?.name}{"\""}
-              {" "}({TYPE_LABELS[editingArticle?.type || ""] || ""})
+              Changer l'unité de mesure de "{editingArticle?.name}"
+              {" "}({TYPE_LABELS[editingArticle?.type as ArticleType] || ""})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">Unite actuelle</Label>
+                <Label className="text-xs text-muted-foreground">Unité actuelle</Label>
                 <p className="text-sm font-medium mt-1">{editingArticle?.unit}</p>
               </div>
-              <div className="text-muted-foreground">{"→"}</div>
+              <div className="text-muted-foreground">→</div>
               <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">Nouvelle unite</Label>
+                <Label className="text-xs text-muted-foreground">Nouvelle unité</Label>
                 <Select value={newUnit} onValueChange={setNewUnit}>
                   <SelectTrigger className="mt-1 h-9">
                     <SelectValue />
@@ -418,49 +430,4 @@ export function AdminArticlesList() {
               </div>
             </div>
             <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
-              Cette modification affectera aussi les mouvements de stock associes a cet article.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingArticle(null)} disabled={updatingUnit}>
-              Annuler
-            </Button>
-            <Button
-              onClick={handleUpdateUnit}
-              disabled={updatingUnit || newUnit === editingArticle?.unit}
-            >
-              {updatingUnit && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Modifier
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletingArticle} onOpenChange={(open) => { if (!open) setDeletingArticle(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vous allez supprimer {"\""}{deletingArticle?.name}{"\""} ({TYPE_LABELS[deletingArticle?.type || ""]})
-              de la patisserie {"\""}{deletingArticle?.tenant_name}{"\""}.
-              Cette action supprimera aussi tous les mouvements de stock et les liens de recettes associes.
-              Cette action est irreversible.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteArticle}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Supprimer
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
+              Cette modification
