@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Package, FlaskConical } from "lucide-react"
+import { Plus, Package, FlaskConical, Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -7,6 +7,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
 import { useRecipes } from "@/hooks/use-tenant-data"
 import { createProductionBatch } from "@/lib/production/actions"
@@ -23,18 +26,21 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
   const { data: recipes = [] } = useRecipes()
   const { mutate } = useSWRConfig()
 
-  const [recipeName, setRecipeName] = useState("")
   const [selectedRecipeId, setSelectedRecipeId] = useState("")
   const [quantity, setQuantity] = useState("")
   const [unit, setUnit] = useState("g")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
+  const [openCombobox, setOpenCombobox] = useState(false)
 
-  const units = ["g", "kg", "ml", "L", "L"]
+  const units = ["g", "kg", "ml", "L"]
+
+  const selectedRecipe = recipes.find((r: any) => r.id === selectedRecipeId)
+  const recipeName = selectedRecipe?.name || ""
 
   const handleSubmit = async () => {
-    if (!recipeName.trim()) {
-      toast.error("Veuillez saisir le nom de la recette")
+    if (!selectedRecipeId) {
+      toast.error("Veuillez sélectionner une recette")
       return
     }
     if (!quantity || parseFloat(quantity) <= 0) {
@@ -45,8 +51,8 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
     setSaving(true)
     try {
       await createProductionBatch(currentTenant.id, {
-        recipeId: selectedRecipeId || undefined,
-        recipeName: recipeName.trim(),
+        recipeId: selectedRecipeId,
+        recipeName,
         producedQuantity: parseFloat(quantity),
         producedUnit: unit,
         notes: notes.trim() || undefined,
@@ -66,14 +72,11 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
   }
 
   const resetForm = () => {
-    setRecipeName("")
     setSelectedRecipeId("")
     setQuantity("")
     setUnit("g")
     setNotes("")
   }
-
-  const selectedRecipe = recipes.find((r: any) => r.id === selectedRecipeId)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -89,42 +92,73 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-6 py-6">
-          {/* Sélection recette */}
+          {/* Sélection recette avec recherche */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <FlaskConical className="h-3.5 w-3.5" /> Recette
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-medium">Recette (optionnel)</Label>
-              <Select value={selectedRecipeId} onValueChange={(value) => {
-                setSelectedRecipeId(value)
-                if (value) {
-                  const recipe = recipes.find((r: any) => r.id === value)
-                  if (recipe && !recipeName) setRecipeName(recipe.name)
-                }
-              }}>
-                <SelectTrigger className="bg-muted/50 border-0">
-                  <SelectValue placeholder="Sélectionner une recette..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {recipes.map((recipe: any) => (
-                    <SelectItem key={recipe.id} value={recipe.id}>
-                      {recipe.name}
-                      {recipe.category && <span className="text-muted-foreground ml-2 text-xs">({recipe.category})</span>}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedRecipe && (
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3 space-y-1">
-                  <p className="text-xs font-medium text-blue-900 dark:text-blue-100">{selectedRecipe.name}</p>
-                  {selectedRecipe.ingredients?.length > 0 && (
-                    <p className="text-xs text-blue-800 dark:text-blue-200">
-                      {selectedRecipe.ingredients.length} ingrédient{selectedRecipe.ingredients.length > 1 ? "s" : ""}
-                    </p>
-                  )}
-                </div>
-              )}
+              <Label className="text-xs font-medium">Sélectionner une recette *</Label>
+              <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openCombobox}
+                    className="w-full justify-between bg-muted/50 border-0"
+                  >
+                    {selectedRecipe ? (
+                      <div className="flex items-center gap-2">
+                        <span>{selectedRecipe.name}</span>
+                        {selectedRecipe.category && (
+                          <Badge variant="secondary" className="text-xs ml-auto">{selectedRecipe.category}</Badge>
+                        )}
+                      </div>
+                    ) : (
+                      "Chercher une recette..."
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Chercher une recette..." />
+                    <CommandEmpty>Aucune recette trouvée.</CommandEmpty>
+                    <CommandList>
+                      <CommandGroup>
+                        {recipes.map((recipe: any) => (
+                          <CommandItem
+                            key={recipe.id}
+                            value={recipe.id}
+                            onSelect={(currentValue) => {
+                              setSelectedRecipeId(currentValue === selectedRecipeId ? "" : currentValue)
+                              setOpenCombobox(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedRecipeId === recipe.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium">{recipe.name}</div>
+                              {recipe.category && (
+                                <div className="text-xs text-muted-foreground">{recipe.category}</div>
+                              )}
+                              {recipe.ingredients?.length > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  {recipe.ingredients.length} ingrédient{recipe.ingredients.length > 1 ? "s" : ""}
+                                </div>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
@@ -134,11 +168,10 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
               <Package className="h-3.5 w-3.5" /> Production
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-medium">Nom du produit vrac *</Label>
+              <Label className="text-xs font-medium">Produit vrac</Label>
               <Input
-                placeholder="Ex: Confiture fraise, Pâte feuilletée..."
+                disabled
                 value={recipeName}
-                onChange={(e) => setRecipeName(e.target.value)}
                 className="bg-muted/50 border-0"
               />
             </div>
@@ -195,7 +228,7 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={saving || !recipeName.trim() || !quantity}
+            disabled={saving || !selectedRecipeId || !quantity}
             className="flex-1"
           >
             {saving ? "Création..." : "Créer le lot"}
