@@ -7,6 +7,15 @@ export interface RecipeIngredient {
   unit: string
 }
 
+export interface RecipePackaging {
+  id: string
+  packagingId: string
+  name: string
+  quantity: number
+  weightGrams: number
+  unit: string
+}
+
 export interface Recipe {
   id: string
   tenantId: string
@@ -17,6 +26,10 @@ export interface Recipe {
   yieldUnit: string
   instructions: string | null
   ingredients: RecipeIngredient[]
+  packaging: RecipePackaging[]
+  theoreticalQuantity: number | null
+  packagedQuantity: number | null
+  wastagePercent: number | null
   createdAt: string
 }
 
@@ -40,28 +53,56 @@ export async function fetchRecipes(tenantId: string): Promise<Recipe[]> {
   if (!recipes || recipes.length === 0) return []
 
   const recipeIds = recipes.map((r) => r.id)
+  
+  // Fetch ingredients
   const { data: allIngredients } = await supabase
     .from("recipe_ingredients").select("*").in("recipe_id", recipeIds)
+  
+  // Fetch packaging
+  const { data: allPackaging } = await supabase
+    .from("recipe_packaging").select("*").in("recipe_id", recipeIds)
 
   const ingredientsByRecipe = new Map<string, RecipeIngredient[]>()
+  const packagingByRecipe = new Map<string, RecipePackaging[]>()
+  
   allIngredients?.forEach((i) => {
     const list = ingredientsByRecipe.get(i.recipe_id) || []
     list.push({ id: i.id, rawMaterialId: i.raw_material_id, quantity: Number(i.quantity), unit: i.unit })
     ingredientsByRecipe.set(i.recipe_id, list)
+  })
+  
+  allPackaging?.forEach((p) => {
+    const list = packagingByRecipe.get(p.recipe_id) || []
+    list.push({ 
+      id: p.id, 
+      packagingId: p.packaging_id, 
+      name: p.name || "", 
+      quantity: p.quantity, 
+      weightGrams: Number(p.weight_grams),
+      unit: p.unit || "pcs"
+    })
+    packagingByRecipe.set(p.recipe_id, list)
   })
 
   return recipes.map((r) => ({
     id: r.id, tenantId: r.tenant_id, name: r.name, category: r.category,
     finishedProductId: r.finished_product_id, yieldQuantity: Number(r.yield_quantity),
     yieldUnit: r.yield_unit, instructions: r.instructions,
-    ingredients: ingredientsByRecipe.get(r.id) || [], createdAt: r.created_at,
+    ingredients: ingredientsByRecipe.get(r.id) || [],
+    packaging: packagingByRecipe.get(r.id) || [],
+    theoreticalQuantity: Number(r.theoretical_quantity) || null,
+    packagedQuantity: Number(r.packaged_quantity) || null,
+    wastagePercent: Number(r.wastage_percent) || null,
+    createdAt: r.created_at,
   }))
 }
 
 export async function createRecipe(tenantId: string, data: {
   name: string; category?: string; finishedProductId?: string; yieldQuantity: number;
-  yieldUnit: string; instructions?: string;
+  yieldUnit: string; instructions?: string; theoreticalQuantity?: number;
+  packagedQuantity?: number; wastagePercent?: number;
   ingredients: { rawMaterialId: string; quantity: number; unit: string }[]
+  packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
 }): Promise<Recipe | null> {
   const supabase = createClient()
   const { data: row, error } = await supabase.from("recipes").insert({
@@ -69,18 +110,45 @@ export async function createRecipe(tenantId: string, data: {
     finished_product_id: data.finishedProductId || null,
     yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
     instructions: data.instructions || null,
+    theoretical_quantity: data.theoreticalQuantity || null,
+    packaged_quantity: data.packagedQuantity || null,
+    wastage_percent: data.wastagePercent || null,
   }).select().single()
   if (error || !row) { console.error("Error creating recipe:", error?.message); return null }
 
+  // Insert ingredients
   if (data.ingredients.length > 0) {
     await supabase.from("recipe_ingredients").insert(
       data.ingredients.map((i) => ({ recipe_id: row.id, raw_material_id: i.rawMaterialId, quantity: i.quantity, unit: i.unit }))
     )
   }
-  return { id: row.id, tenantId: row.tenant_id, name: row.name, category: row.category,
+  
+  // Insert packaging
+  if (data.packaging && data.packaging.length > 0) {
+    await supabase.from("recipe_packaging").insert(
+      data.packaging.map((p) => ({ 
+        recipe_id: row.id, 
+        packaging_id: p.packagingId, 
+        name: p.name,
+        quantity: p.quantity, 
+        weight_grams: p.weightGrams,
+        unit: p.unit,
+        tenant_id: tenantId
+      }))
+    )
+  }
+  
+  return { 
+    id: row.id, tenantId: row.tenant_id, name: row.name, category: row.category,
     finishedProductId: row.finished_product_id, yieldQuantity: Number(row.yield_quantity),
     yieldUnit: row.yield_unit, instructions: row.instructions,
-    ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
+    ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), 
+    packaging: data.packaging || [],
+    theoreticalQuantity: data.theoreticalQuantity || null,
+    packagedQuantity: data.packagedQuantity || null,
+    wastagePercent: data.wastagePercent || null,
+    createdAt: row.created_at 
+  }
 }
 
 export interface ConsumedIngredient {

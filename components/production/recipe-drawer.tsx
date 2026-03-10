@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
-import { addRecipe } from "@/lib/stocks/actions"
+import { createRecipe } from "@/lib/production/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 
@@ -118,11 +118,16 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   useEffect(() => {
     if (recipe) {
       setName(recipe.name); setCategory(recipe.category)
-      setYieldQty(recipe.yield_quantity?.toString() || "")
-      setYieldUnit(recipe.yield_unit || "")
       setIngredients((recipe.ingredients || []).map((ing: any) => ({
         materialId: ing.raw_material_id || ing.materialId,
         name: ing.name, quantity: ing.quantity.toString(), unit: ing.unit,
+      })))
+      setPackagingItems((recipe.packaging || []).map((pkg: any) => ({
+        packagingId: pkg.packaging_id || pkg.packagingId,
+        name: pkg.name,
+        quantity: pkg.quantity,
+        weight: pkg.weight_grams || pkg.weight,
+        unit: pkg.unit
       })))
     } else { resetForm() }
   }, [recipe, open])
@@ -197,32 +202,36 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
 
     setSaving(true)
     try {
-      await addRecipe(currentTenant.id, {
-        name: name.trim(), category,
-        yield_quantity: totalYield,
-        yield_unit: "unites",
-        theoretical_quantity: theoreticalTotal,
-        packaged_quantity: packagedTotal,
-        wastage_percent: wastage.percent,
+      await createRecipe(currentTenant.id, {
+        name: name.trim(), 
+        category,
+        yieldQuantity: totalYield,
+        yieldUnit: "unites",
+        theoreticalQuantity: theoreticalTotal,
+        packagedQuantity: packagedTotal,
+        wastagePercent: wastage.percent,
         ingredients: ingredients.map(ing => ({
-          raw_material_id: ing.materialId,
-          name: ing.name, quantity: parseFloat(ing.quantity), unit: ing.unit,
+          rawMaterialId: ing.materialId,
+          quantity: parseFloat(ing.quantity), 
+          unit: ing.unit,
         })),
         packaging: packagingItems.map(pkg => ({
-          packaging_id: pkg.packagingId,
+          packagingId: pkg.packagingId,
           name: pkg.name,
           quantity: pkg.quantity,
-          weight: pkg.weight,
+          weightGrams: pkg.weight,
           unit: pkg.unit
         })),
-        notes: notes
       })
       toast.success(isEditing ? "Recette modifiee" : "Recette creee", {
-        description: `"${name}" - ${ingredients.length} ingredients`,
+        description: `"${name}" - ${ingredients.length} ingredients, ${totalYield} unites`,
       })
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
       resetForm(); onOpenChange(false)
-    } catch { toast.error("Erreur lors de la sauvegarde") }
+    } catch (error) { 
+      console.error("Error saving recipe:", error)
+      toast.error("Erreur lors de la sauvegarde") 
+    }
     finally { setSaving(false) }
   }
 
