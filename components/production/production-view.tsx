@@ -221,6 +221,8 @@ export function ProductionView() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="recipes" className="space-y-4">
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
