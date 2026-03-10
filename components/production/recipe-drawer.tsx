@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { useTenant } from "@/lib/tenant-context"
-import { useRawMaterials, useCategories, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useCategories, usePackaging } from "@/hooks/use-tenant-data"
 import { createRecipe } from "@/lib/production/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
@@ -41,13 +41,11 @@ interface PackagingItem {
 export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
-  const { data: finishedProducts = [] } = useFinishedProducts()
   const { data: categories = [] } = useCategories()
   const { data: packagingList = [] } = usePackaging()
   const { mutate } = useSWRConfig()
   const isEditing = !!recipe
 
-  const [selectedProductId, setSelectedProductId] = useState("")
   const [name, setName] = useState("")
   const [category, setCategory] = useState("")
   const [newCategory, setNewCategory] = useState("")
@@ -133,7 +131,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   }, [recipe, open])
 
   const resetForm = () => {
-    setSelectedProductId(""); setName(""); setCategory(""); setNotes("")
+    setName(""); setCategory(""); setNotes("")
     setIngredients([]); setSelectedMaterial(""); setIngredientQty("")
     setPackagingItems([]); setSelectedPackaging(""); setPackagingQty(""); setPackagingWeight("")
   }
@@ -255,29 +253,14 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><ChefHat className="h-3.5 w-3.5" /> Informations</div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="space-y-2">
-                <Label className="text-xs font-medium">Produit fini (recette) *</Label>
-                <Select value={selectedProductId} onValueChange={(value) => {
-                  setSelectedProductId(value)
-                  const product = finishedProducts.find((p: any) => p.id === value)
-                  if (product) {
-                    setName(product.name)
-                    if (product.categoryId) {
-                      const cat = categories.find((c: any) => c.id === product.categoryId)
-                      if (cat) setCategory(cat.name)
-                    }
-                  }
-                }}>
-                  <SelectTrigger className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30">
-                    <SelectValue placeholder="Sélectionner un produit fini" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {finishedProducts.map((product: any) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-medium">Nom de la recette *</Label>
+                <Input
+                  placeholder="Ex: Confiture de fraise, Pâte feuilletée, Baklawa..."
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                />
+                <p className="text-[11px] text-muted-foreground">Nom libre - les quantités peuvent être ajustées au fur et à mesure</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Categorie *</Label>

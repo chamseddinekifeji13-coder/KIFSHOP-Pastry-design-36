@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle } from "lucide-react"
+import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle, Package } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -13,10 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
 import { useTenant } from "@/lib/tenant-context"
 import { RecipeDrawer } from "./recipe-drawer"
+import { ProductionBatchDrawer } from "./production-batch-drawer"
 import { RecipeCostPanel } from "./recipe-cost-panel"
 import { toast } from "sonner"
 import { consumeRecipeIngredients, type Recipe } from "@/lib/production/actions"
 import { useI18n } from "@/lib/i18n/context"
+import useSWR from "swr"
+import { fetchProductionBatches } from "@/lib/production/actions"
 
 // Error boundary to catch planner crashes
 class PlannerErrorBoundary extends React.Component<
@@ -54,9 +57,14 @@ const ProductionPlanner = React.lazy(() =>
 
 export function ProductionView() {
   const { t } = useI18n()
-  const { authUser } = useTenant()
+  const { authUser, currentTenant } = useTenant()
   const { data: recipes, isLoading: recLoading, mutate: mutateRecipes } = useRecipes()
   const { data: rawMaterials, isLoading: rmLoading, mutate: mutateRawMaterials } = useRawMaterials()
+  const { data: batches = [], mutate: mutateBatches } = useSWR(
+    currentTenant ? ["production-batches", currentTenant.id] : null,
+    ([_, tenantId]) => fetchProductionBatches(tenantId),
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  )
 
   const [activeTab, setActiveTab] = useState("planner")
   const [producing, setProducing] = useState(false)
@@ -64,6 +72,7 @@ export function ProductionView() {
   const [quantity, setQuantity] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [recipeDrawerOpen, setRecipeDrawerOpen] = useState(false)
+  const [batchDrawerOpen, setBatchDrawerOpen] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
 
   const isLoading = recLoading || rmLoading
@@ -134,6 +143,7 @@ export function ProductionView() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="planner" className="gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Planification</TabsTrigger>
+          <TabsTrigger value="batches" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Lots de production</TabsTrigger>
           <TabsTrigger value="recipes" className="gap-1.5"><ChefHat className="h-3.5 w-3.5" /> Fiches techniques</TabsTrigger>
         </TabsList>
 
@@ -148,6 +158,68 @@ export function ProductionView() {
               <ProductionPlanner />
             </React.Suspense>
           </PlannerErrorBoundary>
+        </TabsContent>
+
+        <TabsContent value="batches" className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setBatchDrawerOpen(true)} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouveau lot</Button>
+          </div>
+          
+          {batches.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Package className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <p className="text-lg font-medium">Aucun lot de production</p>
+                <p className="text-sm text-muted-foreground">Creer un lot pour commencer a produire</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {batches.map((batch) => (
+                <Card key={batch.id} className="overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{batch.recipeName}</CardTitle>
+                        <CardDescription>{new Date(batch.productionDate).toLocaleDateString("fr-FR")}</CardDescription>
+                      </div>
+                      <Badge variant={
+                        batch.status === "termine" ? "default" :
+                        batch.status === "partiellement_conditionne" ? "secondary" :
+                        "outline"
+                      }>
+                        {batch.status === "en_cours" ? "En cours" : 
+                         batch.status === "partiellement_conditionne" ? "Partiellement" :
+                         "Termine"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Produit</p>
+                        <p className="font-semibold">{batch.producedQuantity} {batch.producedUnit}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Restant</p>
+                        <p className="font-semibold text-amber-600">{batch.remainingQuantity} {batch.producedUnit}</p>
+                      </div>
+                    </div>
+                    {batch.notes && (
+                      <div className="rounded-lg bg-muted/50 p-3">
+                        <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                        <p className="text-sm">{batch.notes}</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-2">
+                      <Button size="sm" variant="outline" className="flex-1">Ajouter emballage</Button>
+                      <Button size="sm" variant="outline" className="flex-1">Details</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="recipes" className="space-y-4">
@@ -245,6 +317,7 @@ export function ProductionView() {
           </div>
 
           <RecipeDrawer open={recipeDrawerOpen} onOpenChange={setRecipeDrawerOpen} recipe={editingRecipe} onSuccess={() => mutateRecipes()} />
+          <ProductionBatchDrawer open={batchDrawerOpen} onOpenChange={setBatchDrawerOpen} />
         </TabsContent>
       </Tabs>
     </div>

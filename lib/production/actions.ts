@@ -33,6 +33,31 @@ export interface Recipe {
   createdAt: string
 }
 
+export interface ProductionBatch {
+  id: string
+  tenantId: string
+  recipeId: string | null
+  recipeName: string
+  producedQuantity: number
+  producedUnit: string
+  remainingQuantity: number
+  status: "en_cours" | "partiellement_conditionne" | "termine"
+  productionDate: string
+  notes: string | null
+  createdAt: string
+}
+
+export interface BatchPackagingSession {
+  id: string
+  batchId: string
+  packagingId: string | null
+  packagingName: string
+  weightGrams: number
+  quantity: number
+  totalGrams: number
+  sessionDate: string
+}
+
 export interface ProductionRun {
   id: string
   tenantId: string
@@ -263,4 +288,64 @@ export async function fetchProductionRuns(tenantId: string): Promise<ProductionR
     quantityMultiplier: Number(r.quantity_multiplier), status: r.status,
     startedAt: r.started_at, completedAt: r.completed_at, notes: r.notes, createdAt: r.created_at,
   }))
+}
+
+export async function fetchProductionBatches(tenantId: string): Promise<ProductionBatch[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("production_batches").select("*").eq("tenant_id", tenantId).order("production_date", { ascending: false })
+  if (error) { console.error("Error fetching batches:", error.message); return [] }
+  return (data || []).map((b) => ({
+    id: b.id, tenantId: b.tenant_id, recipeId: b.recipe_id, recipeName: b.recipe_name,
+    producedQuantity: Number(b.produced_quantity), producedUnit: b.produced_unit,
+    remainingQuantity: Number(b.remaining_quantity), status: b.status,
+    productionDate: b.production_date, notes: b.notes, createdAt: b.created_at,
+  }))
+}
+
+export async function createProductionBatch(tenantId: string, data: {
+  recipeId?: string; recipeName: string; producedQuantity: number; producedUnit: string; notes?: string
+}): Promise<ProductionBatch | null> {
+  const supabase = createClient()
+  const { data: batch, error } = await supabase.from("production_batches").insert({
+    tenant_id: tenantId, recipe_id: data.recipeId || null, recipe_name: data.recipeName,
+    produced_quantity: data.producedQuantity, produced_unit: data.producedUnit,
+    remaining_quantity: data.producedQuantity, notes: data.notes || null,
+  }).select().single()
+  if (error || !batch) { console.error("Error creating batch:", error?.message); return null }
+  return {
+    id: batch.id, tenantId: batch.tenant_id, recipeId: batch.recipe_id, recipeName: batch.recipe_name,
+    producedQuantity: Number(batch.produced_quantity), producedUnit: batch.produced_unit,
+    remainingQuantity: Number(batch.remaining_quantity), status: batch.status,
+    productionDate: batch.production_date, notes: batch.notes, createdAt: batch.created_at,
+  }
+}
+
+export async function addPackagingSession(tenantId: string, batchId: string, data: {
+  packagingId?: string; packagingName: string; weightGrams: number; quantity: number; notes?: string
+}): Promise<BatchPackagingSession | null> {
+  const supabase = createClient()
+  const { data: session, error } = await supabase.from("batch_packaging_sessions").insert({
+    batch_id: batchId, tenant_id: tenantId, packaging_id: data.packagingId || null,
+    packaging_name: data.packagingName, weight_grams: data.weightGrams,
+    quantity: data.quantity, notes: data.notes || null,
+  }).select().single()
+  if (error || !session) { console.error("Error adding packaging session:", error?.message); return null }
+  
+  // Update batch remaining_quantity and status
+  const totalGrams = Number(data.weightGrams) * data.quantity
+  const { data: batch } = await supabase.from("production_batches").select("remaining_quantity").eq("id", batchId).single()
+  if (batch) {
+    const newRemaining = Number(batch.remaining_quantity) - totalGrams
+    const newStatus = newRemaining <= 0 ? "termine" : "partiellement_conditionne"
+    await supabase.from("production_batches").update({
+      remaining_quantity: Math.max(0, newRemaining), status: newStatus
+    }).eq("id", batchId)
+  }
+  
+  return {
+    id: session.id, batchId: session.batch_id, packagingId: session.packaging_id,
+    packagingName: session.packaging_name, weightGrams: Number(session.weight_grams),
+    quantity: session.quantity, totalGrams: Number(session.total_grams), sessionDate: session.session_date,
+  }
 }
