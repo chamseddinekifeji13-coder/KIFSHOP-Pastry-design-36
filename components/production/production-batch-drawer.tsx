@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Package, FlaskConical, Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,9 +19,10 @@ import { useSWRConfig } from "swr"
 interface ProductionBatchDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  preselectedRecipeId?: string
 }
 
-export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDrawerProps) {
+export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId }: ProductionBatchDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: recipes = [] } = useRecipes()
   const { mutate } = useSWRConfig()
@@ -32,6 +33,21 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
   const [openCombobox, setOpenCombobox] = useState(false)
+
+  // Si une recette est pré-sélectionnée, la charger. Réinitialiser à la fermeture.
+  useEffect(() => {
+    if (open) {
+      if (preselectedRecipeId) {
+        setSelectedRecipeId(preselectedRecipeId)
+      }
+    } else {
+      // Reset form on close
+      setSelectedRecipeId("")
+      setQuantity("")
+      setUnit("g")
+      setNotes("")
+    }
+  }, [preselectedRecipeId, open])
 
   const units = ["g", "kg", "ml", "L"]
 

@@ -307,7 +307,7 @@ export function ProductionView() {
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => { setEditingRecipe(recipe); setRecipeDrawerOpen(true) }}><Edit className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
-                        <Button size="sm" className="flex-1" onClick={() => { setSelectedRecipe(recipe.id); setDialogOpen(true) }}><Play className="mr-1.5 h-3.5 w-3.5" />Produire</Button>
+                        <Button size="sm" className="flex-1" onClick={() => { setSelectedRecipe(recipe.id); setBatchDrawerOpen(true) }}><Play className="mr-1.5 h-3.5 w-3.5" />Produire</Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -317,7 +317,7 @@ export function ProductionView() {
           </div>
 
           <RecipeDrawer open={recipeDrawerOpen} onOpenChange={setRecipeDrawerOpen} recipe={editingRecipe} onSuccess={() => mutateRecipes()} />
-          <ProductionBatchDrawer open={batchDrawerOpen} onOpenChange={setBatchDrawerOpen} />
+          <ProductionBatchDrawer open={batchDrawerOpen} onOpenChange={setBatchDrawerOpen} preselectedRecipeId={selectedRecipe} />
         </TabsContent>
       </Tabs>
     </div>
