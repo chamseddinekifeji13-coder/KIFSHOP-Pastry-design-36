@@ -33,6 +33,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -404,6 +406,8 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
           showCloseButton={false}
           className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
         >
+          <DialogTitle className="sr-only">Commande rapide</DialogTitle>
+          <DialogDescription className="sr-only">Formulaire de création rapide de commande client</DialogDescription>
           {/* Header - same style as Nouvelle commande */}
           <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-6 text-primary-foreground shrink-0">
             <div className="flex items-center gap-3 mb-2">
