@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Save, Plus, X, Trash2, ChefHat, FlaskConical, StickyNote } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Save, Plus, X, Trash2, ChefHat, FlaskConical, StickyNote, Package, Calculator } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { useTenant } from "@/lib/tenant-context"
-import { useRawMaterials, useCategories, useFinishedProducts } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useCategories, useFinishedProducts, usePackaging } from "@/hooks/use-tenant-data"
 import { addRecipe } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
@@ -30,11 +30,20 @@ interface RecipeDrawerProps {
   recipe?: any | null
 }
 
+interface PackagingItem {
+  packagingId: string
+  name: string
+  quantity: number
+  weight: number // poids par unité en grammes
+  unit: string
+}
+
 export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: finishedProducts = [] } = useFinishedProducts()
   const { data: categories = [] } = useCategories()
+  const { data: packagingList = [] } = usePackaging()
   const { mutate } = useSWRConfig()
   const isEditing = !!recipe
 
@@ -44,16 +53,60 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   const [newCategory, setNewCategory] = useState("")
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [customCategories, setCustomCategories] = useState<string[]>([])
-  const [yieldQty, setYieldQty] = useState("")
-  const [yieldUnit, setYieldUnit] = useState("")
   const [notes, setNotes] = useState("")
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([])
   const [selectedMaterial, setSelectedMaterial] = useState("")
   const [ingredientQty, setIngredientQty] = useState("")
   const [saving, setSaving] = useState(false)
+  
+  // Conditionnement
+  const [packagingItems, setPackagingItems] = useState<PackagingItem[]>([])
+  const [selectedPackaging, setSelectedPackaging] = useState("")
+  const [packagingQty, setPackagingQty] = useState("")
+  const [packagingWeight, setPackagingWeight] = useState("")
 
   const allCategories = [...categories.map((c: any) => c.name), ...customCategories]
-  const units = ["plateau", "piece", "pcs", "boite", "coffret", "pot", "kg", "g"]
+
+  // Calcul automatique de la quantité totale théorique (somme des ingrédients en kg/g)
+  const theoreticalTotal = useMemo(() => {
+    let totalGrams = 0
+    ingredients.forEach(ing => {
+      const qty = parseFloat(ing.quantity) || 0
+      if (ing.unit === "kg") {
+        totalGrams += qty * 1000
+      } else if (ing.unit === "g") {
+        totalGrams += qty
+      } else if (ing.unit === "L" || ing.unit === "l") {
+        totalGrams += qty * 1000 // approximation 1L = 1kg
+      } else if (ing.unit === "ml") {
+        totalGrams += qty
+      } else {
+        // Pour les unités non-masse (pcs, etc.), on ne peut pas calculer
+        totalGrams += 0
+      }
+    })
+    return totalGrams
+  }, [ingredients])
+
+  // Calcul du total conditionné
+  const packagedTotal = useMemo(() => {
+    return packagingItems.reduce((sum, item) => sum + (item.quantity * item.weight), 0)
+  }, [packagingItems])
+
+  // Calcul des pertes
+  const wastage = useMemo(() => {
+    if (theoreticalTotal === 0) return { grams: 0, percent: 0 }
+    const diff = theoreticalTotal - packagedTotal
+    return {
+      grams: diff,
+      percent: (diff / theoreticalTotal) * 100
+    }
+  }, [theoreticalTotal, packagedTotal])
+
+  // Rendement final (nombre total d'unités)
+  const totalYield = useMemo(() => {
+    return packagingItems.reduce((sum, item) => sum + item.quantity, 0)
+  }, [packagingItems])
 
   const handleAddCategory = () => {
     if (!newCategory.trim()) return
@@ -75,8 +128,9 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   }, [recipe, open])
 
   const resetForm = () => {
-    setSelectedProductId(""); setName(""); setCategory(""); setYieldQty(""); setYieldUnit(""); setNotes("")
+    setSelectedProductId(""); setName(""); setCategory(""); setNotes("")
     setIngredients([]); setSelectedMaterial(""); setIngredientQty("")
+    setPackagingItems([]); setSelectedPackaging(""); setPackagingQty(""); setPackagingWeight("")
   }
 
   const addIngredient = () => {
@@ -94,21 +148,74 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
     setIngredients(prev => prev.map(i => i.materialId === materialId ? { ...i, quantity: newQty } : i))
   }
 
+  // Fonctions pour le conditionnement
+  const addPackaging = () => {
+    if (!selectedPackaging || !packagingQty || !packagingWeight) {
+      toast.error("Selectionnez un emballage, une quantite et un poids")
+      return
+    }
+    const pkg = packagingList.find((p: any) => p.id === selectedPackaging)
+    if (!pkg) return
+    
+    // Vérifier si déjà ajouté avec le même poids
+    const existingIndex = packagingItems.findIndex(
+      p => p.packagingId === selectedPackaging && p.weight === parseFloat(packagingWeight)
+    )
+    if (existingIndex !== -1) {
+      // Mettre à jour la quantité
+      setPackagingItems(prev => prev.map((item, idx) => 
+        idx === existingIndex 
+          ? { ...item, quantity: item.quantity + parseInt(packagingQty) }
+          : item
+      ))
+    } else {
+      setPackagingItems(prev => [...prev, {
+        packagingId: pkg.id,
+        name: pkg.name,
+        quantity: parseInt(packagingQty),
+        weight: parseFloat(packagingWeight),
+        unit: pkg.unit || "pcs"
+      }])
+    }
+    setSelectedPackaging(""); setPackagingQty(""); setPackagingWeight("")
+  }
+
+  const removePackaging = (index: number) => {
+    setPackagingItems(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const updatePackagingQty = (index: number, newQty: string) => {
+    setPackagingItems(prev => prev.map((item, i) => 
+      i === index ? { ...item, quantity: parseInt(newQty) || 0 } : item
+    ))
+  }
+
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("Veuillez saisir le nom de la recette"); return }
     if (!category) { toast.error("Veuillez selectionner une categorie"); return }
-    if (!yieldQty || !yieldUnit) { toast.error("Veuillez definir le rendement"); return }
     if (ingredients.length === 0) { toast.error("Ajoutez au moins un ingredient"); return }
 
     setSaving(true)
     try {
       await addRecipe(currentTenant.id, {
         name: name.trim(), category,
-        yield_quantity: parseFloat(yieldQty), yield_unit: yieldUnit,
+        yield_quantity: totalYield,
+        yield_unit: "unites",
+        theoretical_quantity: theoreticalTotal,
+        packaged_quantity: packagedTotal,
+        wastage_percent: wastage.percent,
         ingredients: ingredients.map(ing => ({
           raw_material_id: ing.materialId,
           name: ing.name, quantity: parseFloat(ing.quantity), unit: ing.unit,
         })),
+        packaging: packagingItems.map(pkg => ({
+          packaging_id: pkg.packagingId,
+          name: pkg.name,
+          quantity: pkg.quantity,
+          weight: pkg.weight,
+          unit: pkg.unit
+        })),
+        notes: notes
       })
       toast.success(isEditing ? "Recette modifiee" : "Recette creee", {
         description: `"${name}" - ${ingredients.length} ingredients`,
@@ -181,19 +288,6 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Rendement *</Label>
-                  <Input type="number" placeholder="Ex: 20" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)} className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium">Unite *</Label>
-                  <Select value={yieldUnit} onValueChange={setYieldUnit}>
-                    <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                    <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
-                  </Select>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -228,6 +322,131 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">Aucun ingredient ajoute</div>
+              )}
+              
+              {/* Affichage de la quantité totale théorique */}
+              {ingredients.length > 0 && theoreticalTotal > 0 && (
+                <div className="rounded-lg bg-primary/10 p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Quantite totale theorique</span>
+                  </div>
+                  <Badge variant="secondary" className="text-sm">
+                    {theoreticalTotal >= 1000 
+                      ? `${(theoreticalTotal / 1000).toFixed(2)} kg`
+                      : `${theoreticalTotal.toFixed(0)} g`
+                    }
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section Conditionnement */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <Package className="h-3.5 w-3.5" /> Conditionnement
+            </div>
+            <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+              <div className="flex gap-2">
+                <Select value={selectedPackaging} onValueChange={setSelectedPackaging}>
+                  <SelectTrigger className="flex-1 bg-muted/50 border-0">
+                    <SelectValue placeholder="Emballage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {packagingList.map((pkg: any) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        {pkg.name} ({pkg.type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input 
+                  type="number" 
+                  placeholder="Poids (g)" 
+                  value={packagingWeight} 
+                  onChange={(e) => setPackagingWeight(e.target.value)} 
+                  className="w-24 bg-muted/50 border-0" 
+                />
+                <Input 
+                  type="number" 
+                  placeholder="Qte" 
+                  value={packagingQty} 
+                  onChange={(e) => setPackagingQty(e.target.value)} 
+                  className="w-20 bg-muted/50 border-0" 
+                />
+                <Button size="icon" variant="outline" onClick={addPackaging} className="shrink-0 rounded-lg">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              {packagingItems.length > 0 ? (
+                <div className="rounded-lg border divide-y">
+                  <div className="px-3 py-2 bg-muted/50">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                      Conditionnement ({packagingItems.length} type{packagingItems.length > 1 ? "s" : ""})
+                    </p>
+                  </div>
+                  {packagingItems.map((pkg, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 group">
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-sm font-medium">{pkg.name}</span>
+                        <Badge variant="outline" className="text-xs">{pkg.weight}g</Badge>
+                        <div className="flex items-center gap-1">
+                          <Input 
+                            type="number" 
+                            value={pkg.quantity} 
+                            onChange={(e) => updatePackagingQty(index, e.target.value)} 
+                            className="w-16 h-7 text-sm bg-muted/50 border-0 rounded-lg" 
+                          />
+                          <span className="text-xs text-muted-foreground">unites</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          = {((pkg.quantity * pkg.weight) / 1000).toFixed(2)} kg
+                        </span>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" 
+                        onClick={() => removePackaging(index)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  Ajoutez les emballages (pots, paquets, bouteilles...)
+                </div>
+              )}
+
+              {/* Récapitulatif des calculs */}
+              {packagingItems.length > 0 && theoreticalTotal > 0 && (
+                <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Quantite theorique</span>
+                    <span className="font-medium">{(theoreticalTotal / 1000).toFixed(2)} kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Quantite conditionnee</span>
+                    <span className="font-medium">{(packagedTotal / 1000).toFixed(2)} kg</span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between text-sm">
+                    <span>Pertes estimees</span>
+                    <span className={`font-medium ${wastage.grams > 0 ? "text-amber-600" : "text-green-600"}`}>
+                      {wastage.grams >= 0 
+                        ? `${(wastage.grams / 1000).toFixed(3)} kg (${wastage.percent.toFixed(1)}%)`
+                        : `+${(Math.abs(wastage.grams) / 1000).toFixed(3)} kg (surplus)`
+                      }
+                    </span>
+                  </div>
+                  <div className="border-t pt-2 flex justify-between text-sm font-semibold">
+                    <span>Rendement final</span>
+                    <Badge className="bg-primary text-primary-foreground">{totalYield} unites</Badge>
+                  </div>
+                </div>
               )}
             </div>
           </div>
