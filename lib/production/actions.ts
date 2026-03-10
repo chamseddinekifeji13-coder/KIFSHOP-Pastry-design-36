@@ -307,45 +307,113 @@ export async function createProductionBatch(tenantId: string, data: {
   recipeId?: string; recipeName: string; producedQuantity: number; producedUnit: string; notes?: string
 }): Promise<ProductionBatch | null> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  // Si une recette est liée, déduire les matières premières du stock
+  let consumeResult = null
+  if (data.recipeId) {
+    consumeResult = await consumeRecipeIngredients(data.recipeId, data.producedQuantity, user?.id, data.notes)
+    if (!consumeResult.success) {
+      console.error("Stock deduction failed:", consumeResult.error)
+      throw new Error(consumeResult.error || "Erreur lors de la déduction du stock")
+    }
+  }
+
+  // Créer le lot de production vrac
   const { data: batch, error } = await supabase.from("production_batches").insert({
-    tenant_id: tenantId, recipe_id: data.recipeId || null, recipe_name: data.recipeName,
-    produced_quantity: data.producedQuantity, produced_unit: data.producedUnit,
-    remaining_quantity: data.producedQuantity, notes: data.notes || null,
+    tenant_id: tenantId, 
+    recipe_id: data.recipeId || null, 
+    recipe_name: data.recipeName,
+    produced_quantity: data.producedQuantity, 
+    produced_unit: data.producedUnit,
+    remaining_quantity: data.producedQuantity,
+    notes: data.notes || null,
   }).select().single()
-  if (error || !batch) { console.error("Error creating batch:", error?.message); return null }
+  
+  if (error || !batch) { 
+    console.error("Error creating batch:", error?.message)
+    throw new Error(error?.message || "Erreur lors de la création du lot")
+  }
+  
   return {
-    id: batch.id, tenantId: batch.tenant_id, recipeId: batch.recipe_id, recipeName: batch.recipe_name,
-    producedQuantity: Number(batch.produced_quantity), producedUnit: batch.produced_unit,
-    remainingQuantity: Number(batch.remaining_quantity), status: batch.status,
-    productionDate: batch.production_date, notes: batch.notes, createdAt: batch.created_at,
+    id: batch.id, 
+    tenantId: batch.tenant_id, 
+    recipeId: batch.recipe_id, 
+    recipeName: batch.recipe_name,
+    producedQuantity: Number(batch.produced_quantity), 
+    producedUnit: batch.produced_unit,
+    remainingQuantity: Number(batch.remaining_quantity), 
+    status: batch.status,
+    productionDate: batch.production_date, 
+    notes: batch.notes, 
+    createdAt: batch.created_at,
   }
 }
 
 export async function addPackagingSession(tenantId: string, batchId: string, data: {
-  packagingId?: string; packagingName: string; weightGrams: number; quantity: number; notes?: string
+  finishedProductId?: string; packagingId?: string; packagingName: string; weightGrams: number; quantity: number; notes?: string
 }): Promise<BatchPackagingSession | null> {
   const supabase = createClient()
-  const { data: session, error } = await supabase.from("batch_packaging_sessions").insert({
-    batch_id: batchId, tenant_id: tenantId, packaging_id: data.packagingId || null,
-    packaging_name: data.packagingName, weight_grams: data.weightGrams,
-    quantity: data.quantity, notes: data.notes || null,
-  }).select().single()
-  if (error || !session) { console.error("Error adding packaging session:", error?.message); return null }
   
-  // Update batch remaining_quantity and status
+  // 1. Créer la session de conditionnement
+  const { data: session, error } = await supabase.from("batch_packaging_sessions").insert({
+    batch_id: batchId, 
+    tenant_id: tenantId, 
+    packaging_id: data.packagingId || null,
+    packaging_name: data.packagingName, 
+    weight_grams: data.weightGrams,
+    quantity: data.quantity, 
+    notes: data.notes || null,
+  }).select().single()
+  
+  if (error || !session) { 
+    console.error("Error adding packaging session:", error?.message)
+    throw new Error(error?.message || "Erreur lors de l'ajout de la session de conditionnement")
+  }
+  
+  // 2. Ajouter les produits finis au stock (si finishedProductId fourni)
+  if (data.finishedProductId) {
+    const { data: product, error: productError } = await supabase
+      .from("finished_products")
+      .select("current_stock")
+      .eq("id", data.finishedProductId)
+      .single()
+    
+    if (product) {
+      const newStock = Number(product.current_stock) + data.quantity
+      await supabase
+        .from("finished_products")
+        .update({ current_stock: newStock })
+        .eq("id", data.finishedProductId)
+    }
+  }
+  
+  // 3. Mettre à jour le lot: remaining_quantity et status
   const totalGrams = Number(data.weightGrams) * data.quantity
-  const { data: batch } = await supabase.from("production_batches").select("remaining_quantity").eq("id", batchId).single()
+  const { data: batch } = await supabase
+    .from("production_batches")
+    .select("produced_quantity, remaining_quantity")
+    .eq("id", batchId)
+    .single()
+  
   if (batch) {
     const newRemaining = Number(batch.remaining_quantity) - totalGrams
     const newStatus = newRemaining <= 0 ? "termine" : "partiellement_conditionne"
     await supabase.from("production_batches").update({
-      remaining_quantity: Math.max(0, newRemaining), status: newStatus
+      remaining_quantity: Math.max(0, newRemaining), 
+      status: newStatus,
+      updated_at: new Date().toISOString()
     }).eq("id", batchId)
   }
   
   return {
-    id: session.id, batchId: session.batch_id, packagingId: session.packaging_id,
-    packagingName: session.packaging_name, weightGrams: Number(session.weight_grams),
-    quantity: session.quantity, totalGrams: Number(session.total_grams), sessionDate: session.session_date,
+    id: session.id, 
+    batchId: session.batch_id, 
+    packagingId: session.packaging_id,
+    packagingName: session.packaging_name, 
+    weightGrams: Number(session.weight_grams),
+    quantity: session.quantity, 
+    totalGrams: Number(session.total_grams), 
+    sessionDate: session.session_date,
   }
 }
