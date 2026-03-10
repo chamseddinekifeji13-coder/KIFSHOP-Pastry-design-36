@@ -65,7 +65,8 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
       onOpenChange(false)
     } catch (error) {
       console.error("Error creating batch:", error)
-      toast.error("Erreur lors de la création du lot")
+      const errorMessage = error instanceof Error ? error.message : "Erreur lors de la création du lot"
+      toast.error(errorMessage)
     } finally {
       setSaving(false)
     }
@@ -161,6 +162,20 @@ export function ProductionBatchDrawer({ open, onOpenChange }: ProductionBatchDra
               </Popover>
             </div>
           </div>
+
+          {/* Info workflow de production */}
+          {selectedRecipe && (
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3 space-y-2 text-xs border border-blue-200 dark:border-blue-800">
+              <p className="font-medium text-blue-900 dark:text-blue-100">ℹ Workflow de production</p>
+              <ul className="space-y-1 text-blue-800 dark:text-blue-200 ml-2 list-disc">
+                <li>Les matières premières seront déduites du stock</li>
+                <li>Un lot vrac de {quantity || "?"}{unit} sera créé</li>
+                {selectedRecipe.ingredients?.length > 0 && (
+                  <li>{selectedRecipe.ingredients.length} ingrédient(s) consommé(s)</li>
+                )}
+              </ul>
+            </div>
+          )}
 
           {/* Nom et quantité */}
           <div className="space-y-3">
