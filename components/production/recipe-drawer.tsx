@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Save, Plus, X, Trash2, ChefHat, FlaskConical, StickyNote, Package, Calculator } from "lucide-react"
+import { Save, Plus, X, Trash2, ChefHat, FlaskConical, StickyNote, Package, Calculator, Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,8 +11,11 @@ import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
-import { useRawMaterials, useCategories, usePackaging } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useCategories, usePackaging, useRecipes } from "@/hooks/use-tenant-data"
 import { createRecipe } from "@/lib/production/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
@@ -43,10 +46,13 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
   const { data: packagingList = [] } = usePackaging()
+  const { data: existingRecipes = [] } = useRecipes()
   const { mutate } = useSWRConfig()
   const isEditing = !!recipe
 
   const [name, setName] = useState("")
+  const [openNameCombobox, setOpenNameCombobox] = useState(false)
+  const [customNameInput, setCustomNameInput] = useState("")
   const [category, setCategory] = useState("")
   const [newCategory, setNewCategory] = useState("")
   const [showNewCategory, setShowNewCategory] = useState(false)
@@ -131,7 +137,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   }, [recipe, open])
 
   const resetForm = () => {
-    setName(""); setCategory(""); setNotes("")
+    setName(""); setCustomNameInput(""); setCategory(""); setNotes("")
     setIngredients([]); setSelectedMaterial(""); setIngredientQty("")
     setPackagingItems([]); setSelectedPackaging(""); setPackagingQty(""); setPackagingWeight("")
   }
@@ -254,13 +260,82 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Nom de la recette *</Label>
-                <Input
-                  placeholder="Ex: Confiture de fraise, Pâte feuilletée, Baklawa..."
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-                />
-                <p className="text-[11px] text-muted-foreground">Nom libre - les quantités peuvent être ajustées au fur et à mesure</p>
+                <Popover open={openNameCombobox} onOpenChange={setOpenNameCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openNameCombobox}
+                      className="w-full justify-between bg-muted/50 border-0 font-normal"
+                    >
+                      <span className={cn(!name && "text-muted-foreground")}>
+                        {name || "Choisir ou saisir un nom..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder="Chercher ou nouveau nom..."
+                        value={customNameInput}
+                        onValueChange={setCustomNameInput}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {customNameInput.trim() ? (
+                            <button
+                              className="w-full px-4 py-2.5 text-left text-sm hover:bg-muted flex items-center gap-2"
+                              onClick={() => {
+                                setName(customNameInput.trim())
+                                setCustomNameInput("")
+                                setOpenNameCombobox(false)
+                              }}
+                            >
+                              <Plus className="h-4 w-4 text-primary" />
+                              Creer <span className="font-semibold ml-1">"{customNameInput.trim()}"</span>
+                            </button>
+                          ) : "Aucune recette trouvee."}
+                        </CommandEmpty>
+                        <CommandGroup heading="Recettes existantes">
+                          {existingRecipes.map((r: any) => (
+                            <CommandItem
+                              key={r.id}
+                              value={r.name}
+                              onSelect={(val) => {
+                                setName(val)
+                                setCustomNameInput("")
+                                setOpenNameCombobox(false)
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", name === r.name ? "opacity-100" : "opacity-0")} />
+                              <div className="flex-1">
+                                <div className="font-medium">{r.name}</div>
+                                {r.category && <div className="text-xs text-muted-foreground">{r.category}</div>}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        {customNameInput.trim() && (
+                          <CommandGroup heading="Nouveau nom">
+                            <CommandItem
+                              value={customNameInput.trim()}
+                              onSelect={() => {
+                                setName(customNameInput.trim())
+                                setCustomNameInput("")
+                                setOpenNameCombobox(false)
+                              }}
+                            >
+                              <Plus className="mr-2 h-4 w-4 text-primary" />
+                              Creer "{customNameInput.trim()}"
+                            </CommandItem>
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-[11px] text-muted-foreground">Choisir une recette existante ou saisir un nouveau nom</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Categorie *</Label>
