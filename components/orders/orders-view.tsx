@@ -38,6 +38,7 @@ import {
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
 import { QuickOrder } from "@/components/orders/quick-order"
+import { NewOrderDrawer } from "@/components/orders/new-order-drawer"
 import {
   createReturn, getOrderReturns, processReturn,
   fetchReturns, fetchCustomerCredits,
