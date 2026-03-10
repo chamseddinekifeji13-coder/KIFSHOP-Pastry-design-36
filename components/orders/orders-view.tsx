@@ -37,6 +37,7 @@ import {
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
+import { QuickOrder } from "@/components/orders/quick-order"
 import {
   createReturn, getOrderReturns, processReturn,
   fetchReturns, fetchCustomerCredits,
@@ -446,7 +447,7 @@ export function OrdersView() {
     setActionLoading(false)
   }
 
-  // ─── Document Handlers ────────────────────────�����───────────
+  // ─── Document Handlers ────────────────���───────�����───────────
 
   const handleGenerateDocument = async (type: DocumentType) => {
     if (!selectedOrder || generatingDoc) return
