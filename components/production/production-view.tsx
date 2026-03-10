@@ -162,7 +162,7 @@ export function ProductionView() {
 
         <TabsContent value="batches" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setBatchDrawerOpen(true)} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouveau lot</Button>
+            <Button onClick={() => setBatchDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />Nouveau lot</Button>
           </div>
           
           {batches.length === 0 ? (
