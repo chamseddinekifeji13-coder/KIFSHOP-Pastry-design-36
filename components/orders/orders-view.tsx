@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useTenant } from "@/lib/tenant-context"
+import { useI18n } from "@/lib/i18n/context"
 import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
@@ -118,6 +119,7 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
 
 export function OrdersView() {
   const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const { t } = useI18n()
   const searchParams = useSearchParams()
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
