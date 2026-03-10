@@ -11,9 +11,9 @@ CREATE TABLE IF NOT EXISTS recipe_packaging (
   packaging_id UUID NOT NULL REFERENCES packaging(id) ON DELETE RESTRICT,
   quantity INTEGER NOT NULL DEFAULT 1,
   weight_grams NUMERIC NOT NULL,
+  tenant_id UUID NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(recipe_id, packaging_id, weight_grams)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Add RLS policies
@@ -21,36 +21,21 @@ ALTER TABLE recipe_packaging ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view recipe_packaging of their tenant"
 ON recipe_packaging FOR SELECT
-USING (
-  recipe_id IN (
-    SELECT id FROM recipes WHERE tenant_id = auth.jwt() ->> 'tenant_id'::text
-  )
-);
+USING (tenant_id = auth.jwt() ->> 'tenant_id');
 
 CREATE POLICY "Users can create recipe_packaging in their tenant"
 ON recipe_packaging FOR INSERT
-WITH CHECK (
-  recipe_id IN (
-    SELECT id FROM recipes WHERE tenant_id = auth.jwt() ->> 'tenant_id'::text
-  )
-);
+WITH CHECK (tenant_id = auth.jwt() ->> 'tenant_id');
 
 CREATE POLICY "Users can update recipe_packaging in their tenant"
 ON recipe_packaging FOR UPDATE
-USING (
-  recipe_id IN (
-    SELECT id FROM recipes WHERE tenant_id = auth.jwt() ->> 'tenant_id'::text
-  )
-);
+USING (tenant_id = auth.jwt() ->> 'tenant_id');
 
 CREATE POLICY "Users can delete recipe_packaging in their tenant"
 ON recipe_packaging FOR DELETE
-USING (
-  recipe_id IN (
-    SELECT id FROM recipes WHERE tenant_id = auth.jwt() ->> 'tenant_id'::text
-  )
-);
+USING (tenant_id = auth.jwt() ->> 'tenant_id');
 
 -- Create index for better query performance
 CREATE INDEX IF NOT EXISTS idx_recipe_packaging_recipe_id ON recipe_packaging(recipe_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_packaging_packaging_id ON recipe_packaging(packaging_id);
+CREATE INDEX IF NOT EXISTS idx_recipe_packaging_tenant_id ON recipe_packaging(tenant_id);
