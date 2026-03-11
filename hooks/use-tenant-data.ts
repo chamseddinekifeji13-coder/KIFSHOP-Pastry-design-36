@@ -138,7 +138,15 @@ export function useClientOrders() {
 }
 
 export function useAgentStats() {
-  return useTenantQuery("agent-stats", fetchAgentStats)
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const tenantId = currentTenant.id
+  const isFallback = tenantId === "__fallback__"
+  
+  return useSWR(
+    !tenantLoading && !isFallback ? `agent-stats-${tenantId}` : null,
+    () => fetchAgentStats(tenantId),
+    { revalidateOnFocus: true, refreshInterval: 30000, dedupingInterval: 5000 }
+  )
 }
 
 export function useDueReminders() {
