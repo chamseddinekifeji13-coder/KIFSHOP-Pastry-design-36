@@ -71,6 +71,7 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
+import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
 
 interface Product {
@@ -92,14 +93,6 @@ interface QuickOrderProps {
   onOpenChange: (open: boolean) => void
   onOrderCreated?: () => void
 }
-
-const couriers = [
-  { id: "aramex", name: "Aramex", defaultCost: 8 },
-  { id: "rapidpost", name: "Rapid Poste", defaultCost: 7 },
-  { id: "express", name: "Tunisia Express", defaultCost: 10 },
-  { id: "stafim", name: "Stafim", defaultCost: 9 },
-  { id: "autre", name: "Autre coursier", defaultCost: 0 },
-]
 
 const gouvernorats = [
   "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
@@ -148,6 +141,10 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   // Products
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
+  
+  // Delivery companies (dynamic from database)
+  const [couriers, setCouriers] = useState<{ id: string; name: string }[]>([])
+  const [loadingCouriers, setLoadingCouriers] = useState(false)
 
   const phoneRef = useRef<HTMLInputElement>(null)
 
@@ -197,6 +194,24 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     }
 
     loadProducts()
+    
+    // Load delivery companies
+    async function loadCouriers() {
+      setLoadingCouriers(true)
+      try {
+        const companies = await fetchActiveDeliveryCompanies(currentTenant.id)
+        if (!cancelled) {
+          setCouriers(companies)
+        }
+      } catch (err) {
+        console.error("Error loading delivery companies:", err)
+      } finally {
+        if (!cancelled) {
+          setLoadingCouriers(false)
+        }
+      }
+    }
+    loadCouriers()
 
     return () => {
       cancelled = true
@@ -695,18 +710,19 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-2">
                               <Label className="text-xs font-medium">Transporteur</Label>
-                              <Select value={courier} onValueChange={(v) => {
-                                setCourier(v)
-                                const sel = couriers.find(c => c.id === v)
-                                if (sel && sel.defaultCost > 0) setShippingCost(sel.defaultCost.toString())
-                              }}>
+                              <Select value={courier} onValueChange={setCourier}>
                                 <SelectTrigger className="bg-muted/50 border-0">
-                                  <SelectValue placeholder="Choisir" />
+                                  <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Choisir"} />
                                 </SelectTrigger>
                                 <SelectContent>
+                                  {couriers.length === 0 && !loadingCouriers && (
+                                    <SelectItem value="__none" disabled>
+                                      Aucun transporteur configure
+                                    </SelectItem>
+                                  )}
                                   {couriers.map(c => (
-                                    <SelectItem key={c.id} value={c.id}>
-                                      {c.name} {c.defaultCost > 0 && `(~${c.defaultCost} TND)`}
+                                    <SelectItem key={c.id} value={c.name}>
+                                      {c.name}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
