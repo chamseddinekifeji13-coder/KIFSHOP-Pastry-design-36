@@ -1428,9 +1428,9 @@ export async function importDeliveryReport(
 
         // If no existing order found, create one with the price from CSV
         if (!orderId) {
-          // Map CSV status to order status
+          // Map CSV status to order status (valeurs valides: nouveau, en-preparation, pret, en-livraison, livre, annule)
           const orderStatus = row.status === "delivered" ? "livre" 
-            : row.status === "returned" ? "retour"
+            : row.status === "returned" ? "annule"
             : row.status === "pending" ? "nouveau"
             : "en-livraison"
           
@@ -1448,9 +1448,9 @@ export async function importDeliveryReport(
               delivery_type: "delivery",
               courier: "best-delivery",
               tracking_number: row.trackingNumber || null,
-              source: "best-delivery",
+              source: "web",
               payment_status: row.status === "delivered" ? "paid" : "unpaid",
-              notes: row.notes || null,
+              notes: row.notes ? `[Best Delivery] ${row.notes}` : "[Best Delivery Import]",
               delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
             })
             .select("id")
