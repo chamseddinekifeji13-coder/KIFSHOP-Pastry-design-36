@@ -189,45 +189,94 @@ export async function markOrderReturned(
 }
 
 // ─── Agent Performance Stats ──────────────────────────────────
-// Aggregates from the unified `orders` table
+// Aggregates from orders + best_delivery_shipments for returns
+// Respects stats_reset_date: only counts orders created after reset date
 
 export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
   const supabase = createClient()
 
-  const { data: orders, error } = await supabase
-    .from("orders")
-    .select("confirmed_by, confirmed_by_name, returned_by, returned_by_name, total, return_status")
+  // 0. Fetch stats reset date if set (use maybeSingle to avoid errors if not set)
+  const { data: settings, error: settingsError } = await supabase
+    .from("tenant_settings")
+    .select("stats_reset_date")
     .eq("tenant_id", tenantId)
+    .maybeSingle()
+  
+  const resetDate = settings?.stats_reset_date ? new Date(settings.stats_reset_date) : null
 
-  if (error || !orders) { console.error("Error fetching agent stats:", error); return [] }
+  // 1. Fetch all active agents (vendeur + gerant roles)
+  const { data: agents } = await supabase
+    .from("tenant_users")
+    .select("id, display_name, role")
+    .eq("tenant_id", tenantId)
+    .in("role", ["vendeur", "gerant", "owner"])
 
+  // 2. Fetch orders with confirmed_by
+  let query = supabase
+    .from("orders")
+    .select("confirmed_by, confirmed_by_name, total, status, created_at")
+    .eq("tenant_id", tenantId)
+  
+  // Filter orders created after reset date if set
+  if (resetDate) {
+    query = query.gte("created_at", resetDate.toISOString())
+  }
+  
+  const { data: orders, error } = await query
+
+  if (error) { console.error("Error fetching agent stats:", error) }
+
+  // 3. Fetch returns from best_delivery_shipments (also respect reset date)
+  let bdQuery = supabase
+    .from("best_delivery_shipments")
+    .select("id, created_at")
+    .eq("tenant_id", tenantId)
+    .eq("status", "returned")
+  
+  if (resetDate) {
+    bdQuery = bdQuery.gte("created_at", resetDate.toISOString())
+  }
+  
+  const { data: bdReturns } = await bdQuery
+
+  const totalBdReturns = bdReturns?.length || 0
+
+  // Build agent map with all agents first
   const agentMap = new Map<string, AgentStats>()
 
-  for (const o of orders) {
-    if (o.confirmed_by) {
-      if (!agentMap.has(o.confirmed_by)) {
-        agentMap.set(o.confirmed_by, {
-          agentId: o.confirmed_by,
-          agentName: o.confirmed_by_name || "Inconnu",
-          totalConfirmed: 0, totalReturned: 0, totalRevenue: 0,
-          confirmationRate: 0, returnRate: 0,
-        })
-      }
+  // Add all agents even if they have no orders
+  for (const agent of agents || []) {
+    agentMap.set(agent.id, {
+      agentId: agent.id,
+      agentName: agent.display_name || "Inconnu",
+      totalConfirmed: 0, 
+      totalReturned: 0, 
+      totalRevenue: 0,
+      confirmationRate: 0, 
+      returnRate: 0,
+    })
+  }
+
+  // Count orders per agent
+  for (const o of orders || []) {
+    if (o.confirmed_by && agentMap.has(o.confirmed_by)) {
       const agent = agentMap.get(o.confirmed_by)!
       agent.totalConfirmed++
-      agent.totalRevenue += Number(o.total) || 0
-    }
-
-    if (o.returned_by) {
-      if (!agentMap.has(o.returned_by)) {
-        agentMap.set(o.returned_by, {
-          agentId: o.returned_by,
-          agentName: o.returned_by_name || "Inconnu",
-          totalConfirmed: 0, totalReturned: 0, totalRevenue: 0,
-          confirmationRate: 0, returnRate: 0,
-        })
+      // Only count revenue for delivered orders
+      if (o.status === "delivered" || o.status === "livre") {
+        agent.totalRevenue += Number(o.total) || 0
       }
-      agentMap.get(o.returned_by)!.totalReturned++
+    }
+  }
+
+  // Distribute BD returns proportionally to agents based on their confirmations
+  // Since we don't have per-agent return tracking in BD, we assign returns proportionally
+  const totalConfirmations = Array.from(agentMap.values()).reduce((sum, a) => sum + a.totalConfirmed, 0)
+  
+  if (totalConfirmations > 0 && totalBdReturns > 0) {
+    for (const agent of agentMap.values()) {
+      const proportion = agent.totalConfirmed / totalConfirmations
+      agent.totalReturned = Math.round(totalBdReturns * proportion)
     }
   }
 

@@ -15,6 +15,7 @@ import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
 import { DeliveryCompaniesSettings } from "./delivery-companies-settings"
+import { StatsResetSettings } from "./stats-reset-settings"
 import { ROLE_LABELS } from "@/lib/tenant-context"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -263,6 +264,11 @@ export function SettingsView() {
               </p>
             </CardContent>
           </Card>
+        )}
+
+        {/* Stats Reset - Super Admin Only */}
+        {currentRole === "owner" && (
+          <StatsResetSettings />
         )}
 
         {/* Invoice & Billing Settings */}

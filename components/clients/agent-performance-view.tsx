@@ -20,31 +20,40 @@ export function AgentPerformanceView() {
   const { data: allOrders = [] } = useClientOrders()
   const [isExporting, setIsExporting] = useState(false)
 
-  // Global stats with memoization and null safety
+  // Global stats from agents data (includes BD returns)
   const stats = useMemo(() => {
-    const confirmed = allOrders?.filter((o) => o?.status !== "annule" && o?.returnStatus !== "returned") ?? []
-    const returned = allOrders?.filter((o) => o?.returnStatus === "returned") ?? []
-    const revenue = confirmed.reduce((sum, o) => sum + (o?.total ?? 0), 0)
-    const confirmCount = confirmed.length
-    const returnCount = returned.length
-    const returnRate = confirmCount > 0 ? Math.round((returnCount / confirmCount) * 100) : 0
+    if (!agents || agents.length === 0) {
+      return {
+        totalConfirmed: 0,
+        totalReturned: 0,
+        totalRevenue: 0,
+        globalReturnRate: 0,
+        activeAgents: 0,
+      }
+    }
+    
+    const totalConfirmed = agents.reduce((sum, a) => sum + (a?.totalConfirmed ?? 0), 0)
+    const totalReturned = agents.reduce((sum, a) => sum + (a?.totalReturned ?? 0), 0)
+    const totalRevenue = agents.reduce((sum, a) => sum + (a?.totalRevenue ?? 0), 0)
+    const returnRate = totalConfirmed > 0 ? Math.round((totalReturned / totalConfirmed) * 100) : 0
 
     return {
-      totalConfirmed: confirmCount,
-      totalReturned: returnCount,
-      totalRevenue: revenue,
+      totalConfirmed,
+      totalReturned,
+      totalRevenue,
       globalReturnRate: returnRate,
+      activeAgents: agents.length,
     }
-  }, [allOrders])
+  }, [agents])
 
   // Best & worst agents with memoization
   const agentComparisons = useMemo(() => {
-    const best = agents && agents.length > 0 
-      ? agents.reduce((best, a) => (a?.totalConfirmed ?? 0) > (best?.totalConfirmed ?? 0) ? a : best)
-      : null
-    const worst = agents && agents.length > 0
-      ? agents.reduce((worst, a) => (a?.returnRate ?? 0) > (worst?.returnRate ?? 0) ? a : worst)
-      : null
+    if (!agents || agents.length === 0) {
+      return { best: null, worst: null }
+    }
+
+    const best = agents.reduce((best, a) => (a?.totalConfirmed ?? 0) > (best?.totalConfirmed ?? 0) ? a : best, agents[0])
+    const worst = agents.reduce((worst, a) => (a?.returnRate ?? 0) > (worst?.returnRate ?? 0) ? a : worst, agents[0])
 
     return { best, worst }
   }, [agents])

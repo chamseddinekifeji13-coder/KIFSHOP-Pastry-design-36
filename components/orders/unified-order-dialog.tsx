@@ -37,6 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog"
 import {
   Select,
@@ -45,11 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import {
   Command,
   CommandEmpty,
@@ -508,6 +505,9 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
           showCloseButton={false}
           className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
         >
+          <VisuallyHidden>
+            <DialogTitle>Nouvelle Commande</DialogTitle>
+          </VisuallyHidden>
           {/* Header */}
           <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-6 text-primary-foreground shrink-0">
             <div className="flex items-center gap-3 mb-2">
