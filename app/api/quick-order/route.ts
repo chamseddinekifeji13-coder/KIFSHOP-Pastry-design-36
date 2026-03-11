@@ -59,10 +59,8 @@ export async function POST(request: Request) {
         source: source || "phone",
         delivery_date: deliveryDate || null,
         notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-        confirmed_by: session.activeProfileId,
         confirmed_by_name: session.displayName,
         truecaller_verified: truecallerVerified || false,
-        created_by: session.activeProfileId,
       })
       .select()
       .single()
