@@ -1120,6 +1120,12 @@ export async function parseCSVContent(content: string): Promise<{
       : undefined
     const price = priceStr ? parseFloat(priceStr) : undefined
 
+    // Validation: prix doit être > 0 (conforme à la logique métier)
+    if (price === undefined || price === null || price <= 0) {
+      errors.push({ row: i + 1, error: `Prix invalide ou manquant: "${priceStr}". Le prix doit etre > 0` })
+      continue
+    }
+
     // Extract fees if available
     const feesStr = columnIndices.fees !== undefined
       ? values[columnIndices.fees]?.replace(/"/g, "").trim()
