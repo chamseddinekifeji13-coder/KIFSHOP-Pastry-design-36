@@ -100,6 +100,7 @@ export const refundMethodLabels: Record<RefundMethod, string> = {
 export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
   const supabase = createClient()
 
+  // 1. Fetch from order_returns table
   const { data, error } = await supabase
     .from("order_returns")
     .select(`
@@ -111,7 +112,6 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
 
   if (error) {
     console.error("Error fetching returns:", error.message)
-    return []
   }
 
   // For each return, fetch items
@@ -152,6 +152,41 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
       })),
     })
   }
+
+  // 2. Also fetch returns from best_delivery_shipments
+  const { data: bdReturns } = await supabase
+    .from("best_delivery_shipments")
+    .select("id, order_id, customer_name, customer_phone, cod_amount, tracking_number, created_at, notes")
+    .eq("tenant_id", tenantId)
+    .eq("status", "returned")
+    .order("created_at", { ascending: false })
+
+  // Add Best Delivery returns as virtual returns
+  for (const bd of bdReturns || []) {
+    returns.push({
+      id: `bd-${bd.id}`,
+      orderId: bd.order_id || bd.id,
+      tenantId: tenantId,
+      returnType: "total" as ReturnType,
+      reason: "client_refused" as ReturnReason,
+      reasonDetails: bd.notes || `Retour Best Delivery - N° Suivi: ${bd.tracking_number || "N/A"}`,
+      status: "completed" as ReturnStatus,
+      refundMethod: null,
+      refundAmount: Number(bd.cod_amount) || 0,
+      creditNoteId: null,
+      processedByName: "Best Delivery",
+      processedAt: bd.created_at,
+      createdByName: "Import Best Delivery",
+      notes: bd.notes || `Retour livraison - ${bd.tracking_number || ""}`,
+      createdAt: bd.created_at,
+      orderCustomerName: bd.customer_name || "",
+      orderTotal: Number(bd.cod_amount) || 0,
+      items: [],
+    })
+  }
+
+  // Sort all returns by date
+  returns.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   return returns
 }
