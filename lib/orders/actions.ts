@@ -192,8 +192,16 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
     })
   }
 
+  // Filtrer les commandes invalides (sans prix ET sans nom)
+  const validOrders = orders.filter(order => {
+    const hasValidTotal = order.total != null && order.total > 0
+    const hasCustomerName = order.customerName && order.customerName.trim() !== ""
+    // Garder si a un prix OU un nom client
+    return hasValidTotal || hasCustomerName
+  })
+
   // Sort by creation date descending
-  return orders.sort((a, b) => {
+  return validOrders.sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime()
     const dateB = new Date(b.createdAt).getTime()
     return dateB - dateA
@@ -207,12 +215,27 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
+  // Validation: nom client obligatoire
+  if (!data.customerName || data.customerName.trim() === "") {
+    throw new Error("Le nom du client est obligatoire")
+  }
+
+  // Validation: au moins un article
+  if (!data.items || data.items.length === 0) {
+    throw new Error("La commande doit contenir au moins un article")
+  }
+
   // Get creator name from auth user
   const creatorName = user.user_metadata?.display_name || user.email || null
 
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
   const total = subtotal + shipping
+
+  // Validation: total doit etre positif
+  if (total <= 0) {
+    throw new Error("Le total de la commande doit etre superieur a 0")
+  }
   const deposit = data.deposit || 0
 
   let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"

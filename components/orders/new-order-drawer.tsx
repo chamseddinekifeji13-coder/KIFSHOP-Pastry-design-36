@@ -311,6 +311,13 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
       toast.error("Veuillez ajouter au moins un article")
       return
     }
+    
+    // Validation du total
+    const orderTotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0)
+    if (orderTotal <= 0) {
+      toast.error("Le total de la commande doit etre superieur a 0")
+      return
+    }
     if (deliveryType === "delivery" && !customerAddress.trim()) {
       toast.error("Veuillez entrer l'adresse de livraison")
       return
