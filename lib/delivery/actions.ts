@@ -1438,7 +1438,6 @@ export async function importDeliveryReport(
             .from("orders")
             .insert({
               tenant_id: tenantId,
-              order_number: row.orderNumber || row.trackingNumber || null,
               customer_name: row.customerName,
               customer_phone: row.customerPhone || null,
               customer_address: row.customerAddress,
