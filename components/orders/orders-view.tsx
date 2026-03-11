@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye,
+  FileText, Download, Printer, Eye, Gift, Users, User,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -681,6 +681,14 @@ export function OrdersView() {
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{allDocuments.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="offres">
+              Offres
+              {orders.filter(o => o.orderType === "offre_client" || o.orderType === "offre_personnel").length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {orders.filter(o => o.orderType === "offre_client" || o.orderType === "offre_personnel").length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
@@ -1005,6 +1013,169 @@ export function OrdersView() {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Offers Tab */}
+          <TabsContent value="offres" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Gift className="h-5 w-5" />
+                  Ventes Offertes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const offersOrders = orders.filter(
+                    (o) => o.orderType === "offre_client" || o.orderType === "offre_personnel"
+                  )
+                  if (offersOrders.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Gift className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Aucune offre enregistree</p>
+                        <p className="text-sm mt-1">
+                          Les ventes offertes aux clients ou au personnel apparaitront ici
+                        </p>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="space-y-4">
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <Card className="bg-primary/5 border-primary/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-primary/10">
+                                <Gift className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Total Offres</p>
+                                <p className="text-2xl font-bold">{offersOrders.length}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-blue-500/5 border-blue-500/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-blue-500/10">
+                                <User className="h-5 w-5 text-blue-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Offres Clients</p>
+                                <p className="text-2xl font-bold">
+                                  {offersOrders.filter((o) => o.orderType === "offre_client").length}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-orange-500/5 border-orange-500/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 rounded-lg bg-orange-500/10">
+                                <Users className="h-5 w-5 text-orange-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground">Offres Personnel</p>
+                                <p className="text-2xl font-bold">
+                                  {offersOrders.filter((o) => o.orderType === "offre_personnel").length}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Offers List */}
+                      <div className="rounded-lg border">
+                        <div className="grid grid-cols-12 gap-4 p-3 bg-muted/50 text-sm font-medium border-b">
+                          <div className="col-span-1">Type</div>
+                          <div className="col-span-3">Beneficiaire</div>
+                          <div className="col-span-3">Articles</div>
+                          <div className="col-span-2">Valeur</div>
+                          <div className="col-span-2">Date</div>
+                          <div className="col-span-1">Statut</div>
+                        </div>
+                        {offersOrders.map((offer) => (
+                          <div
+                            key={offer.id}
+                            className="grid grid-cols-12 gap-4 p-3 border-b last:border-0 items-center hover:bg-muted/30 cursor-pointer transition-colors"
+                            onClick={() => handleOrderClick(offer)}
+                          >
+                            <div className="col-span-1">
+                              {offer.orderType === "offre_client" ? (
+                                <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">
+                                  <User className="h-3 w-3 mr-1" />
+                                  Client
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/30">
+                                  <Users className="h-3 w-3 mr-1" />
+                                  Personnel
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="col-span-3">
+                              <p className="font-medium">{offer.customerName}</p>
+                              {offer.customerPhone && (
+                                <p className="text-sm text-muted-foreground">{offer.customerPhone}</p>
+                              )}
+                            </div>
+                            <div className="col-span-3">
+                              <p className="text-sm">
+                                {offer.items.slice(0, 2).map((item) => item.name).join(", ")}
+                                {offer.items.length > 2 && ` +${offer.items.length - 2}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {offer.items.reduce((sum, item) => sum + item.quantity, 0)} article(s)
+                              </p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="font-medium text-destructive">
+                                {offer.total.toLocaleString("fr-TN")} TND
+                              </p>
+                              <p className="text-xs text-muted-foreground">Offert</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-sm">
+                                {new Date(offer.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(offer.createdAt).toLocaleTimeString("fr-TN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <div className="col-span-1">
+                              <Badge
+                                variant="outline"
+                                className={`${statusConfig[offer.status]?.color} text-white text-[10px]`}
+                              >
+                                {statusConfig[offer.status]?.label}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Total Value */}
+                      <div className="flex justify-end pt-4">
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                          <p className="text-sm text-muted-foreground">Valeur totale offerte</p>
+                          <p className="text-2xl font-bold text-destructive">
+                            {offersOrders.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")} TND
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
