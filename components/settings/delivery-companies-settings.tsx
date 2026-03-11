@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Plus, Trash2, Edit, Truck, Loader2, Phone, Mail, Globe } from "lucide-react"
 import { toast } from "sonner"
-import { useTenant } from "@/lib/hooks/use-tenant"
+import { useTenant } from "@/lib/tenant-context"
 import {
   fetchDeliveryCompanies,
   createDeliveryCompany,
