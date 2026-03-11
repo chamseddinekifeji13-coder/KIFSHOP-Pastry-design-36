@@ -528,12 +528,11 @@ export async function bulkSyncReturns(tenantId: string): Promise<{
   const supabase = createClient()
 
   // Get all returned shipments that haven't been synced
-  // Check both normalized statuses and old CSV formats
   const { data: shipments } = await supabase
     .from("best_delivery_shipments")
     .select("id, customer_name, customer_phone, cod_amount")
     .eq("tenant_id", tenantId)
-    .or("status.eq.returned,status.ilike.%retour%,status.ilike.%Retour%")
+    .eq("status", "returned")
 
   if (!shipments || shipments.length === 0) {
     return { total: 0, synced: 0, failed: 0, details: [] }
@@ -784,7 +783,7 @@ export async function bulkSyncDelivered(tenantId: string): Promise<{
     .from("best_delivery_shipments")
     .select("id, customer_name, customer_phone, cod_amount")
     .eq("tenant_id", tenantId)
-    .or("status.eq.delivered,status.ilike.%livr%,status.ilike.%Livr%")
+    .eq("status", "delivered")
 
   if (!shipments || shipments.length === 0) {
     return { total: 0, synced: 0, failed: 0, details: [] }
