@@ -20,22 +20,21 @@ export function AgentPerformanceView() {
   const { data: allOrders = [] } = useClientOrders()
   const [isExporting, setIsExporting] = useState(false)
 
-  // Global stats with memoization and null safety
+  // Global stats from agents data (includes BD returns)
   const stats = useMemo(() => {
-    const confirmed = allOrders?.filter((o) => o?.status !== "annule" && o?.returnStatus !== "returned") ?? []
-    const returned = allOrders?.filter((o) => o?.returnStatus === "returned") ?? []
-    const revenue = confirmed.reduce((sum, o) => sum + (o?.total ?? 0), 0)
-    const confirmCount = confirmed.length
-    const returnCount = returned.length
-    const returnRate = confirmCount > 0 ? Math.round((returnCount / confirmCount) * 100) : 0
+    const totalConfirmed = agents.reduce((sum, a) => sum + (a?.totalConfirmed ?? 0), 0)
+    const totalReturned = agents.reduce((sum, a) => sum + (a?.totalReturned ?? 0), 0)
+    const totalRevenue = agents.reduce((sum, a) => sum + (a?.totalRevenue ?? 0), 0)
+    const returnRate = totalConfirmed > 0 ? Math.round((totalReturned / totalConfirmed) * 100) : 0
 
     return {
-      totalConfirmed: confirmCount,
-      totalReturned: returnCount,
-      totalRevenue: revenue,
+      totalConfirmed,
+      totalReturned,
+      totalRevenue,
       globalReturnRate: returnRate,
+      activeAgents: agents.length,
     }
-  }, [allOrders])
+  }, [agents])
 
   // Best & worst agents with memoization
   const agentComparisons = useMemo(() => {

@@ -189,45 +189,71 @@ export async function markOrderReturned(
 }
 
 // ─── Agent Performance Stats ──────────────────────────────────
-// Aggregates from the unified `orders` table
+// Aggregates from orders + best_delivery_shipments for returns
 
 export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
   const supabase = createClient()
 
+  // 1. Fetch all active agents (vendeur + gerant roles)
+  const { data: agents } = await supabase
+    .from("tenant_users")
+    .select("id, display_name, role")
+    .eq("tenant_id", tenantId)
+    .in("role", ["vendeur", "gerant", "owner"])
+
+  // 2. Fetch orders with confirmed_by
   const { data: orders, error } = await supabase
     .from("orders")
-    .select("confirmed_by, confirmed_by_name, returned_by, returned_by_name, total, return_status")
+    .select("confirmed_by, confirmed_by_name, total, status")
     .eq("tenant_id", tenantId)
 
-  if (error || !orders) { console.error("Error fetching agent stats:", error); return [] }
+  if (error) { console.error("Error fetching agent stats:", error) }
 
+  // 3. Fetch returns from best_delivery_shipments
+  const { data: bdReturns } = await supabase
+    .from("best_delivery_shipments")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("status", "returned")
+
+  const totalBdReturns = bdReturns?.length || 0
+
+  // Build agent map with all agents first
   const agentMap = new Map<string, AgentStats>()
 
-  for (const o of orders) {
-    if (o.confirmed_by) {
-      if (!agentMap.has(o.confirmed_by)) {
-        agentMap.set(o.confirmed_by, {
-          agentId: o.confirmed_by,
-          agentName: o.confirmed_by_name || "Inconnu",
-          totalConfirmed: 0, totalReturned: 0, totalRevenue: 0,
-          confirmationRate: 0, returnRate: 0,
-        })
-      }
+  // Add all agents even if they have no orders
+  for (const agent of agents || []) {
+    agentMap.set(agent.id, {
+      agentId: agent.id,
+      agentName: agent.display_name || "Inconnu",
+      totalConfirmed: 0, 
+      totalReturned: 0, 
+      totalRevenue: 0,
+      confirmationRate: 0, 
+      returnRate: 0,
+    })
+  }
+
+  // Count orders per agent
+  for (const o of orders || []) {
+    if (o.confirmed_by && agentMap.has(o.confirmed_by)) {
       const agent = agentMap.get(o.confirmed_by)!
       agent.totalConfirmed++
-      agent.totalRevenue += Number(o.total) || 0
-    }
-
-    if (o.returned_by) {
-      if (!agentMap.has(o.returned_by)) {
-        agentMap.set(o.returned_by, {
-          agentId: o.returned_by,
-          agentName: o.returned_by_name || "Inconnu",
-          totalConfirmed: 0, totalReturned: 0, totalRevenue: 0,
-          confirmationRate: 0, returnRate: 0,
-        })
+      // Only count revenue for delivered orders
+      if (o.status === "delivered" || o.status === "livre") {
+        agent.totalRevenue += Number(o.total) || 0
       }
-      agentMap.get(o.returned_by)!.totalReturned++
+    }
+  }
+
+  // Distribute BD returns proportionally to agents based on their confirmations
+  // Since we don't have per-agent return tracking in BD, we assign returns proportionally
+  const totalConfirmations = Array.from(agentMap.values()).reduce((sum, a) => sum + a.totalConfirmed, 0)
+  
+  if (totalConfirmations > 0 && totalBdReturns > 0) {
+    for (const agent of agentMap.values()) {
+      const proportion = agent.totalConfirmed / totalConfirmations
+      agent.totalReturned = Math.round(totalBdReturns * proportion)
     }
   }
 
