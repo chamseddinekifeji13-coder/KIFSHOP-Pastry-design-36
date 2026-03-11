@@ -149,9 +149,9 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
     })
   }
 
-  // Fetch from quick_orders (new system orders)
+  // Fetch from orders (all orders consolidated)
   const { data: quickOrders } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
@@ -221,7 +221,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
 
   // Insert order
   const { data: order, error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .insert({
       tenant_id: data.tenantId,
       customer_name: data.customerName,
@@ -310,7 +310,7 @@ export async function updateOrderStatus(
 
   // Get current status
   const { data: current } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .select("status")
     .eq("id", orderId)
     .single()
@@ -328,7 +328,7 @@ export async function updateOrderStatus(
   }
 
   const { error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .update(updates)
     .eq("id", orderId)
 
@@ -373,7 +373,7 @@ export async function updatePaymentStatus(
   }
 
   const { error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .update(updates)
     .eq("id", orderId)
 
@@ -423,7 +423,7 @@ export async function updateDeliveryInfo(
   if (data.shippingCost !== undefined) updates.shipping_cost = data.shippingCost
 
   const { error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .update(updates)
     .eq("id", orderId)
 
@@ -531,7 +531,7 @@ export async function recordPaymentCollection(
 
   // Get order total to determine payment status
   const { data: order } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .select("total")
     .eq("id", data.orderId)
     .single()
@@ -544,7 +544,7 @@ export async function recordPaymentCollection(
 
   // Update order payment status and deposit
   await supabase
-    .from("quick_orders")
+    .from("orders")
     .update({
       payment_status: paymentStatus,
       deposit: totalCollected,
@@ -618,7 +618,7 @@ export async function deletePaymentCollection(
   const totalCollected = (remaining || []).reduce((sum, p) => sum + Number(p.amount), 0)
 
   const { data: order } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .select("total")
     .eq("id", orderId)
     .single()
@@ -630,7 +630,7 @@ export async function deletePaymentCollection(
   else if (totalCollected > 0) paymentStatus = "partial"
 
   await supabase
-    .from("quick_orders")
+    .from("orders")
     .update({
       payment_status: paymentStatus,
       deposit: totalCollected,
@@ -647,7 +647,7 @@ export async function deleteOrder(orderId: string): Promise<boolean> {
   const supabase = createClient()
 
   const { error } = await supabase
-    .from("quick_orders")
+    .from("orders")
     .delete()
     .eq("id", orderId)
 
