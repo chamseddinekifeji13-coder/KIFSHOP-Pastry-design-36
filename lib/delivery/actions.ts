@@ -17,6 +17,7 @@ export interface DeliveryShipment {
   trackingNumber: string | null
   shipmentId: string | null
   status: DeliveryStatus
+  codAmount: number
   notes: string | null
   exportedAt: string
   responseData: Record<string, unknown> | null
@@ -83,6 +84,7 @@ export async function fetchDeliveryShipments(tenantId: string): Promise<Delivery
     trackingNumber: s.tracking_number,
     shipmentId: s.shipment_id,
     status: s.status as DeliveryStatus,
+    codAmount: s.cod_amount || 0,
     notes: s.notes,
     exportedAt: s.exported_at,
     responseData: s.response_data,
@@ -529,9 +531,9 @@ export async function bulkSyncReturns(tenantId: string): Promise<{
   // Check both normalized statuses and old CSV formats
   const { data: shipments } = await supabase
     .from("best_delivery_shipments")
-    .select("id, customer_name")
+    .select("id, customer_name, customer_phone, cod_amount")
     .eq("tenant_id", tenantId)
-    .or("status.eq.returned,status.ilike.%retour%")
+    .or("status.eq.returned,status.ilike.%retour%,status.ilike.%Retour%")
 
   if (!shipments || shipments.length === 0) {
     return { total: 0, synced: 0, failed: 0, details: [] }
@@ -590,6 +592,7 @@ export async function getClientDeliveryHistory(
     trackingNumber: s.tracking_number,
     shipmentId: s.shipment_id,
     status: s.status as DeliveryStatus,
+    codAmount: s.cod_amount || 0,
     notes: s.notes,
     exportedAt: s.exported_at,
     responseData: s.response_data,
@@ -616,10 +619,10 @@ export async function syncDeliveredWithClient(
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Get the shipment with order details
+  // Get the shipment with order details including cod_amount
   const { data: shipment } = await supabase
     .from("best_delivery_shipments")
-    .select("order_id, customer_name, customer_phone")
+    .select("order_id, customer_name, customer_phone, cod_amount")
     .eq("id", shipmentId)
     .single()
 
@@ -643,7 +646,7 @@ export async function syncDeliveredWithClient(
   // Get the order for later updates
   const { data: order } = await supabase
     .from("orders")
-    .select("id, client_id, customer_phone, total_amount")
+    .select("id, client_id, customer_phone, total")
     .eq("id", shipment.order_id)
     .single()
 
@@ -661,7 +664,8 @@ export async function syncDeliveredWithClient(
   // Increment delivered_count and total_orders
   const newDeliveredCount = (client.delivered_count || 0) + 1
   const newTotalOrders = (client.total_orders || 0) + 1
-  const orderAmount = order?.total_amount || 0
+  // Use cod_amount from shipment if available, otherwise use order total
+  const orderAmount = shipment.cod_amount || order?.total || 0
   const newTotalSpent = (client.total_spent || 0) + orderAmount
 
   // Auto-upgrade to VIP if 10+ successful deliveries
@@ -778,9 +782,9 @@ export async function bulkSyncDelivered(tenantId: string): Promise<{
 
   const { data: shipments } = await supabase
     .from("best_delivery_shipments")
-    .select("id, customer_name")
+    .select("id, customer_name, customer_phone, cod_amount")
     .eq("tenant_id", tenantId)
-    .or("status.eq.delivered,status.ilike.livr%,status.ilike.livree%")
+    .or("status.eq.delivered,status.ilike.%livr%,status.ilike.%Livr%")
 
   if (!shipments || shipments.length === 0) {
     return { total: 0, synced: 0, failed: 0, details: [] }
