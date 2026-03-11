@@ -50,38 +50,60 @@ export async function POST(request: Request) {
     const discount = isOffer && discountPercent ? (amount * (discountPercent / 100)) : 0
     const finalTotal = isOffer ? amount - discount : amount
 
-    // Insert into orders table (single source of truth)
-    const { data: order, error: orderError } = await supabase
+    // Prepare base order data
+    const baseOrderData = {
+      tenant_id: session.tenantId,
+      client_id: clientId,
+      customer_name: clientName || null,
+      customer_phone: phone,
+      customer_address: address || null,
+      total: finalTotal,
+      shipping_cost: shippingCost || 0,
+      status: "nouveau",
+      delivery_type: deliveryType || "pickup",
+      courier: courier || null,
+      gouvernorat: gouvernorat || null,
+      source: source || "phone",
+      delivery_date: deliveryDate || null,
+      notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
+      confirmed_by: session.activeProfileId,
+      confirmed_by_name: session.displayName,
+      truecaller_verified: truecallerVerified || false,
+      created_by: session.activeProfileId,
+    }
+
+    // Add offer fields if they exist in the table
+    const orderDataWithOffers = {
+      ...baseOrderData,
+      order_type: orderType || "normal",
+      offer_beneficiary: isOffer ? offerBeneficiary : null,
+      offer_reason: isOffer ? offerReason : null,
+      discount_percent: isOffer ? (discountPercent || 100) : 0,
+    }
+
+    // Try to insert with offer fields first
+    let { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert({
-        tenant_id: session.tenantId,
-        client_id: clientId,
-        customer_name: clientName || null,
-        customer_phone: phone,
-        customer_address: address || null,
-        total: finalTotal,
-        shipping_cost: shippingCost || 0,
-        status: "nouveau",
-        delivery_type: deliveryType || "pickup",
-        courier: courier || null,
-        gouvernorat: gouvernorat || null,
-        source: source || "phone",
-        delivery_date: deliveryDate || null,
-        notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-        confirmed_by: session.activeProfileId,
-        confirmed_by_name: session.displayName,
-        truecaller_verified: truecallerVerified || false,
-        created_by: session.activeProfileId,
-        // Offer fields
-        order_type: orderType || "normal",
-        offer_beneficiary: isOffer ? offerBeneficiary : null,
-        offer_reason: isOffer ? offerReason : null,
-        discount_percent: isOffer ? (discountPercent || 100) : 0,
-      })
+      .insert(orderDataWithOffers)
       .select()
       .single()
 
-    if (orderError) {
+    // If it fails due to missing columns, retry without offer fields
+    if (orderError && orderError.message?.includes("column")) {
+      console.log("Offer columns not found, retrying without them")
+      const { data: fallbackOrder, error: fallbackError } = await supabase
+        .from("orders")
+        .insert(baseOrderData)
+        .select()
+        .single()
+      
+      if (fallbackError) {
+        console.error("Order creation error (fallback):", fallbackError)
+        return NextResponse.json({ error: "Erreur creation commande" }, { status: 500 })
+      }
+      order = fallbackOrder
+      orderError = null
+    } else if (orderError) {
       console.error("Order creation error:", orderError)
       return NextResponse.json({ error: "Erreur creation commande" }, { status: 500 })
     }
