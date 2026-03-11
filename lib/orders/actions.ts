@@ -20,7 +20,7 @@ export interface Order {
   total: number
   deposit: number
   shippingCost: number
-  status: "nouveau" | "en-preparation" | "pret" | "en-livraison" | "livre"
+  status: "nouveau" | "en-preparation" | "pret" | "en-livraison" | "livre" | "annule"
   deliveryType: "pickup" | "delivery"
   courier?: string
   gouvernorat?: string
@@ -33,6 +33,12 @@ export interface Order {
   deliveredAt?: string
   deliveryAddress?: string
   notes?: string
+  // Offer fields
+  orderType?: "normal" | "offre_client" | "offre_personnel"
+  offerBeneficiary?: string
+  offerReason?: string
+  discountPercent?: number
+  discountAmount?: number
 }
 
 export interface StatusHistoryEntry {
@@ -90,6 +96,11 @@ export interface CreateOrderData {
   notes?: string
   deliveryDate?: string
   items: { productId: string | null; name: string; quantity: number; price: number }[]
+  // Offer fields
+  orderType?: "normal" | "offre_client" | "offre_personnel"
+  offerBeneficiary?: string
+  offerReason?: string
+  discountPercent?: number
 }
 
 // ─── Fetch Orders ─────────────────────────────────────────────
@@ -152,6 +163,12 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         deliveredAt: o.delivered_at || undefined,
         deliveryAddress: o.customer_address || undefined,
         notes: o.notes || undefined,
+        // Offer fields
+        orderType: o.order_type || "normal",
+        offerBeneficiary: o.offer_beneficiary || undefined,
+        offerReason: o.offer_reason || undefined,
+        discountPercent: o.discount_percent || 0,
+        discountAmount: o.discount_amount || 0,
       })
     })
   }
@@ -226,6 +243,12 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       payment_status: paymentStatus,
       delivery_date: data.deliveryDate || null,
       notes: data.notes || null,
+      // Offer fields
+      order_type: data.orderType || "normal",
+      offer_beneficiary: data.offerBeneficiary || null,
+      offer_reason: data.offerReason || null,
+      discount_percent: data.discountPercent || 0,
+      discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
     })
     .select()
     .single()
@@ -282,6 +305,12 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     createdAt: order.created_at,
     deliveryDate: order.delivery_date || undefined,
     notes: order.notes || undefined,
+    // Offer fields
+    orderType: order.order_type || "normal",
+    offerBeneficiary: order.offer_beneficiary || undefined,
+    offerReason: order.offer_reason || undefined,
+    discountPercent: order.discount_percent || 0,
+    discountAmount: order.discount_amount || 0,
   }
 }
 
