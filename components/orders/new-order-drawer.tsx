@@ -271,7 +271,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
         tenantId: currentTenant.id,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        customerAddress: deliveryType === "delivery" ? customerAddress.trim() : undefined,
+        customerAddress: customerAddress.trim(),
         deliveryType,
         courier: deliveryType === "delivery" ? courier : undefined,
         gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
@@ -279,7 +279,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
         source,
         deposit: Number(deposit) || 0,
         notes: notes.trim() || undefined,
-        deliveryDate: deliveryDate || undefined,
+        deliveryDate: deliveryDate.trim(),
         items: items.map(i => ({
           productId: i.productId,
           name: i.name,
@@ -336,10 +336,19 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
       toast.error("Le total de la commande doit etre superieur a 0")
       return
     }
-    if (deliveryType === "delivery" && !customerAddress.trim()) {
-      toast.error("Veuillez entrer l'adresse de livraison")
+    
+    // Validation de l'adresse (TOUJOURS requise)
+    if (!customerAddress.trim()) {
+      toast.error("Veuillez entrer l'adresse du client")
       return
     }
+    
+    // Validation de la date de livraison (TOUJOURS requise)
+    if (!deliveryDate.trim()) {
+      toast.error("Veuillez selectionner une date de livraison")
+      return
+    }
+    
     if (deliveryType === "delivery" && !gouvernorat) {
       toast.error("Veuillez selectionner un gouvernorat")
       return
@@ -464,14 +473,27 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">Date souhaitee</Label>
+                  <Label className="text-xs font-medium">Date souhaitee *</Label>
                   <Input
                     type="date"
                     value={deliveryDate}
                     onChange={(e) => setDeliveryDate(e.target.value)}
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                    required
                   />
                 </div>
+              </div>
+
+              {/* Address - Always visible and required */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Adresse du client *</Label>
+                <Input
+                  placeholder="25 Rue de la Liberte, Tunis"
+                  value={customerAddress}
+                  onChange={(e) => setCustomerAddress(e.target.value)}
+                  className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                  required
+                />
               </div>
 
               {deliveryType === "delivery" && (
@@ -488,15 +510,6 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Adresse de livraison *</Label>
-                    <Input
-                      placeholder="25 Rue de la Liberte, Tunis"
-                      value={customerAddress}
-                      onChange={(e) => setCustomerAddress(e.target.value)}
-                      className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
