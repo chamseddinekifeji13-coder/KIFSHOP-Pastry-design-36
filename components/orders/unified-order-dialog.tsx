@@ -26,6 +26,8 @@ import {
   Pencil,
   Check,
   X,
+  Gift,
+  Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -70,6 +72,7 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
+import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
 
 interface Product {
@@ -91,14 +94,6 @@ interface UnifiedOrderDialogProps {
   onOpenChange: (open: boolean) => void
   onOrderCreated?: () => void
 }
-
-const couriers = [
-  { id: "aramex", name: "Aramex", defaultCost: 8 },
-  { id: "rapidpost", name: "Rapid Poste", defaultCost: 7 },
-  { id: "express", name: "Tunisia Express", defaultCost: 10 },
-  { id: "stafim", name: "Stafim", defaultCost: 9 },
-  { id: "autre", name: "Autre coursier", defaultCost: 0 },
-]
 
 const gouvernorats = [
   "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
@@ -150,6 +145,16 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   // Products
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
+  
+  // Delivery companies (dynamic from database)
+  const [couriers, setCouriers] = useState<{ id: string; name: string }[]>([])
+  const [loadingCouriers, setLoadingCouriers] = useState(false)
+  
+  // Offer fields
+  const [orderType, setOrderType] = useState<"normal" | "offre_client" | "offre_personnel">("normal")
+  const [offerBeneficiary, setOfferBeneficiary] = useState("")
+  const [offerReason, setOfferReason] = useState("")
+  const [discountPercent, setDiscountPercent] = useState("")
 
   const phoneRef = useRef<HTMLInputElement>(null)
 
@@ -160,9 +165,12 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     }
   }, [open])
 
-  // Load products
+  // Load products and couriers
   useEffect(() => {
     if (!open || tenantLoading || currentTenant.id === "__fallback__") return
+    
+    let cancelled = false
+    
     async function loadProducts() {
       setLoadingProducts(true)
       const supabase = createSupabaseClient()
@@ -171,16 +179,36 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         .select("id, name, selling_price, current_stock")
         .eq("tenant_id", currentTenant.id)
         .order("name")
-      if (!error && data) {
+      if (!cancelled && !error && data) {
         setProducts(data.map((p) => ({
           ...p,
           selling_price: Number(p.selling_price),
           current_stock: Number(p.current_stock),
         })))
       }
-      setLoadingProducts(false)
+      if (!cancelled) setLoadingProducts(false)
     }
+    
+    async function loadCouriers() {
+      setLoadingCouriers(true)
+      try {
+        const companies = await fetchActiveDeliveryCompanies(currentTenant.id)
+        if (!cancelled) {
+          setCouriers(companies)
+        }
+      } catch (err) {
+        console.error("Error loading delivery companies:", err)
+      } finally {
+        if (!cancelled) {
+          setLoadingCouriers(false)
+        }
+      }
+    }
+    
     loadProducts()
+    loadCouriers()
+    
+    return () => { cancelled = true }
   }, [open, currentTenant.id, tenantLoading])
 
   // Validation téléphone Tunisien (8 chiffres)
@@ -357,6 +385,11 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
           deliveryDate: deliveryDate || undefined,
           address: deliveryType === "delivery" ? clientAddress.trim() : undefined,
           truecallerVerified,
+          // Offer fields
+          orderType: orderType !== "normal" ? orderType : undefined,
+          offerBeneficiary: offerBeneficiary.trim() || undefined,
+          offerReason: offerReason.trim() || undefined,
+          discountPercent: discountPercent ? Number(discountPercent) : undefined,
         }),
       })
 
@@ -387,6 +420,11 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         setProductSearchOpen(false)
         setNotes("")
         setSuccess(false)
+        // Reset offer fields
+        setOrderType("normal")
+        setOfferBeneficiary("")
+        setOfferReason("")
+        setDiscountPercent("")
         clearClient()
         onOpenChange(false)
       }, 1500)
@@ -416,6 +454,11 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setProductSearchOpen(false)
     setNotes("")
     setSuccess(false)
+    // Reset offer fields
+    setOrderType("normal")
+    setOfferBeneficiary("")
+    setOfferReason("")
+    setDiscountPercent("")
     clearClient()
     onOpenChange(false)
   }, [clearClient, onOpenChange])
@@ -876,17 +919,18 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                           {/* Courier */}
                           <div className="space-y-2">
                             <Label className="text-xs font-medium">Coursier</Label>
-                            <Select value={courier} onValueChange={(c) => {
-                              setCourier(c)
-                              const courierObj = couriers.find(co => co.id === c)
-                              if (courierObj) setShippingCost(courierObj.defaultCost.toString())
-                            }}>
+                            <Select value={courier} onValueChange={setCourier}>
                               <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
-                                <SelectValue placeholder="Selectionner..." />
+                                <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Selectionner..."} />
                               </SelectTrigger>
                               <SelectContent>
+                                {couriers.length === 0 && !loadingCouriers && (
+                                  <SelectItem value="__none" disabled>
+                                    Aucun transporteur configure
+                                  </SelectItem>
+                                )}
                                 {couriers.map(c => (
-                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -956,6 +1000,85 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                           className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 resize-none h-20"
                         />
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── SECTION: TYPE DE COMMANDE (OFFRE) ── */}
+                {client && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+                      <Gift className="h-3.5 w-3.5" />
+                      Type de commande
+                    </div>
+
+                    <div className="rounded-xl border border-amber-200/50 bg-amber-50/30 p-4 space-y-4">
+                      {/* Order Type Select */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Type</Label>
+                        <Select value={orderType} onValueChange={(v: "normal" | "offre_client" | "offre_personnel") => setOrderType(v)}>
+                          <SelectTrigger className="bg-white border-0 focus:ring-1 focus:ring-amber-300">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="normal">Commande normale</SelectItem>
+                            <SelectItem value="offre_client">
+                              <span className="flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-blue-500" />
+                                Offre client
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="offre_personnel">
+                              <span className="flex items-center gap-2">
+                                <Users className="h-3.5 w-3.5 text-orange-500" />
+                                Offre personnel
+                              </span>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Extra fields when offer is selected */}
+                      {orderType !== "normal" && (
+                        <>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium">Beneficiaire *</Label>
+                            <Input
+                              placeholder="Nom du beneficiaire"
+                              value={offerBeneficiary}
+                              onChange={(e) => setOfferBeneficiary(e.target.value)}
+                              className="bg-white border-0 focus-visible:ring-1 focus-visible:ring-amber-300"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium">Motif de l'offre *</Label>
+                            <Input
+                              placeholder="Ex: Fidelite, Anniversaire, Promo..."
+                              value={offerReason}
+                              onChange={(e) => setOfferReason(e.target.value)}
+                              className="bg-white border-0 focus-visible:ring-1 focus-visible:ring-amber-300"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs font-medium">Reduction (%)</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                placeholder="100"
+                                value={discountPercent}
+                                onChange={(e) => setDiscountPercent(e.target.value)}
+                                className="bg-white border-0 focus-visible:ring-1 focus-visible:ring-amber-300"
+                              />
+                              <span className="text-sm text-muted-foreground">%</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              100% = totalement offert
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
