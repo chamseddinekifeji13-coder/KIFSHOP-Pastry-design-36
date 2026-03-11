@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import { useCategories } from "@/hooks/use-tenant-data"
 import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
+import { DeliveryCompaniesSettings } from "./delivery-companies-settings"
 import { ROLE_LABELS } from "@/lib/tenant-context"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -224,6 +225,11 @@ export function SettingsView() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Delivery Companies - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <DeliveryCompaniesSettings />
+        )}
 
         {/* Users Management - Owner & Gerant */}
         {(currentRole === "owner" || currentRole === "gerant") && (

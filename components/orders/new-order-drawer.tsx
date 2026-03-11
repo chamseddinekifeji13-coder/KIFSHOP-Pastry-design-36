@@ -41,6 +41,7 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { createOrder } from "@/lib/orders/actions"
 import { createClient } from "@/lib/supabase/client"
+import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
 
 interface Product {
@@ -92,14 +93,10 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   const [discountPercent, setDiscountPercent] = useState("")
   const submitLockRef = useRef(false)
   const isMountedRef = useRef(true)
-
-  const couriers = [
-    { id: "aramex", name: "Aramex", defaultCost: 8 },
-    { id: "rapidpost", name: "Rapid Poste", defaultCost: 7 },
-    { id: "express", name: "Tunisia Express", defaultCost: 10 },
-    { id: "stafim", name: "Stafim", defaultCost: 9 },
-    { id: "autre", name: "Autre coursier", defaultCost: 0 },
-  ]
+  
+  // Dynamic delivery companies from database
+  const [couriers, setCouriers] = useState<{ id: string; name: string }[]>([])
+  const [loadingCouriers, setLoadingCouriers] = useState(false)
 
   const gouvernorats = [
     "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
@@ -158,6 +155,24 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     }
 
     loadProducts()
+    
+    // Load delivery companies
+    async function loadCouriers() {
+      setLoadingCouriers(true)
+      try {
+        const companies = await fetchActiveDeliveryCompanies(currentTenant.id)
+        if (isMountedRef.current) {
+          setCouriers(companies)
+        }
+      } catch (err) {
+        console.error("Error loading delivery companies:", err)
+      } finally {
+        if (isMountedRef.current) {
+          setLoadingCouriers(false)
+        }
+      }
+    }
+    loadCouriers()
   }, [open, currentTenant.id, tenantLoading])
 
   const handleAddItem = (productId?: string) => {
@@ -514,23 +529,19 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="text-xs font-medium">Transporteur</Label>
-                      <Select
-                        value={courier}
-                        onValueChange={(v) => {
-                          setCourier(v)
-                          const selected = couriers.find(c => c.id === v)
-                          if (selected && selected.defaultCost > 0) {
-                            setShippingCost(selected.defaultCost.toString())
-                          }
-                        }}
-                      >
+                      <Select value={courier} onValueChange={setCourier}>
                         <SelectTrigger className="bg-muted/50 border-0">
-                          <SelectValue placeholder="Choisir" />
+                          <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Choisir"} />
                         </SelectTrigger>
                         <SelectContent>
+                          {couriers.length === 0 && !loadingCouriers && (
+                            <SelectItem value="__none" disabled>
+                              Aucun transporteur configure
+                            </SelectItem>
+                          )}
                           {couriers.map(c => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name} {c.defaultCost > 0 && `(~${c.defaultCost} TND)`}
+                            <SelectItem key={c.id} value={c.name}>
+                              {c.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
