@@ -11,6 +11,7 @@ export async function POST(request: Request) {
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
       source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
+      orderType, offerBeneficiary, offerReason, discountPercent,
     } = body
 
     if (!clientId || !phone || typeof amount !== "number" || amount <= 0) {
@@ -41,6 +42,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Trop de retours. Commande bloquee." }, { status: 403 })
     }
 
+    // Calculate final total with discount if it's an offer
+    const isOffer = orderType === "offre_client" || orderType === "offre_personnel"
+    const discount = isOffer && discountPercent ? (amount * (discountPercent / 100)) : 0
+    const finalTotal = isOffer ? amount - discount : amount
+
     // Insert into orders table (single source of truth)
     const orderData: any = {
       tenant_id: session.tenantId,
@@ -48,7 +54,7 @@ export async function POST(request: Request) {
       customer_name: clientName || null,
       customer_phone: phone,
       customer_address: address || null,
-      total: amount,
+      total: finalTotal,
       shipping_cost: shippingCost || 0,
       status: "nouveau",
       delivery_type: deliveryType || "pickup",
@@ -59,6 +65,10 @@ export async function POST(request: Request) {
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
       confirmed_by_name: session.displayName,
       truecaller_verified: truecallerVerified || false,
+      order_type: orderType || "normal",
+      offer_beneficiary: isOffer ? offerBeneficiary : null,
+      offer_reason: isOffer ? offerReason : null,
+      discount_percent: isOffer ? (discountPercent || 100) : 0,
     }
     
     // Add tracking fields if profile ID is available
