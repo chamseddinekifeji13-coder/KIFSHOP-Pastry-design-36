@@ -82,15 +82,19 @@ export async function POST(request: Request) {
     }
 
     // Try to insert with offer fields first
+    console.log("[v0] Attempting to insert order with data:", JSON.stringify(orderDataWithOffers, null, 2))
+    
     let { data: order, error: orderError } = await supabase
       .from("orders")
       .insert(orderDataWithOffers)
       .select()
       .single()
 
+    console.log("[v0] Insert result - order:", order, "error:", orderError)
+
     // If it fails due to missing columns, retry without offer fields
     if (orderError && orderError.message?.includes("column")) {
-      console.log("Offer columns not found, retrying without them")
+      console.log("[v0] Offer columns not found, retrying without them")
       const { data: fallbackOrder, error: fallbackError } = await supabase
         .from("orders")
         .insert(baseOrderData)
@@ -98,14 +102,14 @@ export async function POST(request: Request) {
         .single()
       
       if (fallbackError) {
-        console.error("Order creation error (fallback):", fallbackError)
-        return NextResponse.json({ error: "Erreur creation commande" }, { status: 500 })
+        console.error("[v0] Order creation error (fallback):", fallbackError)
+        return NextResponse.json({ error: "Erreur creation commande: " + fallbackError.message }, { status: 500 })
       }
       order = fallbackOrder
       orderError = null
     } else if (orderError) {
-      console.error("Order creation error:", orderError)
-      return NextResponse.json({ error: "Erreur creation commande" }, { status: 500 })
+      console.error("[v0] Order creation error:", orderError)
+      return NextResponse.json({ error: "Erreur creation commande: " + orderError.message }, { status: 500 })
     }
 
     // Update client stats

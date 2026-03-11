@@ -1087,11 +1087,37 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
               {/* Footer - Summary and Submit */}
               {client && (
                 <div className="border-t bg-muted/40 px-6 py-4 shrink-0 space-y-3">
-                  {/* Total */}
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-muted-foreground">Total:</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{total.toFixed(3)} TND</span>
-                  </div>
+                  {/* Total with discount calculation */}
+                  {orderType !== "normal" && discountPercent ? (
+                    <div className="space-y-2 mb-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-muted-foreground">Sous-total:</span>
+                        <span className="tabular-nums">{total.toFixed(3)} TND</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm text-destructive">
+                        <span>Reduction ({discountPercent}%):</span>
+                        <span className="tabular-nums">-{(total * Number(discountPercent) / 100).toFixed(3)} TND</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="text-sm font-medium text-muted-foreground">A payer:</span>
+                        <span className="text-lg font-bold text-primary tabular-nums">
+                          {(total - (total * Number(discountPercent) / 100)).toFixed(3)} TND
+                        </span>
+                      </div>
+                      {Number(discountPercent) === 100 && (
+                        <div className="text-center">
+                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
+                            Commande totalement offerte
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-muted-foreground">Total:</span>
+                      <span className="text-lg font-bold text-foreground tabular-nums">{total.toFixed(3)} TND</span>
+                    </div>
+                  )}
 
                   {/* Submit button */}
                   <Button
