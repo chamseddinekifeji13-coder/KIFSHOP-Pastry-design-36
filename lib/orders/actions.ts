@@ -86,7 +86,7 @@ export interface CreateOrderData {
   tenantId: string
   customerName: string
   customerPhone: string
-  customerAddress?: string
+  customerAddress: string
   deliveryType: "pickup" | "delivery"
   courier?: string
   gouvernorat?: string
@@ -94,7 +94,7 @@ export interface CreateOrderData {
   source: string
   deposit?: number
   notes?: string
-  deliveryDate?: string
+  deliveryDate: string
   items: { productId: string | null; name: string; quantity: number; price: number }[]
   // Offer fields
   orderType?: "normal" | "offre_client" | "offre_personnel"
