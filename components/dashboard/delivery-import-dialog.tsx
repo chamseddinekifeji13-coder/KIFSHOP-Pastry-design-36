@@ -47,6 +47,7 @@ import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import {
   parseCSVContent,
+  parseXMLContent,
   importDeliveryReport,
   type CSVImportRow,
   type ImportResult,
@@ -72,6 +73,7 @@ export function DeliveryImportDialog({
   const [file, setFile] = useState<File | null>(null)
   const [pastedText, setPastedText] = useState("")
   const [inputMethod, setInputMethod] = useState<"paste" | "file">("paste")
+  const [formatType, setFormatType] = useState<"csv" | "xml">("csv")
   const [parsedRows, setParsedRows] = useState<CSVImportRow[]>([])
   const [parseErrors, setParseErrors] = useState<Array<{ row: number; error: string }>>([])
   const [syncClients, setSyncClients] = useState(true)
@@ -98,7 +100,20 @@ export function DeliveryImportDialog({
     
     setIsParsing(true)
     try {
-      const { rows, errors } = await parseCSVContent(pastedText)
+      // Detect format: XML starts with < or <?xml
+      const trimmed = pastedText.trim()
+      const isXML = trimmed.startsWith("<") || trimmed.startsWith("<?xml")
+      
+      let result
+      if (isXML) {
+        setFormatType("xml")
+        result = await parseXMLContent(pastedText)
+      } else {
+        setFormatType("csv")
+        result = await parseCSVContent(pastedText)
+      }
+      
+      const { rows, errors } = result
       
       setParsedRows(rows)
       setParseErrors(errors)
@@ -109,7 +124,7 @@ export function DeliveryImportDialog({
       } else if (errors.length > 0) {
         toast.warning(`${rows.length} lignes valides, ${errors.length} erreurs detectees`)
       } else {
-        toast.success(`${rows.length} lignes pretes a importer`)
+        toast.success(`${rows.length} lignes pretes a importer (Format: ${isXML ? "XML" : "CSV"})`)
       }
     } catch {
       toast.error("Erreur lors de l'analyse du texte")
@@ -124,7 +139,21 @@ export function DeliveryImportDialog({
     
     try {
       const content = await selectedFile.text()
-      const { rows, errors } = await parseCSVContent(content)
+      
+      // Detect format
+      const trimmed = content.trim()
+      const isXML = trimmed.startsWith("<") || trimmed.startsWith("<?xml")
+      
+      let result
+      if (isXML) {
+        setFormatType("xml")
+        result = await parseXMLContent(content)
+      } else {
+        setFormatType("csv")
+        result = await parseCSVContent(content)
+      }
+      
+      const { rows, errors } = result
       
       setParsedRows(rows)
       setParseErrors(errors)
@@ -135,7 +164,7 @@ export function DeliveryImportDialog({
       } else if (errors.length > 0) {
         toast.warning(`${rows.length} lignes valides, ${errors.length} erreurs detectees`)
       } else {
-        toast.success(`${rows.length} lignes pretes a importer`)
+        toast.success(`${rows.length} lignes pretes a importer (Format: ${isXML ? "XML" : "CSV"})`)
       }
     } catch {
       toast.error("Erreur lors de la lecture du fichier")
@@ -147,10 +176,10 @@ export function DeliveryImportDialog({
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     const droppedFile = e.dataTransfer.files[0]
-    if (droppedFile && (droppedFile.name.endsWith(".csv") || droppedFile.type === "text/csv")) {
+    if (droppedFile && (droppedFile.name.endsWith(".csv") || droppedFile.name.endsWith(".xml") || droppedFile.type === "text/csv" || droppedFile.type === "text/xml" || droppedFile.type === "application/xml")) {
       handleFileSelect(droppedFile)
     } else {
-      toast.error("Veuillez selectionner un fichier CSV")
+      toast.error("Veuillez selectionner un fichier CSV ou XML")
     }
   }, [handleFileSelect])
 
@@ -236,6 +265,51 @@ export function DeliveryImportDialog({
     toast.success("Modele telecharge")
   }
 
+  const downloadXMLTemplate = () => {
+    const template = `<?xml version="1.0" encoding="UTF-8"?>
+<deliveries>
+  <delivery>
+    <code>104807639707</code>
+    <customerName>mariem</customerName>
+    <customerPhone>23232024</customerPhone>
+    <customerAddress>*</customerAddress>
+    <codAmount>53.8</codAmount>
+    <status>delivered</status>
+    <deliveryDate>2026-02-03</deliveryDate>
+  </delivery>
+  <delivery>
+    <code>104807907553</code>
+    <customerName>azza</customerName>
+    <customerPhone>22919861</customerPhone>
+    <customerAddress>nahj hbib thamer</customerAddress>
+    <codAmount>53.8</codAmount>
+    <status>delivered</status>
+    <deliveryDate>2026-02-03</deliveryDate>
+  </delivery>
+  <delivery>
+    <code>104812017823</code>
+    <customerName>HANIN TLILI</customerName>
+    <customerPhone>54434722</customerPhone>
+    <customerAddress>CENTER</customerAddress>
+    <codAmount>30.9</codAmount>
+    <status>returned</status>
+    <deliveryDate>2026-02-07</deliveryDate>
+  </delivery>
+</deliveries>`
+
+    const blob = new Blob([template], { type: "text/xml;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "template_import_best_delivery.xml"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    
+    toast.success("Template XML telecharge")
+  }
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
@@ -245,7 +319,7 @@ export function DeliveryImportDialog({
             Import Rapport Best Delivery
           </DialogTitle>
           <DialogDescription>
-            Importez un fichier CSV pour mettre a jour les statuts de livraison en masse
+            Importez un fichier CSV ou XML pour mettre a jour les statuts de livraison en masse. Le montant COD (Prix) sera capture et stocke.
           </DialogDescription>
         </DialogHeader>
 
@@ -307,13 +381,13 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv"
+                    accept=".csv,.xml"
                     onChange={handleFileInputChange}
                     className="hidden"
                   />
                   <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
                   <p className="text-sm font-medium">
-                    Glissez-deposez votre fichier CSV ici
+                    Glissez-deposez votre fichier CSV ou XML ici
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
                     ou cliquez pour selectionner

@@ -1120,6 +1120,12 @@ export async function parseCSVContent(content: string): Promise<{
       : undefined
     const price = priceStr ? parseFloat(priceStr) : undefined
 
+    // Validation: prix doit être > 0 (conforme à la logique métier)
+    if (price === undefined || price === null || price <= 0) {
+      errors.push({ row: i + 1, error: `Prix invalide ou manquant: "${priceStr}". Le prix doit etre > 0` })
+      continue
+    }
+
     // Extract fees if available
     const feesStr = columnIndices.fees !== undefined
       ? values[columnIndices.fees]?.replace(/"/g, "").trim()
@@ -1150,6 +1156,113 @@ export async function parseCSVContent(content: string): Promise<{
         ? parseAndValidateDate(values[columnIndices.pickupDate]?.replace(/"/g, "").trim())
         : undefined,
     })
+  }
+
+  return { rows, errors }
+}
+
+// ─── XML Parser ──────────────────────────────────────────────
+
+export async function parseXMLContent(content: string): Promise<{
+  rows: CSVImportRow[]
+  errors: Array<{ row: number; error: string }>
+}> {
+  const rows: CSVImportRow[] = []
+  const errors: Array<{ row: number; error: string }> = []
+
+  try {
+    // Parse XML
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(content, "text/xml")
+
+    // Check for parsing errors
+    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+      errors.push({ row: 0, error: "Format XML invalide" })
+      return { rows, errors }
+    }
+
+    // Get all delivery elements
+    const deliveries = xmlDoc.getElementsByTagName("delivery")
+
+    if (deliveries.length === 0) {
+      errors.push({ row: 0, error: "Aucun element <delivery> trouve dans le XML" })
+      return { rows, errors }
+    }
+
+    // Parse each delivery
+    for (let i = 0; i < deliveries.length; i++) {
+      try {
+        const delivery = deliveries[i]
+
+        // Helper to get element text
+        const getText = (tag: string): string | undefined => {
+          const element = delivery.getElementsByTagName(tag)[0]
+          return element?.textContent?.trim() || undefined
+        }
+
+        const trackingNumber = getText("code") || getText("tracking") || `XML-${i + 1}`
+        const customerName = getText("customerName") || getText("nom")
+        const customerPhone = getText("customerPhone") || getText("telephone")
+        const customerAddress = getText("customerAddress") || getText("adresse")
+        const priceStr = getText("codAmount") || getText("prix")
+        const feesStr = getText("fees") || getText("frais")
+        const statusStr = getText("status") || getText("etat") || "pending"
+        const deliveryDateStr = getText("deliveryDate") || getText("date_livraison")
+        const notes = getText("notes")
+        const orderNumber = getText("orderNumber") || getText("numero_commande")
+
+        // Validation
+        if (!customerName) {
+          errors.push({ row: i + 1, error: "Nom client manquant" })
+          continue
+        }
+
+        // Status mapping
+        const statusMap: Record<string, string> = {
+          "delivered": "delivered",
+          "livre": "delivered",
+          "pending": "pending",
+          "en_attente": "pending",
+          "in_transit": "pending",
+          "en_transit": "pending",
+          "returned": "returned",
+          "retour": "returned",
+          "failed": "returned",
+          "echec": "returned",
+        }
+
+        const status = statusMap[statusStr.toLowerCase()] || "pending"
+        const price = priceStr ? parseFloat(priceStr) : undefined
+        const fees = feesStr ? parseFloat(feesStr) : undefined
+
+        // Parse delivery date
+        let deliveryDate: Date | undefined
+        if (deliveryDateStr) {
+          deliveryDate = parseAndValidateDate(deliveryDateStr)
+          if (!deliveryDate) {
+            errors.push({ row: i + 1, error: `Date livraison invalide: "${deliveryDateStr}"` })
+            continue
+          }
+        }
+
+        rows.push({
+          trackingNumber,
+          customerName,
+          customerPhone,
+          customerAddress,
+          price,
+          fees,
+          status,
+          deliveryDate,
+          notes,
+          orderNumber,
+        })
+      } catch (err) {
+        errors.push({ row: i + 1, error: `Erreur parsing element: ${(err as Error).message}` })
+      }
+    }
+  } catch (err) {
+    errors.push({ row: 0, error: `Erreur parsing XML: ${(err as Error).message}` })
   }
 
   return { rows, errors }
@@ -1242,10 +1355,13 @@ export async function importDeliveryReport(
         existingShipment = data
       }
 
-      // Priority 3: Check by customer name + phone + similar date (within same week) to catch duplicates
-      if (!existingShipment && row.customerName && row.customerPhone) {
-        const oneWeekAgo = new Date()
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+      // Priority 3: Check by customer name + phone + EXACT delivery date (same day only)
+      // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
+      if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
+        // Only match if exact same delivery date (same day)
+        const deliveryDateStr = row.deliveryDate.toISOString().split('T')[0]
+        const nextDay = new Date(row.deliveryDate)
+        nextDay.setDate(nextDay.getDate() + 1)
         
         const { data } = await supabase
           .from("best_delivery_shipments")
@@ -1253,7 +1369,8 @@ export async function importDeliveryReport(
           .eq("tenant_id", tenantId)
           .ilike("customer_name", row.customerName)
           .eq("customer_phone", row.customerPhone)
-          .gte("created_at", oneWeekAgo.toISOString())
+          .gte("exported_at", deliveryDateStr)
+          .lt("exported_at", nextDay.toISOString().split('T')[0])
           .single()
         existingShipment = data
       }
@@ -1267,6 +1384,7 @@ export async function importDeliveryReport(
             customer_phone: row.customerPhone || null,
             customer_address: row.customerAddress,
             status: row.status,
+            cod_amount: row.price || 0,
             notes: row.notes || null,
             updated_at: new Date().toISOString(),
           })
@@ -1291,9 +1409,10 @@ export async function importDeliveryReport(
           }
         }
       } else {
-        // Find order by order number if provided
-        let orderId = uuidv4()
+        // Find or create order for this shipment
+        let orderId: string | null = null
         
+        // Try to find existing order by order number
         if (row.orderNumber) {
           const { data: order } = await supabase
             .from("orders")
@@ -1307,7 +1426,47 @@ export async function importDeliveryReport(
           }
         }
 
-        // Create new shipment
+        // If no existing order found, create one with the price from CSV
+        if (!orderId) {
+          // Map CSV status to order status
+          const orderStatus = row.status === "delivered" ? "livre" 
+            : row.status === "returned" ? "retour"
+            : row.status === "pending" ? "nouveau"
+            : "en-livraison"
+          
+          const { data: newOrder, error: orderError } = await supabase
+            .from("orders")
+            .insert({
+              tenant_id: tenantId,
+              order_number: row.orderNumber || row.trackingNumber || null,
+              customer_name: row.customerName,
+              customer_phone: row.customerPhone || null,
+              customer_address: row.customerAddress,
+              total: row.price || 0,
+              deposit: row.status === "delivered" ? (row.price || 0) : 0,
+              shipping_cost: row.fees || 0,
+              status: orderStatus,
+              delivery_type: "delivery",
+              courier: "best-delivery",
+              tracking_number: row.trackingNumber || null,
+              source: "best-delivery",
+              payment_status: row.status === "delivered" ? "paid" : "unpaid",
+              notes: row.notes || null,
+              delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
+            })
+            .select("id")
+            .single()
+
+          if (orderError || !newOrder) {
+            result.errors.push({ row: i + 2, error: `Erreur creation commande: ${orderError?.message}` })
+            result.failed++
+            continue
+          }
+          
+          orderId = newOrder.id
+        }
+
+        // Create new shipment linked to the order
         const { data: newShipment, error } = await supabase
           .from("best_delivery_shipments")
           .insert({
@@ -1319,6 +1478,7 @@ export async function importDeliveryReport(
             customer_address: row.customerAddress,
             tracking_number: row.trackingNumber || null,
             status: row.status,
+            cod_amount: row.price || 0,
             notes: row.notes || null,
             exported_at: row.deliveryDate || new Date().toISOString(),
           })

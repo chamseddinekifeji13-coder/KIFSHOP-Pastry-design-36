@@ -20,7 +20,7 @@ export interface Order {
   total: number
   deposit: number
   shippingCost: number
-  status: "nouveau" | "en-preparation" | "pret" | "en-livraison" | "livre"
+  status: "nouveau" | "en-preparation" | "pret" | "en-livraison" | "livre" | "annule"
   deliveryType: "pickup" | "delivery"
   courier?: string
   gouvernorat?: string
@@ -33,6 +33,12 @@ export interface Order {
   deliveredAt?: string
   deliveryAddress?: string
   notes?: string
+  // Offer fields
+  orderType?: "normal" | "offre_client" | "offre_personnel"
+  offerBeneficiary?: string
+  offerReason?: string
+  discountPercent?: number
+  discountAmount?: number
 }
 
 export interface StatusHistoryEntry {
@@ -90,6 +96,11 @@ export interface CreateOrderData {
   notes?: string
   deliveryDate?: string
   items: { productId: string | null; name: string; quantity: number; price: number }[]
+  // Offer fields
+  orderType?: "normal" | "offre_client" | "offre_personnel"
+  offerBeneficiary?: string
+  offerReason?: string
+  discountPercent?: number
 }
 
 // ─── Fetch Orders ─────────────────────────────────────────────
@@ -113,43 +124,7 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
   const supabase = createClient()
   const orders: Order[] = []
 
-  // Fetch from best_delivery_shipments (old imported orders)
-  const { data: shipments } = await supabase
-    .from("best_delivery_shipments")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false })
-
-  if (shipments && shipments.length > 0) {
-    shipments.forEach((s) => {
-      orders.push({
-        id: s.id,
-        tenantId: s.tenant_id,
-        customerName: s.customer_name || "",
-        customerPhone: s.customer_phone || "",
-        customerAddress: s.customer_address || undefined,
-        items: [],
-        total: Number(s.price || 0),
-        deposit: 0,
-        shippingCost: Number(s.fees || 0),
-        status: mapDeliveryStatus(s.status),
-        deliveryType: "delivery",
-        courier: s.courier || undefined,
-        gouvernorat: s.gouvernorat || undefined,
-        trackingNumber: s.tracking_number || undefined,
-        source: "best-delivery",
-        paymentStatus: "unpaid",
-        createdAt: s.created_at,
-        deliveryDate: s.delivery_date || undefined,
-        estimatedDeliveryAt: undefined,
-        deliveredAt: s.delivered_at || undefined,
-        deliveryAddress: s.customer_address || undefined,
-        notes: s.notes || undefined,
-      })
-    })
-  }
-
-  // Fetch from orders (all orders consolidated)
+  // Fetch from orders (unique source of truth)
   const { data: quickOrders } = await supabase
     .from("orders")
     .select("*")
@@ -162,9 +137,9 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
       orders.push({
         id: o.id,
         tenantId: o.tenant_id,
-        customerName: o.client_name || "",
-        customerPhone: o.phone || "",
-        customerAddress: undefined,
+        customerName: o.client_name || o.customer_name || "",
+        customerPhone: o.phone || o.customer_phone || "",
+        customerAddress: o.customer_address || undefined,
         items: items.map((item: any) => ({
           id: item.id || "",
           productId: item.productId || "",
@@ -173,21 +148,27 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
           price: Number(item.price || 0),
         })),
         total: Number(o.total),
-        deposit: 0,
-        shippingCost: 0,
+        deposit: o.deposit || 0,
+        shippingCost: o.shipping_cost || 0,
         status: o.status || "nouveau",
-        deliveryType: "pickup",
-        courier: undefined,
-        gouvernorat: undefined,
-        trackingNumber: undefined,
+        deliveryType: o.delivery_type || "pickup",
+        courier: o.courier || undefined,
+        gouvernorat: o.gouvernorat || undefined,
+        trackingNumber: o.tracking_number || undefined,
         source: o.source || "comptoir",
-        paymentStatus: "unpaid",
+        paymentStatus: o.payment_status || "unpaid",
         createdAt: o.created_at,
         deliveryDate: undefined,
         estimatedDeliveryAt: undefined,
-        deliveredAt: undefined,
-        deliveryAddress: undefined,
+        deliveredAt: o.delivered_at || undefined,
+        deliveryAddress: o.customer_address || undefined,
         notes: o.notes || undefined,
+        // Offer fields
+        orderType: o.order_type || "normal",
+        offerBeneficiary: o.offer_beneficiary || undefined,
+        offerReason: o.offer_reason || undefined,
+        discountPercent: o.discount_percent || 0,
+        discountAmount: o.discount_amount || 0,
       })
     })
   }
@@ -262,6 +243,12 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       payment_status: paymentStatus,
       delivery_date: data.deliveryDate || null,
       notes: data.notes || null,
+      // Offer fields
+      order_type: data.orderType || "normal",
+      offer_beneficiary: data.offerBeneficiary || null,
+      offer_reason: data.offerReason || null,
+      discount_percent: data.discountPercent || 0,
+      discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
     })
     .select()
     .single()
@@ -318,6 +305,12 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     createdAt: order.created_at,
     deliveryDate: order.delivery_date || undefined,
     notes: order.notes || undefined,
+    // Offer fields
+    orderType: order.order_type || "normal",
+    offerBeneficiary: order.offer_beneficiary || undefined,
+    offerReason: order.offer_reason || undefined,
+    discountPercent: order.discount_percent || 0,
+    discountAmount: order.discount_amount || 0,
   }
 }
 

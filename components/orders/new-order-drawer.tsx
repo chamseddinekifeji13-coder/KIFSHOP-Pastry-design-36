@@ -85,6 +85,11 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   const [notes, setNotes] = useState("")
   const [deliveryDate, setDeliveryDate] = useState("")
   const [duplicateWarning, setDuplicateWarning] = useState<{ show: boolean; existingOrder?: { id: string; createdAt: string; total: number } }>({ show: false })
+  // Offer fields
+  const [orderType, setOrderType] = useState<"normal" | "offre_client" | "offre_personnel">("normal")
+  const [offerBeneficiary, setOfferBeneficiary] = useState("")
+  const [offerReason, setOfferReason] = useState("")
+  const [discountPercent, setDiscountPercent] = useState("")
   const submitLockRef = useRef(false)
   const isMountedRef = useRef(true)
 
@@ -194,7 +199,9 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
 
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.price), 0)
   const shipping = deliveryType === "delivery" ? (Number(shippingCost) || 0) : 0
-  const total = subtotal + shipping
+  const beforeDiscount = subtotal + shipping
+  const discount = discountPercent ? (beforeDiscount * (Number(discountPercent) / 100)) : 0
+  const total = beforeDiscount - discount
 
   const resetForm = () => {
     setCustomerName("")
@@ -206,9 +213,15 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     setGouvernorat("")
     setShippingCost("")
     setItems([])
+    setSelectedProduct("")
     setDeposit("")
     setNotes("")
     setDeliveryDate("")
+    // Reset offer fields
+    setOrderType("normal")
+    setOfferBeneficiary("")
+    setOfferReason("")
+    setDiscountPercent("")
   }
 
   // Check for duplicate orders: same customer + similar total + same day
@@ -273,6 +286,11 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
           quantity: i.quantity,
           price: i.price,
         })),
+        // Offer fields
+        orderType: orderType !== "normal" ? orderType : undefined,
+        offerBeneficiary: offerBeneficiary.trim() || undefined,
+        offerReason: offerReason.trim() || undefined,
+        discountPercent: discountPercent ? Number(discountPercent) : 0,
       })
 
       if (!isMountedRef.current) return
@@ -642,6 +660,67 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
             </div>
           </div>
 
+          {/* Offer Section */}
+          <div className="space-y-4 rounded-xl border border-amber-200/50 bg-amber-50/30 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-900">
+              <CreditCard className="h-3.5 w-3.5" />
+              Type de commande
+            </div>
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs font-medium mb-2 block">Type *</Label>
+                <Select value={orderType} onValueChange={(value: any) => setOrderType(value)}>
+                  <SelectTrigger className="bg-white border-0 focus:ring-1 focus:ring-amber-300">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Commande normale</SelectItem>
+                    <SelectItem value="offre_client">Offre client</SelectItem>
+                    <SelectItem value="offre_personnel">Offre personnel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {orderType !== "normal" && (
+                <>
+                  <div>
+                    <Label className="text-xs font-medium">Beneficiaire *</Label>
+                    <Input
+                      placeholder="Nom du beneficiaire"
+                      value={offerBeneficiary}
+                      onChange={(e) => setOfferBeneficiary(e.target.value)}
+                      className="bg-white border-0 focus-visible:ring-1 focus-visible:ring-amber-300 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Motif de l'offre *</Label>
+                    <Input
+                      placeholder="Ex: Fidelite, Anniversaire, Promo..."
+                      value={offerReason}
+                      onChange={(e) => setOfferReason(e.target.value)}
+                      className="bg-white border-0 focus-visible:ring-1 focus-visible:ring-amber-300 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium">Reduction (%)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="0"
+                        value={discountPercent}
+                        onChange={(e) => setDiscountPercent(e.target.value)}
+                        className="bg-white border-0 focus-visible:ring-1 focus-visible:ring-amber-300"
+                      />
+                      <span className="text-sm text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Notes */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -673,6 +752,12 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Livraison</span>
                     <span>{shipping.toLocaleString("fr-TN")} TND</span>
+                  </div>
+                )}
+                {discount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span className="text-muted-foreground">Reduction ({discountPercent}%)</span>
+                    <span>-{discount.toLocaleString("fr-TN")} TND</span>
                   </div>
                 )}
                 <div className="border-t border-primary/10 pt-2 flex justify-between">
