@@ -1355,10 +1355,13 @@ export async function importDeliveryReport(
         existingShipment = data
       }
 
-      // Priority 3: Check by customer name + phone + similar date (within same week) to catch duplicates
-      if (!existingShipment && row.customerName && row.customerPhone) {
-        const oneWeekAgo = new Date()
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+      // Priority 3: Check by customer name + phone + EXACT delivery date (same day only)
+      // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
+      if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
+        // Only match if exact same delivery date (same day)
+        const deliveryDateStr = row.deliveryDate.toISOString().split('T')[0]
+        const nextDay = new Date(row.deliveryDate)
+        nextDay.setDate(nextDay.getDate() + 1)
         
         const { data } = await supabase
           .from("best_delivery_shipments")
@@ -1366,7 +1369,8 @@ export async function importDeliveryReport(
           .eq("tenant_id", tenantId)
           .ilike("customer_name", row.customerName)
           .eq("customer_phone", row.customerPhone)
-          .gte("created_at", oneWeekAgo.toISOString())
+          .gte("exported_at", deliveryDateStr)
+          .lt("exported_at", nextDay.toISOString().split('T')[0])
           .single()
         existingShipment = data
       }
