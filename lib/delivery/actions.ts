@@ -1291,9 +1291,10 @@ export async function importDeliveryReport(
           }
         }
       } else {
-        // Find order by order number if provided
-        let orderId = uuidv4()
+        // Find or create order for this shipment
+        let orderId: string | null = null
         
+        // Try to find existing order by order number
         if (row.orderNumber) {
           const { data: order } = await supabase
             .from("orders")
@@ -1307,7 +1308,47 @@ export async function importDeliveryReport(
           }
         }
 
-        // Create new shipment
+        // If no existing order found, create one with the price from CSV
+        if (!orderId) {
+          // Map CSV status to order status
+          const orderStatus = row.status === "delivered" ? "livre" 
+            : row.status === "returned" ? "retour"
+            : row.status === "pending" ? "nouveau"
+            : "en-livraison"
+          
+          const { data: newOrder, error: orderError } = await supabase
+            .from("orders")
+            .insert({
+              tenant_id: tenantId,
+              order_number: row.orderNumber || row.trackingNumber || null,
+              customer_name: row.customerName,
+              customer_phone: row.customerPhone || null,
+              customer_address: row.customerAddress,
+              total: row.price || 0,
+              deposit: row.status === "delivered" ? (row.price || 0) : 0,
+              shipping_cost: row.fees || 0,
+              status: orderStatus,
+              delivery_type: "delivery",
+              courier: "best-delivery",
+              tracking_number: row.trackingNumber || null,
+              source: "best-delivery",
+              payment_status: row.status === "delivered" ? "paid" : "unpaid",
+              notes: row.notes || null,
+              delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
+            })
+            .select("id")
+            .single()
+
+          if (orderError || !newOrder) {
+            result.errors.push({ row: i + 2, error: `Erreur creation commande: ${orderError?.message}` })
+            result.failed++
+            continue
+          }
+          
+          orderId = newOrder.id
+        }
+
+        // Create new shipment linked to the order
         const { data: newShipment, error } = await supabase
           .from("best_delivery_shipments")
           .insert({
