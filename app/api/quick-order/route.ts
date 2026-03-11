@@ -42,26 +42,34 @@ export async function POST(request: Request) {
     }
 
     // Insert into orders table (single source of truth)
+    const orderData: any = {
+      tenant_id: session.tenantId,
+      client_id: clientId,
+      customer_name: clientName || null,
+      customer_phone: phone,
+      customer_address: address || null,
+      total: amount,
+      shipping_cost: shippingCost || 0,
+      status: "nouveau",
+      delivery_type: deliveryType || "pickup",
+      courier: courier || null,
+      gouvernorat: gouvernorat || null,
+      source: source || "phone",
+      delivery_date: deliveryDate || null,
+      notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
+      confirmed_by_name: session.displayName,
+      truecaller_verified: truecallerVerified || false,
+    }
+    
+    // Add tracking fields if profile ID is available
+    if (session.activeProfileId) {
+      orderData.created_by = session.activeProfileId
+      orderData.confirmed_by = session.activeProfileId
+    }
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert({
-        tenant_id: session.tenantId,
-        client_id: clientId,
-        customer_name: clientName || null,
-        customer_phone: phone,
-        customer_address: address || null,
-        total: amount,
-        shipping_cost: shippingCost || 0,
-        status: "nouveau",
-        delivery_type: deliveryType || "pickup",
-        courier: courier || null,
-        gouvernorat: gouvernorat || null,
-        source: source || "phone",
-        delivery_date: deliveryDate || null,
-        notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-        confirmed_by_name: session.displayName,
-        truecaller_verified: truecallerVerified || false,
-      })
+      .insert(orderData)
       .select()
       .single()
 
