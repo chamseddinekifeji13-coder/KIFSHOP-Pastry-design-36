@@ -371,7 +371,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     toast.success("Compteur de retours remis a zero")
   }
 
-  const canSubmit = client && !isBlocked && !hasExcessiveReturns && !submitting && items.length > 0
+  const canSubmit = client && !isBlocked && !hasExcessiveReturns && !submitting && items.length > 0 && total > 0
   const clientOk = client && !isBlocked && !hasExcessiveReturns
 
   const getStatusBadge = () => {

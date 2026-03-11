@@ -428,7 +428,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     toast.success("Compteur de retours remis a zero")
   }
 
-  const canSubmit = client && !isBlocked && !hasExcessiveReturns && !submitting && items.length > 0 && (!isNewClient || clientName.trim())
+  const canSubmit = client && !isBlocked && !hasExcessiveReturns && !submitting && items.length > 0 && (!isNewClient || clientName.trim()) && total > 0
   const clientOk = client && !isBlocked && !hasExcessiveReturns
 
   // Status badge

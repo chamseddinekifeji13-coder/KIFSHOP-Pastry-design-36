@@ -52,6 +52,7 @@ export interface AgentStats {
 }
 
 // ─── Fetch Clients ────────────────────────────────────────────
+// Filtre les clients sans nom ET sans commandes (donnees inutiles)
 
 export async function fetchClients(tenantId: string): Promise<Client[]> {
   const supabase = createClient()
@@ -62,7 +63,15 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     .order("created_at", { ascending: false })
 
   if (error) { console.error("Error fetching clients:", error); return [] }
-  return (data || []).map(mapClient)
+  
+  // Filtrer les clients invalides: sans nom ET sans commandes
+  const validClients = (data || []).filter(client => {
+    const hasName = client.name && client.name.trim() !== ""
+    const hasOrders = (client.total_orders || 0) > 0
+    return hasName || hasOrders
+  })
+  
+  return validClients.map(mapClient)
 }
 
 // ─── Fetch Single Client ──────────────────────────────────────
