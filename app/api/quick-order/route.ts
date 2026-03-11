@@ -11,10 +11,13 @@ export async function POST(request: Request) {
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
       source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
+      // Offer fields
       orderType, offerBeneficiary, offerReason, discountPercent,
     } = body
 
-    if (!clientId || !phone || typeof amount !== "number" || amount <= 0) {
+    // For offers, amount can be 0 if discount is 100%
+    const isOfferType = orderType === "offre_client" || orderType === "offre_personnel"
+    if (!clientId || !phone || typeof amount !== "number" || (!isOfferType && amount <= 0)) {
       return NextResponse.json(
         { error: "Donnees invalides: clientId, phone et amount requis" },
         { status: 400 }
@@ -47,8 +50,8 @@ export async function POST(request: Request) {
     const discount = isOffer && discountPercent ? (amount * (discountPercent / 100)) : 0
     const finalTotal = isOffer ? amount - discount : amount
 
-    // Insert into orders table (single source of truth)
-    const orderData: any = {
+    // Prepare base order data
+    const baseOrderData = {
       tenant_id: session.tenantId,
       client_id: clientId,
       customer_name: clientName || null,
@@ -63,28 +66,49 @@ export async function POST(request: Request) {
       source: source || "phone",
       delivery_date: deliveryDate || null,
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
+      confirmed_by: session.activeProfileId,
       confirmed_by_name: session.displayName,
       truecaller_verified: truecallerVerified || false,
+      created_by: session.activeProfileId,
+    }
+
+    // Add offer fields if they exist in the table
+    const orderDataWithOffers = {
+      ...baseOrderData,
       order_type: orderType || "normal",
       offer_beneficiary: isOffer ? offerBeneficiary : null,
       offer_reason: isOffer ? offerReason : null,
       discount_percent: isOffer ? (discountPercent || 100) : 0,
     }
-    
-    // Add tracking fields if profile ID is available
-    if (session.activeProfileId) {
-      orderData.created_by = session.activeProfileId
-      orderData.confirmed_by = session.activeProfileId
-    }
 
-    const { data: order, error: orderError } = await supabase
+    // Try to insert with offer fields first
+    console.log("[v0] Attempting to insert order with data:", JSON.stringify(orderDataWithOffers, null, 2))
+    
+    let { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert(orderData)
+      .insert(orderDataWithOffers)
       .select()
       .single()
 
-    if (orderError) {
-      console.error("Order creation error:", orderError.message)
+    console.log("[v0] Insert result - order:", order, "error:", orderError)
+
+    // If it fails due to missing columns, retry without offer fields
+    if (orderError && orderError.message?.includes("column")) {
+      console.log("[v0] Offer columns not found, retrying without them")
+      const { data: fallbackOrder, error: fallbackError } = await supabase
+        .from("orders")
+        .insert(baseOrderData)
+        .select()
+        .single()
+      
+      if (fallbackError) {
+        console.error("[v0] Order creation error (fallback):", fallbackError)
+        return NextResponse.json({ error: "Erreur creation commande: " + fallbackError.message }, { status: 500 })
+      }
+      order = fallbackOrder
+      orderError = null
+    } else if (orderError) {
+      console.error("[v0] Order creation error:", orderError)
       return NextResponse.json({ error: "Erreur creation commande: " + orderError.message }, { status: 500 })
     }
 
