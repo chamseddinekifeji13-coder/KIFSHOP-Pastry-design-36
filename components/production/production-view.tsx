@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
-import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle, Package } from "lucide-react"
+import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle, Package, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,7 @@ import { RecipeDrawer } from "./recipe-drawer"
 import { ProductionBatchDrawer } from "./production-batch-drawer"
 import { RecipeCostPanel } from "./recipe-cost-panel"
 import { toast } from "sonner"
-import { consumeRecipeIngredients, type Recipe } from "@/lib/production/actions"
+import { consumeRecipeIngredients, deleteRecipe, type Recipe } from "@/lib/production/actions"
 import { useI18n } from "@/lib/i18n/context"
 import useSWR from "swr"
 import { fetchProductionBatches } from "@/lib/production/actions"
@@ -74,6 +74,25 @@ export function ProductionView() {
   const [recipeDrawerOpen, setRecipeDrawerOpen] = useState(false)
   const [batchDrawerOpen, setBatchDrawerOpen] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
+  const [deletingRecipeId, setDeletingRecipeId] = useState<string | null>(null)
+
+  const handleDeleteRecipe = async (recipeId: string, recipeName: string) => {
+    if (!confirm(`Etes-vous sur de vouloir supprimer la recette "${recipeName}" ?`)) return
+    setDeletingRecipeId(recipeId)
+    try {
+      const result = await deleteRecipe(recipeId, currentTenant.id)
+      if (result.success) {
+        toast.success("Recette supprimee", { description: `"${recipeName}" a ete supprimee` })
+        mutateRecipes()
+      } else {
+        toast.error("Erreur", { description: result.error || "Impossible de supprimer la recette" })
+      }
+    } catch (error) {
+      toast.error("Erreur lors de la suppression")
+    } finally {
+      setDeletingRecipeId(null)
+    }
+  }
 
   const isLoading = recLoading || rmLoading
   const allRecipes = recipes || []
@@ -308,6 +327,15 @@ export function ProductionView() {
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => { setEditingRecipe(recipe); setRecipeDrawerOpen(true) }}><Edit className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
                         <Button size="sm" className="flex-1" onClick={() => { setSelectedRecipe(recipe.id); setBatchDrawerOpen(true) }}><Play className="mr-1.5 h-3.5 w-3.5" />Produire</Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteRecipe(recipe.id, recipe.name)}
+                          disabled={deletingRecipeId === recipe.id}
+                        >
+                          {deletingRecipeId === recipe.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>

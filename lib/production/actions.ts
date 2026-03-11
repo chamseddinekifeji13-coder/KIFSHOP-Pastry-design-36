@@ -176,6 +176,110 @@ export async function createRecipe(tenantId: string, data: {
   }
 }
 
+// ─── Update Recipe ────────────────────────────────────────────
+export async function updateRecipe(recipeId: string, tenantId: string, data: {
+  name: string
+  category?: string
+  finishedProductId?: string | null
+  yieldQuantity: number
+  yieldUnit: string
+  instructions?: string
+  theoreticalQuantity?: number | null
+  packagedQuantity?: number | null
+  wastagePercent?: number | null
+  ingredients: { rawMaterialId: string; quantity: number; unit: string }[]
+  packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
+}): Promise<Recipe | null> {
+  const supabase = createClient()
+  
+  // Update recipe main data
+  const { data: row, error } = await supabase.from("recipes").update({
+    name: data.name, category: data.category || null,
+    finished_product_id: data.finishedProductId || null,
+    yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
+    instructions: data.instructions || null,
+    theoretical_quantity: data.theoreticalQuantity || null,
+    packaged_quantity: data.packagedQuantity || null,
+    wastage_percent: data.wastagePercent || null,
+    updated_at: new Date().toISOString()
+  }).eq("id", recipeId).eq("tenant_id", tenantId).select().single()
+  
+  if (error || !row) { console.error("Error updating recipe:", error?.message); return null }
+
+  // Delete existing ingredients and packaging, then re-insert
+  await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId)
+  await supabase.from("recipe_packaging").delete().eq("recipe_id", recipeId)
+
+  // Insert new ingredients
+  if (data.ingredients.length > 0) {
+    await supabase.from("recipe_ingredients").insert(
+      data.ingredients.map((i) => ({ recipe_id: recipeId, raw_material_id: i.rawMaterialId, quantity: i.quantity, unit: i.unit }))
+    )
+  }
+  
+  // Insert new packaging
+  if (data.packaging && data.packaging.length > 0) {
+    await supabase.from("recipe_packaging").insert(
+      data.packaging.map((p) => ({ 
+        recipe_id: recipeId, 
+        packaging_id: p.packagingId, 
+        name: p.name,
+        quantity: p.quantity, 
+        weight_grams: p.weightGrams,
+        unit: p.unit,
+        tenant_id: tenantId
+      }))
+    )
+  }
+  
+  return { 
+    id: row.id, tenantId: row.tenant_id, name: row.name, category: row.category,
+    finishedProductId: row.finished_product_id, yieldQuantity: Number(row.yield_quantity),
+    yieldUnit: row.yield_unit, instructions: row.instructions,
+    ingredients: data.ingredients.map((i, idx) => ({ id: `updated-${idx}`, ...i })), 
+    packaging: data.packaging || [],
+    theoreticalQuantity: data.theoreticalQuantity || null,
+    packagedQuantity: data.packagedQuantity || null,
+    wastagePercent: data.wastagePercent || null,
+    createdAt: row.created_at 
+  }
+}
+
+// ─── Delete Recipe ────────────────────────────────────────────
+export async function deleteRecipe(recipeId: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = createClient()
+  
+  // Check if recipe is used in active production batches
+  const { data: activeBatches } = await supabase
+    .from("production_batches")
+    .select("id")
+    .eq("recipe_id", recipeId)
+    .in("status", ["en_cours", "partiellement_conditionne"])
+    .limit(1)
+  
+  if (activeBatches && activeBatches.length > 0) {
+    return { success: false, error: "Cette recette est utilisee dans des lots de production actifs" }
+  }
+  
+  // Delete related data first (ingredients, packaging)
+  await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId)
+  await supabase.from("recipe_packaging").delete().eq("recipe_id", recipeId)
+  
+  // Delete the recipe
+  const { error } = await supabase
+    .from("recipes")
+    .delete()
+    .eq("id", recipeId)
+    .eq("tenant_id", tenantId)
+  
+  if (error) {
+    console.error("Error deleting recipe:", error.message)
+    return { success: false, error: error.message }
+  }
+  
+  return { success: true }
+}
+
 export interface ConsumedIngredient {
   name: string
   quantity: number

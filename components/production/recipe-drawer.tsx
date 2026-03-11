@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, usePackaging, useRecipes } from "@/hooks/use-tenant-data"
-import { createRecipe } from "@/lib/production/actions"
+import { createRecipe, updateRecipe } from "@/lib/production/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 
@@ -206,7 +206,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
 
     setSaving(true)
     try {
-      await createRecipe(currentTenant.id, {
+      const recipeData = {
         name: name.trim(), 
         category,
         yieldQuantity: totalYield,
@@ -226,7 +226,14 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
           weightGrams: pkg.weight,
           unit: pkg.unit
         })),
-      })
+      }
+      
+      if (isEditing && recipe?.id) {
+        await updateRecipe(recipe.id, currentTenant.id, recipeData)
+      } else {
+        await createRecipe(currentTenant.id, recipeData)
+      }
+      
       toast.success(isEditing ? "Recette modifiee" : "Recette creee", {
         description: `"${name}" - ${ingredients.length} ingredients, ${totalYield} unites`,
       })
