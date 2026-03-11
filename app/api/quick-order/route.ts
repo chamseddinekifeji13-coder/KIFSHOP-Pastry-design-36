@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       .single()
 
     if (orderError) {
-      console.error("[v0] Order creation error:", orderError.message, orderError.code)
+      console.error("Order creation error:", orderError.message)
       return NextResponse.json({ error: "Erreur creation commande: " + orderError.message }, { status: 500 })
     }
 
