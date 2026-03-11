@@ -322,6 +322,10 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
       toast.error("Veuillez entrer l'adresse de livraison")
       return
     }
+    if (deliveryType === "delivery" && !gouvernorat) {
+      toast.error("Veuillez selectionner un gouvernorat")
+      return
+    }
     if (deliveryType === "delivery" && !courier) {
       toast.error("Veuillez selectionner un transporteur")
       return
