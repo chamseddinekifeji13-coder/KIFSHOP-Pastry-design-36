@@ -628,6 +628,7 @@ export function BestDeliveryReport() {
                       <TableHead>Telephone</TableHead>
                       <TableHead>N° Commande</TableHead>
                       <TableHead>N° Suivi</TableHead>
+                      <TableHead className="text-right">Prix</TableHead>
                       <TableHead>Statut</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -664,6 +665,13 @@ export function BestDeliveryReport() {
                               <span className="font-mono text-sm">
                                 {shipment.trackingNumber}
                               </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {shipment.codAmount > 0 ? (
+                              <span>{shipment.codAmount.toLocaleString("fr-TN")} TND</span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
