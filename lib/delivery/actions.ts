@@ -1155,6 +1155,113 @@ export async function parseCSVContent(content: string): Promise<{
   return { rows, errors }
 }
 
+// ─── XML Parser ──────────────────────────────────────────────
+
+export async function parseXMLContent(content: string): Promise<{
+  rows: CSVImportRow[]
+  errors: Array<{ row: number; error: string }>
+}> {
+  const rows: CSVImportRow[] = []
+  const errors: Array<{ row: number; error: string }> = []
+
+  try {
+    // Parse XML
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(content, "text/xml")
+
+    // Check for parsing errors
+    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+      errors.push({ row: 0, error: "Format XML invalide" })
+      return { rows, errors }
+    }
+
+    // Get all delivery elements
+    const deliveries = xmlDoc.getElementsByTagName("delivery")
+
+    if (deliveries.length === 0) {
+      errors.push({ row: 0, error: "Aucun element <delivery> trouve dans le XML" })
+      return { rows, errors }
+    }
+
+    // Parse each delivery
+    for (let i = 0; i < deliveries.length; i++) {
+      try {
+        const delivery = deliveries[i]
+
+        // Helper to get element text
+        const getText = (tag: string): string | undefined => {
+          const element = delivery.getElementsByTagName(tag)[0]
+          return element?.textContent?.trim() || undefined
+        }
+
+        const trackingNumber = getText("code") || getText("tracking") || `XML-${i + 1}`
+        const customerName = getText("customerName") || getText("nom")
+        const customerPhone = getText("customerPhone") || getText("telephone")
+        const customerAddress = getText("customerAddress") || getText("adresse")
+        const priceStr = getText("codAmount") || getText("prix")
+        const feesStr = getText("fees") || getText("frais")
+        const statusStr = getText("status") || getText("etat") || "pending"
+        const deliveryDateStr = getText("deliveryDate") || getText("date_livraison")
+        const notes = getText("notes")
+        const orderNumber = getText("orderNumber") || getText("numero_commande")
+
+        // Validation
+        if (!customerName) {
+          errors.push({ row: i + 1, error: "Nom client manquant" })
+          continue
+        }
+
+        // Status mapping
+        const statusMap: Record<string, string> = {
+          "delivered": "delivered",
+          "livre": "delivered",
+          "pending": "pending",
+          "en_attente": "pending",
+          "in_transit": "pending",
+          "en_transit": "pending",
+          "returned": "returned",
+          "retour": "returned",
+          "failed": "returned",
+          "echec": "returned",
+        }
+
+        const status = statusMap[statusStr.toLowerCase()] || "pending"
+        const price = priceStr ? parseFloat(priceStr) : undefined
+        const fees = feesStr ? parseFloat(feesStr) : undefined
+
+        // Parse delivery date
+        let deliveryDate: Date | undefined
+        if (deliveryDateStr) {
+          deliveryDate = parseAndValidateDate(deliveryDateStr)
+          if (!deliveryDate) {
+            errors.push({ row: i + 1, error: `Date livraison invalide: "${deliveryDateStr}"` })
+            continue
+          }
+        }
+
+        rows.push({
+          trackingNumber,
+          customerName,
+          customerPhone,
+          customerAddress,
+          price,
+          fees,
+          status,
+          deliveryDate,
+          notes,
+          orderNumber,
+        })
+      } catch (err) {
+        errors.push({ row: i + 1, error: `Erreur parsing element: ${(err as Error).message}` })
+      }
+    }
+  } catch (err) {
+    errors.push({ row: 0, error: `Erreur parsing XML: ${(err as Error).message}` })
+  }
+
+  return { rows, errors }
+}
+
 export async function importDeliveryReport(
   tenantId: string,
   rows: CSVImportRow[],
@@ -1267,6 +1374,7 @@ export async function importDeliveryReport(
             customer_phone: row.customerPhone || null,
             customer_address: row.customerAddress,
             status: row.status,
+            cod_amount: row.price || 0,
             notes: row.notes || null,
             updated_at: new Date().toISOString(),
           })
@@ -1360,6 +1468,7 @@ export async function importDeliveryReport(
             customer_address: row.customerAddress,
             tracking_number: row.trackingNumber || null,
             status: row.status,
+            cod_amount: row.price || 0,
             notes: row.notes || null,
             exported_at: row.deliveryDate || new Date().toISOString(),
           })
