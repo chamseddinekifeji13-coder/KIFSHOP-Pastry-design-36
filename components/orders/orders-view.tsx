@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye,
+  FileText, Download, Printer, Eye, Gift, Users, User,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -679,6 +679,14 @@ export function OrdersView() {
               Documents
               {allDocuments.length > 0 && (
                 <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">{allDocuments.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="offres">
+              Offres
+              {orders.filter(o => o.orderType === "offre_client" || o.orderType === "offre_personnel").length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {orders.filter(o => o.orderType === "offre_client" || o.orderType === "offre_personnel").length}
+                </Badge>
               )}
             </TabsTrigger>
           </TabsList>
