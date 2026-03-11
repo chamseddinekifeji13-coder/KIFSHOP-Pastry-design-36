@@ -79,7 +79,7 @@ export function useClientStatus(): UseClientStatusReturn {
         // Also fetch delivery stats from best_delivery_shipments
         const { data: deliveryStats } = await supabase
           .from("best_delivery_shipments")
-          .select("status, price")
+          .select("status, cod_amount")
           .eq("tenant_id", tenantId)
           .eq("customer_phone", cleanPhone)
 
@@ -98,20 +98,14 @@ export function useClientStatus(): UseClientStatusReturn {
         }
 
         if (deliveryStats && deliveryStats.length > 0) {
-          console.log("[v0] Found delivery stats for phone:", cleanPhone, "count:", deliveryStats.length)
-          console.log("[v0] Sample statuses:", deliveryStats.slice(0, 3).map(s => s.status))
-          
           deliveryStats.forEach((shipment) => {
             if (isDelivered(shipment.status)) {
               deliveryCount++
-              deliveryTotal += Number(shipment.price) || 0
+              deliveryTotal += Number(shipment.cod_amount) || 0
             } else if (isReturned(shipment.status)) {
               deliveryReturned++
             }
           })
-          console.log("[v0] Delivery count:", deliveryCount, "returned:", deliveryReturned)
-        } else {
-          console.log("[v0] No delivery stats found for phone:", cleanPhone)
         }
 
         const clientData: ClientData = {
@@ -128,7 +122,7 @@ export function useClientStatus(): UseClientStatusReturn {
       // Check best_delivery_shipments for existing data before creating new client
       const { data: existingShipments } = await supabase
         .from("best_delivery_shipments")
-        .select("customer_name, status, price")
+        .select("customer_name, status, cod_amount")
         .eq("tenant_id", tenantId)
         .eq("customer_phone", cleanPhone)
 
@@ -148,21 +142,17 @@ export function useClientStatus(): UseClientStatusReturn {
       }
 
       if (existingShipments && existingShipments.length > 0) {
-        console.log("[v0] Found existing shipments for phone:", cleanPhone, "count:", existingShipments.length)
-        console.log("[v0] Sample shipments:", existingShipments.slice(0, 3))
-        
         // Get the most recent name
         customerName = existingShipments[0].customer_name || null
         
         existingShipments.forEach((shipment) => {
           if (isDeliveredStatus(shipment.status)) {
             deliveryCount++
-            deliveryTotal += Number(shipment.price) || 0
+            deliveryTotal += Number(shipment.cod_amount) || 0
           } else if (isReturnedStatus(shipment.status)) {
             deliveryReturned++
           }
         })
-        console.log("[v0] Calculated - name:", customerName, "delivery:", deliveryCount, "returned:", deliveryReturned)
       } else {
         console.log("[v0] No shipments found for phone:", cleanPhone)
       }
