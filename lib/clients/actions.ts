@@ -190,9 +190,19 @@ export async function markOrderReturned(
 
 // ─── Agent Performance Stats ──────────────────────────────────
 // Aggregates from orders + best_delivery_shipments for returns
+// Respects stats_reset_date: only counts orders created after reset date
 
 export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
   const supabase = createClient()
+
+  // 0. Fetch stats reset date if set (use maybeSingle to avoid errors if not set)
+  const { data: settings, error: settingsError } = await supabase
+    .from("tenant_settings")
+    .select("stats_reset_date")
+    .eq("tenant_id", tenantId)
+    .maybeSingle()
+  
+  const resetDate = settings?.stats_reset_date ? new Date(settings.stats_reset_date) : null
 
   // 1. Fetch all active agents (vendeur + gerant roles)
   const { data: agents } = await supabase
@@ -202,19 +212,32 @@ export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
     .in("role", ["vendeur", "gerant", "owner"])
 
   // 2. Fetch orders with confirmed_by
-  const { data: orders, error } = await supabase
+  let query = supabase
     .from("orders")
-    .select("confirmed_by, confirmed_by_name, total, status")
+    .select("confirmed_by, confirmed_by_name, total, status, created_at")
     .eq("tenant_id", tenantId)
+  
+  // Filter orders created after reset date if set
+  if (resetDate) {
+    query = query.gte("created_at", resetDate.toISOString())
+  }
+  
+  const { data: orders, error } = await query
 
   if (error) { console.error("Error fetching agent stats:", error) }
 
-  // 3. Fetch returns from best_delivery_shipments
-  const { data: bdReturns } = await supabase
+  // 3. Fetch returns from best_delivery_shipments (also respect reset date)
+  let bdQuery = supabase
     .from("best_delivery_shipments")
-    .select("id")
+    .select("id, created_at")
     .eq("tenant_id", tenantId)
     .eq("status", "returned")
+  
+  if (resetDate) {
+    bdQuery = bdQuery.gte("created_at", resetDate.toISOString())
+  }
+  
+  const { data: bdReturns } = await bdQuery
 
   const totalBdReturns = bdReturns?.length || 0
 
