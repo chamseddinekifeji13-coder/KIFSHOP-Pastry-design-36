@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       `${item.name} x${item.quantity}`
     ).join(", ")
 
-    // Insert transaction
+    // Insert transaction - only use columns that exist in the table
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
       .insert({
@@ -33,12 +33,9 @@ export async function POST(request: Request) {
         type: "income",
         category: "Vente comptoir",
         amount: total,
-        description: `Vente POS: ${itemsDescription}`,
+        description: `Vente POS: ${itemsDescription} | Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`,
         payment_method: paymentMethod === "card" ? "card" : "cash",
-        created_by: session.id,
-        created_by_name: session.displayName,
-        is_collection: true,
-        notes: `Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
+        created_by: session.id
       })
       .select()
       .single()

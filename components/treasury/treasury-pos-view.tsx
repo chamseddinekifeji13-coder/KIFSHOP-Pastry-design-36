@@ -6,7 +6,7 @@ import {
   Trash2, Plus, Minus, Search, User, Clock, ShoppingBag,
   X, Check, Loader2, Package, Unlock, RefreshCw, ArrowLeft,
   TrendingUp, TrendingDown, Settings, FileText, Calculator,
-  Image as ImageIcon
+  Image as ImageIcon, PanelLeftClose, PanelLeft
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -142,6 +142,7 @@ export function TreasuryPosView() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState("")
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   
   // Payment state
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
@@ -231,12 +232,16 @@ export function TreasuryPosView() {
   // Open cash drawer
   const openDrawer = async () => {
     try {
-      await fetch("/api/treasury/esc-pos", {
+      const response = await fetch("/api/treasury/esc-pos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: "open-drawer" })
+        body: JSON.stringify({ action: "open_drawer" })
       })
-      toast.success("Tiroir-caisse ouvert")
+      if (response.ok) {
+        toast.success("Tiroir-caisse ouvert")
+      } else {
+        throw new Error("Failed to open drawer")
+      }
     } catch (error) {
       toast.error("Erreur ouverture tiroir")
     }
@@ -345,11 +350,11 @@ export function TreasuryPosView() {
   })
   
   const todayIncome = todayTransactions
-    .filter((t: any) => t.type === "entree")
+    .filter((t: any) => t.type === "income" || t.type === "entree")
     .reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
   
   const todayExpense = todayTransactions
-    .filter((t: any) => t.type === "sortie")
+    .filter((t: any) => t.type === "expense" || t.type === "sortie")
     .reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
 
   return (
@@ -359,6 +364,19 @@ export function TreasuryPosView() {
         <div className="flex items-center justify-between">
           {/* Left: Store info + Mode Bureau button */}
           <div className="flex items-center gap-4">
+            {/* Sidebar toggle button */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="h-11 w-11 border-amber-300 hover:bg-amber-100 text-amber-800"
+            >
+              {sidebarCollapsed ? (
+                <PanelLeft className="h-5 w-5" />
+              ) : (
+                <PanelLeftClose className="h-5 w-5" />
+              )}
+            </Button>
             <div className="bg-amber-100 p-2 rounded-xl">
               <ShoppingBag className="h-6 w-6 text-amber-700" />
             </div>
@@ -448,122 +466,134 @@ export function TreasuryPosView() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Products section */}
-        <div className="flex-1 flex flex-col p-4 overflow-hidden">
-          {/* Search */}
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
-              <Input
-                placeholder="Rechercher un produit..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-14 text-lg bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400 rounded-xl"
-              />
-            </div>
-          </div>
-
-          {/* Categories */}
-          <div className="flex gap-2 mb-4 flex-wrap">
-            <Button
-              variant={selectedCategory === null ? "default" : "outline"}
-              onClick={() => setSelectedCategory(null)}
-              className={cn(
-                "h-11 px-5 rounded-full font-medium transition-all",
-                selectedCategory === null 
-                  ? "bg-amber-600 hover:bg-amber-700 text-white" 
-                  : "border-amber-300 text-amber-800 hover:bg-amber-100"
-              )}
-            >
-              Tous
-            </Button>
-            {categories.map(cat => (
-              <Button
-                key={cat}
-                variant={selectedCategory === cat ? "default" : "outline"}
-                onClick={() => setSelectedCategory(cat)}
-                className={cn(
-                  "h-11 px-5 rounded-full font-medium transition-all",
-                  selectedCategory === cat 
-                    ? "bg-amber-600 hover:bg-amber-700 text-white" 
-                    : "border-amber-300 text-amber-800 hover:bg-amber-100"
-                )}
-              >
-                {cat}
-              </Button>
-            ))}
-          </div>
-
-          {/* Products grid */}
-          <ScrollArea className="flex-1">
-            {productsLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+        {/* Products section - Collapsible sidebar */}
+        <div 
+          className={cn(
+            "flex flex-col p-4 overflow-hidden transition-all duration-300 ease-in-out",
+            sidebarCollapsed ? "w-0 p-0 opacity-0" : "flex-1 opacity-100"
+          )}
+        >
+          {!sidebarCollapsed && (
+            <>
+              {/* Search */}
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
+                  <Input
+                    placeholder="Rechercher un produit..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-12 h-14 text-lg bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400 rounded-xl"
+                  />
+                </div>
               </div>
-            ) : filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-amber-600">
-                <Package className="h-16 w-16 mb-4 opacity-50" />
-                <p className="text-lg">Aucun produit trouve</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                {filteredProducts.map((product: any) => {
-                  const productPrice = product.sellingPrice || product.selling_price || 0
-                  const productImage = product.imageUrl || product.image_url
-                  const inCart = cart.find(item => item.id === product.id)
-                  
-                  return (
-                    <button
-                      key={product.id}
-                      onClick={() => addToCart(product)}
-                      className={cn(
-                        "group relative bg-white rounded-2xl p-3 text-left transition-all duration-200",
-                        "border-2 hover:shadow-lg active:scale-[0.98]",
-                        inCart 
-                          ? "border-amber-500 shadow-md ring-2 ring-amber-200" 
-                          : "border-amber-100 hover:border-amber-300"
-                      )}
-                    >
-                      {/* Quantity badge */}
-                      {inCart && (
-                        <div className="absolute -top-2 -right-2 bg-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
-                          {inCart.quantity}
-                        </div>
-                      )}
 
-                      {/* Product image */}
-                      <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-amber-50">
-                        {productImage ? (
-                          <img
-                            src={productImage}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-amber-300">
-                            <ImageIcon className="h-10 w-10 mb-1" />
-                            <span className="text-xs">Pas d'image</span>
+              {/* Categories */}
+              <div className="flex gap-2 mb-4 flex-wrap">
+                <Button
+                  variant={selectedCategory === null ? "default" : "outline"}
+                  onClick={() => setSelectedCategory(null)}
+                  className={cn(
+                    "h-11 px-5 rounded-full font-medium transition-all",
+                    selectedCategory === null 
+                      ? "bg-amber-600 hover:bg-amber-700 text-white" 
+                      : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                  )}
+                >
+                  Tous
+                </Button>
+                {categories.map(cat => (
+                  <Button
+                    key={cat}
+                    variant={selectedCategory === cat ? "default" : "outline"}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={cn(
+                      "h-11 px-5 rounded-full font-medium transition-all",
+                      selectedCategory === cat 
+                        ? "bg-amber-600 hover:bg-amber-700 text-white" 
+                        : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                    )}
+                  >
+                    {cat}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Products grid */}
+              <ScrollArea className="flex-1">
+                {productsLoading ? (
+                  <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                  </div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-amber-600">
+                    <Package className="h-16 w-16 mb-4 opacity-50" />
+                    <p className="text-lg">Aucun produit trouve</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {filteredProducts.map((product: any) => {
+                      const productPrice = product.sellingPrice || product.selling_price || 0
+                      const productImage = product.imageUrl || product.image_url
+                      const inCart = cart.find(item => item.id === product.id)
+                      
+                      return (
+                        <button
+                          key={product.id}
+                          onClick={() => addToCart(product)}
+                          className={cn(
+                            "group relative bg-white rounded-2xl p-3 text-left transition-all duration-200",
+                            "border-2 hover:shadow-lg active:scale-[0.98]",
+                            inCart 
+                              ? "border-amber-500 shadow-md ring-2 ring-amber-200" 
+                              : "border-amber-100 hover:border-amber-300"
+                          )}
+                        >
+                          {/* Quantity badge */}
+                          {inCart && (
+                            <div className="absolute -top-2 -right-2 bg-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                              {inCart.quantity}
+                            </div>
+                          )}
+
+                          {/* Product image */}
+                          <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-amber-50">
+                            {productImage ? (
+                              <img
+                                src={productImage}
+                                alt={product.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-amber-300">
+                                <ImageIcon className="h-10 w-10 mb-1" />
+                                <span className="text-xs">Pas d'image</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Product info */}
-                      <h3 className="font-semibold text-sm text-amber-900 line-clamp-2 min-h-[2.5rem]">
-                        {product.name}
-                      </h3>
-                      <p className="text-amber-700 font-bold text-base mt-1">
-                        {formatCurrency(productPrice)} <span className="text-xs font-normal">TND</span>
-                      </p>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </ScrollArea>
+                          {/* Product info */}
+                          <h3 className="font-semibold text-sm text-amber-900 line-clamp-2 min-h-[2.5rem]">
+                            {product.name}
+                          </h3>
+                          <p className="text-amber-700 font-bold text-base mt-1">
+                            {formatCurrency(productPrice)} <span className="text-xs font-normal">TND</span>
+                          </p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+            </>
+          )}
         </div>
 
-        {/* Cart section */}
-        <div className="w-[380px] bg-white border-l border-amber-200 flex flex-col">
+        {/* Cart section - Expands when sidebar is collapsed */}
+        <div className={cn(
+          "bg-white border-l border-amber-200 flex flex-col transition-all duration-300 ease-in-out",
+          sidebarCollapsed ? "flex-1" : "w-[380px]"
+        )}>
           {/* Cart header */}
           <div className="p-4 border-b border-amber-100 bg-amber-50/50">
             <div className="flex items-center justify-between">
