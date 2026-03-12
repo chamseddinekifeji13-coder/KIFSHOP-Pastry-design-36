@@ -12,6 +12,7 @@ import { ConsumablesTable } from "./consumables-table"
 import { NewConsumableDrawer } from "./new-consumable-drawer"
 import { StockMovementDrawer } from "./stock-movement-drawer"
 import { NewProductDrawer } from "./new-product-drawer"
+import { EditProductDrawer } from "./edit-product-drawer"
 import { NewPackagingDrawer } from "./new-packaging-drawer"
 import { NewRawMaterialDrawer } from "./new-raw-material-drawer"
 import { StorageLocationsTable } from "./storage-locations-table"
@@ -33,6 +34,8 @@ export function StocksView() {
   const [selectedTab, setSelectedTab] = useState("raw")
   const [searchQuery, setSearchQuery] = useState("")
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [editProductOpen, setEditProductOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [newProductOpen, setNewProductOpen] = useState(false)
   const [newPackagingOpen, setNewPackagingOpen] = useState(false)
   const [newRawMaterialOpen, setNewRawMaterialOpen] = useState(false)
@@ -73,11 +76,19 @@ export function StocksView() {
   )
 
   const handleItemClick = (id: string, name: string, type: "raw" | "finished" | "packaging", unit?: string) => {
-    setSelectedItem({ id, name, type, unit })
-    setDrawerOpen(true)
-    // Also show chart for raw materials
-    if (type === "raw") {
-      setChartMaterial({ id, name, unit })
+    if (type === "finished") {
+      // For finished products, open the edit drawer instead
+      const product = finishedProducts?.find(p => p.id === id)
+      if (product) {
+        setSelectedProduct(product)
+        setEditProductOpen(true)
+      }
+    } else {
+      setSelectedItem({ id, name, type, unit })
+      setDrawerOpen(true)
+      if (type === "raw") {
+        setChartMaterial({ id, name, unit })
+      }
     }
   }
 
@@ -401,6 +412,12 @@ export function StocksView() {
 
       <StockMovementDrawer open={drawerOpen} onOpenChange={setDrawerOpen} item={selectedItem} />
       <NewProductDrawer open={newProductOpen} onOpenChange={setNewProductOpen} onSuccess={() => { mutateRM(); mutateFP() }} />
+      <EditProductDrawer
+        product={selectedProduct}
+        open={editProductOpen}
+        onOpenChange={setEditProductOpen}
+        onSave={() => mutateFP()}
+      />
       <NewPackagingDrawer open={newPackagingOpen} onOpenChange={setNewPackagingOpen} onSuccess={() => mutatePkg()} />
       <NewRawMaterialDrawer open={newRawMaterialOpen} onOpenChange={setNewRawMaterialOpen} onSuccess={() => mutateRM()} />
       <NewConsumableDrawer open={newConsumableOpen} onOpenChange={setNewConsumableOpen} onSuccess={() => mutateCons()} />
