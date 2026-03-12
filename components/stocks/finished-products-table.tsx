@@ -9,7 +9,7 @@ import type { FinishedProduct } from "@/lib/stocks/actions"
 
 interface FinishedProductsTableProps {
   products: FinishedProduct[]
-  onItemClick: (id: string, name: string) => void
+  onItemClick: (id: string, name: string, type: "finished", unit?: string) => void
 }
 
 export function FinishedProductsTable({ products, onItemClick }: FinishedProductsTableProps) {
@@ -52,11 +52,11 @@ export function FinishedProductsTable({ products, onItemClick }: FinishedProduct
                     : 0
 
                   return (
-                    <TableRow
-                      key={product.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => onItemClick(product.id, product.name || "")}
-                    >
+                <TableRow 
+                  key={product.id}
+                  onClick={() => onItemClick(product.id, product.name, "finished")}
+                  className="cursor-pointer hover:bg-muted/50"
+                >
                       <TableCell>
                         <span className="font-medium">{product.name || <span className="text-muted-foreground italic">Sans nom</span>}</span>
                       </TableCell>
