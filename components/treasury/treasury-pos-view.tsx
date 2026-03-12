@@ -244,14 +244,16 @@ export function TreasuryPosView() {
   const change = cashReceivedNum - total
 
   // Get unique categories
-  const categories = products 
-    ? [...new Set((products as any[]).map(p => p.category).filter(Boolean))]
+  // Get categories from products - handle both category and categoryId fields
+  const categories = products
+    ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
     : []
 
-  // Filter products
+  // Filter products by search and category
   const filteredProducts = (products as any[] || []).filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = !selectedCategory || p.category === selectedCategory
+    const productCategory = p.category || p.categoryId || "Autre"
+    const matchesCategory = !selectedCategory || productCategory === selectedCategory
     return matchesSearch && matchesCategory
   })
 
@@ -269,9 +271,9 @@ export function TreasuryPosView() {
       return [...prev, {
         id: product.id,
         name: product.name,
-        price: product.selling_price || product.price || 0,
+        price: product.sellingPrice || product.selling_price || 0,
         quantity: 1,
-        image: product.image_url
+        image: product.imageUrl || product.image_url
       }]
     })
     toast.success(`${product.name} ajoute`, { duration: 1000 })
@@ -516,21 +518,18 @@ export function TreasuryPosView() {
                       onClick={() => addToCart(product)}
                       className="group relative bg-slate-800/80 hover:bg-slate-700 rounded-lg p-2.5 text-left transition-all active:scale-[0.97] border border-slate-700/50 hover:border-emerald-500/50"
                     >
-                      {product.image_url ? (
-                        <div className="aspect-square rounded-md bg-slate-700 mb-2 overflow-hidden">
-                          <img 
-                            src={product.image_url} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="aspect-square rounded-md bg-slate-700/50 mb-2 flex items-center justify-center">
-                          <Package className="h-8 w-8 text-slate-600" />
-                        </div>
-                      )}
-                      <p className="font-medium text-xs text-white truncate">{product.name}</p>
-                      <p className="text-emerald-400 font-bold text-sm">{formatCurrency(product.selling_price || product.price || 0)}</p>
+          {product.imageUrl || product.image_url ? (
+            <img
+              src={product.imageUrl || product.image_url}
+              alt={product.name}
+              className="w-full h-32 object-cover rounded-lg"
+            />
+          ) : (
+            <div className="w-full h-32 bg-slate-700 rounded-lg flex items-center justify-center">
+              <Package className="h-12 w-12 text-slate-600" />
+            </div>
+          )}
+          <p className="text-emerald-400 font-bold text-sm">{formatCurrency(product.sellingPrice || product.selling_price || 0)}</p>
                       
                       {/* Quick add indicator */}
                       <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
