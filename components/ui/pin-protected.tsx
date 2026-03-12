@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, ReactNode, useEffect } from "react"
+import { useState, ReactNode } from "react"
 import { Lock, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -31,24 +31,8 @@ export function PinProtected({
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const [pin, setPin] = useState("")
   const [error, setError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState("")
   const [loading, setLoading] = useState(false)
-  const [tenantUserId, setTenantUserId] = useState<string | null>(null)
-
-  // Get current tenant user ID from session
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const res = await fetch("/api/active-profile")
-        if (res.ok) {
-          const data = await res.json()
-          setTenantUserId(data.tenantUserId)
-        }
-      } catch (err) {
-        console.error("Failed to fetch profile:", err)
-      }
-    }
-    fetchUserProfile()
-  }, [currentTenant?.id])
 
   const handleNumpad = (num: string) => {
     if (pin.length < 4) {
@@ -63,19 +47,22 @@ export function PinProtected({
   }
 
   const verifyPin = async (enteredPin: string) => {
-    if (!tenantUserId) {
+    if (!currentTenant?.id) {
       setError(true)
+      setErrorMessage("Tenant non trouve")
       return
     }
 
     setLoading(true)
     try {
-      const res = await fetch("/api/verify-pin", {
+      // Use the new API that verifies PIN against all managers/owners in the tenant
+      const res = await fetch("/api/treasury/verify-manager-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          tenantUserId,
-          pin: enteredPin
+          tenantId: currentTenant.id,
+          pin: enteredPin,
+          requiredRole
         })
       })
       
@@ -83,13 +70,17 @@ export function PinProtected({
         setPin("")
         setPinDialogOpen(false)
         setIsUnlocked(true)
+        setError(false)
+        setErrorMessage("")
       } else {
         const data = await res.json()
         setError(true)
+        setErrorMessage(data.error || "Code PIN incorrect")
         setPin("")
       }
     } catch {
       setError(true)
+      setErrorMessage("Erreur de verification")
       setPin("")
     } finally {
       setLoading(false)
@@ -160,7 +151,7 @@ export function PinProtected({
 
           {error && (
             <p className="text-center text-sm text-destructive font-medium">
-              Code PIN incorrect ou role insuffisant
+              {errorMessage || "Code PIN incorrect"}
             </p>
           )}
 
