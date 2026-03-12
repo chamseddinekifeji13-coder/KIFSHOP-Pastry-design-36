@@ -159,7 +159,15 @@ export function TreasuryPosView() {
   
   // Receipt state
   const [showReceiptPreview, setShowReceiptPreview] = useState(false)
-  const [lastTransaction, setLastTransaction] = useState<any>(null)
+  const [lastTransaction, setLastTransaction] = useState<any>(() => {
+    if (typeof window === "undefined") return null
+    try {
+      const stored = localStorage.getItem("pos-last-transaction")
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
   
   // New states for enhanced POS
   const [appliedDiscounts, setAppliedDiscounts] = useState<any[]>([])
@@ -411,6 +419,7 @@ export function TreasuryPosView() {
         change,
       }
       setLastTransaction(transactionData)
+      try { localStorage.setItem("pos-last-transaction", JSON.stringify(transactionData)) } catch {}
 
       // Open drawer for cash payments
       if (paymentMethod === "cash") {
