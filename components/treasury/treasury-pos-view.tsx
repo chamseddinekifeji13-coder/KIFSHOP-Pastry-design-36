@@ -266,15 +266,16 @@ export function TreasuryPosView() {
     }
   }
 
-  // Print receipt - uses WebUSB thermal printer if connected, otherwise browser print
+  // Print receipt - checks printer mode (windows/usb/network)
   const printReceipt = async (transactionData?: any) => {
     const data = transactionData || lastTransaction
     if (!data) return
 
+    const printerModeStored = localStorage.getItem("printer-mode") || "windows"
     const printer = getPrinter()
     
-    // Try WebUSB thermal printer first
-    if (printer.isConnected()) {
+    // Mode USB - Try WebUSB thermal printer
+    if (printerModeStored === "usb" && printer.isConnected()) {
       try {
         await printer.printReceipt({
           storeName: currentTenant?.name || "KIFSHOP",
@@ -299,8 +300,46 @@ export function TreasuryPosView() {
         toast.error("Erreur impression thermique, utilisation du navigateur")
       }
     }
+    
+    // Mode Network - Send to network printer via API
+    if (printerModeStored === "network") {
+      const printerIp = localStorage.getItem("printer-ip")
+      const printerPort = localStorage.getItem("printer-port") || "9100"
+      
+      if (printerIp) {
+        try {
+          const response = await fetch("/api/treasury/esc-pos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "print_receipt",
+              printerIp,
+              printerPort: parseInt(printerPort),
+              items: (data.items || cart).map((item: any) => ({
+                name: item.name,
+                qty: item.quantity,
+                price: item.price
+              })),
+              total: data.total || total,
+              cashierName: currentUser?.name || "Caissier",
+              paymentMethod: data.paymentMethod === "cash" ? "Especes" : "Carte bancaire",
+              amountPaid: data.cashReceived,
+              change: data.change
+            })
+          })
+          
+          const result = await response.json()
+          if (result.success) {
+            toast.success("Ticket imprime via reseau!")
+            return
+          }
+        } catch (error) {
+          toast.error("Erreur impression reseau, utilisation du navigateur")
+        }
+      }
+    }
 
-    // Fallback to browser print
+    // Mode Windows or Fallback - Use browser print with POS80 driver
     const receiptHTML = generateReceiptHTML({
       storeName: currentTenant?.name || "KIFSHOP",
       items: data.items || cart,

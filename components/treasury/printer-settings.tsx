@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Printer, Usb, CheckCircle, XCircle, Settings, RefreshCw, DoorOpen, Wifi } from "lucide-react"
+import { Printer, Usb, CheckCircle, XCircle, Settings, RefreshCw, DoorOpen, Wifi, Monitor } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,7 +26,12 @@ interface PrinterSettingsProps {
 export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
   const [isSupported, setIsSupported] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
-  const [printerMode, setPrinterMode] = useState<"usb" | "network">("usb")
+  const [printerMode, setPrinterMode] = useState<"usb" | "network" | "windows">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("printer-mode") as "usb" | "network" | "windows") || "windows"
+    }
+    return "windows"
+  })
   const [deviceInfo, setDeviceInfo] = useState<{ name: string; vendorId: number; productId: number } | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
@@ -204,6 +209,72 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
     }
   }
 
+  // Windows/System printing mode handlers
+  const handleSetWindowsMode = () => {
+    localStorage.setItem("printer-mode", "windows")
+    setPrinterMode("windows")
+    setIsConnected(true)
+    onPrinterConnected?.(true)
+    toast.success("Mode impression Windows active! Votre imprimante POS80 sera utilisee via le systeme.")
+    setDialogOpen(false)
+  }
+
+  const handleTestWindowsPrint = () => {
+    // Create a test receipt in a new window for printing
+    const printWindow = window.open("", "_blank", "width=300,height=400")
+    if (!printWindow) {
+      toast.error("Impossible d'ouvrir la fenetre d'impression. Verifiez les popups.")
+      return
+    }
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Test Impression</title>
+        <style>
+          @page { 
+            size: 80mm auto; 
+            margin: 0; 
+          }
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 80mm;
+            margin: 0;
+            padding: 5mm;
+          }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .separator { border-top: 1px dashed #000; margin: 5px 0; }
+          h1 { font-size: 16px; margin: 5px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="center">
+          <div class="separator"></div>
+          <h1 class="bold">KIFSHOP PASTRY</h1>
+          <p>Test Imprimante POS80</p>
+          <div class="separator"></div>
+          <p>Date: ${new Date().toLocaleString("fr-TN")}</p>
+          <div class="separator"></div>
+          <p class="bold">Imprimante configuree avec succes!</p>
+          <p>Mode: Windows/Driver POS80</p>
+          <div class="separator"></div>
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          }
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+    toast.success("Fenetre d'impression ouverte - selectionnez votre POS80")
+  }
+
   if (!isSupported) {
     return (
       <Card className="border-orange-200 bg-orange-50">
@@ -246,18 +317,112 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Tabs for USB vs Network */}
-          <Tabs value={printerMode} onValueChange={(v) => setPrinterMode(v as "usb" | "network")} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="usb" className="gap-2">
+          {/* Tabs for Windows vs USB vs Network */}
+          <Tabs value={printerMode} onValueChange={(v) => {
+            setPrinterMode(v as "usb" | "network" | "windows")
+            localStorage.setItem("printer-mode", v)
+          }} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="windows" className="gap-1 text-xs">
+                <Monitor className="h-4 w-4" />
+                Windows
+              </TabsTrigger>
+              <TabsTrigger value="usb" className="gap-1 text-xs">
                 <Usb className="h-4 w-4" />
                 USB
               </TabsTrigger>
-              <TabsTrigger value="network" className="gap-2">
+              <TabsTrigger value="network" className="gap-1 text-xs">
                 <Wifi className="h-4 w-4" />
                 Reseau
               </TabsTrigger>
             </TabsList>
+
+            {/* Windows Mode Tab - RECOMMENDED for POS80 with driver */}
+            <TabsContent value="windows" className="space-y-4">
+              {/* Windows Mode Status */}
+              <Card className={printerMode === "windows" && isConnected ? "border-emerald-200 bg-emerald-50" : "border-slate-200"}>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${printerMode === "windows" && isConnected ? "bg-emerald-100" : "bg-slate-100"}`}>
+                        {printerMode === "windows" && isConnected ? (
+                          <CheckCircle className="h-5 w-5 text-emerald-600" />
+                        ) : (
+                          <Monitor className="h-5 w-5 text-slate-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {printerMode === "windows" && isConnected ? "POS80 via Windows" : "Non configure"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Utilise le driver Windows installe
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={handleSetWindowsMode}
+                      variant={printerMode === "windows" && isConnected ? "outline" : "default"}
+                      className="gap-2"
+                    >
+                      <Monitor className="h-4 w-4" />
+                      {printerMode === "windows" && isConnected ? "Reconfigurer" : "Activer"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Test Button Windows */}
+              {printerMode === "windows" && isConnected && (
+                <div className="grid grid-cols-1 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleTestWindowsPrint}
+                    className="gap-2"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Test impression POS80
+                  </Button>
+                </div>
+              )}
+
+              {/* Windows Instructions */}
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm text-green-800 mb-2">Mode Windows (Recommande pour POS80)</h4>
+                  <p className="text-xs text-green-700 mb-3">
+                    Ce mode utilise le driver Windows de votre imprimante POS80 deja installe (v5.1.1.43).
+                  </p>
+                  <ol className="text-xs text-green-700 space-y-1 list-decimal list-inside">
+                    <li>Cliquez "Activer" pour utiliser ce mode</li>
+                    <li>Lors de l'impression, selectionnez "POS80" dans la liste</li>
+                    <li>Definissez POS80 comme imprimante par defaut Windows pour impression automatique</li>
+                  </ol>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm text-blue-800 mb-2">Configurer POS80 par defaut:</h4>
+                  <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>Ouvrez "Parametres Windows" &gt; "Peripheriques" &gt; "Imprimantes"</li>
+                    <li>Cliquez sur votre imprimante POS80</li>
+                    <li>Cliquez "Gerer" puis "Definir par defaut"</li>
+                    <li>Les tickets s'imprimeront automatiquement sur POS80</li>
+                  </ol>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm text-amber-800 mb-2">Note sur le tiroir-caisse:</h4>
+                  <p className="text-xs text-amber-700">
+                    Le tiroir-caisse ne peut pas etre ouvert via le mode Windows. Pour ouvrir le tiroir automatiquement, configurez votre imprimante en mode "Reseau" si elle supporte le reseau, ou utilisez le bouton physique.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* USB Mode Tab */}
             <TabsContent value="usb" className="space-y-4">
