@@ -4,21 +4,19 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { 
   ShoppingBag, Banknote, Receipt, Users, 
-  Settings, LogOut, Zap, BarChart3, Lock
+  Settings, LogOut, BarChart3, Lock
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
-import { getServerSession } from "@/lib/active-profile"
 
 export default function CashierDashboard() {
   const { t } = useI18n()
-  const { currentTenant } = useTenant()
+  const { currentTenant, currentUser } = useTenant()
   const router = useRouter()
   const [currentTime, setCurrentTime] = useState("")
-  const [cashierName, setCashierName] = useState("")
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -28,11 +26,6 @@ export default function CashierDashboard() {
         second: "2-digit"
       }))
     }, 1000)
-
-    // Get cashier name
-    getServerSession().then(session => {
-      if (session?.displayName) setCashierName(session.displayName)
-    }).catch(() => {})
 
     return () => clearInterval(timer)
   }, [])
@@ -115,8 +108,8 @@ export default function CashierDashboard() {
             <div className="text-4xl font-mono font-bold text-white mb-1">
               {currentTime}
             </div>
-            {cashierName && (
-              <Badge variant="secondary">{cashierName}</Badge>
+            {currentUser?.name && (
+              <Badge variant="secondary">{currentUser.name}</Badge>
             )}
           </div>
         </div>
