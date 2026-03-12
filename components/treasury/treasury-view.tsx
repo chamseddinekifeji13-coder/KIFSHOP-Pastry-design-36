@@ -6,15 +6,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
 import { useTransactions } from "@/hooks/use-tenant-data"
 import { NewTransactionDrawer } from "./new-transaction-drawer"
+import { CashSessionManagement } from "./cash-session-management"
+import { QuickOrderCollection } from "./quick-order-collection"
+import { RevenueReportsView } from "./revenue-reports-view"
+import { CashierPerformanceView } from "./cashier-performance-view"
 import { useI18n } from "@/lib/i18n/context"
 
 export function TreasuryView() {
   const { t } = useI18n()
   const { data: transactions, isLoading, mutate } = useTransactions()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("overview")
 
   const allTransactions = transactions || []
   const totalInflow = allTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
@@ -43,6 +49,17 @@ export function TreasuryView() {
         </div>
         <Button onClick={() => setDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />{t("treasury.new_transaction")}</Button>
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
+          <TabsTrigger value="session">Caisse</TabsTrigger>
+          <TabsTrigger value="collection">Encaissement</TabsTrigger>
+          <TabsTrigger value="reports">Rapports</TabsTrigger>
+          <TabsTrigger value="cashiers">Caissiers</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card><CardContent className="p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"><Wallet className="h-5 w-5 text-primary" /></div><div><p className="text-sm text-muted-foreground">{t("treasury.balance")}</p>{isLoading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-1" /> : <p className="text-xl font-bold">{cashFlow.toLocaleString("fr-TN")} TND</p>}</div></div></CardContent></Card>
@@ -116,6 +133,24 @@ export function TreasuryView() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="session">
+          <CashSessionManagement />
+        </TabsContent>
+
+        <TabsContent value="collection">
+          <QuickOrderCollection />
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <RevenueReportsView />
+        </TabsContent>
+
+        <TabsContent value="cashiers">
+          <CashierPerformanceView />
+        </TabsContent>
+      </Tabs>
 
       <NewTransactionDrawer open={drawerOpen} onOpenChange={setDrawerOpen} onSuccess={() => mutate()} />
     </div>
