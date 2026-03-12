@@ -252,12 +252,18 @@ export function TreasuryPosView() {
   // Open cash drawer
   const openDrawer = async () => {
     try {
-      await fetch("/api/treasury/esc-pos", {
+      const res = await fetch("/api/treasury/esc-pos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: "open-drawer" })
+        body: JSON.stringify({ action: "open_drawer" })
       })
-      toast.success("Tiroir-caisse ouvert")
+      const data = await res.json()
+      
+      if (data.mode === "demo") {
+        toast.info("Mode demo: Configurez une imprimante thermique pour ouvrir le tiroir", { duration: 4000 })
+      } else {
+        toast.success("Tiroir-caisse ouvert")
+      }
     } catch (error) {
       toast.error("Erreur ouverture tiroir")
     }
@@ -515,8 +521,8 @@ export function TreasuryPosView() {
             ))}
           </div>
 
-          {/* Products grid */}
-          <ScrollArea className="flex-1">
+          {/* Products grid - with proper scrolling */}
+          <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 280px)" }}>
             {productsLoading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
@@ -580,7 +586,7 @@ export function TreasuryPosView() {
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Cart section */}
