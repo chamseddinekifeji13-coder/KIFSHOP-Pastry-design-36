@@ -26,7 +26,6 @@ export function TreasuryView() {
   if (viewMode === "pos") {
     return <TreasuryPosView />
   }
-  }
 
   return (
     <div className="relative">
