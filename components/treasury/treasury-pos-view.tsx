@@ -29,6 +29,8 @@ import { PaymentNumpad } from "./payment-numpad"
 import { SalesHistoryPanel } from "./sales-history-panel"
 import { DiscountManager } from "./discount-manager"
 import { ProductSearchAdvanced } from "./product-search-advanced"
+import { PrinterSettings } from "./printer-settings"
+import { getPrinter } from "@/lib/thermal-printer"
 
 // Types
 interface CartItem {
@@ -252,22 +254,53 @@ export function TreasuryPosView() {
   // Open cash drawer
   const openDrawer = async () => {
     try {
-      await fetch("/api/treasury/esc-pos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: "open-drawer" })
-      })
-      toast.success("Tiroir-caisse ouvert")
-    } catch (error) {
-      toast.error("Erreur ouverture tiroir")
+      const printer = getPrinter()
+      if (printer.isConnected()) {
+        await printer.openDrawer()
+        toast.success("Tiroir-caisse ouvert")
+      } else {
+        toast.info("Connectez une imprimante thermique via le bouton Imprimante", { duration: 4000 })
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Erreur ouverture tiroir")
     }
   }
 
-  // Print receipt
-  const printReceipt = (transactionData?: any) => {
+  // Print receipt - uses WebUSB thermal printer if connected, otherwise browser print
+  const printReceipt = async (transactionData?: any) => {
     const data = transactionData || lastTransaction
     if (!data) return
 
+    const printer = getPrinter()
+    
+    // Try WebUSB thermal printer first
+    if (printer.isConnected()) {
+      try {
+        await printer.printReceipt({
+          storeName: currentTenant?.name || "KIFSHOP",
+          cashierName: currentUser?.name || "Caissier",
+          items: (data.items || cart).map((item: any) => ({
+            name: item.name,
+            qty: item.quantity,
+            price: item.price
+          })),
+          subtotal: data.subtotal || subtotal,
+          discount: discountAmount > 0 ? discountAmount : undefined,
+          total: data.total || total,
+          paymentMethod: data.paymentMethod === "cash" ? "Especes" : "Carte bancaire",
+          amountPaid: data.cashReceived,
+          change: data.change,
+          transactionId: data.id || Date.now().toString().slice(-6),
+          date: new Date()
+        })
+        toast.success("Ticket imprime!")
+        return
+      } catch (error: any) {
+        toast.error("Erreur impression thermique, utilisation du navigateur")
+      }
+    }
+
+    // Fallback to browser print
     const receiptHTML = generateReceiptHTML({
       storeName: currentTenant?.name || "KIFSHOP",
       items: data.items || cart,
@@ -392,18 +425,18 @@ export function TreasuryPosView() {
             </div>
 
             {/* Mode Bureau button - in header left, far from payment buttons */}
-            <button
+            <Button
               onClick={() => {
                 localStorage.setItem("treasury-view-mode", "desktop")
                 window.location.reload()
               }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-all"
+              variant="outline"
+              size="sm"
+              className="gap-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-              </svg>
-              Mode Bureau
-            </button>
+              <Settings className="h-4 w-4" />
+              <span>Mode Bureau</span>
+            </Button>
           </div>
 
           {/* Center: Modern Clock */}
@@ -444,6 +477,9 @@ export function TreasuryPosView() {
                 <span className="font-bold text-red-600">{formatCurrency(todayExpense)}</span>
               </div>
             </div>
+
+            {/* Printer settings */}
+            <PrinterSettings />
 
             {/* Drawer button */}
             <Button 
@@ -515,8 +551,8 @@ export function TreasuryPosView() {
             ))}
           </div>
 
-          {/* Products grid */}
-          <ScrollArea className="flex-1">
+          {/* Products grid - with proper scrolling */}
+          <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 280px)" }}>
             {productsLoading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
@@ -580,7 +616,7 @@ export function TreasuryPosView() {
                 })}
               </div>
             )}
-          </ScrollArea>
+          </div>
         </div>
 
         {/* Cart section */}

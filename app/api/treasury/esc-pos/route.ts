@@ -54,7 +54,24 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
     }
 
-    // Send to printer (simulated - en production, connecter via TCP socket)
+    // In demo mode, return success with instructions
+    // For production: Use WebUSB API on client-side or network printer connection
+    if (printerIp === 'demo') {
+      console.log('[Treasury] Demo mode - ESC/POS Commands:', commands.length)
+      return NextResponse.json({
+        success: true,
+        action,
+        commandsSent: commands.length,
+        mode: 'demo',
+        message: action === 'open_drawer' 
+          ? 'Mode demo: Tiroir caisse non connecte. Pour connecter une imprimante thermique avec tiroir, configurez PRINTER_IP dans les variables d\'environnement.'
+          : 'Mode demo: Imprimante non connectee. Utilisez window.print() pour imprimer ou configurez une imprimante thermique.',
+      })
+    }
+
+    // For real printer connection via TCP (requires server-side TCP socket)
+    // This would need a separate microservice or native app to handle raw TCP
+    console.log('[Treasury] Sending to printer:', printerIp, ':', printerPort)
     console.log('[Treasury] ESC/POS Commands:', commands.length)
     
     return NextResponse.json({
@@ -62,6 +79,7 @@ export async function POST(request: Request) {
       action,
       commandsSent: commands.length,
       printerIp,
+      mode: 'network',
     })
   } catch (error) {
     console.error('[Treasury] ESC/POS Error:', error)

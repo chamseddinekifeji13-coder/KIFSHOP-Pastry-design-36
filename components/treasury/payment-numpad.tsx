@@ -53,17 +53,18 @@ export function PaymentNumpad({ amount, onChange, onSubmit, disabled }: PaymentN
         {numpadButtons.map((row, idx) => (
           <div key={idx} className="contents">
             {row.map((btn) => (
-              <button
+              <Button
                 key={btn}
                 onClick={() => {
                   if (btn === "C") handleClear()
                   else if (btn === ".") handleDecimal()
                   else handleDigit(btn)
                 }}
-                className="h-14 bg-white border-2 border-amber-200 rounded-lg font-bold text-lg text-amber-900 hover:bg-amber-50 active:bg-amber-100 transition-colors"
+                variant="outline"
+                className="h-14 border-2 border-amber-200 font-bold text-lg text-amber-900 hover:bg-amber-50"
               >
                 {btn}
-              </button>
+              </Button>
             ))}
           </div>
         ))}

@@ -1,12 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Monitor, Tablet } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/components/ui/sidebar"
 import { TreasuryPosView } from "./treasury-pos-view"
 import { TreasuryDesktopView } from "./treasury-desktop-view"
 
 export function TreasuryView() {
+  const { setOpen, setOpenMobile } = useSidebar()
+  
   // Default to POS mode for cash register usage
   const [viewMode, setViewMode] = useState<"pos" | "desktop">(() => {
     if (typeof window !== "undefined") {
@@ -16,10 +19,23 @@ export function TreasuryView() {
     return "pos" // Default to POS mode
   })
 
+  // Auto-hide sidebar in POS mode for tablet/touchscreen optimization
+  useEffect(() => {
+    if (viewMode === "pos") {
+      setOpen(false)
+      setOpenMobile(false)
+    }
+  }, [viewMode, setOpen, setOpenMobile])
+
   const toggleViewMode = () => {
     const newMode = viewMode === "pos" ? "desktop" : "pos"
     setViewMode(newMode)
     localStorage.setItem("treasury-view-mode", newMode)
+    
+    // Re-open sidebar when switching to desktop mode
+    if (newMode === "desktop") {
+      setOpen(true)
+    }
   }
 
   // POS mode: no floating button, it's now inside the POS header
