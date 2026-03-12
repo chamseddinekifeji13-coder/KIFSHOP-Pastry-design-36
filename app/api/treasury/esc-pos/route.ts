@@ -4,7 +4,7 @@ import * as net from 'net'
 
 // ESC/POS Commands for cash drawer
 const ESC_COMMANDS = {
-  // Open drawer: ESC p [ [ m Tn
+  // Open drawer: ESC p m t1 t2
   OPEN_DRAWER: Buffer.from([0x1b, 0x70, 0x00, 0x32, 0x00]),
   
   // Print mode
@@ -18,18 +18,160 @@ const ESC_COMMANDS = {
   
   // Left align
   LEFT: Buffer.from([0x1b, 0x61, 0x00]),
+  
+  // Bold on/off
+  BOLD_ON: Buffer.from([0x1b, 0x45, 0x01]),
+  BOLD_OFF: Buffer.from([0x1b, 0x45, 0x00]),
+  
+  // Paper cut
+  CUT: Buffer.from([0x1d, 0x56, 0x01]),
 }
 
 function generateTestPrint(): Buffer {
-  let receipt = ESC_COMMANDS.RESET
-  receipt = Buffer.concat([receipt, ESC_COMMANDS.CENTER])
-  receipt = Buffer.concat([receipt, Buffer.from('KIFSHOP Pastry\n')])
-  receipt = Buffer.concat([receipt, Buffer.from('Test Imprimante\n')])
-  receipt = Buffer.concat([receipt, Buffer.from('================================\n')])
-  receipt = Buffer.concat([receipt, Buffer.from(new Date().toLocaleString('fr-TN') + '\n')])
-  receipt = Buffer.concat([receipt, Buffer.from('================================\n')])
-  receipt = Buffer.concat([receipt, Buffer.from('\nImprimante OK!\n')])
-  return receipt
+  const parts: Buffer[] = []
+  parts.push(ESC_COMMANDS.RESET)
+  parts.push(ESC_COMMANDS.CENTER)
+  parts.push(Buffer.from('================================\n'))
+  parts.push(ESC_COMMANDS.BOLD_ON)
+  parts.push(Buffer.from('KIFSHOP PASTRY\n'))
+  parts.push(ESC_COMMANDS.BOLD_OFF)
+  parts.push(Buffer.from('Test Imprimante\n'))
+  parts.push(Buffer.from('================================\n'))
+  parts.push(ESC_COMMANDS.LEFT)
+  parts.push(Buffer.from('Date: ' + new Date().toLocaleString('fr-TN') + '\n'))
+  parts.push(Buffer.from('--------------------------------\n'))
+  parts.push(Buffer.from('\n'))
+  parts.push(ESC_COMMANDS.CENTER)
+  parts.push(Buffer.from('Imprimante configuree avec succes!\n'))
+  parts.push(Buffer.from('\n\n\n'))
+  parts.push(ESC_COMMANDS.CUT)
+  
+  return Buffer.concat(parts)
+}
+
+function generateReceipt(data: {
+  items: Array<{ name: string; qty: number; price: number }>
+  total: number
+  cashierName: string
+  paymentMethod?: string
+  amountPaid?: number
+  change?: number
+}): Buffer {
+  const parts: Buffer[] = []
+  parts.push(ESC_COMMANDS.RESET)
+  
+  // Header
+  parts.push(ESC_COMMANDS.CENTER)
+  parts.push(Buffer.from('================================\n'))
+  parts.push(ESC_COMMANDS.BOLD_ON)
+  parts.push(Buffer.from('KIFSHOP PASTRY\n'))
+  parts.push(ESC_COMMANDS.BOLD_OFF)
+  parts.push(Buffer.from('================================\n'))
+  
+  // Info
+  parts.push(ESC_COMMANDS.LEFT)
+  parts.push(Buffer.from('Date: ' + new Date().toLocaleString('fr-TN') + '\n'))
+  parts.push(Buffer.from('Caissier: ' + data.cashierName + '\n'))
+  parts.push(Buffer.from('--------------------------------\n'))
+  
+  // Items
+  for (const item of data.items) {
+    const itemTotal = (item.qty * item.price).toFixed(3)
+    const line = `${item.qty}x ${item.name.substring(0, 20).padEnd(20)} ${itemTotal}\n`
+    parts.push(Buffer.from(line))
+  }
+  
+  parts.push(Buffer.from('--------------------------------\n'))
+  
+  // Total
+  parts.push(ESC_COMMANDS.BOLD_ON)
+  parts.push(Buffer.from('TOTAL: ' + data.total.toFixed(3) + ' TND\n'))
+  parts.push(ESC_COMMANDS.BOLD_OFF)
+  
+  // Payment info
+  if (data.paymentMethod) {
+    parts.push(Buffer.from('Paiement: ' + data.paymentMethod + '\n'))
+  }
+  if (data.amountPaid) {
+    parts.push(Buffer.from('Recu: ' + data.amountPaid.toFixed(3) + ' TND\n'))
+  }
+  if (data.change && data.change > 0) {
+    parts.push(Buffer.from('Monnaie: ' + data.change.toFixed(3) + ' TND\n'))
+  }
+  
+  parts.push(Buffer.from('================================\n'))
+  parts.push(ESC_COMMANDS.CENTER)
+  parts.push(Buffer.from('Merci de votre visite!\n'))
+  parts.push(Buffer.from('\n\n\n'))
+  parts.push(ESC_COMMANDS.CUT)
+  
+  return Buffer.concat(parts)
+}
+
+function generateZReport(closure: {
+  closure_date: string
+  transactions_count: number
+  collections_count: number
+  opening_balance: number
+  total_sales: number
+  total_collections: number
+  total_cash_income: number
+  total_card_income: number
+  total_expenses: number
+  expected_closing: number
+  actual_closing: number
+  difference_reason?: string
+}, managerName: string): Buffer {
+  const parts: Buffer[] = []
+  parts.push(ESC_COMMANDS.RESET)
+  
+  // Header
+  parts.push(ESC_COMMANDS.CENTER)
+  parts.push(Buffer.from('================================\n'))
+  parts.push(ESC_COMMANDS.BOLD_ON)
+  parts.push(Buffer.from('RAPPORT DE CAISSE (Z)\n'))
+  parts.push(ESC_COMMANDS.BOLD_OFF)
+  parts.push(Buffer.from('================================\n'))
+  
+  // Info
+  parts.push(ESC_COMMANDS.LEFT)
+  parts.push(Buffer.from('Date: ' + closure.closure_date + '\n'))
+  parts.push(Buffer.from('Responsable: ' + managerName + '\n'))
+  parts.push(Buffer.from('Transactions: ' + closure.transactions_count + '\n'))
+  parts.push(Buffer.from('Encaissements: ' + closure.collections_count + '\n'))
+  parts.push(Buffer.from('--------------------------------\n'))
+  
+  // Financial summary
+  parts.push(ESC_COMMANDS.BOLD_ON)
+  parts.push(Buffer.from('RESUME FINANCIER\n'))
+  parts.push(ESC_COMMANDS.BOLD_OFF)
+  parts.push(Buffer.from('Ouverture:  ' + closure.opening_balance.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('Ventes:     ' + closure.total_sales.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('Encaiss.:   ' + closure.total_collections.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('Especes:    ' + closure.total_cash_income.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('Carte:      ' + closure.total_card_income.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('Depenses:   ' + closure.total_expenses.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('--------------------------------\n'))
+  
+  // Balance
+  parts.push(ESC_COMMANDS.BOLD_ON)
+  parts.push(Buffer.from('Attendu: ' + closure.expected_closing.toFixed(3) + ' TND\n'))
+  parts.push(Buffer.from('Reel:    ' + closure.actual_closing.toFixed(3) + ' TND\n'))
+  parts.push(ESC_COMMANDS.BOLD_OFF)
+  
+  const diff = closure.actual_closing - closure.expected_closing
+  const status = Math.abs(diff) < 0.01 ? 'EQUILIBRE' : 'DIFFERENCE: ' + diff.toFixed(3)
+  parts.push(Buffer.from('Statut: ' + status + '\n'))
+  
+  if (closure.difference_reason) {
+    parts.push(Buffer.from('Motif: ' + closure.difference_reason + '\n'))
+  }
+  
+  parts.push(Buffer.from('================================\n'))
+  parts.push(Buffer.from('\n\n\n'))
+  parts.push(ESC_COMMANDS.CUT)
+  
+  return Buffer.concat(parts)
 }
 
 export async function POST(request: NextRequest) {
@@ -40,77 +182,88 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { action, printerIp, printerPort = 9100 } = body
+    const { action, printerIp, printerPort = 9100, items, total, cashierName, paymentMethod, amountPaid, change, closure, managerName } = body
 
-    // Network printer via TCP socket
-    if (printerIp && printerIp !== 'demo') {
-      return new Promise((resolve) => {
-        const socket = net.createConnection(
-          {
-            host: printerIp,
-            port: parseInt(printerPort.toString()),
-            timeout: 5000
-          },
-          () => {
-            try {
-              if (action === 'test_print') {
-                socket.write(generateTestPrint())
-              } else if (action === 'open_drawer') {
-                socket.write(ESC_COMMANDS.OPEN_DRAWER)
-              }
-              
-              setTimeout(() => {
-                socket.destroy()
-                resolve(NextResponse.json({
-                  success: true,
-                  action,
-                  mode: 'network',
-                  printerIp,
-                  printerPort
-                }))
-              }, 500)
-            } catch (error) {
-              socket.destroy()
-              resolve(NextResponse.json(
-                { success: false, error: 'Erreur envoi données' },
-                { status: 500 }
-              ))
-            }
-          }
-        )
-
-        socket.on('error', () => {
-          resolve(NextResponse.json(
-            { success: false, error: `Impossible de connecter a ${printerIp}:${printerPort}. Vérifiez l'adresse IP et le port.` },
-            { status: 500 }
-          ))
-        })
-
-        socket.on('timeout', () => {
-          socket.destroy()
-          resolve(NextResponse.json(
-            { success: false, error: `Timeout connexion a ${printerIp}:${printerPort}` },
-            { status: 500 }
-          ))
-        })
-      })
-    }
-
-    // Demo/WebUSB fallback
-    if (action === 'open_drawer') {
+    // Demo mode - no real printer
+    if (!printerIp || printerIp === 'demo') {
       return NextResponse.json({
         success: true,
         action,
         mode: 'demo',
-        message: 'Mode démo: Configurez l\'adresse IP de votre imprimante réseau pour ouvrir le tiroir.'
+        message: action === 'open_drawer' 
+          ? 'Mode demo: Configurez l\'adresse IP de votre imprimante reseau pour ouvrir le tiroir.'
+          : 'Mode demo: Configurez l\'adresse IP de votre imprimante reseau pour imprimer.'
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      action,
-      mode: 'demo',
-      message: 'WebUSB mode - Utilisez le navigateur pour connecter l\'imprimante USB'
+    // Network printer via TCP socket
+    return new Promise((resolve) => {
+      const socket = net.createConnection(
+        {
+          host: printerIp,
+          port: parseInt(printerPort.toString()),
+          timeout: 5000
+        },
+        () => {
+          try {
+            let dataToSend: Buffer
+            
+            switch (action) {
+              case 'test_print':
+                dataToSend = generateTestPrint()
+                break
+              case 'open_drawer':
+                dataToSend = ESC_COMMANDS.OPEN_DRAWER
+                break
+              case 'print_receipt':
+                dataToSend = generateReceipt({ items, total, cashierName, paymentMethod, amountPaid, change })
+                break
+              case 'print_z_report':
+                dataToSend = generateZReport(closure, managerName)
+                break
+              default:
+                socket.destroy()
+                resolve(NextResponse.json({ error: 'Action inconnue' }, { status: 400 }))
+                return
+            }
+            
+            socket.write(dataToSend)
+            
+            setTimeout(() => {
+              socket.destroy()
+              resolve(NextResponse.json({
+                success: true,
+                action,
+                mode: 'network',
+                printerIp,
+                printerPort
+              }))
+            }, 500)
+          } catch (error) {
+            socket.destroy()
+            resolve(NextResponse.json(
+              { success: false, error: 'Erreur envoi donnees' },
+              { status: 500 }
+            ))
+          }
+        }
+      )
+
+      socket.on('error', (err) => {
+        console.error('[Treasury] Socket error:', err.message)
+        resolve(NextResponse.json(
+          { success: false, error: `Impossible de connecter a ${printerIp}:${printerPort}. Verifiez l'adresse IP et le port.` },
+          { status: 500 }
+        ))
+      })
+
+      socket.on('timeout', () => {
+        socket.destroy()
+        resolve(NextResponse.json(
+          { success: false, error: `Timeout connexion a ${printerIp}:${printerPort}` },
+          { status: 500 }
+        ))
+      })
     })
   } catch (error) {
     console.error('[Treasury] ESC/POS Error:', error)
@@ -119,124 +272,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-        break
-
-      default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
-    }
-
-    // In demo mode, return success with instructions
-    // For production: Use WebUSB API on client-side or network printer connection
-    if (printerIp === 'demo') {
-      console.log('[Treasury] Demo mode - ESC/POS Commands:', commands.length)
-      return NextResponse.json({
-        success: true,
-        action,
-        commandsSent: commands.length,
-        mode: 'demo',
-        message: action === 'open_drawer' 
-          ? 'Mode demo: Tiroir caisse non connecte. Pour connecter une imprimante thermique avec tiroir, configurez PRINTER_IP dans les variables d\'environnement.'
-          : 'Mode demo: Imprimante non connectee. Utilisez window.print() pour imprimer ou configurez une imprimante thermique.',
-      })
-    }
-
-    // For real printer connection via TCP (requires server-side TCP socket)
-    // This would need a separate microservice or native app to handle raw TCP
-    console.log('[Treasury] Sending to printer:', printerIp, ':', printerPort)
-    console.log('[Treasury] ESC/POS Commands:', commands.length)
-    
-    return NextResponse.json({
-      success: true,
-      action,
-      commandsSent: commands.length,
-      printerIp,
-      mode: 'network',
-    })
-  } catch (error) {
-    console.error('[Treasury] ESC/POS Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to send command to printer' },
-      { status: 500 }
-    )
-  }
-}
-
-function buildReceipt(items: any[], total: number, cashierName: string): Buffer[] {
-  const commands: Buffer[] = [ESC_COMMANDS.RESET]
-
-  // Header
-  commands.push(ESC_COMMANDS.CENTER)
-  commands.push(Buffer.from('KIFSHOP PASTRY\n'))
-  commands.push(Buffer.from('BON DE COMMANDE\n'))
-  commands.push(Buffer.from(`Caissier: ${cashierName}\n`))
-  commands.push(Buffer.from(`${new Date().toLocaleString('fr-FR')}\n`))
-
-  // Separator
-  commands.push(Buffer.from('─'.repeat(40) + '\n'))
-
-  // Items
-  commands.push(ESC_COMMANDS.LEFT)
-  for (const item of items) {
-    const line = `${item.name.padEnd(25)} ${item.qty}x ${item.price.toFixed(3)}\n`
-    commands.push(Buffer.from(line))
-  }
-
-  // Separator
-  commands.push(Buffer.from('─'.repeat(40) + '\n'))
-
-  // Total
-  commands.push(ESC_COMMANDS.CENTER)
-  commands.push(Buffer.from(`TOTAL: ${total.toFixed(3)} TND\n`))
-
-  // Line feed
-  commands.push(ESC_COMMANDS.LF)
-  commands.push(ESC_COMMANDS.LF)
-
-  return commands
-}
-
-function buildZReport(closure: any, managerName: string): Buffer[] {
-  const commands: Buffer[] = [ESC_COMMANDS.RESET]
-
-  // Header
-  commands.push(ESC_COMMANDS.CENTER)
-  commands.push(Buffer.from('RAPPORT DE CAISSE (Z)\n'))
-  commands.push(Buffer.from('─'.repeat(40) + '\n'))
-
-  // Report data
-  commands.push(ESC_COMMANDS.LEFT)
-  commands.push(Buffer.from(`Date: ${closure.closure_date}\n`))
-  commands.push(Buffer.from(`Responsable: ${managerName}\n`))
-  commands.push(Buffer.from(`Transactions: ${closure.transactions_count}\n`))
-  commands.push(Buffer.from(`Encaissements: ${closure.collections_count}\n\n`))
-
-  // Financial summary
-  commands.push(Buffer.from('RÉSUMÉ FINANCIER\n'))
-  commands.push(Buffer.from(`Solde d'ouverture:  ${closure.opening_balance.toFixed(3)} TND\n`))
-  commands.push(Buffer.from(`Ventes:            ${closure.total_sales.toFixed(3)} TND\n`))
-  commands.push(Buffer.from(`Encaissements:     ${closure.total_collections.toFixed(3)} TND\n`))
-  commands.push(Buffer.from(`Paiements Espèces: ${closure.total_cash_income.toFixed(3)} TND\n`))
-  commands.push(Buffer.from(`Paiements Carte:   ${closure.total_card_income.toFixed(3)} TND\n`))
-  commands.push(Buffer.from(`Dépenses:          ${closure.total_expenses.toFixed(3)} TND\n\n`))
-
-  // Balance
-  commands.push(Buffer.from('─'.repeat(40) + '\n'))
-  commands.push(ESC_COMMANDS.CENTER)
-  commands.push(Buffer.from(`Solde attendu: ${closure.expected_closing.toFixed(3)} TND\n`))
-  commands.push(Buffer.from(`Solde réel:    ${closure.actual_closing.toFixed(3)} TND\n`))
-  
-  const diff = closure.actual_closing - closure.expected_closing
-  const status = Math.abs(diff) < 0.01 ? 'ÉQUILIBRE' : 'DIFFÉRENCE'
-  commands.push(Buffer.from(`Statut: ${status}\n`))
-  
-  if (closure.difference_reason) {
-    commands.push(Buffer.from(`Motif: ${closure.difference_reason}\n`))
-  }
-
-  // Line feed
-  commands.push(ESC_COMMANDS.LF)
-  commands.push(ESC_COMMANDS.LF)
-
-  return commands
 }
