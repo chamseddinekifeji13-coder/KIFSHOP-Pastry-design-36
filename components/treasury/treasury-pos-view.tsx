@@ -392,18 +392,18 @@ export function TreasuryPosView() {
             </div>
 
             {/* Mode Bureau button - in header left, far from payment buttons */}
-            <button
+            <Button
               onClick={() => {
                 localStorage.setItem("treasury-view-mode", "desktop")
                 window.location.reload()
               }}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-all"
+              variant="outline"
+              size="sm"
+              className="gap-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-              </svg>
-              Mode Bureau
-            </button>
+              <Settings className="h-4 w-4" />
+              <span>Mode Bureau</span>
+            </Button>
           </div>
 
           {/* Center: Modern Clock */}
