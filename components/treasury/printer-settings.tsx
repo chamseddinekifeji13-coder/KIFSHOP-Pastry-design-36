@@ -145,23 +145,6 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
       setIsTesting(false)
     }
   }
-      
-      await printer.initialize()
-      await printer.printLarge("TEST KIFSHOP")
-      await printer.printCentered("--------------------")
-      await printer.printText("Imprimante configuree!")
-      await printer.printText(`Date: ${new Date().toLocaleString("fr-TN")}`)
-      await printer.printCentered("--------------------")
-      await printer.printCentered("Test reussi!")
-      await printer.cutPaper()
-      
-      toast.success("Test d'impression reussi!")
-    } catch (error: any) {
-      toast.error(error.message || "Erreur d'impression")
-    } finally {
-      setIsTesting(false)
-    }
-  }
 
   const handleTestDrawer = async () => {
     try {
