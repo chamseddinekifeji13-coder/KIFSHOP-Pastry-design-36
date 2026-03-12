@@ -55,8 +55,8 @@ export async function POST(request: Request) {
       tenant_id: session.tenantId,
       client_id: clientId,
       customer_name: clientName || null,
-      customer_phone: phone,
       customer_address: address || null,
+      customer_phone: phone,
       total: finalTotal,
       shipping_cost: shippingCost || 0,
       status: "nouveau",
@@ -66,10 +66,10 @@ export async function POST(request: Request) {
       source: source || "phone",
       delivery_date: deliveryDate || null,
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-      confirmed_by: session.activeProfileId,
+      confirmed_by: session.id, // Use session.id instead of activeProfileId
       confirmed_by_name: session.displayName,
       truecaller_verified: truecallerVerified || false,
-      created_by: session.activeProfileId,
+      created_by: session.id, // Use session.id for foreign key reference
     }
 
     // Add offer fields if they exist in the table
