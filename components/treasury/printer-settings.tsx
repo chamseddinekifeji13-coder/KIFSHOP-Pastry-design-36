@@ -122,6 +122,11 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
   }
 
   const handleTestNetworkPrinter = async () => {
+    if (!printerIp) {
+      toast.error("Veuillez entrer l'adresse IP de l'imprimante")
+      return
+    }
+    
     setIsTesting(true)
     try {
       const response = await fetch("/api/treasury/esc-pos", {
@@ -134,15 +139,54 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
         })
       })
       
-      if (!response.ok) {
-        throw new Error("Erreur connexion imprimante reseau")
+      const data = await response.json()
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Erreur connexion imprimante reseau")
       }
       
-      toast.success("Ticket de test envoye a l'imprimante!")
+      if (data.mode === "demo") {
+        toast.info(data.message)
+      } else {
+        toast.success("Ticket de test envoye a l'imprimante!")
+      }
     } catch (error: any) {
       toast.error(error.message || "Erreur test imprimante reseau")
     } finally {
       setIsTesting(false)
+    }
+  }
+  
+  const handleOpenNetworkDrawer = async () => {
+    if (!printerIp) {
+      toast.error("Veuillez entrer l'adresse IP de l'imprimante")
+      return
+    }
+    
+    try {
+      const response = await fetch("/api/treasury/esc-pos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "open_drawer",
+          printerIp,
+          printerPort: parseInt(printerPort)
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Erreur ouverture tiroir")
+      }
+      
+      if (data.mode === "demo") {
+        toast.info(data.message)
+      } else {
+        toast.success("Tiroir-caisse ouvert!")
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Erreur ouverture tiroir reseau")
     }
   }
 
@@ -388,7 +432,7 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                   </Button>
                   <Button 
                     variant="outline" 
-                    onClick={() => toast.info("Utilisez le bouton Tiroir de la caisse")}
+                    onClick={handleOpenNetworkDrawer}
                     className="gap-2"
                   >
                     <DoorOpen className="h-4 w-4" />
