@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         amount: total,
         description: `Vente POS: ${itemsDescription}`,
         payment_method: paymentMethod === "card" ? "card" : "cash",
-        created_by: session.id,
+        created_by: session.activeProfileId,
         created_by_name: session.displayName,
         is_collection: true,
         notes: `Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
@@ -57,10 +57,10 @@ export async function POST(request: Request) {
       transaction 
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("POS sale error:", error)
     return NextResponse.json({ 
-      error: "Erreur serveur" 
+      error: error.message || "Erreur serveur" 
     }, { status: 500 })
   }
 }

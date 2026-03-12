@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Fetch all transactions for the period with cashier info
     const { data: transactions, error } = await supabase

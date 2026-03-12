@@ -22,6 +22,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
 import { useTenant } from "@/lib/tenant-context"
 import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
 import { cn } from "@/lib/utils"
@@ -141,7 +142,8 @@ const generateReceiptHTML = (data: {
 export function TreasuryPosView() {
   const { currentTenant, currentUser } = useTenant()
   const { data: products, isLoading: productsLoading, mutate: refreshProducts } = useFinishedProducts()
-  const { data: transactions } = useTransactions()
+  const { data: transactions, mutate: refreshTransactions } = useTransactions()
+  const { mutate: globalMutate } = useSWRConfig()
 
   // State
   const [cart, setCart] = useState<CartItem[]>([])
@@ -418,23 +420,33 @@ export function TreasuryPosView() {
       // Print receipt
       printReceipt(transactionData)
 
+      // Invalider le cache SWR pour rafraichir les donnees du dashboard
+      await refreshTransactions()
+      // Invalider tous les caches lies au tenant pour le dashboard
+      globalMutate(
+        (key) => typeof key === "string" && key.includes(currentTenant?.id || ""),
+        undefined,
+        { revalidate: true }
+      )
+
       // Clear and close
       toast.success(`Paiement de ${formatCurrency(total)} TND enregistre`)
       clearCart()
       setCashReceived("")
       setShowPaymentDialog(false)
 
-    } catch (error) {
-      toast.error("Erreur lors du paiement")
+    } catch (error: any) {
+      console.error("[v0] Payment error:", error)
+      toast.error(error.message || "Erreur lors du paiement")
     } finally {
       setIsProcessing(false)
     }
   }
 
   // Today's stats
+  const today = new Date().toLocaleDateString("fr-CA") // YYYY-MM-DD format
   const todayTransactions = (transactions || []).filter((t: any) => {
-    const today = new Date().toDateString()
-    return new Date(t.date).toDateString() === today
+    return t.createdAt?.startsWith(today)
   })
   
   const todayIncome = todayTransactions
