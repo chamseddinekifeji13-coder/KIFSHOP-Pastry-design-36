@@ -1,3 +1,5 @@
+"use client"
+
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { Card } from '@/components/ui/card'
@@ -14,7 +16,7 @@ export function CashierPerformanceView() {
 
   const { data: cashierStats } = useSWR(
     `/api/treasury/cashier-stats?startDate=${startDate}&endDate=${endDate}`,
-    fetch
+    (url: string) => fetch(url).then(res => res.json())
   )
 
   const stats = useMemo(() => {

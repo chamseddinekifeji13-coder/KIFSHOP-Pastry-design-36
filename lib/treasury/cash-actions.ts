@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { getServerSession } from '@/lib/auth/session'
+import { getServerSession } from '@/lib/active-profile'
 
 // ─── Cash Session Management ──────────────────────────────────
 
