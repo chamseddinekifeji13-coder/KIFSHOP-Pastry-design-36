@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package } from "lucide-react"
+import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package, Image as ImageIcon, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -56,6 +56,10 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const [initialQty, setInitialQty] = useState("")
   const [description, setDescription] = useState("")
   const [saving, setSaving] = useState(false)
+  const [imageUrl, setImageUrl] = useState("")
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState("")
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const [hasRecipe, setHasRecipe] = useState(true)
   const [yieldQty, setYieldQty] = useState("1")
@@ -148,6 +152,9 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setPrice("")
     setInitialQty("")
     setDescription("")
+    setImageUrl("")
+    setImageFile(null)
+    setImagePreview("")
     setHasRecipe(true)
     setYieldQty("1")
     setYieldUnit("")
@@ -157,6 +164,61 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setPackagingLines([])
     setSelectedPackaging("")
     setPackagingQty("1")
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Sélectionnez une image valide")
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("L'image ne doit pas dépasser 5 Mo")
+      return
+    }
+
+    setImageFile(file)
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const uploadImage = async () => {
+    if (!imageFile) return
+
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", imageFile)
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "Erreur lors de l'upload")
+      }
+
+      const data = await res.json()
+      setImageUrl(data.url)
+      toast.success("Image uploadée avec succès")
+    } catch (err) {
+      console.error("Upload error:", err)
+      toast.error("Erreur lors de l'upload de l'image")
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   function validateNumber(value: string, defaultValue: number = 0): number {
@@ -199,6 +261,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
         currentStock: initialQty ? validateNumber(initialQty) : 0,
         minStock: 0,
         description: description.trim() || undefined,
+        imageUrl: imageUrl || undefined,
       })
 
       if (hasRecipe && product) {
@@ -322,6 +385,67 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                 <Label htmlFor="description" className="text-xs font-medium">Description (optionnel)</Label>
                 <Textarea id="description" placeholder="Décrivez le produit..." value={description} onChange={(e) => setDescription(e.target.value)}
                   rows={2} className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">Photo du produit (optionnel)</Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label htmlFor="image-upload" className="flex items-center justify-center w-full p-3 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition">
+                      <div className="flex flex-col items-center gap-1">
+                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">{imagePreview ? "Changer l'image" : "Sélectionner une image"}</span>
+                      </div>
+                    </label>
+                  </div>
+                  {imagePreview && (
+                    <div className="relative w-20 h-20">
+                      <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+                      <button
+                        onClick={() => {
+                          setImageFile(null)
+                          setImagePreview("")
+                        }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {imagePreview && !imageUrl && (
+                  <Button
+                    type="button"
+                    onClick={uploadImage}
+                    disabled={uploadingImage}
+                    size="sm"
+                    className="w-full"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Envoi en cours...
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        Envoyer l'image
+                      </>
+                    )}
+                  </Button>
+                )}
+                {imageUrl && (
+                  <div className="text-xs text-green-600 flex items-center gap-1">
+                    <Plus className="h-3 w-3" />
+                    Image uploadée avec succès
+                  </div>
+                )}
               </div>
             </div>
           </div>
