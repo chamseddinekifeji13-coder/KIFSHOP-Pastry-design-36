@@ -22,7 +22,12 @@ function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T
   return useSWR(
     !tenantLoading && !isFallback ? `${key}-${tenantId}` : null,
     () => fetcher(tenantId),
-    { revalidateOnFocus: false, dedupingInterval: 5000 }
+    { 
+      revalidateOnFocus: false, 
+      dedupingInterval: 10000,
+      revalidateOnReconnect: false,
+      keepPreviousData: true,  // Garde les donnees pendant la revalidation
+    }
   )
 }
 

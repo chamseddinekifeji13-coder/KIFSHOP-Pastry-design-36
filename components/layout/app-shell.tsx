@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { SWRConfig } from "swr"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { TenantProvider, useTenant } from "@/lib/tenant-context"
@@ -12,6 +13,15 @@ import { SubscriptionBanner } from "./subscription-banner"
 import { SuspensionOverlay } from "./suspension-overlay"
 import { LockScreen } from "@/components/lock-screen"
 import { ChangePinDialog } from "@/components/change-pin-dialog"
+
+// Configuration SWR globale pour optimiser le cache
+const swrConfig = {
+  revalidateOnFocus: false,
+  revalidateOnReconnect: false,
+  dedupingInterval: 10000,
+  keepPreviousData: true,
+  errorRetryCount: 2,
+}
 
 interface AppShellProps {
   children: React.ReactNode
@@ -134,10 +144,12 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <I18nProvider>
-      <TenantProvider>
-        <AppShellContent>{children}</AppShellContent>
-      </TenantProvider>
-    </I18nProvider>
+    <SWRConfig value={swrConfig}>
+      <I18nProvider>
+        <TenantProvider>
+          <AppShellContent>{children}</AppShellContent>
+        </TenantProvider>
+      </I18nProvider>
+    </SWRConfig>
   )
 }
