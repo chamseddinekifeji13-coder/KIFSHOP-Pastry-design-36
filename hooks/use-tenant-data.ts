@@ -14,7 +14,16 @@ import { fetchSalesChannels } from "@/lib/channels/actions"
 import { fetchClients, fetchAllOrders as fetchClientOrders, fetchAgentStats } from "@/lib/clients/actions"
 import { fetchDeliveryShipments } from "@/lib/delivery/actions"
 
-function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T>) {
+// Configuration SWR par defaut pour les donnees du tenant
+const DEFAULT_SWR_CONFIG = {
+  revalidateOnFocus: true,         // Rafraichit quand on revient sur l'onglet
+  revalidateOnReconnect: true,     // Rafraichit apres reconnexion internet
+  dedupingInterval: 2000,          // Reduit a 2 secondes pour plus de reactivite
+  keepPreviousData: true,          // Garde les donnees pendant la revalidation
+  refreshInterval: 30000,          // Rafraichit automatiquement toutes les 30 secondes
+}
+
+function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T>, options?: Partial<typeof DEFAULT_SWR_CONFIG>) {
   const { currentTenant, isLoading: tenantLoading } = useTenant()
   const tenantId = currentTenant.id
   const isFallback = tenantId === "__fallback__"
@@ -22,12 +31,7 @@ function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T
   return useSWR(
     !tenantLoading && !isFallback ? `${key}-${tenantId}` : null,
     () => fetcher(tenantId),
-    { 
-      revalidateOnFocus: false, 
-      dedupingInterval: 10000,
-      revalidateOnReconnect: false,
-      keepPreviousData: true,  // Garde les donnees pendant la revalidation
-    }
+    { ...DEFAULT_SWR_CONFIG, ...options }
   )
 }
 
@@ -62,7 +66,7 @@ export function useStockMovements(limit = 50) {
   return useSWR(
     !tenantLoading && !isFallback ? `stock-movements-${tenantId}` : null,
     () => fetchStockMovements(tenantId, limit),
-    { revalidateOnFocus: false, dedupingInterval: 5000 }
+    { ...DEFAULT_SWR_CONFIG, refreshInterval: 15000 }  // Rafraichit toutes les 15s
   )
 }
 
@@ -106,7 +110,7 @@ export function useNotifications(role?: string) {
   return useSWR(
     !tenantLoading && !isFallback ? `notifications-${tenantId}-${targetRole}` : null,
     () => fetchNotifications(tenantId, targetRole),
-    { revalidateOnFocus: true, refreshInterval: 30000, dedupingInterval: 5000 }
+    { ...DEFAULT_SWR_CONFIG, refreshInterval: 15000 }  // Rafraichit toutes les 15s
   )
 }
 
@@ -150,7 +154,7 @@ export function useAgentStats() {
   return useSWR(
     !tenantLoading && !isFallback ? `agent-stats-${tenantId}` : null,
     () => fetchAgentStats(tenantId),
-    { revalidateOnFocus: true, refreshInterval: 30000, dedupingInterval: 5000 }
+    { ...DEFAULT_SWR_CONFIG, refreshInterval: 20000 }  // Rafraichit toutes les 20s
   )
 }
 
@@ -161,7 +165,7 @@ export function useDueReminders() {
   return useSWR(
     !tenantLoading && !isFallback ? `due-reminders-${tenantId}` : null,
     () => fetchDueReminders(tenantId),
-    { revalidateOnFocus: true, refreshInterval: 60000, dedupingInterval: 10000 }
+    { ...DEFAULT_SWR_CONFIG, refreshInterval: 60000 }  // Rafraichit toutes les 60s
   )
 }
 
