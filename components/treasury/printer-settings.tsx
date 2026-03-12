@@ -1,9 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Printer, Usb, CheckCircle, XCircle, Settings, RefreshCw, DoorOpen } from "lucide-react"
+import { Printer, Usb, CheckCircle, XCircle, Settings, RefreshCw, DoorOpen, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -23,10 +26,25 @@ interface PrinterSettingsProps {
 export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
   const [isSupported, setIsSupported] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
+  const [printerMode, setPrinterMode] = useState<"usb" | "network">("usb")
   const [deviceInfo, setDeviceInfo] = useState<{ name: string; vendorId: number; productId: number } | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  
+  // Network printer settings
+  const [printerIp, setPrinterIp] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("printer-ip") || ""
+    }
+    return ""
+  })
+  const [printerPort, setPrinterPort] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("printer-port") || "9100"
+    }
+    return "9100"
+  })
 
   useEffect(() => {
     // Check WebUSB support
@@ -78,19 +96,51 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
       if (!printer.isConnected()) {
         throw new Error("Imprimante non connectee")
       }
-      
-      await printer.initialize()
-      await printer.printLarge("TEST KIFSHOP")
-      await printer.printCentered("--------------------")
-      await printer.printText("Imprimante configuree!")
-      await printer.printText(`Date: ${new Date().toLocaleString("fr-TN")}`)
-      await printer.printCentered("--------------------")
-      await printer.printCentered("Test reussi!")
-      await printer.cutPaper()
-      
-      toast.success("Test d'impression reussi!")
+
+      await printer.testPrint()
+      toast.success("Ticket de test imprime!")
     } catch (error: any) {
-      toast.error(error.message || "Erreur d'impression")
+      toast.error(error.message || "Erreur impression test")
+    } finally {
+      setIsTesting(false)
+    }
+  }
+
+  const handleSaveNetworkSettings = async () => {
+    if (!printerIp) {
+      toast.error("Veuillez entrer l'adresse IP de l'imprimante")
+      return
+    }
+    
+    localStorage.setItem("printer-ip", printerIp)
+    localStorage.setItem("printer-port", printerPort)
+    setPrinterMode("network")
+    setIsConnected(true)
+    onPrinterConnected?.(true)
+    toast.success("Imprimante reseau configuree!")
+    setDialogOpen(false)
+  }
+
+  const handleTestNetworkPrinter = async () => {
+    setIsTesting(true)
+    try {
+      const response = await fetch("/api/treasury/esc-pos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test_print",
+          printerIp,
+          printerPort: parseInt(printerPort)
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error("Erreur connexion imprimante reseau")
+      }
+      
+      toast.success("Ticket de test envoye a l'imprimante!")
+    } catch (error: any) {
+      toast.error(error.message || "Erreur test imprimante reseau")
     } finally {
       setIsTesting(false)
     }
@@ -152,92 +202,226 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Connection Status */}
-          <Card className={isConnected ? "border-emerald-200 bg-emerald-50" : "border-slate-200"}>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${isConnected ? "bg-emerald-100" : "bg-slate-100"}`}>
-                    {isConnected ? (
-                      <CheckCircle className="h-5 w-5 text-emerald-600" />
+          {/* Tabs for USB vs Network */}
+          <Tabs value={printerMode} onValueChange={(v) => setPrinterMode(v as "usb" | "network")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="usb" className="gap-2">
+                <Usb className="h-4 w-4" />
+                USB
+              </TabsTrigger>
+              <TabsTrigger value="network" className="gap-2">
+                <Wifi className="h-4 w-4" />
+                Reseau
+              </TabsTrigger>
+            </TabsList>
+
+            {/* USB Mode Tab */}
+            <TabsContent value="usb" className="space-y-4">
+              {/* Connection Status */}
+              <Card className={isConnected && printerMode === "usb" ? "border-emerald-200 bg-emerald-50" : "border-slate-200"}>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${isConnected && printerMode === "usb" ? "bg-emerald-100" : "bg-slate-100"}`}>
+                        {isConnected && printerMode === "usb" ? (
+                          <CheckCircle className="h-5 w-5 text-emerald-600" />
+                        ) : (
+                          <Usb className="h-5 w-5 text-slate-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {isConnected && printerMode === "usb" ? deviceInfo?.name || "Imprimante USB" : "Non connectee"}
+                        </p>
+                        {isConnected && printerMode === "usb" && deviceInfo && (
+                          <p className="text-xs text-muted-foreground">
+                            VID: {deviceInfo.vendorId.toString(16).toUpperCase()} | PID: {deviceInfo.productId.toString(16).toUpperCase()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {isConnected && printerMode === "usb" ? (
+                      <Button variant="outline" size="sm" onClick={handleDisconnect}>
+                        Deconnecter
+                      </Button>
                     ) : (
-                      <Usb className="h-5 w-5 text-slate-400" />
+                      <Button 
+                        size="sm" 
+                        onClick={handleConnect}
+                        disabled={isConnecting}
+                        className="gap-2"
+                      >
+                        {isConnecting ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Usb className="h-4 w-4" />
+                        )}
+                        Connecter
+                      </Button>
                     )}
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">
-                      {isConnected ? deviceInfo?.name || "Imprimante USB" : "Non connectee"}
-                    </p>
-                    {isConnected && deviceInfo && (
-                      <p className="text-xs text-muted-foreground">
-                        VID: {deviceInfo.vendorId.toString(16).toUpperCase()} | PID: {deviceInfo.productId.toString(16).toUpperCase()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                
-                {isConnected ? (
-                  <Button variant="outline" size="sm" onClick={handleDisconnect}>
-                    Deconnecter
-                  </Button>
-                ) : (
+                </CardContent>
+              </Card>
+
+              {/* Test Buttons USB */}
+              {isConnected && printerMode === "usb" && (
+                <div className="grid grid-cols-2 gap-3">
                   <Button 
-                    size="sm" 
-                    onClick={handleConnect}
-                    disabled={isConnecting}
+                    variant="outline" 
+                    onClick={handleTestPrint}
+                    disabled={isTesting}
                     className="gap-2"
                   >
-                    {isConnecting ? (
+                    {isTesting ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Usb className="h-4 w-4" />
+                      <Printer className="h-4 w-4" />
                     )}
-                    Connecter
+                    Test impression
                   </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleTestDrawer}
+                    className="gap-2"
+                  >
+                    <DoorOpen className="h-4 w-4" />
+                    Ouvrir tiroir
+                  </Button>
+                </div>
+              )}
 
-          {/* Test Buttons */}
-          {isConnected && (
-            <div className="grid grid-cols-2 gap-3">
-              <Button 
-                variant="outline" 
-                onClick={handleTestPrint}
-                disabled={isTesting}
-                className="gap-2"
-              >
-                {isTesting ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Printer className="h-4 w-4" />
-                )}
-                Test impression
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleTestDrawer}
-                className="gap-2"
-              >
-                <DoorOpen className="h-4 w-4" />
-                Ouvrir tiroir
-              </Button>
-            </div>
-          )}
+              {/* USB Instructions */}
+              <Card className="bg-blue-50 border-blue-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm text-blue-800 mb-2">Instructions USB:</h4>
+                  <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>Connectez l'imprimante USB a votre caisse</li>
+                    <li>Cliquez sur "Connecter" ci-dessus</li>
+                    <li>Selectionnez l'imprimante dans la liste</li>
+                    <li>Testez l'impression et le tiroir</li>
+                  </ol>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          {/* Instructions */}
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="pt-4">
-              <h4 className="font-medium text-sm text-blue-800 mb-2">Instructions:</h4>
-              <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                <li>Connectez l'imprimante USB a votre caisse</li>
-                <li>Cliquez sur "Connecter" ci-dessus</li>
-                <li>Selectionnez l'imprimante dans la liste</li>
-                <li>Testez l'impression et le tiroir</li>
-              </ol>
-            </CardContent>
-          </Card>
+            {/* Network Mode Tab */}
+            <TabsContent value="network" className="space-y-4">
+              {/* Network Connection Status */}
+              <Card className={isConnected && printerMode === "network" ? "border-emerald-200 bg-emerald-50" : "border-slate-200"}>
+                <CardContent className="pt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${isConnected && printerMode === "network" ? "bg-emerald-100" : "bg-slate-100"}`}>
+                        {isConnected && printerMode === "network" ? (
+                          <CheckCircle className="h-5 w-5 text-emerald-600" />
+                        ) : (
+                          <Wifi className="h-5 w-5 text-slate-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {isConnected && printerMode === "network" ? `${printerIp}:${printerPort}` : "Non configuree"}
+                        </p>
+                        {isConnected && printerMode === "network" && (
+                          <p className="text-xs text-muted-foreground">
+                            Imprimante reseau
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Network Configuration */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Configuration reseau</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <Label htmlFor="printer-ip" className="text-xs">Adresse IP imprimante</Label>
+                    <Input
+                      id="printer-ip"
+                      placeholder="192.168.1.100"
+                      value={printerIp}
+                      onChange={(e) => setPrinterIp(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="printer-port" className="text-xs">Port (par defaut: 9100)</Label>
+                    <Input
+                      id="printer-port"
+                      placeholder="9100"
+                      value={printerPort}
+                      onChange={(e) => setPrinterPort(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleSaveNetworkSettings}
+                    className="w-full gap-2"
+                  >
+                    <Wifi className="h-4 w-4" />
+                    Sauvegarder et Connecter
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Test Buttons Network */}
+              {isConnected && printerMode === "network" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleTestNetworkPrinter}
+                    disabled={isTesting}
+                    className="gap-2"
+                  >
+                    {isTesting ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Printer className="h-4 w-4" />
+                    )}
+                    Test impression
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => toast.info("Utilisez le bouton Tiroir de la caisse")}
+                    className="gap-2"
+                  >
+                    <DoorOpen className="h-4 w-4" />
+                    Ouvrir tiroir
+                  </Button>
+                </div>
+              )}
+
+              {/* Network Instructions */}
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm text-amber-800 mb-2">Configuration reseau:</h4>
+                  <ol className="text-xs text-amber-700 space-y-1 list-decimal list-inside">
+                    <li>Trouvez l'adresse IP de votre imprimante POS80</li>
+                    <li>Entrez l'IP et le port (normalement 9100)</li>
+                    <li>Cliquez "Sauvegarder et Connecter"</li>
+                    <li>Testez l'impression</li>
+                  </ol>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-green-50 border-green-200">
+                <CardContent className="pt-4">
+                  <h4 className="font-medium text-sm text-green-800 mb-2">Comment trouver l'IP de l'imprimante POS80?</h4>
+                  <ul className="text-xs text-green-700 space-y-1 list-disc list-inside">
+                    <li>Imprimez un ticket de statut depuis le menu de l'imprimante</li>
+                    <li>L'IP s'affiche en bas du ticket</li>
+                    <li>Ou vérifiez dans le manuel/configuration reseau du caisse</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </DialogContent>
     </Dialog>

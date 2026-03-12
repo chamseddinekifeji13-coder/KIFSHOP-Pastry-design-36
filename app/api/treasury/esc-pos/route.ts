@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from '@/lib/active-profile'
+import * as net from 'net'
 
 // ESC/POS Commands for cash drawer
 const ESC_COMMANDS = {
@@ -19,7 +20,19 @@ const ESC_COMMANDS = {
   LEFT: Buffer.from([0x1b, 0x61, 0x00]),
 }
 
-export async function POST(request: Request) {
+function generateTestPrint(): Buffer {
+  let receipt = ESC_COMMANDS.RESET
+  receipt = Buffer.concat([receipt, ESC_COMMANDS.CENTER])
+  receipt = Buffer.concat([receipt, Buffer.from('KIFSHOP Pastry\n')])
+  receipt = Buffer.concat([receipt, Buffer.from('Test Imprimante\n')])
+  receipt = Buffer.concat([receipt, Buffer.from('================================\n')])
+  receipt = Buffer.concat([receipt, Buffer.from(new Date().toLocaleString('fr-TN') + '\n')])
+  receipt = Buffer.concat([receipt, Buffer.from('================================\n')])
+  receipt = Buffer.concat([receipt, Buffer.from('\nImprimante OK!\n')])
+  return receipt
+}
+
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession()
     if (!session) {
@@ -27,27 +40,86 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { action, config } = body
+    const { action, printerIp, printerPort = 9100 } = body
 
-    // Get printer configuration (optional - works in demo mode without printer)
-    const printerIp = config?.printerIp || process.env.PRINTER_IP || 'demo'
-    const printerPort = config?.printerPort || 9100
+    // Network printer via TCP socket
+    if (printerIp && printerIp !== 'demo') {
+      return new Promise((resolve) => {
+        const socket = net.createConnection(
+          {
+            host: printerIp,
+            port: parseInt(printerPort.toString()),
+            timeout: 5000
+          },
+          () => {
+            try {
+              if (action === 'test_print') {
+                socket.write(generateTestPrint())
+              } else if (action === 'open_drawer') {
+                socket.write(ESC_COMMANDS.OPEN_DRAWER)
+              }
+              
+              setTimeout(() => {
+                socket.destroy()
+                resolve(NextResponse.json({
+                  success: true,
+                  action,
+                  mode: 'network',
+                  printerIp,
+                  printerPort
+                }))
+              }, 500)
+            } catch (error) {
+              socket.destroy()
+              resolve(NextResponse.json(
+                { success: false, error: 'Erreur envoi données' },
+                { status: 500 }
+              ))
+            }
+          }
+        )
 
-    let commands: Buffer[] = []
+        socket.on('error', () => {
+          resolve(NextResponse.json(
+            { success: false, error: `Impossible de connecter a ${printerIp}:${printerPort}. Vérifiez l'adresse IP et le port.` },
+            { status: 500 }
+          ))
+        })
 
-    switch (action) {
-      case 'open_drawer':
-        commands = [ESC_COMMANDS.OPEN_DRAWER]
-        break
+        socket.on('timeout', () => {
+          socket.destroy()
+          resolve(NextResponse.json(
+            { success: false, error: `Timeout connexion a ${printerIp}:${printerPort}` },
+            { status: 500 }
+          ))
+        })
+      })
+    }
 
-      case 'print_receipt':
-        const { items, total } = body
-        commands = buildReceipt(items, total, session.displayName)
-        break
+    // Demo/WebUSB fallback
+    if (action === 'open_drawer') {
+      return NextResponse.json({
+        success: true,
+        action,
+        mode: 'demo',
+        message: 'Mode démo: Configurez l\'adresse IP de votre imprimante réseau pour ouvrir le tiroir.'
+      })
+    }
 
-      case 'print_z_report':
-        const { closure } = body
-        commands = buildZReport(closure, session.displayName)
+    return NextResponse.json({
+      success: true,
+      action,
+      mode: 'demo',
+      message: 'WebUSB mode - Utilisez le navigateur pour connecter l\'imprimante USB'
+    })
+  } catch (error) {
+    console.error('[Treasury] ESC/POS Error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Erreur serveur' },
+      { status: 500 }
+    )
+  }
+}
         break
 
       default:
