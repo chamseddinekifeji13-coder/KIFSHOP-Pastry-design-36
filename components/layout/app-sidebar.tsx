@@ -19,6 +19,7 @@ import {
   Users,
   BarChart3,
   Megaphone,
+  CreditCard,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -48,6 +49,7 @@ const navigation = [
     fallback: "General",
     items: [
       { titleKey: "nav.dashboard", fallback: "Tableau de bord", href: "/dashboard", icon: LayoutDashboard },
+      { titleKey: "nav.cashier", fallback: "Caisse", href: "/cashier", icon: CreditCard },
     ],
   },
   {
@@ -163,7 +165,11 @@ export function AppSidebar() {
                       isActive={pathname === item.href}
                       tooltip={item.title}
                     >
-                      <Link href={item.href} onClick={() => { if (isMobile) setOpenMobile(false) }}>
+                      <Link 
+                        href={item.href} 
+                        prefetch={true}
+                        onClick={() => { if (isMobile) setOpenMobile(false) }}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
