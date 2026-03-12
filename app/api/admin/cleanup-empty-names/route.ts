@@ -1,17 +1,19 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase/server"
+import { getServerSession, requireRole } from "@/lib/active-profile"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // ✅ Verify authentication and admin role
+    const session = await requireRole("owner", "gerant")
 
-    // Clean raw_materials - get IDs first, then delete (chercher null, "", ou "-")
+    const supabase = await createClient()
+
+    // ✅ Clean raw_materials with tenant isolation
     const { data: emptyRaw } = await supabase
       .from("raw_materials")
       .select("id")
+      .eq("tenant_id", session.tenantId)
       .or('name.is.null,name.eq."",name.eq."-"')
     
     let deletedRawCount = 0
@@ -24,10 +26,11 @@ export async function POST(request: NextRequest) {
       deletedRawCount = emptyRaw.length
     }
 
-    // Clean finished_products (chercher null, "", ou "-")
+    // ✅ Clean finished_products with tenant isolation
     const { data: emptyFinished } = await supabase
       .from("finished_products")
       .select("id")
+      .eq("tenant_id", session.tenantId)
       .or('name.is.null,name.eq."",name.eq."-"')
     
     let deletedFinishedCount = 0
@@ -40,10 +43,11 @@ export async function POST(request: NextRequest) {
       deletedFinishedCount = emptyFinished.length
     }
 
-    // Clean packaging (chercher null, "", ou "-")
+    // ✅ Clean packaging with tenant isolation
     const { data: emptyPackaging } = await supabase
       .from("packaging")
       .select("id")
+      .eq("tenant_id", session.tenantId)
       .or('name.is.null,name.eq."",name.eq."-"')
     
     let deletedPackagingCount = 0
