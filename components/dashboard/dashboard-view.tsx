@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
+import { useSWRConfig } from "swr"
 import { KPICards } from "./kpi-cards"
 import { RevenueChart } from "./revenue-chart"
 import { AlertsPanel } from "./alerts-panel"
@@ -9,15 +10,34 @@ import { BestDeliveryReport } from "./best-delivery-report"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LayoutDashboard, Truck } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { LayoutDashboard, Truck, RefreshCw } from "lucide-react"
 
 export function DashboardView() {
   const { t } = useI18n()
-  const { currentRole } = useTenant()
+  const { currentTenant, currentRole } = useTenant()
+  const { mutate } = useSWRConfig()
   const [activeTab, setActiveTab] = useState("overview")
+  const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Only owner and gerant can access Best Delivery
   const canAccessDelivery = currentRole === "owner" || currentRole === "gerant"
+  
+  // Rafraichir toutes les donnees du dashboard
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    const tenantId = currentTenant.id
+    
+    // Invalider tous les caches lies au tenant
+    await mutate(
+      (key) => typeof key === "string" && key.includes(tenantId),
+      undefined,
+      { revalidate: true }
+    )
+    
+    // Petit delai pour montrer le feedback visuel
+    setTimeout(() => setIsRefreshing(false), 500)
+  }, [currentTenant.id, mutate])
 
   // Contenu réutilisable extrait pour éviter la duplication
   const OverviewContent = () => (
@@ -42,6 +62,16 @@ export function DashboardView() {
             {t("dashboard.subtitle")}
           </p>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Actualisation..." : "Actualiser"}
+        </Button>
       </div>
 
       {canAccessDelivery ? (
