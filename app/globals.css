@@ -153,3 +153,65 @@
 .animate-bar-grow {
   animation: bar-grow 0.6s ease-out both;
 }
+
+/* POS Touch-Friendly Styles */
+.touch-target {
+  min-height: 56px;
+  min-width: 56px;
+}
+
+.touch-target-lg {
+  min-height: 72px;
+  min-width: 72px;
+}
+
+.touch-target-xl {
+  min-height: 96px;
+  min-width: 96px;
+}
+
+/* POS Grid Layout */
+.pos-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.pos-grid-lg {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+/* POS Button States */
+.pos-btn {
+  @apply relative overflow-hidden transition-all duration-150;
+  @apply active:scale-95 active:brightness-90;
+  @apply focus:ring-4 focus:ring-primary/30;
+}
+
+.pos-btn:active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.1);
+}
+
+/* Numpad styles */
+.numpad-btn {
+  @apply text-2xl font-bold rounded-xl border-2 transition-all;
+  @apply active:scale-95 active:bg-muted;
+  @apply hover:bg-muted/50;
+  min-height: 64px;
+}
+
+/* Cash drawer animation */
+@keyframes drawer-open {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+  100% { transform: translateY(0); }
+}
+
+.animate-drawer-open {
+  animation: drawer-open 0.3s ease-out;
+}

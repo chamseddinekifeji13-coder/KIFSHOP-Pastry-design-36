@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Gift, Users, User,
+  FileText, Download, Printer, Eye, Gift, Users, User, Zap,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -55,6 +55,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { exportToCSV } from "@/lib/csv-export"
+import { FastSalesView } from "./fast-sales-view"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -123,6 +124,36 @@ export function OrdersView() {
   const { currentTenant, isLoading: tenantLoading } = useTenant()
   const { t } = useI18n()
   const searchParams = useSearchParams()
+
+  // View mode: standard or fast-sales
+  const [viewMode, setViewMode] = useState<"standard" | "fast">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("orders-view-mode")
+      return saved === "fast" ? "fast" : "standard"
+    }
+    return "standard"
+  })
+
+  const toggleViewMode = () => {
+    const newMode = viewMode === "fast" ? "standard" : "fast"
+    setViewMode(newMode)
+    localStorage.setItem("orders-view-mode", newMode)
+  }
+
+  // If fast sales mode, render that view
+  if (viewMode === "fast") {
+    return (
+      <div className="relative">
+        <div className="absolute top-0 right-0 z-10">
+          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Mode Standard</span>
+          </Button>
+        </div>
+        <FastSalesView />
+      </div>
+    )
+  }
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -636,6 +667,13 @@ export function OrdersView() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={toggleViewMode}
+          >
+            <Zap className="mr-2 h-4 w-4" />
+            Mode Vente Rapide
+          </Button>
           <Button
             variant="outline"
             onClick={handleExportOrders}
