@@ -885,92 +885,98 @@ export function TreasuryPosView() {
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md bg-white">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md bg-white flex flex-col max-h-[90dvh] p-0 gap-0">
+          {/* Header fixe */}
+          <div className="px-5 pt-5 pb-3 border-b border-amber-100 shrink-0">
             <DialogTitle className="text-xl text-amber-900">
               {paymentMethod === "cash" ? "Paiement en especes" : "Paiement par carte"}
             </DialogTitle>
-            <DialogDescription className="text-amber-600">
+            <DialogDescription className="text-amber-600 mt-0.5">
               Total a payer: <span className="font-bold text-amber-900">{formatCurrency(total)} TND</span>
             </DialogDescription>
-          </DialogHeader>
+          </div>
 
-          {paymentMethod === "cash" ? (
-            <div className="space-y-4">
-              {/* Payment Numpad */}
-              <div className="bg-amber-50 rounded-xl p-4">
-                <label className="block text-sm font-medium text-amber-700 mb-3">Montant recu</label>
-                <div className="text-4xl font-bold text-amber-900 text-center mb-4 font-mono">
-                  {cashReceived || "0.000"} TND
+          {/* Contenu scrollable */}
+          <div className="flex-1 overflow-y-auto px-5 py-3">
+            {paymentMethod === "cash" ? (
+              <div className="space-y-3">
+                {/* Payment Numpad */}
+                <div className="bg-amber-50 rounded-xl p-3">
+                  <label className="block text-xs font-medium text-amber-700 mb-2">Montant recu</label>
+                  <div className="text-3xl font-bold text-amber-900 text-center mb-3 font-mono">
+                    {cashReceived || "0.000"} TND
+                  </div>
+                  <PaymentNumpad
+                    amount={cashReceived}
+                    onChange={setCashReceived}
+                    onSubmit={processPayment}
+                    disabled={isProcessing}
+                  />
                 </div>
-                <PaymentNumpad
-                  amount={cashReceived}
-                  onChange={setCashReceived}
-                  onSubmit={processPayment}
-                  disabled={isProcessing}
-                />
-              </div>
 
-              {/* Quick amounts */}
-              <div className="grid grid-cols-5 gap-2">
-                {quickAmounts.map(amount => (
-                  <Button
-                    key={amount}
-                    variant="outline"
-                    onClick={() => setCashReceived(amount.toString())}
-                    className="h-12 font-bold border-amber-300 text-amber-800 hover:bg-amber-100"
-                  >
-                    {amount}
-                  </Button>
-                ))}
-              </div>
-
-              {/* Exact amount button */}
-              <Button
-                variant="outline"
-                onClick={() => setCashReceived(total.toFixed(3))}
-                className="w-full h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
-              >
-                <Calculator className="h-4 w-4 mr-2" />
-                Exact ({formatCurrency(total)})
-              </Button>
-
-              {/* Change display */}
-              {cashReceivedNum >= total && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                  <p className="text-sm text-emerald-600 mb-1">Monnaie</p>
-                  <p className="text-3xl font-bold text-emerald-700">{formatCurrency(change)} TND</p>
+                {/* Quick amounts */}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {quickAmounts.map(amount => (
+                    <Button
+                      key={amount}
+                      variant="outline"
+                      onClick={() => setCashReceived(amount.toString())}
+                      className="h-10 font-bold border-amber-300 text-amber-800 hover:bg-amber-100 text-sm"
+                    >
+                      {amount}
+                    </Button>
+                  ))}
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="py-8 text-center">
-              <div className="bg-blue-50 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
-                <CreditCard className="h-12 w-12 text-blue-600" />
-              </div>
-              <p className="text-lg text-amber-700">Presentez la carte au terminal</p>
-              <p className="text-3xl font-bold text-amber-900 mt-2">{formatCurrency(total)} TND</p>
-            </div>
-          )}
 
-          {/* Confirm button */}
-          <Button
-            onClick={processPayment}
-            disabled={isProcessing || (paymentMethod === "cash" && cashReceivedNum < total)}
-            className="w-full h-14 text-lg font-bold bg-amber-600 hover:bg-amber-700 text-white mt-4"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Traitement...
-              </>
+                {/* Exact amount button */}
+                <Button
+                  variant="outline"
+                  onClick={() => setCashReceived(total.toFixed(3))}
+                  className="w-full h-10 border-amber-300 text-amber-800 hover:bg-amber-100"
+                >
+                  <Calculator className="h-4 w-4 mr-2" />
+                  Exact ({formatCurrency(total)})
+                </Button>
+
+                {/* Change display */}
+                {cashReceivedNum >= total && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+                    <p className="text-xs text-emerald-600 mb-0.5">Monnaie</p>
+                    <p className="text-2xl font-bold text-emerald-700">{formatCurrency(change)} TND</p>
+                  </div>
+                )}
+              </div>
             ) : (
-              <>
-                <Check className="h-5 w-5 mr-2" />
-                Valider le paiement
-              </>
+              <div className="py-6 text-center">
+                <div className="bg-blue-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                  <CreditCard className="h-10 w-10 text-blue-600" />
+                </div>
+                <p className="text-lg text-amber-700">Presentez la carte au terminal</p>
+                <p className="text-3xl font-bold text-amber-900 mt-2">{formatCurrency(total)} TND</p>
+              </div>
             )}
-          </Button>
+          </div>
+
+          {/* Bouton validation toujours visible en bas */}
+          <div className="px-5 pb-5 pt-3 border-t border-amber-100 shrink-0">
+            <Button
+              onClick={processPayment}
+              disabled={isProcessing || (paymentMethod === "cash" && cashReceivedNum < total)}
+              className="w-full h-12 text-base font-bold bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Traitement...
+                </>
+              ) : (
+                <>
+                  <Check className="h-5 w-5 mr-2" />
+                  Valider le paiement
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
