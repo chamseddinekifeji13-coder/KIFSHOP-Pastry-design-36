@@ -5,8 +5,8 @@ import {
   Printer, CreditCard, Banknote, Receipt, 
   Trash2, Plus, Minus, Search, User, Clock, ShoppingBag,
   X, Check, Loader2, Package, Unlock, RefreshCw, ArrowLeft,
-  DollarSign, TrendingUp, TrendingDown, Lock, Settings,
-  ChevronDown, FileText, Calculator
+  TrendingUp, TrendingDown, Settings, FileText, Calculator,
+  Image as ImageIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,12 +21,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
@@ -90,20 +84,16 @@ const generateReceiptHTML = (data: {
         .total-line { display: flex; justify-content: space-between; font-weight: bold; margin: 4px 0; }
         .big-total { font-size: 16px; margin: 10px 0; }
         .footer { text-align: center; margin-top: 15px; font-size: 10px; }
-        @media print {
-          body { width: 80mm; }
-        }
+        @media print { body { width: 80mm; } }
       </style>
     </head>
     <body>
       <div class="header">
         <div class="store-name">${data.storeName}</div>
         <div>${date} - ${time}</div>
-        <div>Ticket #${data.transactionId.slice(-6).toUpperCase()}</div>
+        <div>Ticket #${data.transactionId}</div>
       </div>
-      
       <div class="divider"></div>
-      
       ${data.items.map(item => `
         <div class="item">
           <span class="item-name">${item.name}</span>
@@ -111,140 +101,71 @@ const generateReceiptHTML = (data: {
           <span class="item-price">${formatCurrency(item.price * item.quantity)}</span>
         </div>
       `).join('')}
-      
       <div class="divider"></div>
-      
-      <div class="total-line">
-        <span>Sous-total</span>
-        <span>${formatCurrency(data.subtotal)} TND</span>
-      </div>
-      
       <div class="total-line big-total">
         <span>TOTAL</span>
         <span>${formatCurrency(data.total)} TND</span>
       </div>
-      
-      <div class="divider"></div>
-      
-      <div class="total-line">
-        <span>Mode de paiement</span>
-        <span>${data.paymentMethod === 'cash' ? 'Especes' : 'Carte'}</span>
-      </div>
-      
       ${data.paymentMethod === 'cash' && data.cashReceived ? `
         <div class="total-line">
-          <span>Recu</span>
+          <span>Especes recues</span>
           <span>${formatCurrency(data.cashReceived)} TND</span>
         </div>
         <div class="total-line">
           <span>Monnaie</span>
           <span>${formatCurrency(data.change || 0)} TND</span>
         </div>
-      ` : ''}
-      
+      ` : `
+        <div class="total-line">
+          <span>Paiement</span>
+          <span>Carte bancaire</span>
+        </div>
+      `}
       <div class="divider"></div>
-      
       <div class="footer">
-        <div>Caissier: ${data.cashierName}</div>
-        <div>Merci de votre visite!</div>
-        <div>A bientot</div>
+        <p>Caissier: ${data.cashierName}</p>
+        <p>Merci de votre visite!</p>
+        <p>A bientot!</p>
       </div>
-      
-      <script>window.onload = function() { window.print(); window.close(); }</script>
     </body>
     </html>
   `
 }
 
-// Print receipt function
-const printReceipt = (data: Parameters<typeof generateReceiptHTML>[0]) => {
-  const receiptWindow = window.open('', '_blank', 'width=400,height=600')
-  if (receiptWindow) {
-    receiptWindow.document.write(generateReceiptHTML(data))
-    receiptWindow.document.close()
-  } else {
-    toast.error("Impossible d'ouvrir la fenetre d'impression")
-  }
-}
-
-// Open cash drawer via ESC/POS API
-const openCashDrawer = async () => {
-  try {
-    const res = await fetch("/api/treasury/esc-pos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "open_drawer" })
-    })
-    if (res.ok) {
-      toast.success("Tiroir caisse ouvert", { duration: 2000 })
-    }
-  } catch {
-    // Fallback: just show success (for demo/testing)
-    toast.success("Commande tiroir envoyee", { duration: 2000 })
-  }
-}
-
-// Main POS Treasury View
 export function TreasuryPosView() {
   const { currentTenant, currentUser } = useTenant()
-  const { data: products, isLoading: productsLoading } = useFinishedProducts()
-  const { data: transactions, mutate: refreshTransactions } = useTransactions()
-  
+  const { data: products, isLoading: productsLoading, mutate: refreshProducts } = useFinishedProducts()
+  const { data: transactions } = useTransactions()
+
   // State
   const [cart, setCart] = useState<CartItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [currentTime, setCurrentTime] = useState("")
+  
+  // Payment state
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash")
   const [cashReceived, setCashReceived] = useState("")
-  const [processing, setProcessing] = useState(false)
-  const [currentTime, setCurrentTime] = useState("")
-  const [dailyTotal, setDailyTotal] = useState(0)
-  const [dailyExpenses, setDailyExpenses] = useState(0)
-  const [transactionCount, setTransactionCount] = useState(0)
-  const searchRef = useRef<HTMLInputElement>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Receipt state
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false)
+  const [lastTransaction, setLastTransaction] = useState<any>(null)
 
-  // Update time every second
+  // Clock
   useEffect(() => {
-    const updateTime = () => {
+    const timer = setInterval(() => {
       setCurrentTime(new Date().toLocaleTimeString("fr-TN", { 
         hour: "2-digit", 
         minute: "2-digit",
         second: "2-digit"
       }))
-    }
-    updateTime()
-    const timer = setInterval(updateTime, 1000)
+    }, 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // Calculate daily totals
-  useEffect(() => {
-    if (transactions) {
-      const today = new Date().toDateString()
-      const todayTransactions = (transactions as any[]).filter(t => 
-        new Date(t.createdAt || t.created_at).toDateString() === today
-      )
-      const income = todayTransactions
-        .filter(t => t.type === "income")
-        .reduce((sum, t) => sum + Number(t.amount), 0)
-      const expenses = todayTransactions
-        .filter(t => t.type === "expense")
-        .reduce((sum, t) => sum + Number(t.amount), 0)
-      setDailyTotal(income)
-      setDailyExpenses(expenses)
-      setTransactionCount(todayTransactions.length)
-    }
-  }, [transactions])
-
-  // Cart calculations
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const total = subtotal
-  const cashReceivedNum = parseFloat(cashReceived) || 0
-  const change = cashReceivedNum - total
-
-  // Get unique categories
-  // Get categories from products - handle both category and categoryId fields
+  // Get categories from products
   const categories = products
     ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
     : []
@@ -262,8 +183,8 @@ export function TreasuryPosView() {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id)
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
+        return prev.map(item =>
+          item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         )
@@ -276,7 +197,6 @@ export function TreasuryPosView() {
         image: product.imageUrl || product.image_url
       }]
     })
-    toast.success(`${product.name} ajoute`, { duration: 1000 })
   }, [])
 
   const updateQuantity = useCallback((id: string, delta: number) => {
@@ -295,268 +215,333 @@ export function TreasuryPosView() {
 
   const clearCart = useCallback(() => {
     setCart([])
-    setCashReceived("")
   }, [])
+
+  // Calculate totals
+  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const total = subtotal
+
+  // Calculate change
+  const cashReceivedNum = parseFloat(cashReceived) || 0
+  const change = Math.max(0, cashReceivedNum - total)
+
+  // Quick cash amounts
+  const quickAmounts = [5, 10, 20, 50, 100]
+
+  // Open cash drawer
+  const openDrawer = async () => {
+    try {
+      await fetch("/api/treasury/esc-pos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "open-drawer" })
+      })
+      toast.success("Tiroir-caisse ouvert")
+    } catch (error) {
+      toast.error("Erreur ouverture tiroir")
+    }
+  }
+
+  // Print receipt
+  const printReceipt = (transactionData?: any) => {
+    const data = transactionData || lastTransaction
+    if (!data) return
+
+    const receiptHTML = generateReceiptHTML({
+      storeName: currentTenant?.name || "KIFSHOP",
+      items: data.items || cart,
+      subtotal: data.subtotal || subtotal,
+      total: data.total || total,
+      paymentMethod: data.paymentMethod || paymentMethod,
+      cashReceived: data.cashReceived,
+      change: data.change,
+      cashierName: currentUser?.name || "Caissier",
+      transactionId: data.id || Date.now().toString().slice(-6)
+    })
+
+    const printWindow = window.open("", "_blank", "width=300,height=600")
+    if (printWindow) {
+      printWindow.document.write(receiptHTML)
+      printWindow.document.close()
+      printWindow.focus()
+      setTimeout(() => {
+        printWindow.print()
+        printWindow.close()
+      }, 250)
+    }
+  }
 
   // Process payment
   const processPayment = async () => {
-    if (cart.length === 0) return
+    if (cart.length === 0) {
+      toast.error("Le panier est vide")
+      return
+    }
+
     if (paymentMethod === "cash" && cashReceivedNum < total) {
       toast.error("Montant insuffisant")
       return
     }
-    
-    setProcessing(true)
+
+    setIsProcessing(true)
+
     try {
-      // Create transaction via API
-      const res = await fetch("/api/treasury/pos-sale", {
+      // Record the sale
+      const response = await fetch("/api/treasury/pos-sale", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: cart,
           total,
           paymentMethod,
-          cashReceived: paymentMethod === "cash" ? cashReceivedNum : total
+          cashReceived: paymentMethod === "cash" ? cashReceivedNum : undefined,
+          change: paymentMethod === "cash" ? change : undefined,
         })
       })
 
-      let transactionId = `POS-${Date.now()}`
-      if (res.ok) {
-        const data = await res.json()
-        transactionId = data.transactionId || transactionId
-      }
-      
-      // Open cash drawer for cash payments
-      if (paymentMethod === "cash") {
-        await openCashDrawer()
+      if (!response.ok) {
+        throw new Error("Erreur lors de l'enregistrement")
       }
 
-      // Print receipt
-      printReceipt({
-        storeName: currentTenant?.name || "KIFSHOP",
-        items: cart,
+      const result = await response.json()
+
+      // Save transaction for receipt
+      const transactionData = {
+        id: result.transactionId || Date.now().toString().slice(-6),
+        items: [...cart],
         subtotal,
         total,
         paymentMethod,
         cashReceived: cashReceivedNum,
-        change: change > 0 ? change : 0,
-        cashierName: currentUser?.name || "Caissier",
-        transactionId
-      })
+        change,
+      }
+      setLastTransaction(transactionData)
 
-      // Reset
+      // Open drawer for cash payments
+      if (paymentMethod === "cash") {
+        await openDrawer()
+      }
+
+      // Print receipt
+      printReceipt(transactionData)
+
+      // Clear and close
+      toast.success(`Paiement de ${formatCurrency(total)} TND enregistre`)
       clearCart()
-      setPaymentDialogOpen(false)
-      refreshTransactions()
-      toast.success("Vente enregistree avec succes!")
+      setCashReceived("")
+      setShowPaymentDialog(false)
 
     } catch (error) {
-      console.error("Payment error:", error)
       toast.error("Erreur lors du paiement")
     } finally {
-      setProcessing(false)
+      setIsProcessing(false)
     }
   }
 
-  // Numpad handler
-  const handleNumpad = (value: string) => {
-    if (value === "C") {
-      setCashReceived("")
-    } else if (value === "back") {
-      setCashReceived(prev => prev.slice(0, -1))
-    } else if (value === ".") {
-      if (!cashReceived.includes(".")) {
-        setCashReceived(prev => prev + ".")
-      }
-    } else {
-      setCashReceived(prev => prev + value)
-    }
-  }
-
-  // Quick amount buttons
-  const quickAmounts = [5, 10, 20, 50, 100]
+  // Today's stats
+  const todayTransactions = (transactions || []).filter((t: any) => {
+    const today = new Date().toDateString()
+    return new Date(t.date).toDateString() === today
+  })
+  
+  const todayIncome = todayTransactions
+    .filter((t: any) => t.type === "entree")
+    .reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
+  
+  const todayExpense = todayTransactions
+    .filter((t: any) => t.type === "sortie")
+    .reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
 
   return (
-    <div className="h-[calc(100vh-60px)] flex flex-col bg-slate-950 text-white overflow-hidden -mx-4 -mt-4 lg:-mx-6 lg:-mt-6">
-      {/* Top Bar */}
-      <div className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <User className="h-5 w-5 text-emerald-400" />
+    <div className="h-[calc(100vh-60px)] flex flex-col bg-amber-50/30">
+      {/* Header - Clean bakery theme */}
+      <div className="bg-white border-b border-amber-200 px-4 py-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          {/* Left: Store info */}
+          <div className="flex items-center gap-4">
+            <div className="bg-amber-100 p-2 rounded-xl">
+              <ShoppingBag className="h-6 w-6 text-amber-700" />
             </div>
             <div>
-              <p className="font-semibold text-sm leading-tight">{currentUser?.name || "Caissier"}</p>
-              <p className="text-xs text-slate-500">{currentTenant?.name}</p>
+              <h1 className="font-bold text-lg text-amber-900">{currentTenant?.name || "KIFSHOP"}</h1>
+              <div className="flex items-center gap-2 text-sm text-amber-700">
+                <User className="h-3.5 w-3.5" />
+                <span>{currentUser?.name || "Caissier"}</span>
+              </div>
             </div>
           </div>
-          <Separator orientation="vertical" className="h-8 bg-slate-700" />
-          <div className="flex items-center gap-2 text-slate-300">
-            <Clock className="h-4 w-4" />
-            <span className="text-base font-mono font-medium">{currentTime}</span>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          {/* Stats */}
-          <div className="hidden md:flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-[10px] uppercase text-slate-500 tracking-wider">Recettes</p>
-              <p className="text-lg font-bold text-emerald-400">+{formatCurrency(dailyTotal)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase text-slate-500 tracking-wider">Depenses</p>
-              <p className="text-lg font-bold text-red-400">-{formatCurrency(dailyExpenses)}</p>
+
+          {/* Center: Clock */}
+          <div className="bg-amber-100 px-6 py-2 rounded-xl">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-amber-700" />
+              <span className="text-2xl font-mono font-bold text-amber-900">{currentTime}</span>
             </div>
           </div>
-          
-          <Separator orientation="vertical" className="h-8 bg-slate-700 hidden md:block" />
-          
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+
+          {/* Right: Stats & Actions */}
+          <div className="flex items-center gap-3">
+            {/* Today's stats */}
+            <div className="flex items-center gap-4 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200">
+              <div className="flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4 text-emerald-600" />
+                <span className="font-bold text-emerald-700">{formatCurrency(todayIncome)}</span>
+              </div>
+              <div className="w-px h-6 bg-emerald-200" />
+              <div className="flex items-center gap-1.5">
+                <TrendingDown className="h-4 w-4 text-red-500" />
+                <span className="font-bold text-red-600">{formatCurrency(todayExpense)}</span>
+              </div>
+            </div>
+
+            {/* Drawer button */}
             <Button 
-              variant="ghost" 
-              size="sm"
-              className="text-slate-400 hover:text-white hover:bg-slate-800 h-9"
-              onClick={() => openCashDrawer()}
+              variant="outline"
+              onClick={openDrawer}
+              className="h-11 px-4 border-amber-300 hover:bg-amber-100 text-amber-800"
             >
-              <Unlock className="h-4 w-4 mr-1.5" />
-              <span className="hidden sm:inline">Tiroir</span>
+              <Unlock className="h-4 w-4 mr-2" />
+              Tiroir
             </Button>
+
+            {/* Refresh */}
             <Button 
-              variant="ghost" 
-              size="sm"
-              className="text-slate-400 hover:text-white hover:bg-slate-800 h-9"
-              onClick={() => refreshTransactions()}
+              variant="outline"
+              onClick={() => refreshProducts()}
+              className="h-11 w-11 p-0 border-amber-300 hover:bg-amber-100 text-amber-800"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-800 h-9">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
-                <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
-                  <Lock className="h-4 w-4 mr-2" /> Cloture de caisse
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
-                  <FileText className="h-4 w-4 mr-2" /> Rapport Z
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
       </div>
 
+      {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel - Products */}
-        <div className="flex-1 flex flex-col bg-slate-900/50">
-          {/* Search & Categories */}
-          <div className="p-3 space-y-2 border-b border-slate-800/50">
+        {/* Products section */}
+        <div className="flex-1 flex flex-col p-4 overflow-hidden">
+          {/* Search */}
+          <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
               <Input
-                ref={searchRef}
                 placeholder="Rechercher un produit..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-11 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                className="pl-12 h-14 text-lg bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400 rounded-xl"
               />
-            </div>
-            
-            {/* Category pills */}
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <Button
-                size="sm"
-                onClick={() => setSelectedCategory(null)}
-                className={cn(
-                  "shrink-0 h-8 px-3 text-xs font-medium rounded-full",
-                  selectedCategory === null 
-                    ? "bg-emerald-500 text-white hover:bg-emerald-600" 
-                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                )}
-              >
-                Tous
-              </Button>
-              {categories.map((cat: string) => (
-                <Button
-                  key={cat}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={cn(
-                    "shrink-0 h-8 px-3 text-xs font-medium rounded-full",
-                    selectedCategory === cat 
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600" 
-                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                  )}
-                >
-                  {cat}
-                </Button>
-              ))}
             </div>
           </div>
 
-          {/* Products Grid */}
+          {/* Categories */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            <Button
+              variant={selectedCategory === null ? "default" : "outline"}
+              onClick={() => setSelectedCategory(null)}
+              className={cn(
+                "h-11 px-5 rounded-full font-medium transition-all",
+                selectedCategory === null 
+                  ? "bg-amber-600 hover:bg-amber-700 text-white" 
+                  : "border-amber-300 text-amber-800 hover:bg-amber-100"
+              )}
+            >
+              Tous
+            </Button>
+            {categories.map(cat => (
+              <Button
+                key={cat}
+                variant={selectedCategory === cat ? "default" : "outline"}
+                onClick={() => setSelectedCategory(cat)}
+                className={cn(
+                  "h-11 px-5 rounded-full font-medium transition-all",
+                  selectedCategory === cat 
+                    ? "bg-amber-600 hover:bg-amber-700 text-white" 
+                    : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                )}
+              >
+                {cat}
+              </Button>
+            ))}
+          </div>
+
+          {/* Products grid */}
           <ScrollArea className="flex-1">
-            <div className="p-3">
-              {productsLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
-                </div>
-              ) : filteredProducts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-                  <Package className="h-12 w-12 mb-3 opacity-50" />
-                  <p>Aucun produit trouve</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                  {filteredProducts.map((product: any) => (
+            {productsLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-amber-600">
+                <Package className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-lg">Aucun produit trouve</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {filteredProducts.map((product: any) => {
+                  const productPrice = product.sellingPrice || product.selling_price || 0
+                  const productImage = product.imageUrl || product.image_url
+                  const inCart = cart.find(item => item.id === product.id)
+                  
+                  return (
                     <button
                       key={product.id}
                       onClick={() => addToCart(product)}
-                      className="group relative bg-slate-800/80 hover:bg-slate-700 rounded-lg p-2.5 text-left transition-all active:scale-[0.97] border border-slate-700/50 hover:border-emerald-500/50"
+                      className={cn(
+                        "group relative bg-white rounded-2xl p-3 text-left transition-all duration-200",
+                        "border-2 hover:shadow-lg active:scale-[0.98]",
+                        inCart 
+                          ? "border-amber-500 shadow-md ring-2 ring-amber-200" 
+                          : "border-amber-100 hover:border-amber-300"
+                      )}
                     >
-          {product.imageUrl || product.image_url ? (
-            <img
-              src={product.imageUrl || product.image_url}
-              alt={product.name}
-              className="w-full h-32 object-cover rounded-lg"
-            />
-          ) : (
-            <div className="w-full h-32 bg-slate-700 rounded-lg flex items-center justify-center">
-              <Package className="h-12 w-12 text-slate-600" />
-            </div>
-          )}
-          <p className="text-emerald-400 font-bold text-sm">{formatCurrency(product.sellingPrice || product.selling_price || 0)}</p>
-                      
-                      {/* Quick add indicator */}
-                      <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                          <Plus className="h-4 w-4 text-white" />
+                      {/* Quantity badge */}
+                      {inCart && (
+                        <div className="absolute -top-2 -right-2 bg-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                          {inCart.quantity}
                         </div>
+                      )}
+
+                      {/* Product image */}
+                      <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-amber-50">
+                        {productImage ? (
+                          <img
+                            src={productImage}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-amber-300">
+                            <ImageIcon className="h-10 w-10 mb-1" />
+                            <span className="text-xs">Pas d'image</span>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Product info */}
+                      <h3 className="font-semibold text-sm text-amber-900 line-clamp-2 min-h-[2.5rem]">
+                        {product.name}
+                      </h3>
+                      <p className="text-amber-700 font-bold text-base mt-1">
+                        {formatCurrency(productPrice)} <span className="text-xs font-normal">TND</span>
+                      </p>
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </ScrollArea>
         </div>
 
-        {/* Right Panel - Cart & Payment */}
-        <div className="w-[320px] lg:w-[360px] flex flex-col bg-slate-950 border-l border-slate-800">
-          {/* Cart Header */}
-          <div className="p-3 border-b border-slate-800">
+        {/* Cart section */}
+        <div className="w-[380px] bg-white border-l border-amber-200 flex flex-col">
+          {/* Cart header */}
+          <div className="p-4 border-b border-amber-100 bg-amber-50/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-emerald-400" />
-                <h2 className="font-bold">Panier</h2>
+                <ShoppingBag className="h-5 w-5 text-amber-700" />
+                <h2 className="font-bold text-lg text-amber-900">Panier</h2>
                 {cart.length > 0 && (
-                  <Badge className="bg-emerald-500 text-white text-xs px-1.5">
-                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
-                  </Badge>
+                  <Badge className="bg-amber-600 text-white">{cart.length}</Badge>
                 )}
               </div>
               {cart.length > 0 && (
@@ -564,7 +549,7 @@ export function TreasuryPosView() {
                   variant="ghost"
                   size="sm"
                   onClick={clearCart}
-                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 px-2"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Vider
@@ -573,57 +558,74 @@ export function TreasuryPosView() {
             </div>
           </div>
 
-          {/* Cart Items */}
-          <ScrollArea className="flex-1 px-3">
+          {/* Cart items */}
+          <ScrollArea className="flex-1 p-4">
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-500 py-12">
-                <ShoppingBag className="h-12 w-12 mb-3 opacity-30" />
-                <p className="text-sm">Panier vide</p>
+              <div className="flex flex-col items-center justify-center h-48 text-amber-400">
+                <ShoppingBag className="h-16 w-16 mb-3 opacity-50" />
+                <p>Panier vide</p>
+                <p className="text-sm mt-1">Cliquez sur un produit pour l'ajouter</p>
               </div>
             ) : (
-              <div className="space-y-2 py-3">
-                {cart.map((item) => (
-                  <div 
+              <div className="space-y-3">
+                {cart.map(item => (
+                  <div
                     key={item.id}
-                    className="bg-slate-900/80 rounded-lg p-2.5 border border-slate-800"
+                    className="bg-amber-50/50 rounded-xl p-3 border border-amber-100"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3">
+                      {/* Image */}
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-white flex-shrink-0">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-amber-300">
+                            <Package className="h-6 w-6" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-white truncate">{item.name}</p>
-                        <p className="text-xs text-slate-500">{formatCurrency(item.price)} x {item.quantity}</p>
+                        <h4 className="font-medium text-amber-900 text-sm line-clamp-1">{item.name}</h4>
+                        <p className="text-amber-600 text-sm">{formatCurrency(item.price)} TND</p>
+                        
+                        {/* Quantity controls */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg border-amber-300"
+                            onClick={() => updateQuantity(item.id, -1)}
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </Button>
+                          <span className="w-8 text-center font-bold text-amber-900">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg border-amber-300"
+                            onClick={() => updateQuantity(item.id, 1)}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-slate-600 hover:text-red-400 shrink-0"
-                        onClick={() => removeFromCart(item.id)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center gap-1">
+
+                      {/* Price & Delete */}
+                      <div className="flex flex-col items-end gap-2">
                         <Button
-                          variant="outline"
+                          variant="ghost"
                           size="icon"
-                          className="h-7 w-7 border-slate-700 text-slate-300 hover:bg-slate-800"
-                          onClick={() => updateQuantity(item.id, -1)}
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => removeFromCart(item.id)}
                         >
-                          <Minus className="h-3 w-3" />
+                          <X className="h-4 w-4" />
                         </Button>
-                        <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7 border-slate-700 text-slate-300 hover:bg-slate-800"
-                          onClick={() => updateQuantity(item.id, 1)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
+                        <span className="font-bold text-amber-900">
+                          {formatCurrency(item.price * item.quantity)}
+                        </span>
                       </div>
-                      <p className="font-bold text-emerald-400">
-                        {formatCurrency(item.price * item.quantity)}
-                      </p>
                     </div>
                   </div>
                 ))}
@@ -631,78 +633,65 @@ export function TreasuryPosView() {
             )}
           </ScrollArea>
 
-          {/* Cart Footer */}
-          <div className="border-t border-slate-800 p-3 space-y-3 bg-slate-900/50">
-            {/* Total */}
-            <div className="bg-slate-800 rounded-lg p-3">
-              <div className="flex justify-between text-slate-400 text-sm mb-1">
+          {/* Cart footer */}
+          <div className="border-t border-amber-200 p-4 bg-amber-50/30">
+            {/* Totals */}
+            <div className="space-y-2 mb-4">
+              <div className="flex justify-between text-amber-700">
                 <span>Sous-total</span>
                 <span>{formatCurrency(subtotal)} TND</span>
               </div>
-              <div className="flex justify-between text-xl font-bold">
+              <Separator className="bg-amber-200" />
+              <div className="flex justify-between text-xl font-bold text-amber-900">
                 <span>TOTAL</span>
-                <span className="text-emerald-400">{formatCurrency(total)} TND</span>
+                <span>{formatCurrency(total)} TND</span>
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Action buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <Button
                 variant="outline"
-                className="h-12 border-slate-700 text-slate-300 hover:bg-slate-800 flex-col gap-0.5"
-                onClick={() => {
-                  if (cart.length > 0) {
-                    printReceipt({
-                      storeName: currentTenant?.name || "KIFSHOP",
-                      items: cart,
-                      subtotal,
-                      total,
-                      paymentMethod: "preview",
-                      cashierName: currentUser?.name || "Caissier",
-                      transactionId: `PREV-${Date.now()}`
-                    })
-                  }
-                }}
-                disabled={cart.length === 0}
+                className="h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={() => lastTransaction && setShowReceiptPreview(true)}
+                disabled={!lastTransaction}
               >
-                <Receipt className="h-4 w-4" />
-                <span className="text-[10px]">Apercu</span>
+                <Receipt className="h-4 w-4 mr-2" />
+                Ticket
               </Button>
               <Button
                 variant="outline"
-                className="h-12 border-slate-700 text-slate-300 hover:bg-slate-800 flex-col gap-0.5"
-                onClick={() => openCashDrawer()}
+                className="h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={openDrawer}
               >
-                <Unlock className="h-4 w-4" />
-                <span className="text-[10px]">Tiroir</span>
+                <Unlock className="h-4 w-4 mr-2" />
+                Tiroir
               </Button>
             </div>
 
-            {/* Payment Buttons */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Payment buttons */}
+            <div className="grid grid-cols-2 gap-3">
               <Button
-                className="h-14 bg-emerald-600 hover:bg-emerald-700 text-white flex-col gap-0.5"
                 onClick={() => {
                   setPaymentMethod("cash")
-                  setCashReceived("")
-                  setPaymentDialogOpen(true)
+                  setShowPaymentDialog(true)
                 }}
                 disabled={cart.length === 0}
+                className="h-14 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                <Banknote className="h-5 w-5" />
-                <span className="text-xs font-bold">ESPECES</span>
+                <Banknote className="h-5 w-5 mr-2" />
+                ESPECES
               </Button>
               <Button
-                className="h-14 bg-blue-600 hover:bg-blue-700 text-white flex-col gap-0.5"
                 onClick={() => {
                   setPaymentMethod("card")
-                  setCashReceived(total.toFixed(3))
-                  setPaymentDialogOpen(true)
+                  setShowPaymentDialog(true)
                 }}
                 disabled={cart.length === 0}
+                className="h-14 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white"
               >
-                <CreditCard className="h-5 w-5" />
-                <span className="text-xs font-bold">CARTE</span>
+                <CreditCard className="h-5 w-5 mr-2" />
+                CARTE
               </Button>
             </div>
           </div>
@@ -710,104 +699,129 @@ export function TreasuryPosView() {
       </div>
 
       {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[420px] bg-slate-900 border-slate-800 text-white p-0 overflow-hidden">
-          <div className={cn(
-            "p-4",
-            paymentMethod === "cash" ? "bg-emerald-600" : "bg-blue-600"
-          )}>
-            <DialogTitle className="flex items-center gap-2 text-white text-lg">
-              {paymentMethod === "cash" ? (
-                <><Banknote className="h-5 w-5" /> Paiement Especes</>
-              ) : (
-                <><CreditCard className="h-5 w-5" /> Paiement Carte</>
-              )}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-amber-900">
+              {paymentMethod === "cash" ? "Paiement en especes" : "Paiement par carte"}
             </DialogTitle>
-          </div>
+            <DialogDescription className="text-amber-600">
+              Total a payer: <span className="font-bold text-amber-900">{formatCurrency(total)} TND</span>
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="p-4 space-y-4">
-            {/* Total */}
-            <div className="bg-slate-800 rounded-xl p-4 text-center">
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Total a payer</p>
-              <p className="text-3xl font-bold text-white">{formatCurrency(total)} TND</p>
+          {paymentMethod === "cash" ? (
+            <div className="space-y-4">
+              {/* Cash received input */}
+              <div>
+                <label className="block text-sm font-medium text-amber-700 mb-2">
+                  Montant recu
+                </label>
+                <Input
+                  type="number"
+                  step="0.001"
+                  value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value)}
+                  className="h-14 text-2xl font-bold text-center border-amber-300 focus:border-amber-500 focus:ring-amber-500"
+                  placeholder="0.000"
+                  autoFocus
+                />
+              </div>
+
+              {/* Quick amounts */}
+              <div className="grid grid-cols-5 gap-2">
+                {quickAmounts.map(amount => (
+                  <Button
+                    key={amount}
+                    variant="outline"
+                    onClick={() => setCashReceived(amount.toString())}
+                    className="h-12 font-bold border-amber-300 text-amber-800 hover:bg-amber-100"
+                  >
+                    {amount}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Exact amount button */}
+              <Button
+                variant="outline"
+                onClick={() => setCashReceived(total.toFixed(3))}
+                className="w-full h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+              >
+                <Calculator className="h-4 w-4 mr-2" />
+                Montant exact ({formatCurrency(total)} TND)
+              </Button>
+
+              {/* Change display */}
+              {cashReceivedNum >= total && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                  <p className="text-sm text-emerald-600 mb-1">Monnaie a rendre</p>
+                  <p className="text-3xl font-bold text-emerald-700">{formatCurrency(change)} TND</p>
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="py-8 text-center">
+              <div className="bg-blue-50 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-4">
+                <CreditCard className="h-12 w-12 text-blue-600" />
+              </div>
+              <p className="text-lg text-amber-700">Presentez la carte au terminal</p>
+              <p className="text-3xl font-bold text-amber-900 mt-2">{formatCurrency(total)} TND</p>
+            </div>
+          )}
 
-            {paymentMethod === "cash" && (
+          {/* Confirm button */}
+          <Button
+            onClick={processPayment}
+            disabled={isProcessing || (paymentMethod === "cash" && cashReceivedNum < total)}
+            className="w-full h-14 text-lg font-bold bg-amber-600 hover:bg-amber-700 text-white mt-4"
+          >
+            {isProcessing ? (
               <>
-                {/* Cash received */}
-                <div className="bg-slate-800/50 rounded-xl p-3 text-center">
-                  <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Montant recu</p>
-                  <p className="text-2xl font-bold text-white font-mono">
-                    {cashReceived || "0"} TND
-                  </p>
-                </div>
-
-                {/* Quick amounts */}
-                <div className="grid grid-cols-5 gap-1.5">
-                  {quickAmounts.map((amount) => (
-                    <Button
-                      key={amount}
-                      variant="outline"
-                      size="sm"
-                      className="border-slate-700 text-slate-300 hover:bg-slate-800 font-bold h-9 text-xs"
-                      onClick={() => setCashReceived(amount.toString())}
-                    >
-                      {amount}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* Numpad */}
-                <div className="grid grid-cols-3 gap-1.5">
-                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "back"].map((key) => (
-                    <Button
-                      key={key}
-                      variant={key === "C" ? "destructive" : "outline"}
-                      className={cn(
-                        "h-12 text-lg font-bold",
-                        key === "C" ? "" : "border-slate-700 text-white hover:bg-slate-800"
-                      )}
-                      onClick={() => handleNumpad(key)}
-                    >
-                      {key === "back" ? <ArrowLeft className="h-4 w-4" /> : key}
-                    </Button>
-                  ))}
-                </div>
-
-                {/* Change */}
-                {cashReceivedNum >= total && cashReceivedNum > 0 && (
-                  <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-xl p-3 text-center">
-                    <p className="text-emerald-400 text-xs uppercase tracking-wider mb-1">Monnaie a rendre</p>
-                    <p className="text-2xl font-bold text-emerald-400">{formatCurrency(change)} TND</p>
-                  </div>
-                )}
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Traitement...
+              </>
+            ) : (
+              <>
+                <Check className="h-5 w-5 mr-2" />
+                Valider le paiement
               </>
             )}
+          </Button>
+        </DialogContent>
+      </Dialog>
 
-            {paymentMethod === "card" && (
-              <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4 text-center">
-                <CreditCard className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                <p className="text-blue-400 text-sm">Presentez la carte au terminal</p>
+      {/* Receipt Preview Dialog */}
+      <Dialog open={showReceiptPreview} onOpenChange={setShowReceiptPreview}>
+        <DialogContent className="sm:max-w-sm bg-white">
+          <DialogHeader>
+            <DialogTitle>Dernier ticket</DialogTitle>
+          </DialogHeader>
+          {lastTransaction && (
+            <div className="bg-amber-50 rounded-xl p-4 font-mono text-sm">
+              <div className="text-center border-b border-amber-200 pb-2 mb-2">
+                <p className="font-bold">{currentTenant?.name || "KIFSHOP"}</p>
+                <p className="text-xs text-amber-600">Ticket #{lastTransaction.id}</p>
               </div>
-            )}
-
-            {/* Confirm */}
-            <Button
-              className={cn(
-                "w-full h-14 text-lg font-bold",
-                paymentMethod === "cash" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700"
-              )}
-              onClick={processPayment}
-              disabled={processing || (paymentMethod === "cash" && cashReceivedNum < total)}
-            >
-              {processing ? (
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              ) : (
-                <Check className="h-5 w-5 mr-2" />
-              )}
-              VALIDER PAIEMENT
-            </Button>
-          </div>
+              {lastTransaction.items.map((item: CartItem) => (
+                <div key={item.id} className="flex justify-between py-1">
+                  <span className="truncate flex-1">{item.name} x{item.quantity}</span>
+                  <span>{formatCurrency(item.price * item.quantity)}</span>
+                </div>
+              ))}
+              <div className="border-t border-amber-200 mt-2 pt-2 font-bold text-lg flex justify-between">
+                <span>TOTAL</span>
+                <span>{formatCurrency(lastTransaction.total)} TND</span>
+              </div>
+            </div>
+          )}
+          <Button
+            onClick={() => printReceipt()}
+            className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimer
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
