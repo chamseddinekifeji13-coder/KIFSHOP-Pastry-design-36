@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/auth/session'
+import { getServerSession } from '@/lib/active-profile'
 
 // ESC/POS Commands for cash drawer
 const ESC_COMMANDS = {
