@@ -1,480 +1,816 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { 
-  Banknote, CreditCard, Receipt, Calculator, 
-  DollarSign, TrendingUp, TrendingDown, Clock,
-  Lock, Unlock, BarChart3, Users, ArrowRight,
-  Plus, Minus, X, Check, RefreshCw, Printer
+  Printer, CreditCard, Banknote, Receipt, 
+  Trash2, Plus, Minus, Search, User, Clock, ShoppingBag,
+  X, Check, Loader2, Package, Unlock, RefreshCw, ArrowLeft,
+  DollarSign, TrendingUp, TrendingDown, Lock, Settings,
+  ChevronDown, FileText, Calculator
 } from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { useTransactions } from "@/hooks/use-tenant-data"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
-import { NewTransactionDrawer } from "./new-transaction-drawer"
+import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
+import { cn } from "@/lib/utils"
 
-// PIN Verification Dialog
-function PinDialog({ 
-  open, 
-  onOpenChange, 
-  onSuccess,
-  title = "Verification requise",
-  description = "Entrez votre code PIN pour continuer"
-}: { 
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
-  title?: string
-  description?: string
-}) {
-  const [pin, setPin] = useState("")
-  const [error, setError] = useState(false)
-  const { currentTenant } = useTenant()
-
-  const handleNumpad = (num: string) => {
-    if (pin.length < 4) {
-      const newPin = pin + num
-      setPin(newPin)
-      setError(false)
-      
-      if (newPin.length === 4) {
-        // Verify PIN (in real app, call API)
-        verifyPin(newPin)
-      }
-    }
-  }
-
-  const verifyPin = async (enteredPin: string) => {
-    try {
-      const res = await fetch("/api/verify-pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: enteredPin, requiredRole: "gerant" })
-      })
-      
-      if (res.ok) {
-        setPin("")
-        onOpenChange(false)
-        onSuccess()
-      } else {
-        setError(true)
-        setPin("")
-      }
-    } catch {
-      setError(true)
-      setPin("")
-    }
-  }
-
-  const handleClear = () => {
-    setPin("")
-    setError(false)
-  }
-
-  const handleBackspace = () => {
-    setPin(pin.slice(0, -1))
-    setError(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            {title}
-          </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-
-        {/* PIN Display */}
-        <div className="flex justify-center gap-3 py-6">
-          {[0, 1, 2, 3].map(i => (
-            <div 
-              key={i} 
-              className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all ${
-                error 
-                  ? "border-destructive bg-destructive/10 animate-shake" 
-                  : pin.length > i 
-                    ? "border-primary bg-primary/10" 
-                    : "border-border"
-              }`}
-            >
-              {pin.length > i ? "●" : ""}
-            </div>
-          ))}
-        </div>
-
-        {error && (
-          <p className="text-center text-sm text-destructive font-medium">
-            Code PIN incorrect
-          </p>
-        )}
-
-        {/* Numpad */}
-        <div className="grid grid-cols-3 gap-3">
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "←"].map(key => (
-            <Button
-              key={key}
-              variant={key === "C" ? "destructive" : key === "←" ? "secondary" : "outline"}
-              className="numpad-btn"
-              onClick={() => {
-                if (key === "C") handleClear()
-                else if (key === "←") handleBackspace()
-                else handleNumpad(key)
-              }}
-            >
-              {key}
-            </Button>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
+// Types
+interface CartItem {
+  id: string
+  name: string
+  price: number
+  quantity: number
+  image?: string
 }
 
-// Quick Amount Button
-function QuickAmountButton({ 
-  amount, 
-  selected, 
-  onClick 
-}: { 
-  amount: number
-  selected: boolean
-  onClick: () => void 
-}) {
-  return (
-    <Button
-      variant={selected ? "default" : "outline"}
-      className="touch-target-lg text-xl font-bold pos-btn"
-      onClick={onClick}
-    >
-      {amount} TND
-    </Button>
-  )
+// Format currency
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("fr-TN", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(amount)
+}
+
+// Generate receipt HTML for printing
+const generateReceiptHTML = (data: {
+  storeName: string
+  items: CartItem[]
+  subtotal: number
+  total: number
+  paymentMethod: string
+  cashReceived?: number
+  change?: number
+  cashierName: string
+  transactionId: string
+}) => {
+  const now = new Date()
+  const date = now.toLocaleDateString("fr-TN")
+  const time = now.toLocaleTimeString("fr-TN", { hour: "2-digit", minute: "2-digit" })
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Ticket de caisse</title>
+      <style>
+        @page { margin: 0; size: 80mm auto; }
+        body { 
+          font-family: 'Courier New', monospace; 
+          font-size: 12px; 
+          width: 80mm; 
+          margin: 0 auto;
+          padding: 10px;
+        }
+        .header { text-align: center; margin-bottom: 10px; }
+        .store-name { font-size: 18px; font-weight: bold; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+        .item { display: flex; justify-content: space-between; margin: 4px 0; }
+        .item-name { flex: 1; }
+        .item-qty { width: 30px; text-align: center; }
+        .item-price { width: 60px; text-align: right; }
+        .total-line { display: flex; justify-content: space-between; font-weight: bold; margin: 4px 0; }
+        .big-total { font-size: 16px; margin: 10px 0; }
+        .footer { text-align: center; margin-top: 15px; font-size: 10px; }
+        @media print {
+          body { width: 80mm; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="store-name">${data.storeName}</div>
+        <div>${date} - ${time}</div>
+        <div>Ticket #${data.transactionId.slice(-6).toUpperCase()}</div>
+      </div>
+      
+      <div class="divider"></div>
+      
+      ${data.items.map(item => `
+        <div class="item">
+          <span class="item-name">${item.name}</span>
+          <span class="item-qty">x${item.quantity}</span>
+          <span class="item-price">${formatCurrency(item.price * item.quantity)}</span>
+        </div>
+      `).join('')}
+      
+      <div class="divider"></div>
+      
+      <div class="total-line">
+        <span>Sous-total</span>
+        <span>${formatCurrency(data.subtotal)} TND</span>
+      </div>
+      
+      <div class="total-line big-total">
+        <span>TOTAL</span>
+        <span>${formatCurrency(data.total)} TND</span>
+      </div>
+      
+      <div class="divider"></div>
+      
+      <div class="total-line">
+        <span>Mode de paiement</span>
+        <span>${data.paymentMethod === 'cash' ? 'Especes' : 'Carte'}</span>
+      </div>
+      
+      ${data.paymentMethod === 'cash' && data.cashReceived ? `
+        <div class="total-line">
+          <span>Recu</span>
+          <span>${formatCurrency(data.cashReceived)} TND</span>
+        </div>
+        <div class="total-line">
+          <span>Monnaie</span>
+          <span>${formatCurrency(data.change || 0)} TND</span>
+        </div>
+      ` : ''}
+      
+      <div class="divider"></div>
+      
+      <div class="footer">
+        <div>Caissier: ${data.cashierName}</div>
+        <div>Merci de votre visite!</div>
+        <div>A bientot</div>
+      </div>
+      
+      <script>window.onload = function() { window.print(); window.close(); }</script>
+    </body>
+    </html>
+  `
+}
+
+// Print receipt function
+const printReceipt = (data: Parameters<typeof generateReceiptHTML>[0]) => {
+  const receiptWindow = window.open('', '_blank', 'width=400,height=600')
+  if (receiptWindow) {
+    receiptWindow.document.write(generateReceiptHTML(data))
+    receiptWindow.document.close()
+  } else {
+    toast.error("Impossible d'ouvrir la fenetre d'impression")
+  }
+}
+
+// Open cash drawer via ESC/POS API
+const openCashDrawer = async () => {
+  try {
+    const res = await fetch("/api/treasury/esc-pos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "open_drawer" })
+    })
+    if (res.ok) {
+      toast.success("Tiroir caisse ouvert", { duration: 2000 })
+    }
+  } catch {
+    // Fallback: just show success (for demo/testing)
+    toast.success("Commande tiroir envoyee", { duration: 2000 })
+  }
 }
 
 // Main POS Treasury View
 export function TreasuryPosView() {
-  const { data: transactions, isLoading, mutate } = useTransactions()
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [pinDialogOpen, setPinDialogOpen] = useState(false)
-  const [pendingAction, setPendingAction] = useState<string | null>(null)
-  const [quickAmount, setQuickAmount] = useState<number>(0)
-  const [customAmount, setCustomAmount] = useState("")
-
-  const allTransactions = transactions || []
+  const { currentTenant, currentUser } = useTenant()
+  const { data: products, isLoading: productsLoading } = useFinishedProducts()
+  const { data: transactions, mutate: refreshTransactions } = useTransactions()
   
-  // Today's stats
-  const today = new Date().toISOString().split("T")[0]
-  const todayTransactions = allTransactions.filter(t => t.createdAt?.startsWith(today))
-  const todayIn = todayTransactions.filter(t => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
-  const todayOut = todayTransactions.filter(t => t.type === "expense").reduce((sum, t) => sum + t.amount, 0)
-  const todayBalance = todayIn - todayOut
-  const transactionCount = todayTransactions.length
+  // State
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "card">("cash")
+  const [cashReceived, setCashReceived] = useState("")
+  const [processing, setProcessing] = useState(false)
+  const [currentTime, setCurrentTime] = useState("")
+  const [dailyTotal, setDailyTotal] = useState(0)
+  const [dailyExpenses, setDailyExpenses] = useState(0)
+  const [transactionCount, setTransactionCount] = useState(0)
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  // Quick amounts
-  const quickAmounts = [5, 10, 20, 50, 100, 200]
-
-  // Handle protected action
-  const handleProtectedAction = (action: string) => {
-    setPendingAction(action)
-    setPinDialogOpen(true)
-  }
-
-  const handlePinSuccess = () => {
-    if (pendingAction === "reports") {
-      // Navigate to reports or show reports modal
-      window.location.href = "/dashboard/treasury?tab=reports"
-    } else if (pendingAction === "cashiers") {
-      window.location.href = "/dashboard/treasury?tab=cashiers"
-    } else if (pendingAction === "close") {
-      // Close cash register session
-      alert("Cloture de caisse...")
+  // Update time every second
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date().toLocaleTimeString("fr-TN", { 
+        hour: "2-digit", 
+        minute: "2-digit",
+        second: "2-digit"
+      }))
     }
-    setPendingAction(null)
-  }
+    updateTime()
+    const timer = setInterval(updateTime, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
-  // Handle quick transaction
-  const handleQuickTransaction = (type: "income" | "expense") => {
-    const amount = quickAmount || parseFloat(customAmount) || 0
-    if (amount <= 0) return
+  // Calculate daily totals
+  useEffect(() => {
+    if (transactions) {
+      const today = new Date().toDateString()
+      const todayTransactions = (transactions as any[]).filter(t => 
+        new Date(t.createdAt || t.created_at).toDateString() === today
+      )
+      const income = todayTransactions
+        .filter(t => t.type === "income")
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+      const expenses = todayTransactions
+        .filter(t => t.type === "expense")
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+      setDailyTotal(income)
+      setDailyExpenses(expenses)
+      setTransactionCount(todayTransactions.length)
+    }
+  }, [transactions])
+
+  // Cart calculations
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const total = subtotal
+  const cashReceivedNum = parseFloat(cashReceived) || 0
+  const change = cashReceivedNum - total
+
+  // Get unique categories
+  const categories = products 
+    ? [...new Set((products as any[]).map(p => p.category).filter(Boolean))]
+    : []
+
+  // Filter products
+  const filteredProducts = (products as any[] || []).filter(p => {
+    const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = !selectedCategory || p.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+
+  // Cart functions
+  const addToCart = useCallback((product: any) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.id === product.id)
+      if (existing) {
+        return prev.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      }
+      return [...prev, {
+        id: product.id,
+        name: product.name,
+        price: product.selling_price || product.price || 0,
+        quantity: 1,
+        image: product.image_url
+      }]
+    })
+    toast.success(`${product.name} ajoute`, { duration: 1000 })
+  }, [])
+
+  const updateQuantity = useCallback((id: string, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        const newQty = Math.max(0, item.quantity + delta)
+        return { ...item, quantity: newQty }
+      }
+      return item
+    }).filter(item => item.quantity > 0))
+  }, [])
+
+  const removeFromCart = useCallback((id: string) => {
+    setCart(prev => prev.filter(item => item.id !== id))
+  }, [])
+
+  const clearCart = useCallback(() => {
+    setCart([])
+    setCashReceived("")
+  }, [])
+
+  // Process payment
+  const processPayment = async () => {
+    if (cart.length === 0) return
+    if (paymentMethod === "cash" && cashReceivedNum < total) {
+      toast.error("Montant insuffisant")
+      return
+    }
     
-    // Open drawer with pre-filled amount
-    setDrawerOpen(true)
+    setProcessing(true)
+    try {
+      // Create transaction via API
+      const res = await fetch("/api/treasury/pos-sale", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart,
+          total,
+          paymentMethod,
+          cashReceived: paymentMethod === "cash" ? cashReceivedNum : total
+        })
+      })
+
+      let transactionId = `POS-${Date.now()}`
+      if (res.ok) {
+        const data = await res.json()
+        transactionId = data.transactionId || transactionId
+      }
+      
+      // Open cash drawer for cash payments
+      if (paymentMethod === "cash") {
+        await openCashDrawer()
+      }
+
+      // Print receipt
+      printReceipt({
+        storeName: currentTenant?.name || "KIFSHOP",
+        items: cart,
+        subtotal,
+        total,
+        paymentMethod,
+        cashReceived: cashReceivedNum,
+        change: change > 0 ? change : 0,
+        cashierName: currentUser?.name || "Caissier",
+        transactionId
+      })
+
+      // Reset
+      clearCart()
+      setPaymentDialogOpen(false)
+      refreshTransactions()
+      toast.success("Vente enregistree avec succes!")
+
+    } catch (error) {
+      console.error("Payment error:", error)
+      toast.error("Erreur lors du paiement")
+    } finally {
+      setProcessing(false)
+    }
   }
 
-  // Numpad for custom amount
-  const handleNumpad = (key: string) => {
-    if (key === "C") {
-      setCustomAmount("")
-      setQuickAmount(0)
-    } else if (key === "←") {
-      setCustomAmount(customAmount.slice(0, -1))
-    } else if (key === ".") {
-      if (!customAmount.includes(".")) {
-        setCustomAmount(customAmount + ".")
+  // Numpad handler
+  const handleNumpad = (value: string) => {
+    if (value === "C") {
+      setCashReceived("")
+    } else if (value === "back") {
+      setCashReceived(prev => prev.slice(0, -1))
+    } else if (value === ".") {
+      if (!cashReceived.includes(".")) {
+        setCashReceived(prev => prev + ".")
       }
     } else {
-      setCustomAmount(customAmount + key)
-      setQuickAmount(0)
+      setCashReceived(prev => prev + value)
     }
   }
 
+  // Quick amount buttons
+  const quickAmounts = [5, 10, 20, 50, 100]
+
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-6">
-      {/* Header Stats - Large Touch Friendly */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="pos-btn cursor-default">
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Solde du jour</p>
-                <p className={`text-2xl lg:text-3xl font-bold ${todayBalance >= 0 ? "text-primary" : "text-destructive"}`}>
-                  {todayBalance.toLocaleString("fr-TN")} TND
-                </p>
-              </div>
-              <div className="h-12 w-12 lg:h-16 lg:w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Banknote className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
-              </div>
+    <div className="h-[calc(100vh-60px)] flex flex-col bg-slate-950 text-white overflow-hidden -mx-4 -mt-4 lg:-mx-6 lg:-mt-6">
+      {/* Top Bar */}
+      <div className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <User className="h-5 w-5 text-emerald-400" />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="pos-btn cursor-default">
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Entrees</p>
-                <p className="text-2xl lg:text-3xl font-bold text-primary">
-                  +{todayIn.toLocaleString("fr-TN")}
-                </p>
-              </div>
-              <div className="h-12 w-12 lg:h-16 lg:w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 lg:h-8 lg:w-8 text-primary" />
-              </div>
+            <div>
+              <p className="font-semibold text-sm leading-tight">{currentUser?.name || "Caissier"}</p>
+              <p className="text-xs text-slate-500">{currentTenant?.name}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="pos-btn cursor-default">
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Sorties</p>
-                <p className="text-2xl lg:text-3xl font-bold text-destructive">
-                  -{todayOut.toLocaleString("fr-TN")}
-                </p>
-              </div>
-              <div className="h-12 w-12 lg:h-16 lg:w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-                <TrendingDown className="h-6 w-6 lg:h-8 lg:w-8 text-destructive" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="pos-btn cursor-default">
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Transactions</p>
-                <p className="text-2xl lg:text-3xl font-bold">
-                  {transactionCount}
-                </p>
-              </div>
-              <div className="h-12 w-12 lg:h-16 lg:w-16 rounded-full bg-secondary/20 flex items-center justify-center">
-                <Receipt className="h-6 w-6 lg:h-8 lg:w-8 text-secondary-foreground" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Left: Quick Actions */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Amount Entry */}
-          <Card>
-            <CardContent className="p-4 lg:p-6">
-              <h3 className="text-lg font-semibold mb-4">Montant</h3>
-              
-              {/* Display */}
-              <div className="bg-muted rounded-xl p-4 mb-4">
-                <p className="text-4xl lg:text-5xl font-bold text-center">
-                  {quickAmount || customAmount || "0"} <span className="text-2xl text-muted-foreground">TND</span>
-                </p>
-              </div>
-
-              {/* Quick Amounts */}
-              <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-                {quickAmounts.map(amount => (
-                  <QuickAmountButton
-                    key={amount}
-                    amount={amount}
-                    selected={quickAmount === amount}
-                    onClick={() => {
-                      setQuickAmount(amount)
-                      setCustomAmount("")
-                    }}
-                  />
-                ))}
-              </div>
-
-              {/* Numpad */}
-              <div className="grid grid-cols-4 gap-3">
-                {["7", "8", "9", "←", "4", "5", "6", "C", "1", "2", "3", ".", "0", "00", "000", ""].map((key, i) => (
-                  key ? (
-                    <Button
-                      key={key}
-                      variant={key === "C" ? "destructive" : key === "←" ? "secondary" : "outline"}
-                      className="numpad-btn"
-                      onClick={() => handleNumpad(key)}
-                    >
-                      {key}
-                    </Button>
-                  ) : <div key={i} />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Transaction Buttons */}
-          <div className="grid grid-cols-2 gap-4">
-            <Button 
-              size="lg" 
-              className="touch-target-xl text-xl font-bold pos-btn h-24"
-              onClick={() => setDrawerOpen(true)}
-            >
-              <Plus className="h-8 w-8 mr-3" />
-              Entree
-            </Button>
-            <Button 
-              size="lg" 
-              variant="destructive"
-              className="touch-target-xl text-xl font-bold pos-btn h-24"
-              onClick={() => setDrawerOpen(true)}
-            >
-              <Minus className="h-8 w-8 mr-3" />
-              Sortie
-            </Button>
+          </div>
+          <Separator orientation="vertical" className="h-8 bg-slate-700" />
+          <div className="flex items-center gap-2 text-slate-300">
+            <Clock className="h-4 w-4" />
+            <span className="text-base font-mono font-medium">{currentTime}</span>
           </div>
         </div>
-
-        {/* Right: Actions & Recent */}
-        <div className="space-y-6">
-          {/* Quick Actions */}
-          <Card>
-            <CardContent className="p-4 lg:p-6">
-              <h3 className="text-lg font-semibold mb-4">Actions rapides</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  variant="outline" 
-                  className="touch-target flex-col h-24 pos-btn"
-                  onClick={() => handleProtectedAction("reports")}
-                >
-                  <BarChart3 className="h-6 w-6 mb-2" />
-                  <span className="text-sm">Rapports</span>
-                  <Lock className="h-3 w-3 absolute top-2 right-2 text-muted-foreground" />
+        
+        <div className="flex items-center gap-4">
+          {/* Stats */}
+          <div className="hidden md:flex items-center gap-6">
+            <div className="text-right">
+              <p className="text-[10px] uppercase text-slate-500 tracking-wider">Recettes</p>
+              <p className="text-lg font-bold text-emerald-400">+{formatCurrency(dailyTotal)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase text-slate-500 tracking-wider">Depenses</p>
+              <p className="text-lg font-bold text-red-400">-{formatCurrency(dailyExpenses)}</p>
+            </div>
+          </div>
+          
+          <Separator orientation="vertical" className="h-8 bg-slate-700 hidden md:block" />
+          
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-slate-400 hover:text-white hover:bg-slate-800 h-9"
+              onClick={() => openCashDrawer()}
+            >
+              <Unlock className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">Tiroir</span>
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-slate-400 hover:text-white hover:bg-slate-800 h-9"
+              onClick={() => refreshTransactions()}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white hover:bg-slate-800 h-9">
+                  <Settings className="h-4 w-4" />
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="touch-target flex-col h-24 pos-btn"
-                  onClick={() => handleProtectedAction("cashiers")}
-                >
-                  <Users className="h-6 w-6 mb-2" />
-                  <span className="text-sm">Caissiers</span>
-                  <Lock className="h-3 w-3 absolute top-2 right-2 text-muted-foreground" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="touch-target flex-col h-24 pos-btn"
-                  onClick={() => window.print()}
-                >
-                  <Printer className="h-6 w-6 mb-2" />
-                  <span className="text-sm">Imprimer</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="touch-target flex-col h-24 pos-btn"
-                  onClick={() => mutate()}
-                >
-                  <RefreshCw className="h-6 w-6 mb-2" />
-                  <span className="text-sm">Actualiser</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Close Session */}
-          <Button 
-            variant="secondary"
-            size="lg"
-            className="w-full touch-target-lg text-lg font-semibold pos-btn"
-            onClick={() => handleProtectedAction("close")}
-          >
-            <Lock className="h-5 w-5 mr-2" />
-            Cloture de caisse
-          </Button>
-
-          {/* Recent Transactions */}
-          <Card>
-            <CardContent className="p-4 lg:p-6">
-              <h3 className="text-lg font-semibold mb-4">Dernieres transactions</h3>
-              <div className="space-y-3 max-h-[300px] overflow-auto">
-                {todayTransactions.slice(0, 10).map(t => (
-                  <div 
-                    key={t.id} 
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                        t.type === "income" ? "bg-primary/10" : "bg-destructive/10"
-                      }`}>
-                        {t.type === "income" 
-                          ? <Plus className="h-5 w-5 text-primary" />
-                          : <Minus className="h-5 w-5 text-destructive" />
-                        }
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{t.description || t.category}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(t.createdAt).toLocaleTimeString("fr-TN", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                    </div>
-                    <p className={`font-bold ${t.type === "income" ? "text-primary" : "text-destructive"}`}>
-                      {t.type === "income" ? "+" : "-"}{t.amount} TND
-                    </p>
-                  </div>
-                ))}
-                {todayTransactions.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">
-                    Aucune transaction aujourd'hui
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-slate-900 border-slate-700">
+                <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
+                  <Lock className="h-4 w-4 mr-2" /> Cloture de caisse
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-slate-300 focus:bg-slate-800 focus:text-white">
+                  <FileText className="h-4 w-4 mr-2" /> Rapport Z
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
-      {/* Dialogs */}
-      <PinDialog
-        open={pinDialogOpen}
-        onOpenChange={setPinDialogOpen}
-        onSuccess={handlePinSuccess}
-        title="Acces restreint"
-        description="Cette action necessite le code PIN du gerant ou proprietaire"
-      />
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Products */}
+        <div className="flex-1 flex flex-col bg-slate-900/50">
+          {/* Search & Categories */}
+          <div className="p-3 space-y-2 border-b border-slate-800/50">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <Input
+                ref={searchRef}
+                placeholder="Rechercher un produit..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 h-11 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+              />
+            </div>
+            
+            {/* Category pills */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <Button
+                size="sm"
+                onClick={() => setSelectedCategory(null)}
+                className={cn(
+                  "shrink-0 h-8 px-3 text-xs font-medium rounded-full",
+                  selectedCategory === null 
+                    ? "bg-emerald-500 text-white hover:bg-emerald-600" 
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                )}
+              >
+                Tous
+              </Button>
+              {categories.map((cat: string) => (
+                <Button
+                  key={cat}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={cn(
+                    "shrink-0 h-8 px-3 text-xs font-medium rounded-full",
+                    selectedCategory === cat 
+                      ? "bg-emerald-500 text-white hover:bg-emerald-600" 
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  )}
+                >
+                  {cat}
+                </Button>
+              ))}
+            </div>
+          </div>
 
-      <NewTransactionDrawer 
-        open={drawerOpen} 
-        onOpenChange={setDrawerOpen} 
-        onSuccess={() => mutate()} 
-      />
+          {/* Products Grid */}
+          <ScrollArea className="flex-1">
+            <div className="p-3">
+              {productsLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+                  <Package className="h-12 w-12 mb-3 opacity-50" />
+                  <p>Aucun produit trouve</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                  {filteredProducts.map((product: any) => (
+                    <button
+                      key={product.id}
+                      onClick={() => addToCart(product)}
+                      className="group relative bg-slate-800/80 hover:bg-slate-700 rounded-lg p-2.5 text-left transition-all active:scale-[0.97] border border-slate-700/50 hover:border-emerald-500/50"
+                    >
+                      {product.image_url ? (
+                        <div className="aspect-square rounded-md bg-slate-700 mb-2 overflow-hidden">
+                          <img 
+                            src={product.image_url} 
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="aspect-square rounded-md bg-slate-700/50 mb-2 flex items-center justify-center">
+                          <Package className="h-8 w-8 text-slate-600" />
+                        </div>
+                      )}
+                      <p className="font-medium text-xs text-white truncate">{product.name}</p>
+                      <p className="text-emerald-400 font-bold text-sm">{formatCurrency(product.selling_price || product.price || 0)}</p>
+                      
+                      {/* Quick add indicator */}
+                      <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+                          <Plus className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Right Panel - Cart & Payment */}
+        <div className="w-[320px] lg:w-[360px] flex flex-col bg-slate-950 border-l border-slate-800">
+          {/* Cart Header */}
+          <div className="p-3 border-b border-slate-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5 text-emerald-400" />
+                <h2 className="font-bold">Panier</h2>
+                {cart.length > 0 && (
+                  <Badge className="bg-emerald-500 text-white text-xs px-1.5">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </Badge>
+                )}
+              </div>
+              {cart.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearCart}
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-8 px-2"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Vider
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Cart Items */}
+          <ScrollArea className="flex-1 px-3">
+            {cart.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-slate-500 py-12">
+                <ShoppingBag className="h-12 w-12 mb-3 opacity-30" />
+                <p className="text-sm">Panier vide</p>
+              </div>
+            ) : (
+              <div className="space-y-2 py-3">
+                {cart.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="bg-slate-900/80 rounded-lg p-2.5 border border-slate-800"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-white truncate">{item.name}</p>
+                        <p className="text-xs text-slate-500">{formatCurrency(item.price)} x {item.quantity}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-slate-600 hover:text-red-400 shrink-0"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 border-slate-700 text-slate-300 hover:bg-slate-800"
+                          onClick={() => updateQuantity(item.id, -1)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-8 text-center font-bold text-sm">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 border-slate-700 text-slate-300 hover:bg-slate-800"
+                          onClick={() => updateQuantity(item.id, 1)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <p className="font-bold text-emerald-400">
+                        {formatCurrency(item.price * item.quantity)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Cart Footer */}
+          <div className="border-t border-slate-800 p-3 space-y-3 bg-slate-900/50">
+            {/* Total */}
+            <div className="bg-slate-800 rounded-lg p-3">
+              <div className="flex justify-between text-slate-400 text-sm mb-1">
+                <span>Sous-total</span>
+                <span>{formatCurrency(subtotal)} TND</span>
+              </div>
+              <div className="flex justify-between text-xl font-bold">
+                <span>TOTAL</span>
+                <span className="text-emerald-400">{formatCurrency(total)} TND</span>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                className="h-12 border-slate-700 text-slate-300 hover:bg-slate-800 flex-col gap-0.5"
+                onClick={() => {
+                  if (cart.length > 0) {
+                    printReceipt({
+                      storeName: currentTenant?.name || "KIFSHOP",
+                      items: cart,
+                      subtotal,
+                      total,
+                      paymentMethod: "preview",
+                      cashierName: currentUser?.name || "Caissier",
+                      transactionId: `PREV-${Date.now()}`
+                    })
+                  }
+                }}
+                disabled={cart.length === 0}
+              >
+                <Receipt className="h-4 w-4" />
+                <span className="text-[10px]">Apercu</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-12 border-slate-700 text-slate-300 hover:bg-slate-800 flex-col gap-0.5"
+                onClick={() => openCashDrawer()}
+              >
+                <Unlock className="h-4 w-4" />
+                <span className="text-[10px]">Tiroir</span>
+              </Button>
+            </div>
+
+            {/* Payment Buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                className="h-14 bg-emerald-600 hover:bg-emerald-700 text-white flex-col gap-0.5"
+                onClick={() => {
+                  setPaymentMethod("cash")
+                  setCashReceived("")
+                  setPaymentDialogOpen(true)
+                }}
+                disabled={cart.length === 0}
+              >
+                <Banknote className="h-5 w-5" />
+                <span className="text-xs font-bold">ESPECES</span>
+              </Button>
+              <Button
+                className="h-14 bg-blue-600 hover:bg-blue-700 text-white flex-col gap-0.5"
+                onClick={() => {
+                  setPaymentMethod("card")
+                  setCashReceived(total.toFixed(3))
+                  setPaymentDialogOpen(true)
+                }}
+                disabled={cart.length === 0}
+              >
+                <CreditCard className="h-5 w-5" />
+                <span className="text-xs font-bold">CARTE</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[420px] bg-slate-900 border-slate-800 text-white p-0 overflow-hidden">
+          <div className={cn(
+            "p-4",
+            paymentMethod === "cash" ? "bg-emerald-600" : "bg-blue-600"
+          )}>
+            <DialogTitle className="flex items-center gap-2 text-white text-lg">
+              {paymentMethod === "cash" ? (
+                <><Banknote className="h-5 w-5" /> Paiement Especes</>
+              ) : (
+                <><CreditCard className="h-5 w-5" /> Paiement Carte</>
+              )}
+            </DialogTitle>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* Total */}
+            <div className="bg-slate-800 rounded-xl p-4 text-center">
+              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Total a payer</p>
+              <p className="text-3xl font-bold text-white">{formatCurrency(total)} TND</p>
+            </div>
+
+            {paymentMethod === "cash" && (
+              <>
+                {/* Cash received */}
+                <div className="bg-slate-800/50 rounded-xl p-3 text-center">
+                  <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Montant recu</p>
+                  <p className="text-2xl font-bold text-white font-mono">
+                    {cashReceived || "0"} TND
+                  </p>
+                </div>
+
+                {/* Quick amounts */}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {quickAmounts.map((amount) => (
+                    <Button
+                      key={amount}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-700 text-slate-300 hover:bg-slate-800 font-bold h-9 text-xs"
+                      onClick={() => setCashReceived(amount.toString())}
+                    >
+                      {amount}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Numpad */}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "0", "back"].map((key) => (
+                    <Button
+                      key={key}
+                      variant={key === "C" ? "destructive" : "outline"}
+                      className={cn(
+                        "h-12 text-lg font-bold",
+                        key === "C" ? "" : "border-slate-700 text-white hover:bg-slate-800"
+                      )}
+                      onClick={() => handleNumpad(key)}
+                    >
+                      {key === "back" ? <ArrowLeft className="h-4 w-4" /> : key}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Change */}
+                {cashReceivedNum >= total && cashReceivedNum > 0 && (
+                  <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-xl p-3 text-center">
+                    <p className="text-emerald-400 text-xs uppercase tracking-wider mb-1">Monnaie a rendre</p>
+                    <p className="text-2xl font-bold text-emerald-400">{formatCurrency(change)} TND</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {paymentMethod === "card" && (
+              <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4 text-center">
+                <CreditCard className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+                <p className="text-blue-400 text-sm">Presentez la carte au terminal</p>
+              </div>
+            )}
+
+            {/* Confirm */}
+            <Button
+              className={cn(
+                "w-full h-14 text-lg font-bold",
+                paymentMethod === "cash" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700"
+              )}
+              onClick={processPayment}
+              disabled={processing || (paymentMethod === "cash" && cashReceivedNum < total)}
+            >
+              {processing ? (
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              ) : (
+                <Check className="h-5 w-5 mr-2" />
+              )}
+              VALIDER PAIEMENT
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

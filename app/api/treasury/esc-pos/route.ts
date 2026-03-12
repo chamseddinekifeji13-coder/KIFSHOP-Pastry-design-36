@@ -29,16 +29,9 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { action, config } = body
 
-    // Get printer configuration
-    const printerIp = config?.printerIp || process.env.PRINTER_IP
+    // Get printer configuration (optional - works in demo mode without printer)
+    const printerIp = config?.printerIp || process.env.PRINTER_IP || 'demo'
     const printerPort = config?.printerPort || 9100
-
-    if (!printerIp) {
-      return NextResponse.json(
-        { error: 'Printer not configured' },
-        { status: 400 }
-      )
-    }
 
     let commands: Buffer[] = []
 
