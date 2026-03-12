@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, ReactNode } from "react"
+import { useState, ReactNode, useEffect } from "react"
 import { Lock, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { useTenant } from "@/lib/tenant-context"
 
 interface PinProtectedProps {
   children: ReactNode
@@ -25,11 +26,29 @@ export function PinProtected({
   description = "Cette section est reservee aux gerants et proprietaires",
   requiredRole = "gerant"
 }: PinProtectedProps) {
+  const { currentTenant } = useTenant()
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [pinDialogOpen, setPinDialogOpen] = useState(false)
   const [pin, setPin] = useState("")
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [tenantUserId, setTenantUserId] = useState<string | null>(null)
+
+  // Get current tenant user ID from session
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const res = await fetch("/api/active-profile")
+        if (res.ok) {
+          const data = await res.json()
+          setTenantUserId(data.tenantUserId)
+        }
+      } catch (err) {
+        console.error("Failed to fetch profile:", err)
+      }
+    }
+    fetchUserProfile()
+  }, [currentTenant?.id])
 
   const handleNumpad = (num: string) => {
     if (pin.length < 4) {
@@ -44,12 +63,20 @@ export function PinProtected({
   }
 
   const verifyPin = async (enteredPin: string) => {
+    if (!tenantUserId) {
+      setError(true)
+      return
+    }
+
     setLoading(true)
     try {
       const res = await fetch("/api/verify-pin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: enteredPin, requiredRole })
+        body: JSON.stringify({ 
+          tenantUserId,
+          pin: enteredPin
+        })
       })
       
       if (res.ok) {
@@ -57,6 +84,7 @@ export function PinProtected({
         setPinDialogOpen(false)
         setIsUnlocked(true)
       } else {
+        const data = await res.json()
         setError(true)
         setPin("")
       }
