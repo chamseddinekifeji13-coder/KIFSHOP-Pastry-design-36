@@ -1,3 +1,5 @@
+"use client"
+
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { Card } from '@/components/ui/card'
