@@ -25,6 +25,10 @@ import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
 import { cn } from "@/lib/utils"
+import { PaymentNumpad } from "./payment-numpad"
+import { SalesHistoryPanel } from "./sales-history-panel"
+import { DiscountManager } from "./discount-manager"
+import { ProductSearchAdvanced } from "./product-search-advanced"
 
 // Types
 interface CartItem {
@@ -152,6 +156,13 @@ export function TreasuryPosView() {
   // Receipt state
   const [showReceiptPreview, setShowReceiptPreview] = useState(false)
   const [lastTransaction, setLastTransaction] = useState<any>(null)
+  
+  // New states for enhanced POS
+  const [appliedDiscounts, setAppliedDiscounts] = useState<any[]>([])
+  const [salesHistory, setSalesHistory] = useState<any[]>([])
+  const [showSalesHistory, setShowSalesHistory] = useState(false)
+  const [paymentNumpadOpen, setPaymentNumpadOpen] = useState(false)
+  const [searchMode, setSearchMode] = useState<"grid" | "search">("grid")
 
   // Clock
   useEffect(() => {
@@ -217,9 +228,19 @@ export function TreasuryPosView() {
     setCart([])
   }, [])
 
-  // Calculate totals
+  // Calculate totals - with discounts support
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const total = subtotal
+  
+  // Apply discounts
+  const discountAmount = appliedDiscounts.reduce((sum, discount) => {
+    if (discount.type === "percentage") {
+      return sum + (subtotal * discount.value / 100)
+    } else {
+      return sum + discount.value
+    }
+  }, 0)
+  
+  const total = Math.max(0, subtotal - discountAmount)
 
   // Calculate change
   const cashReceivedNum = parseFloat(cashReceived) || 0
@@ -671,6 +692,44 @@ export function TreasuryPosView() {
                 <span>Sous-total</span>
                 <span>{formatCurrency(subtotal)} TND</span>
               </div>
+              
+              {/* Discounts section */}
+              {appliedDiscounts.length > 0 && (
+                <>
+                  <div className="bg-amber-50 rounded-lg p-2 space-y-1">
+                    {appliedDiscounts.map(discount => (
+                      <div key={discount.id} className="flex justify-between text-sm text-red-600">
+                        <span>{discount.label}</span>
+                        <button
+                          onClick={() => setAppliedDiscounts(prev => prev.filter(d => d.id !== discount.id))}
+                          className="text-xs hover:text-red-800"
+                        >
+                          - {discount.type === "percentage" ? `${discount.value}%` : formatCurrency(discount.value)} ✕
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-sm font-semibold text-red-700 pt-1 border-t border-amber-200">
+                      <span>Total remise</span>
+                      <span>-{formatCurrency(discountAmount)} TND</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Discount button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={() => {
+                  // Simple preset discounts for quick access
+                  const newDiscount = { id: Date.now().toString(), type: "percentage" as const, value: 5, label: "Remise 5%" }
+                  setAppliedDiscounts([...appliedDiscounts, newDiscount])
+                }}
+              >
+                + Remise
+              </Button>
+
               <Separator className="bg-amber-200" />
               <div className="flex justify-between text-xl font-bold text-amber-900">
                 <span>TOTAL</span>
@@ -742,19 +801,17 @@ export function TreasuryPosView() {
 
           {paymentMethod === "cash" ? (
             <div className="space-y-4">
-              {/* Cash received input */}
-              <div>
-                <label className="block text-sm font-medium text-amber-700 mb-2">
-                  Montant recu
-                </label>
-                <Input
-                  type="number"
-                  step="0.001"
-                  value={cashReceived}
-                  onChange={(e) => setCashReceived(e.target.value)}
-                  className="h-14 text-2xl font-bold text-center border-amber-300 focus:border-amber-500 focus:ring-amber-500"
-                  placeholder="0.000"
-                  autoFocus
+              {/* Payment Numpad */}
+              <div className="bg-amber-50 rounded-xl p-4">
+                <label className="block text-sm font-medium text-amber-700 mb-3">Montant recu</label>
+                <div className="text-4xl font-bold text-amber-900 text-center mb-4 font-mono">
+                  {cashReceived || "0.000"} TND
+                </div>
+                <PaymentNumpad
+                  amount={cashReceived}
+                  onChange={setCashReceived}
+                  onSubmit={processPayment}
+                  disabled={isProcessing}
                 />
               </div>
 
@@ -779,13 +836,13 @@ export function TreasuryPosView() {
                 className="w-full h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
               >
                 <Calculator className="h-4 w-4 mr-2" />
-                Montant exact ({formatCurrency(total)} TND)
+                Exact ({formatCurrency(total)})
               </Button>
 
               {/* Change display */}
               {cashReceivedNum >= total && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
-                  <p className="text-sm text-emerald-600 mb-1">Monnaie a rendre</p>
+                  <p className="text-sm text-emerald-600 mb-1">Monnaie</p>
                   <p className="text-3xl font-bold text-emerald-700">{formatCurrency(change)} TND</p>
                 </div>
               )}
