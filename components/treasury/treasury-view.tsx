@@ -22,23 +22,10 @@ export function TreasuryView() {
     localStorage.setItem("treasury-view-mode", newMode)
   }
 
-  // POS mode is fullscreen, no toggle button needed inside
+  // POS mode: no floating button, it's now inside the POS header
   if (viewMode === "pos") {
-    return (
-      <div className="relative">
-        {/* Floating toggle button for POS mode */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={toggleViewMode}
-          className="fixed bottom-4 right-4 z-50 gap-2 bg-slate-800 hover:bg-slate-700 text-white shadow-lg"
-        >
-          <Monitor className="h-4 w-4" />
-          <span>Mode Bureau</span>
-        </Button>
-        <TreasuryPosView />
-      </div>
-    )
+    return <TreasuryPosView />
+  }
   }
 
   return (

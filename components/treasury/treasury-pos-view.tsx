@@ -357,7 +357,7 @@ export function TreasuryPosView() {
       {/* Header - Clean bakery theme */}
       <div className="bg-white border-b border-amber-200 px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between">
-          {/* Left: Store info */}
+          {/* Left: Store info + Mode Bureau button */}
           <div className="flex items-center gap-4">
             <div className="bg-amber-100 p-2 rounded-xl">
               <ShoppingBag className="h-6 w-6 text-amber-700" />
@@ -369,14 +369,44 @@ export function TreasuryPosView() {
                 <span>{currentUser?.name || "Caissier"}</span>
               </div>
             </div>
+
+            {/* Mode Bureau button - in header left, far from payment buttons */}
+            <button
+              onClick={() => {
+                localStorage.setItem("treasury-view-mode", "desktop")
+                window.location.reload()
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 text-xs font-medium transition-all"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+              Mode Bureau
+            </button>
           </div>
 
-          {/* Center: Clock */}
-          <div className="bg-amber-100 px-6 py-2 rounded-xl">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-amber-700" />
-              <span className="text-2xl font-mono font-bold text-amber-900">{currentTime}</span>
-            </div>
+          {/* Center: Modern Clock */}
+          <div className="flex items-center gap-1.5 bg-white border border-amber-200 px-4 py-2 rounded-2xl shadow-sm">
+            {currentTime ? (() => {
+              const parts = currentTime.split(":")
+              return (
+                <>
+                  <span className="text-2xl font-bold tabular-nums text-amber-900 tracking-tight">{parts[0]}</span>
+                  <span className="text-xl font-light text-amber-400 animate-pulse">:</span>
+                  <span className="text-2xl font-bold tabular-nums text-amber-900 tracking-tight">{parts[1]}</span>
+                  <span className="text-xl font-light text-amber-400 animate-pulse">:</span>
+                  <span className="text-xl font-semibold tabular-nums text-amber-500 tracking-tight">{parts[2]}</span>
+                  <div className="ml-2 flex flex-col items-start leading-none">
+                    <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-widest">
+                      {new Date().toLocaleDateString("fr-TN", { weekday: "short" })}
+                    </span>
+                    <span className="text-[10px] text-amber-400">
+                      {new Date().toLocaleDateString("fr-TN", { day: "2-digit", month: "short" })}
+                    </span>
+                  </div>
+                </>
+              )
+            })() : <span className="text-2xl font-bold text-amber-300">--:--:--</span>}
           </div>
 
           {/* Right: Stats & Actions */}
