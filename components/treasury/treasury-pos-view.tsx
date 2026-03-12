@@ -29,6 +29,8 @@ import { PaymentNumpad } from "./payment-numpad"
 import { SalesHistoryPanel } from "./sales-history-panel"
 import { DiscountManager } from "./discount-manager"
 import { ProductSearchAdvanced } from "./product-search-advanced"
+import { PrinterSettings } from "./printer-settings"
+import { getPrinter } from "@/lib/thermal-printer"
 
 // Types
 interface CartItem {
@@ -252,28 +254,53 @@ export function TreasuryPosView() {
   // Open cash drawer
   const openDrawer = async () => {
     try {
-      const res = await fetch("/api/treasury/esc-pos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "open_drawer" })
-      })
-      const data = await res.json()
-      
-      if (data.mode === "demo") {
-        toast.info("Mode demo: Configurez une imprimante thermique pour ouvrir le tiroir", { duration: 4000 })
-      } else {
+      const printer = getPrinter()
+      if (printer.isConnected()) {
+        await printer.openDrawer()
         toast.success("Tiroir-caisse ouvert")
+      } else {
+        toast.info("Connectez une imprimante thermique via le bouton Imprimante", { duration: 4000 })
       }
-    } catch (error) {
-      toast.error("Erreur ouverture tiroir")
+    } catch (error: any) {
+      toast.error(error.message || "Erreur ouverture tiroir")
     }
   }
 
-  // Print receipt
-  const printReceipt = (transactionData?: any) => {
+  // Print receipt - uses WebUSB thermal printer if connected, otherwise browser print
+  const printReceipt = async (transactionData?: any) => {
     const data = transactionData || lastTransaction
     if (!data) return
 
+    const printer = getPrinter()
+    
+    // Try WebUSB thermal printer first
+    if (printer.isConnected()) {
+      try {
+        await printer.printReceipt({
+          storeName: currentTenant?.name || "KIFSHOP",
+          cashierName: currentUser?.name || "Caissier",
+          items: (data.items || cart).map((item: any) => ({
+            name: item.name,
+            qty: item.quantity,
+            price: item.price
+          })),
+          subtotal: data.subtotal || subtotal,
+          discount: discountAmount > 0 ? discountAmount : undefined,
+          total: data.total || total,
+          paymentMethod: data.paymentMethod === "cash" ? "Especes" : "Carte bancaire",
+          amountPaid: data.cashReceived,
+          change: data.change,
+          transactionId: data.id || Date.now().toString().slice(-6),
+          date: new Date()
+        })
+        toast.success("Ticket imprime!")
+        return
+      } catch (error: any) {
+        toast.error("Erreur impression thermique, utilisation du navigateur")
+      }
+    }
+
+    // Fallback to browser print
     const receiptHTML = generateReceiptHTML({
       storeName: currentTenant?.name || "KIFSHOP",
       items: data.items || cart,
@@ -450,6 +477,9 @@ export function TreasuryPosView() {
                 <span className="font-bold text-red-600">{formatCurrency(todayExpense)}</span>
               </div>
             </div>
+
+            {/* Printer settings */}
+            <PrinterSettings />
 
             {/* Drawer button */}
             <Button 
