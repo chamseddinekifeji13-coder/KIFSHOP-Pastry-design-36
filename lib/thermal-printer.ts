@@ -83,32 +83,58 @@ export class ThermalPrinter {
     return typeof navigator !== "undefined" && "usb" in navigator
   }
   
-  // Request printer access
-  async connect(): Promise<boolean> {
+  // Request printer access (showAll = true to show all USB devices without filter)
+  async connect(showAll: boolean = false): Promise<boolean> {
     if (!ThermalPrinter.isSupported()) {
       throw new Error("WebUSB n'est pas supporté par ce navigateur. Utilisez Chrome ou Edge.")
     }
     
     try {
-      // Request USB device - filter for common thermal printer vendors
-      this.device = await navigator.usb.requestDevice({
-        filters: [
-          // Epson
-          { vendorId: 0x04B8 },
-          // Star Micronics
-          { vendorId: 0x0519 },
-          // Citizen
-          { vendorId: 0x1D90 },
-          // Bixolon
-          { vendorId: 0x1504 },
-          // Custom/generic thermal printers
-          { vendorId: 0x0483 },
-          { vendorId: 0x0416 },
-          { vendorId: 0x0DD4 },
-          { vendorId: 0x154F },
-          // Allow any USB device (fallback)
-        ]
-      })
+      // If showAll is true, show all USB devices (useful when printer is not in the filter list)
+      if (showAll) {
+        this.device = await navigator.usb.requestDevice({
+          filters: []  // Empty filter shows all USB devices
+        })
+      } else {
+        // Request USB device - filter for common thermal printer vendors
+        // Including POS80 and other generic Chinese thermal printers
+        this.device = await navigator.usb.requestDevice({
+          filters: [
+            // Epson
+            { vendorId: 0x04B8 },
+            // Star Micronics
+            { vendorId: 0x0519 },
+            // Citizen
+            { vendorId: 0x1D90 },
+            // Bixolon
+            { vendorId: 0x1504 },
+            // Custom/generic thermal printers
+            { vendorId: 0x0483 },  // STMicroelectronics
+            { vendorId: 0x0416 },  // Winbond
+            { vendorId: 0x0DD4 },  // Custom
+            { vendorId: 0x154F },  // SNBC
+            // POS80 / Generic Chinese printers
+            { vendorId: 0x0FE6 },  // ICS Advent (POS80)
+            { vendorId: 0x1FC9 },  // NXP (common in POS80)
+            { vendorId: 0x0525 },  // Netchip (USB-Serial)
+            { vendorId: 0x067B },  // Prolific (USB-Serial)
+            { vendorId: 0x10C4 },  // Silicon Labs
+            { vendorId: 0x1A86 },  // QinHeng (CH340 - very common in POS80)
+            { vendorId: 0x6868 },  // Generic POS printer
+            { vendorId: 0x0471 },  // Philips
+            { vendorId: 0x04F9 },  // Brother
+            { vendorId: 0x20D1 },  // Generic thermal
+            { vendorId: 0x28E9 },  // GD Microelectronics
+            { vendorId: 0x0B00 },  // SEWOO
+            { vendorId: 0x2730 },  // Rongta
+            { vendorId: 0x0456 },  // Analog Devices
+            { vendorId: 0x0493 },  // MAG Technology
+            { vendorId: 0x1659 },  // ShenZhen BSST
+            { vendorId: 0x4B43 },  // XPrinter
+            { vendorId: 0x0FDE },  // GOOJPRT
+          ]
+        })
+      }
       
       await this.device.open()
       
@@ -237,6 +263,21 @@ export class ThermalPrinter {
   // Initialize printer
   async initialize(): Promise<void> {
     await this.sendData(ESCPOS.INIT)
+  }
+  
+  // Test print
+  async testPrint(): Promise<void> {
+    await this.initialize()
+    
+    await this.printLarge("KIFSHOP PASTRY")
+    await this.printCentered("Test Imprimante")
+    await this.printText(separator("="))
+    await this.printText(`Date: ${new Date().toLocaleString("fr-TN")}`)
+    await this.printText(separator("-"))
+    await this.printCentered("")
+    await this.printCentered("Imprimante configuree avec succes!")
+    await this.printCentered("")
+    await this.cutPaper()
   }
   
   // Print a complete receipt

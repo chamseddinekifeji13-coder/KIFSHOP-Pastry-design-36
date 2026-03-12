@@ -58,11 +58,11 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
     }
   }, [])
 
-  const handleConnect = async () => {
+  const handleConnect = async (showAll: boolean = false) => {
     setIsConnecting(true)
     try {
       const printer = getPrinter()
-      await printer.connect()
+      await printer.connect(showAll)
       setIsConnected(true)
       setDeviceInfo(printer.getDeviceInfo())
       onPrinterConnected?.(true)
@@ -290,19 +290,21 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                         Deconnecter
                       </Button>
                     ) : (
-                      <Button 
-                        size="sm" 
-                        onClick={handleConnect}
-                        disabled={isConnecting}
-                        className="gap-2"
-                      >
-                        {isConnecting ? (
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Usb className="h-4 w-4" />
-                        )}
-                        Connecter
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={() => handleConnect(false)}
+                          disabled={isConnecting}
+                          className="gap-2"
+                        >
+                          {isConnecting ? (
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Usb className="h-4 w-4" />
+                          )}
+                          Connecter
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -335,6 +337,32 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                 </div>
               )}
 
+              {/* Show All USB Devices Option */}
+              {!isConnected && (
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="pt-4">
+                    <h4 className="font-medium text-sm text-amber-800 mb-2">Imprimante POS80 non detectee?</h4>
+                    <p className="text-xs text-amber-700 mb-3">
+                      Si votre imprimante POS80 n'apparait pas, cliquez ci-dessous pour afficher TOUS les peripheriques USB:
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleConnect(true)}
+                      disabled={isConnecting}
+                      className="w-full gap-2 border-amber-300 hover:bg-amber-100"
+                    >
+                      {isConnecting ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Usb className="h-4 w-4" />
+                      )}
+                      Afficher tous les peripheriques USB
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* USB Instructions */}
               <Card className="bg-blue-50 border-blue-200">
                 <CardContent className="pt-4">
@@ -342,7 +370,8 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                   <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
                     <li>Connectez l'imprimante USB a votre caisse</li>
                     <li>Cliquez sur "Connecter" ci-dessus</li>
-                    <li>Selectionnez l'imprimante dans la liste</li>
+                    <li>Si l'imprimante n'apparait pas, cliquez "Afficher tous les peripheriques USB"</li>
+                    <li>Selectionnez votre imprimante POS80 dans la liste</li>
                     <li>Testez l'impression et le tiroir</li>
                   </ol>
                 </CardContent>
