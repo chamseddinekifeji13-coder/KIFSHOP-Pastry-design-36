@@ -275,6 +275,10 @@ export function StocksView() {
             <FinishedProductsTable 
               products={filteredFinishedProducts} 
               onItemClick={(id, name) => handleItemClick(id, name, "finished")}
+              onEditClick={(product) => {
+                setSelectedProduct(product)
+                setEditProductOpen(true)
+              }}
             />
           )}
         </TabsContent>

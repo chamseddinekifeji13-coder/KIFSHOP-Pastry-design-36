@@ -2,17 +2,19 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Package } from "lucide-react"
+import { Package, Pencil } from "lucide-react"
 import type { FinishedProduct } from "@/lib/stocks/actions"
 
 interface FinishedProductsTableProps {
   products: FinishedProduct[]
   onItemClick: (id: string, name: string, type: "finished", unit?: string) => void
+  onEditClick?: (product: FinishedProduct) => void
 }
 
-export function FinishedProductsTable({ products, onItemClick }: FinishedProductsTableProps) {
+export function FinishedProductsTable({ products, onItemClick, onEditClick }: FinishedProductsTableProps) {
   if (products.length === 0) {
     return (
       <Card>
@@ -37,6 +39,7 @@ export function FinishedProductsTable({ products, onItemClick }: FinishedProduct
                   <TableHead className="text-right">Prix vente</TableHead>
                   <TableHead className="text-right">Coût revient</TableHead>
                   <TableHead className="text-right">Marge</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -97,6 +100,19 @@ export function FinishedProductsTable({ products, onItemClick }: FinishedProduct
                           </Badge>
                         ) : (
                           <span className="text-xs text-muted-foreground">--</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="p-1" onClick={(e) => e.stopPropagation()}>
+                        {onEditClick && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-primary"
+                            onClick={() => onEditClick(product)}
+                            aria-label={`Modifier ${product.name}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                         )}
                       </TableCell>
                     </TableRow>
