@@ -478,10 +478,13 @@ export function TreasuryPosView() {
       })
 
       if (!response.ok) {
-        throw new Error("Erreur lors de l'enregistrement")
+        const errorData = await response.json()
+        console.log("[v0] API error response:", errorData)
+        throw new Error(errorData.details || errorData.error || "Erreur lors de l'enregistrement")
       }
 
       const result = await response.json()
+      console.log("[v0] Sale recorded successfully:", result)
 
       // Save transaction for receipt
       const transactionData = {

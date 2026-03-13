@@ -44,11 +44,16 @@ export async function POST(request: Request) {
 
     if (transactionError) {
       console.error("Transaction error:", transactionError)
+      // Return detailed error information for debugging
       return NextResponse.json({ 
+        success: false,
         error: "Erreur lors de l'enregistrement",
-        details: transactionError.message 
+        details: transactionError.message,
+        code: transactionError.code
       }, { status: 500 })
     }
+
+    console.log("[v0] Transaction created successfully:", transaction)
 
     return NextResponse.json({ 
       success: true,
