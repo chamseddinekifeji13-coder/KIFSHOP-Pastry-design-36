@@ -37,14 +37,12 @@ export async function POST(request: Request) {
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "income",
-        category: "Vente comptoir",
+        type: "sale",
         amount: total,
         description: fullDescription,
         payment_method: paymentMethod === "card" ? "card" : "cash",
         created_by: session.activeProfileId,
-        created_by_name: session.displayName,
-        is_collection: true
+        created_by_name: session.displayName
       })
       .select()
 
