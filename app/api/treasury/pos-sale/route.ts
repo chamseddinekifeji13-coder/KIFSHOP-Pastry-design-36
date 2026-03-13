@@ -5,6 +5,11 @@ import { createClient } from '@/lib/supabase/server'
 export async function POST(request: Request) {
   try {
     const session = await getServerSession()
+    
+    if (!session) {
+      return NextResponse.json({ error: "Non authentifie" }, { status: 401 })
+    }
+    
     const supabase = await createClient()
 
     const { items, total, paymentMethod, cashReceived } = await request.json()
