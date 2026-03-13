@@ -86,6 +86,7 @@ export interface FinishedProduct {
   id: string
   tenantId: string
   categoryId: string | null
+  category: string | null
   name: string
   description: string | null
   unit: string
@@ -376,7 +377,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
   const supabase = createClient()
   const { data, error } = await supabase
     .from("finished_products")
-    .select("*, finished_product_packaging(quantity, packaging:packaging(price))")
+    .select("*, finished_product_packaging(quantity, packaging:packaging(price)), categories(name)")
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching finished products:", error.message); return [] }
@@ -387,7 +388,8 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
     const costPrice = Number(p.cost_price)
     const ingredientCost = Math.max(0, costPrice - packagingCost)
     return {
-      id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, name: p.name,
+      id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, 
+      category: p.categories?.name || null, name: p.name,
       description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
       costPrice, packagingCost, ingredientCost,
@@ -571,7 +573,7 @@ export async function recalculateProductCost(productId: string): Promise<number>
   return totalCost
 }
 
-// ─── Recipes ─────────────────���────────────────────────────────
+// ─── Recipes ──���──────────────���────────────────────────────────
 
 export interface RecipeIngredient {
   rawMaterialId: string

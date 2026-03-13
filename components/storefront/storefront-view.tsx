@@ -56,7 +56,7 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
     () => fetchFinishedProducts(tenantId)
   )
   const catalog: CatalogProduct[] = products.map((p: any) => ({
-    id: p.id, name: p.name, category: p.category || "", price: p.price || 0,
+    id: p.id, name: p.name, category: p.category || "Sans catégorie", price: p.price || 0,
     image: "", isPublished: true, description: "",
   }))
   const info = { name: "KIFSHOP Pastry", logo: "K", color: "#4A7C59", phone: "+216 25 12 22 12", whatsapp: "+21625122212" }
