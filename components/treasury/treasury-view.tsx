@@ -3,40 +3,13 @@
 import { useState, useEffect, useCallback } from "react"
 import { Monitor, Tablet } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/components/ui/sidebar"
 import { TreasuryPosView } from "./treasury-pos-view"
 import { TreasuryDesktopView } from "./treasury-desktop-view"
 
-// Safe sidebar hook that doesn't crash if used outside provider
-function useSafeSetSidebar() {
-  const [sidebarControls, setSidebarControls] = useState<{
-    setOpen: (open: boolean) => void
-    setOpenMobile: (open: boolean) => void
-  } | null>(null)
-
-  useEffect(() => {
-    // Try to get sidebar context only on client
-    try {
-      const sidebarEl = document.querySelector('[data-sidebar="sidebar"]')
-      if (sidebarEl) {
-        // Sidebar exists, we can try to control it via CSS
-        setSidebarControls({
-          setOpen: (open: boolean) => {
-            document.body.classList.toggle('sidebar-closed', !open)
-          },
-          setOpenMobile: (open: boolean) => {
-            document.body.classList.toggle('sidebar-mobile-closed', !open)
-          }
-        })
-      }
-    } catch {
-      // Ignore errors
-    }
-  }, [])
-
-  return sidebarControls
-}
-
 export function TreasuryView() {
+  const { setOpen, setOpenMobile } = useSidebar()
+  
   // Default to POS mode for cash register usage
   const [viewMode, setViewMode] = useState<"pos" | "desktop">(() => {
     if (typeof window !== "undefined") {
@@ -45,6 +18,16 @@ export function TreasuryView() {
     }
     return "pos" // Default to POS mode
   })
+
+  // Auto-hide sidebar in POS mode
+  useEffect(() => {
+    if (viewMode === "pos") {
+      setOpen(false)
+      setOpenMobile(false)
+    } else {
+      setOpen(true)
+    }
+  }, [viewMode, setOpen, setOpenMobile])
 
   const toggleViewMode = useCallback(() => {
     const newMode = viewMode === "pos" ? "desktop" : "pos"
