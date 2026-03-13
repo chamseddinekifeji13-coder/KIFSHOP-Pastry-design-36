@@ -33,12 +33,11 @@ export async function POST(request: Request) {
         type: "income",
         category: "Vente comptoir",
         amount: total,
-        description: `Vente POS: ${itemsDescription}`,
+        description: `Vente POS: ${itemsDescription} | Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`,
         payment_method: paymentMethod === "card" ? "card" : "cash",
         created_by: session.activeProfileId,
         created_by_name: session.displayName,
-        is_collection: true,
-        notes: `Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
+        is_collection: true
       })
       .select()
 
