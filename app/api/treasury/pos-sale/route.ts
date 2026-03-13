@@ -41,7 +41,6 @@ export async function POST(request: Request) {
         notes: `Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
       })
       .select()
-      .single()
 
     if (transactionError) {
       console.error("Transaction error:", transactionError)
@@ -54,7 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ 
       success: true,
       transactionId,
-      transaction 
+      transaction: Array.isArray(transaction) ? transaction[0] : transaction
     })
 
   } catch (error: any) {
