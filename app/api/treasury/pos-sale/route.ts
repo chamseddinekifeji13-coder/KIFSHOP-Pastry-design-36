@@ -30,20 +30,21 @@ export async function POST(request: Request) {
       `${item.name} x${item.quantity}`
     ).join(", ")
 
-    // Insert transaction
+    // Insert transaction - description includes all details since 'notes' column doesn't exist
+    const fullDescription = `Vente POS #${transactionId}: ${itemsDescription}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
+    
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "income",
+        type: "entree",
         category: "Vente comptoir",
         amount: total,
-        description: `Vente POS: ${itemsDescription}`,
+        description: fullDescription,
         payment_method: paymentMethod === "card" ? "card" : "cash",
         created_by: session.activeProfileId,
         created_by_name: session.displayName,
-        is_collection: true,
-        notes: `Transaction #${transactionId}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
+        is_collection: true
       })
       .select()
 

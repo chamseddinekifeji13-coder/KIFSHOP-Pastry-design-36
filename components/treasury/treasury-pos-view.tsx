@@ -32,6 +32,7 @@ import { DiscountManager } from "./discount-manager"
 import { ProductSearchAdvanced } from "./product-search-advanced"
 import { PrinterSettings } from "./printer-settings"
 import { getPrinter } from "@/lib/thermal-printer"
+import { useSoundManager } from "@/lib/sound-manager"
 
 // Types
 interface CartItem {
@@ -144,6 +145,7 @@ export function TreasuryPosView() {
   const { data: products, isLoading: productsLoading, mutate: refreshProducts } = useFinishedProducts()
   const { data: transactions, mutate: refreshTransactions } = useTransactions()
   const { mutate: globalMutate } = useSWRConfig()
+  const soundManager = useSoundManager()
 
   // State
   const [cart, setCart] = useState<CartItem[]>([])
@@ -220,7 +222,9 @@ export function TreasuryPosView() {
         image: product.imageUrl || product.image_url
       }]
     })
-  }, [])
+    // Play sound when item added to cart
+    soundManager.playAddToCart()
+  }, [soundManager])
 
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -502,10 +506,15 @@ export function TreasuryPosView() {
       // Open drawer for cash payments
       if (paymentMethod === "cash") {
         await openDrawer()
+        // Play drawer sound
+        soundManager.playDrawerOpen()
       }
 
       // Print receipt
       await printReceipt(transactionData)
+
+      // Success sound
+      soundManager.playSuccess()
 
       // Success
       toast.success("Vente enregistree!")
@@ -514,6 +523,7 @@ export function TreasuryPosView() {
       setShowPaymentDialog(false)
 
     } catch (error: any) {
+      soundManager.playError()
       toast.error(error.message || "Erreur lors du paiement")
     } finally {
       setIsProcessing(false)
