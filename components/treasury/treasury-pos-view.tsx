@@ -332,7 +332,7 @@ export function TreasuryPosView() {
     // Mode USB - Try WebUSB thermal printer
     if (printerModeStored === "usb" && printer.isConnected()) {
       try {
-        await printer.printReceipt({
+        const receiptData = {
           storeName: currentTenant?.name || "KIFSHOP",
           cashierName: currentUser?.name || "Caissier",
           items: (data.items || cart).map((item: any) => ({
@@ -348,10 +348,15 @@ export function TreasuryPosView() {
           change: data.change,
           transactionId: data.id || Date.now().toString().slice(-6),
           date: new Date()
-        })
+        }
+        
+        console.log("[v0] Printing receipt with data:", receiptData)
+        
+        await printer.printReceipt(receiptData)
         toast.success("Ticket imprime!")
         return
       } catch (error: any) {
+        console.log("[v0] USB print error:", error.message)
         toast.error("Erreur impression thermique, utilisation du navigateur")
       }
     }
@@ -496,29 +501,49 @@ export function TreasuryPosView() {
         await openDrawer()
       }
 
-      // Print receipt
-      printReceipt(transactionData)
-
-      // Invalider le cache SWR pour rafraichir les donnees du dashboard
-      await refreshTransactions()
-      // Invalider tous les caches lies au tenant pour le dashboard
-      globalMutate(
-        (key) => typeof key === "string" && key.includes(currentTenant?.id || ""),
-        undefined,
-        { revalidate: true }
-      )
-
-      // Clear and close
-      toast.success(`Paiement de ${formatCurrency(total)} TND enregistre`)
-      clearCart()
-      setCashReceived("")
-      setShowPaymentDialog(false)
-
-    } catch (error: any) {
-      console.error("[v0] Payment error:", error)
-      toast.error(error.message || "Erreur lors du paiement")
-    } finally {
-      setIsProcessing(false)
+  // Print receipt - handles USB, Network, and Windows modes
+  const printReceipt = async (data: any) => {
+    const printerModeStored = localStorage.getItem("printer-mode") || "windows"
+    const printer = getPrinter()
+    
+    // Mode USB - Try WebUSB thermal printer
+    if (printerModeStored === "usb") {
+      try {
+        if (!printer.isConnected()) {
+          console.log("[v0] USB printer not connected, reconnecting...")
+          toast.info("Reconnexion a l'imprimante...", { duration: 2000 })
+          // Try to reconnect
+          // Note: WebUSB requires user interaction, so we might not be able to reconnect automatically
+        } else {
+          const receiptData = {
+            storeName: currentTenant?.name || "KIFSHOP",
+            cashierName: currentUser?.name || "Caissier",
+            items: (data.items || cart).map((item: any) => ({
+              name: item.name,
+              qty: item.quantity,
+              price: item.price
+            })),
+            subtotal: data.subtotal || subtotal,
+            discount: discountAmount > 0 ? discountAmount : undefined,
+            total: data.total || total,
+            paymentMethod: data.paymentMethod === "cash" ? "Especes" : "Carte bancaire",
+            amountPaid: data.cashReceived,
+            change: data.change,
+            transactionId: data.id || Date.now().toString().slice(-6),
+            date: new Date()
+          }
+          
+          console.log("[v0] Printing receipt with data:", receiptData)
+          
+          await printer.printReceipt(receiptData)
+          console.log("[v0] USB print successful")
+          toast.success("Ticket imprime!")
+          return
+        }
+      } catch (error: any) {
+        console.log("[v0] USB print error:", error.message)
+        toast.error("Erreur impression USB: " + error.message)
+      }
     }
   }
 
