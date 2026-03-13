@@ -261,16 +261,61 @@ export function TreasuryPosView() {
   // Quick cash amounts
   const quickAmounts = [5, 10, 20, 50, 100]
 
-  // Open cash drawer
+  // Open cash drawer - supports USB and Network modes
   const openDrawer = async () => {
+    const printerModeStored = localStorage.getItem("printer-mode") || "windows"
+    
     try {
-      const printer = getPrinter()
-      if (printer.isConnected()) {
-        await printer.openDrawer()
-        toast.success("Tiroir-caisse ouvert")
-      } else {
-        toast.info("Connectez une imprimante thermique via le bouton Imprimante", { duration: 4000 })
+      // Mode USB
+      if (printerModeStored === "usb") {
+        const printer = getPrinter()
+        if (printer.isConnected()) {
+          await printer.openDrawer()
+          toast.success("Tiroir-caisse ouvert")
+          return
+        } else {
+          toast.info("Connectez l'imprimante USB via le bouton Imprimante", { duration: 4000 })
+          return
+        }
       }
+      
+      // Mode Network
+      if (printerModeStored === "network") {
+        const printerIp = localStorage.getItem("printer-ip")
+        const printerPort = localStorage.getItem("printer-port") || "9100"
+        
+        if (!printerIp) {
+          toast.info("Configurez l'adresse IP de l'imprimante dans les parametres", { duration: 4000 })
+          return
+        }
+        
+        const response = await fetch("/api/treasury/esc-pos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "open_drawer",
+            printerIp,
+            printerPort: parseInt(printerPort)
+          })
+        })
+        
+        const data = await response.json()
+        
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Erreur ouverture tiroir")
+        }
+        
+        if (data.mode === "demo") {
+          toast.info(data.message)
+        } else {
+          toast.success("Tiroir-caisse ouvert!")
+        }
+        return
+      }
+      
+      // Mode Windows - Cannot open drawer programmatically
+      toast.info("Le tiroir-caisse ne peut pas etre ouvert en mode Windows. Utilisez le mode Reseau ou USB.", { duration: 5000 })
+      
     } catch (error: any) {
       toast.error(error.message || "Erreur ouverture tiroir")
     }
@@ -362,6 +407,7 @@ export function TreasuryPosView() {
       transactionId: data.id || Date.now().toString().slice(-6)
     })
 
+    // Try to open print window
     const printWindow = window.open("", "_blank", "width=300,height=600")
     if (printWindow) {
       printWindow.document.write(receiptHTML)
@@ -369,8 +415,32 @@ export function TreasuryPosView() {
       printWindow.focus()
       setTimeout(() => {
         printWindow.print()
-        printWindow.close()
+        setTimeout(() => printWindow.close(), 500)
       }, 250)
+    } else {
+      // Popup blocked - use iframe method
+      toast.info("Popup bloque - utilisation de la methode alternative", { duration: 2000 })
+      const iframe = document.createElement("iframe")
+      iframe.style.position = "fixed"
+      iframe.style.right = "0"
+      iframe.style.bottom = "0"
+      iframe.style.width = "0"
+      iframe.style.height = "0"
+      iframe.style.border = "none"
+      document.body.appendChild(iframe)
+      
+      const iframeDoc = iframe.contentWindow?.document
+      if (iframeDoc) {
+        iframeDoc.open()
+        iframeDoc.write(receiptHTML)
+        iframeDoc.close()
+        
+        setTimeout(() => {
+          iframe.contentWindow?.focus()
+          iframe.contentWindow?.print()
+          setTimeout(() => document.body.removeChild(iframe), 1000)
+        }, 250)
+      }
     }
   }
 
