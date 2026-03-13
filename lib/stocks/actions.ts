@@ -462,7 +462,7 @@ export async function updateProductImage(productId: string, imageUrl: string): P
 export async function updateFinishedProduct(productId: string, data: {
   name?: string; description?: string; sellingPrice?: number; unit?: string;
   weight?: string; isPublished?: boolean; minOrder?: number; tags?: string[];
-  imageUrl?: string
+  imageUrl?: string; currentStock?: number; minStock?: number; categoryId?: string | null;
 }): Promise<boolean> {
   const supabase = createClient()
   const update: Record<string, any> = {}
@@ -475,6 +475,9 @@ export async function updateFinishedProduct(productId: string, data: {
   if (data.minOrder !== undefined) update.min_order = data.minOrder
   if (data.tags !== undefined) update.tags = data.tags
   if (data.imageUrl !== undefined) update.image_url = data.imageUrl
+  if (data.currentStock !== undefined) update.current_stock = data.currentStock
+  if (data.minStock !== undefined) update.min_stock = data.minStock
+  if (data.categoryId !== undefined) update.category_id = data.categoryId
 
   const { error } = await supabase.from("finished_products").update(update).eq("id", productId)
   if (error) { console.error("Error updating finished product:", error.message); return false }
