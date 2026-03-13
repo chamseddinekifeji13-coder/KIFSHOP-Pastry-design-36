@@ -22,12 +22,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
     }
 
-    // Delete clients without phone number
-    const { data, error } = await supabase
+    // Delete clients without phone number and return count
+    const { data, error, count } = await supabase
       .from("clients")
-      .delete()
+      .delete({ count: 'exact' })
       .eq("tenant_id", profile.tenant_id)
       .or("phone.is.null,phone.eq.")
+      .select()
 
     if (error) {
       console.error("Delete error:", error)
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Clients sans numéro de téléphone supprimés avec succès",
-      deleted: data?.length || 0,
+      deleted: count ?? data?.length ?? 0,
     })
   } catch (error) {
     console.error("Unexpected error:", error)

@@ -174,7 +174,7 @@ function generateZReport(closure: {
   return Buffer.concat(parts)
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
   try {
     const session = await getServerSession()
     if (!session) {
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Network printer via TCP socket
-    return new Promise((resolve) => {
+    return new Promise<Response>((resolve) => {
       const socket = net.createConnection(
         {
           host: printerIp,

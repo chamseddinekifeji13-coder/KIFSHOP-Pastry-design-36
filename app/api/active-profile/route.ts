@@ -10,10 +10,10 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      tenantUserId: session.tenantUserId,
+      tenantUserId: session.activeProfileId,
       tenantId: session.tenantId,
-      userId: session.userId,
-      role: session.role,
+      userId: session.authUserId,
+      role: session.activeRole,
       displayName: session.displayName,
     })
   } catch (error) {
