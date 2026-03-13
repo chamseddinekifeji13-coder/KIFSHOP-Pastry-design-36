@@ -393,6 +393,8 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Sélectionner l&apos;imprimante POS80</Label>
                   <select
+                    title="Sélectionner l'imprimante"
+                    aria-label="Sélectionner l'imprimante"
                     value={selectedBridgePrinter}
                     onChange={(e) => setSelectedBridgePrinter(e.target.value)}
                     className="w-full border rounded-md px-3 py-2 text-sm bg-background"

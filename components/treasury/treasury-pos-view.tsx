@@ -265,11 +265,33 @@ export function TreasuryPosView() {
   // Quick cash amounts
   const quickAmounts = [5, 10, 20, 50, 100]
 
-  // Open cash drawer - supports USB and Network modes
+  // Open cash drawer - supports Bridge, USB, Network and Windows modes
   const openDrawer = async () => {
-    const printerModeStored = localStorage.getItem("printer-mode") || "windows"
+    const printerModeStored = localStorage.getItem("printer-mode") || "bridge"
     
     try {
+      // Mode Bridge (recommended - direct Windows printing)
+      if (printerModeStored === "bridge") {
+        const printerName = localStorage.getItem("bridge-printer-name")
+        if (!printerName) {
+          toast.info("Configurez l'imprimante dans le mode Bridge (bouton Imprimante)", { duration: 4000 })
+          return
+        }
+        const res = await fetch("http://localhost:7731/print", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "open_drawer", printerName }),
+          signal: AbortSignal.timeout(5000),
+        })
+        const data = await res.json()
+        if (data.success) {
+          toast.success("Tiroir-caisse ouvert!")
+        } else {
+          toast.error("Erreur tiroir: " + data.error)
+        }
+        return
+      }
+
       // Mode USB
       if (printerModeStored === "usb") {
         const printer = getPrinter()
@@ -287,52 +309,83 @@ export function TreasuryPosView() {
       if (printerModeStored === "network") {
         const printerIp = localStorage.getItem("printer-ip")
         const printerPort = localStorage.getItem("printer-port") || "9100"
-        
         if (!printerIp) {
-          toast.info("Configurez l'adresse IP de l'imprimante dans les parametres", { duration: 4000 })
+          toast.info("Configurez l'adresse IP de l'imprimante dans les paramètres", { duration: 4000 })
           return
         }
-        
         const response = await fetch("/api/treasury/esc-pos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "open_drawer",
-            printerIp,
-            printerPort: parseInt(printerPort)
-          })
+          body: JSON.stringify({ action: "open_drawer", printerIp, printerPort: parseInt(printerPort) })
         })
-        
         const data = await response.json()
-        
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Erreur ouverture tiroir")
-        }
-        
-        if (data.mode === "demo") {
-          toast.info(data.message)
-        } else {
-          toast.success("Tiroir-caisse ouvert!")
-        }
+        if (!response.ok || !data.success) throw new Error(data.error || "Erreur ouverture tiroir")
+        if (data.mode === "demo") toast.info(data.message)
+        else toast.success("Tiroir-caisse ouvert!")
         return
       }
       
       // Mode Windows - Cannot open drawer programmatically
-      toast.info("Le tiroir-caisse ne peut pas etre ouvert en mode Windows. Utilisez le mode Reseau ou USB.", { duration: 5000 })
+      toast.info("Mode Windows: le tiroir ne s'ouvre pas automatiquement. Utilisez le mode Bridge.", { duration: 5000 })
       
     } catch (error: any) {
       toast.error(error.message || "Erreur ouverture tiroir")
     }
   }
 
-  // Print receipt - checks printer mode (windows/usb/network)
+  // Print receipt - checks printer mode (bridge/windows/usb/network)
   const printReceipt = async (transactionData?: any) => {
     const data = transactionData || lastTransaction
     if (!data) return
 
-    const printerModeStored = localStorage.getItem("printer-mode") || "windows"
+    const printerModeStored = localStorage.getItem("printer-mode") || "bridge"
     const printer = getPrinter()
-    
+
+    // Mode Bridge (recommended) - sends raw ESC/POS + opens drawer for cash payments
+    if (printerModeStored === "bridge") {
+      const printerName = localStorage.getItem("bridge-printer-name")
+      if (printerName) {
+        try {
+          const isCash = (data.paymentMethod || paymentMethod) === "cash"
+          const res = await fetch("http://localhost:7731/print", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: isCash ? "print_and_open_drawer" : "print_receipt",
+              printerName,
+              data: {
+                storeName: currentTenant?.name || "KIFSHOP PASTRY",
+                cashierName: currentUser?.name || "Caissier",
+                items: (data.items || cart).map((item: any) => ({
+                  name: item.name,
+                  qty: item.quantity,
+                  price: item.price,
+                })),
+                subtotal: data.subtotal || subtotal,
+                discount: discountAmount > 0 ? discountAmount : undefined,
+                total: data.total || total,
+                paymentMethod: isCash ? "Espèces" : "Carte bancaire",
+                amountPaid: data.cashReceived,
+                change: data.change,
+                transactionId: data.id || Date.now().toString().slice(-6),
+              },
+            }),
+            signal: AbortSignal.timeout(8000),
+          })
+          const result = await res.json()
+          if (result.success) {
+            toast.success(isCash ? "Ticket imprimé + tiroir ouvert!" : "Ticket imprimé!")
+          } else {
+            toast.error("Erreur bridge: " + result.error)
+          }
+          return
+        } catch (err: any) {
+          toast.error("Bridge non disponible - impression navigateur utilisée")
+          // Fall through to browser print
+        }
+      }
+    }
+
     // Mode USB - Try WebUSB thermal printer
     if (printerModeStored === "usb" && printer.isConnected()) {
       try {
