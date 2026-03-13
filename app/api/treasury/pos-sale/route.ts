@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "entree",
+        type: "income",
         category: "Vente comptoir",
         amount: total,
         description: fullDescription,
@@ -58,8 +58,6 @@ export async function POST(request: Request) {
         code: transactionError.code
       }, { status: 500 })
     }
-
-    console.log("[v0] Transaction created successfully:", transaction)
 
     return NextResponse.json({ 
       success: true,
