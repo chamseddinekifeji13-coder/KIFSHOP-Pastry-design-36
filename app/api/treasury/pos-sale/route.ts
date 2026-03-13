@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "income",
+        type: "entree",
         category: "Vente comptoir",
         amount: total,
         description: fullDescription,
