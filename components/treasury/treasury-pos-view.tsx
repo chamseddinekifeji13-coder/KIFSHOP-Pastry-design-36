@@ -501,49 +501,19 @@ export function TreasuryPosView() {
         await openDrawer()
       }
 
-  // Print receipt - handles USB, Network, and Windows modes
-  const printReceipt = async (data: any) => {
-    const printerModeStored = localStorage.getItem("printer-mode") || "windows"
-    const printer = getPrinter()
-    
-    // Mode USB - Try WebUSB thermal printer
-    if (printerModeStored === "usb") {
-      try {
-        if (!printer.isConnected()) {
-          console.log("[v0] USB printer not connected, reconnecting...")
-          toast.info("Reconnexion a l'imprimante...", { duration: 2000 })
-          // Try to reconnect
-          // Note: WebUSB requires user interaction, so we might not be able to reconnect automatically
-        } else {
-          const receiptData = {
-            storeName: currentTenant?.name || "KIFSHOP",
-            cashierName: currentUser?.name || "Caissier",
-            items: (data.items || cart).map((item: any) => ({
-              name: item.name,
-              qty: item.quantity,
-              price: item.price
-            })),
-            subtotal: data.subtotal || subtotal,
-            discount: discountAmount > 0 ? discountAmount : undefined,
-            total: data.total || total,
-            paymentMethod: data.paymentMethod === "cash" ? "Especes" : "Carte bancaire",
-            amountPaid: data.cashReceived,
-            change: data.change,
-            transactionId: data.id || Date.now().toString().slice(-6),
-            date: new Date()
-          }
-          
-          console.log("[v0] Printing receipt with data:", receiptData)
-          
-          await printer.printReceipt(receiptData)
-          console.log("[v0] USB print successful")
-          toast.success("Ticket imprime!")
-          return
-        }
-      } catch (error: any) {
-        console.log("[v0] USB print error:", error.message)
-        toast.error("Erreur impression USB: " + error.message)
-      }
+      // Print receipt
+      await printReceipt(transactionData)
+
+      // Success
+      toast.success("Vente enregistree!")
+      clearCart()
+      setCashReceived("")
+      setShowPaymentDialog(false)
+
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors du paiement")
+    } finally {
+      setIsProcessing(false)
     }
   }
 
