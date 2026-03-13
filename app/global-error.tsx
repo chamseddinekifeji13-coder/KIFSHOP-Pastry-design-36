@@ -15,17 +15,17 @@ export default function GlobalError({
 
   return (
     <html lang="fr">
-      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0, padding: "2rem", display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ textAlign: "center", maxWidth: "400px" }}>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+      <body className="font-sans m-0 p-8 flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-sm">
+          <h2 className="text-xl font-bold mb-2">
             Erreur critique
           </h2>
-          <p style={{ color: "#666", fontSize: "0.875rem", marginBottom: "1rem" }}>
+          <p className="text-muted-foreground text-sm mb-4">
             {error.message || "Une erreur inattendue est survenue"}
           </p>
           <button
             onClick={reset}
-            style={{ padding: "0.5rem 1rem", border: "1px solid #ccc", borderRadius: "0.375rem", background: "white", cursor: "pointer" }}
+            className="px-4 py-2 border border-border rounded-md bg-background cursor-pointer hover:bg-muted"
           >
             Reessayer
           </button>

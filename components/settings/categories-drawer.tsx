@@ -139,12 +139,13 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
                   <button
                     key={color}
                     type="button"
+                    title={`Sélectionner la couleur ${color}`}
                     className="h-7 w-7 rounded-full border-2 transition-all hover:scale-110"
-                    style={{
+                    {...{ style: {
                       backgroundColor: color,
                       borderColor: selectedColor === color ? "var(--foreground)" : "transparent",
                       boxShadow: selectedColor === color ? "0 0 0 2px var(--background)" : "none",
-                    }}
+                    } }}
                     onClick={() => setSelectedColor(color)}
                     aria-label={`Couleur ${color}`}
                   />
@@ -166,8 +167,9 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
                   <div key={cat.id} className="flex items-center gap-3 p-3 group">
                     <button
                       type="button"
+                      title={`Couleur de la catégorie ${cat.name}`}
                       className="h-8 w-8 rounded-lg cursor-pointer border shrink-0 transition-transform hover:scale-110"
-                      style={{ backgroundColor: cat.color }}
+                      {...{ style: { backgroundColor: cat.color } }}
                       onClick={() => setEditingId(editingId === cat.id ? null : cat.id)}
                     />
                     <Input
@@ -205,11 +207,12 @@ export function CategoriesDrawer({ open, onOpenChange }: CategoriesDrawerProps) 
                     <button
                       key={color}
                       type="button"
+                      title={`Changer pour la couleur ${color}`}
                       className="h-7 w-7 rounded-full border-2 transition-all hover:scale-110"
-                      style={{
+                      {...{ style: {
                         backgroundColor: color,
                         borderColor: categories.find(c => c.id === editingId)?.color === color ? "var(--foreground)" : "transparent",
-                      }}
+                      } }}
                       onClick={() => { handleColorChange(editingId, color); setEditingId(null) }}
                       aria-label={`Couleur ${color}`}
                     />

@@ -363,7 +363,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="unit" className="text-xs font-medium">Unité *</Label>
-                  <Select value={unit} onValueChange={(v) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
+                  <Select value={unit} onValueChange={(v: string) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
                     <SelectTrigger id="unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
                     <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
                   </Select>
@@ -408,6 +408,8 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                     <div className="relative w-20 h-20">
                       <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-lg" />
                       <button
+                        title="Supprimer l'image"
+                        aria-label="Supprimer l'image"
                         onClick={() => {
                           setImageFile(null)
                           setImagePreview("")
@@ -541,7 +543,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                   </Select>
                   <Input type="number" min="1" step="1" placeholder="Qte" value={packagingQty} onChange={(e) => setPackagingQty(e.target.value)}
                     className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
-                  <Button size="icon" variant="outline" onClick={addPackagingLine} className="shrink-0 rounded-lg"><Plus className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="outline" onClick={addPackagingLine} className="shrink-0 rounded-lg" title="Ajouter cet emballage" aria-label="Ajouter cet emballage"><Plus className="h-4 w-4" /></Button>
                 </div>
               </div>
               {packagingLines.length > 0 ? (

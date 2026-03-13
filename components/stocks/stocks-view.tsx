@@ -205,7 +205,7 @@ export function StocksView() {
       )}
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0" style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <TabsList style={{ width: "max-content" }}>
             <TabsTrigger value="raw" className="gap-1.5" style={{ flex: "none" }}>
               <Package className="h-4 w-4" />

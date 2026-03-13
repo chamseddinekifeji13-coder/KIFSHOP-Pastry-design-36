@@ -195,6 +195,8 @@ export function PinDialog({
           className="sr-only"
           tabIndex={-1}
           aria-hidden
+          title="Code PIN"
+          placeholder="Code PIN"
         />
 
         {/* Alert banner — shown after 2 lockouts */}

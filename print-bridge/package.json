@@ -1,0 +1,17 @@
+{
+  "name": "kifshop-print-bridge",
+  "version": "1.0.0",
+  "description": "Local print bridge for KIFSHOP POS80 thermal printer and cash drawer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "install-service": "node install-service.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-thermal-printer": "^4.3.4",
+    "@node-escpos/core": "^3.0.0-alpha.6",
+    "@node-escpos/usb-adapter": "^3.0.0-alpha.6"
+  }
+}

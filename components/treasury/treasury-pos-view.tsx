@@ -690,7 +690,7 @@ export function TreasuryPosView() {
           </div>
 
           {/* Products grid - with proper scrolling */}
-          <div className="flex-1 overflow-y-auto pr-2" style={{ maxHeight: "calc(100vh - 280px)" }}>
+          <div className="flex-1 overflow-y-auto pr-2 max-h-[calc(100vh-280px)]">
             {productsLoading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-amber-600" />

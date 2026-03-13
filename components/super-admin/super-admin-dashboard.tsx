@@ -235,7 +235,7 @@ export function SuperAdminDashboard() {
                   <div className="flex items-center gap-3 min-w-0">
                     <div
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-bold text-background"
-                      style={{ backgroundColor: tenant.primary_color }}
+                      {...{ style: { backgroundColor: tenant.primary_color } }}
                     >
                       {tenant.name.charAt(0).toUpperCase()}
                     </div>
@@ -305,7 +305,7 @@ export function SuperAdminDashboard() {
                   <div className="flex items-center gap-3">
                     <div
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
-                      style={{ backgroundColor: t.primary_color }}
+                      {...{ style: { backgroundColor: t.primary_color } }}
                     >
                       {t.name.charAt(0).toUpperCase()}
                     </div>
@@ -367,7 +367,7 @@ export function SuperAdminDashboard() {
                     <div className="flex items-center gap-3">
                       <div
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
-                        style={{ backgroundColor: t.primary_color }}
+                        {...{ style: { backgroundColor: t.primary_color } }}
                       >
                         {t.name.charAt(0).toUpperCase()}
                       </div>

@@ -540,9 +540,9 @@ export function BestDeliveryReport() {
                     >
                       <div
                         className="flex h-10 w-10 items-center justify-center rounded-full"
-                        style={{ backgroundColor: `${config.color}20` }}
+                        {...{ style: { backgroundColor: `${config.color}20` } }}
                       >
-                        <Icon className="h-5 w-5" style={{ color: config.color }} />
+                        <Icon className="h-5 w-5" {...{ style: { color: config.color } }} />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">{count}</p>
@@ -820,7 +820,7 @@ export function BestDeliveryReport() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Nouveau statut</Label>
-              <Select value={newStatus} onValueChange={(v) => setNewStatus(v as DeliveryStatus)}>
+              <Select value={newStatus} onValueChange={(v: string) => setNewStatus(v as DeliveryStatus)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

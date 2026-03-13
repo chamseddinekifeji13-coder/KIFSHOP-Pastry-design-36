@@ -181,7 +181,7 @@ export function TenantsList() {
                           <div className="flex items-center gap-3">
                             <div
                               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold text-background"
-                              style={{ backgroundColor: tenant.primary_color }}
+                              {...{ style: { backgroundColor: tenant.primary_color } }}
                             >
                               {tenant.name.charAt(0).toUpperCase()}
                             </div>
@@ -315,7 +315,7 @@ export function TenantsList() {
       {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        onOpenChange={(open: boolean) => !open && setDeleteTarget(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>

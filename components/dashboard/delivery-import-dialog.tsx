@@ -327,7 +327,7 @@ export function DeliveryImportDialog({
         {/* Step: Upload */}
         {step === "upload" && (
           <div className="space-y-4">
-            <Tabs value={inputMethod} onValueChange={(v) => setInputMethod(v as "paste" | "file")}>
+            <Tabs value={inputMethod} onValueChange={(v: string) => setInputMethod(v as "paste" | "file")}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="paste" className="flex items-center gap-2">
                   <ClipboardPaste className="h-4 w-4" />
@@ -384,6 +384,8 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
                     accept=".csv,.xml"
                     onChange={handleFileInputChange}
                     className="hidden"
+                    title="Upload CSV or XML file"
+                    aria-label="Upload CSV or XML file"
                   />
                   <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
                   <p className="text-sm font-medium">

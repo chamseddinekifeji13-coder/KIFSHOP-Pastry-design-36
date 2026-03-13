@@ -307,7 +307,7 @@ export function TenantDetailView({ tenantId }: { tenantId: string }) {
           </Button>
           <div
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-lg font-bold text-background"
-            style={{ backgroundColor: tenant.primary_color }}
+            {...{ style: { backgroundColor: tenant.primary_color } }}
           >
             {tenant.name.charAt(0).toUpperCase()}
           </div>
