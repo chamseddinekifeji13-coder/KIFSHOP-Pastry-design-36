@@ -24,30 +24,30 @@ export function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all duration-300 ${
+      className={`sticky top-0 z-50 transition-all duration-500 ${
         scrolled
-          ? "border-b border-white/10 bg-[#1a2e23]/98 shadow-lg shadow-black/10 backdrop-blur-xl"
-          : "bg-[#1a2e23]/80 backdrop-blur-md"
+          ? "border-b border-primary/20 bg-background/95 shadow-lg shadow-black/5 backdrop-blur-xl"
+          : "bg-background/80 backdrop-blur-md"
       }`}
     >
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4A7C59] text-white">
-            <ChefHat className="h-4 w-4" />
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 text-background shadow-lg shadow-primary/30 group-hover:shadow-primary/50 transition-all duration-300">
+            <ChefHat className="h-5 w-5" />
           </div>
-          <span className="text-lg font-bold text-white">
-            KIFSHOP <span className="font-normal text-[#7dba94]">Pastry</span>
+          <span className="text-xl font-bold text-foreground">
+            KIFSHOP <span className="font-normal text-primary">Pastry</span>
           </span>
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden items-center gap-6 md:flex">
+        <div className="hidden items-center gap-8 md:flex">
           {links.map((l) => (
             <a
               key={l.href}
               href={l.href}
-              className="relative text-sm text-white/70 transition-colors hover:text-white after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-[#7dba94] after:transition-all hover:after:w-full"
+              className="relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground after:absolute after:-bottom-2 after:left-0 after:h-1 after:w-0 after:bg-gradient-to-r after:from-primary after:to-primary/60 after:rounded-full after:transition-all hover:after:w-full"
             >
               {l.label}
             </a>
@@ -56,16 +56,16 @@ export function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" className="text-white/80 hover:text-white hover:bg-white/10" asChild>
+          <Button variant="outline" className="text-foreground hover:bg-accent/50 border-primary/20" asChild>
             <Link href="/auth/login">Connexion</Link>
           </Button>
-          <Button className="bg-[#4A7C59] hover:bg-[#3d6a4b] text-white" asChild>
+          <Button className="bg-primary hover:bg-primary/90 text-background shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all duration-300" asChild>
             <Link href="/auth/sign-up">Essai gratuit</Link>
           </Button>
         </div>
 
         {/* Mobile toggle */}
-        <button onClick={() => setOpen(!open)} className="text-white md:hidden" aria-label="Menu">
+        <button onClick={() => setOpen(!open)} className="text-foreground md:hidden" aria-label="Menu">
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </nav>
@@ -73,29 +73,29 @@ export function Navbar() {
       {/* Mobile menu */}
       <div
         className={`overflow-hidden transition-all duration-300 md:hidden ${
-          open ? "max-h-64 border-t border-white/10" : "max-h-0"
+          open ? "max-h-72 border-t border-border" : "max-h-0"
         }`}
       >
-        <div className="bg-[#1a2e23] px-6 py-4">
+        <div className="bg-card px-6 py-6 space-y-4">
           <div className="flex flex-col gap-3">
             {links.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="text-sm text-white/70 transition-colors hover:text-white"
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:text-primary"
               >
                 {l.label}
               </a>
             ))}
-            <div className="flex flex-col gap-2 border-t border-white/10 pt-3">
-              <Button variant="ghost" className="justify-start text-white/80 hover:text-white hover:bg-white/10" asChild>
-                <Link href="/auth/login">Connexion</Link>
-              </Button>
-              <Button className="bg-[#4A7C59] hover:bg-[#3d6a4b] text-white" asChild>
-                <Link href="/auth/sign-up">Essai gratuit</Link>
-              </Button>
-            </div>
+          </div>
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <Button variant="outline" className="justify-start text-foreground border-primary/20" asChild>
+              <Link href="/auth/login">Connexion</Link>
+            </Button>
+            <Button className="justify-start bg-primary hover:bg-primary/90 text-background" asChild>
+              <Link href="/auth/sign-up">Essai gratuit</Link>
+            </Button>
           </div>
         </div>
       </div>
