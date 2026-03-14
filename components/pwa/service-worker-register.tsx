@@ -5,12 +5,8 @@ import { toast } from "sonner"
 
 export function ServiceWorkerRegister() {
   const onUpdate = useCallback((reg: ServiceWorkerRegistration) => {
-    // On mobile, automatically apply the update instead of waiting for user action.
-    // This prevents mobile browsers from being stuck on a stale cached version.
     const waiting = reg.waiting
     if (!waiting) return
-
-
 
     toast("Mise a jour en cours...", {
       description: "KIFSHOP se met a jour automatiquement.",
@@ -25,13 +21,10 @@ export function ServiceWorkerRegister() {
 
     let intervalId: ReturnType<typeof setInterval> | null = null
 
-    // Force unregister any existing SW first to ensure clean deployment
     const registerSW = async () => {
       try {
-        // Check for existing registration and update immediately
         const existingReg = await navigator.serviceWorker.getRegistration()
         if (existingReg) {
-  
           await existingReg.update()
         }
 
@@ -40,15 +33,11 @@ export function ServiceWorkerRegister() {
           scope: "/"
         })
 
-
-
-        // Check for waiting worker on load - auto-activate
         if (reg.waiting) {
           onUpdate(reg)
           return
         }
 
-        // Listen for new worker installing
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing
           if (!newWorker) return
@@ -58,21 +47,17 @@ export function ServiceWorkerRegister() {
               newWorker.state === "installed" &&
               navigator.serviceWorker.controller
             ) {
-
               onUpdate(reg)
             }
           })
         })
 
-        // Proactively check for SW updates every 30 seconds (important for mobile)
         intervalId = setInterval(() => {
           reg.update().catch(() => {})
         }, 30 * 1000)
 
-        // Also check immediately on visibility change (when user returns to tab/app)
         const handleVisibilityChange = () => {
           if (document.visibilityState === "visible") {
-
             reg.update().catch(() => {})
           }
         }
@@ -85,12 +70,10 @@ export function ServiceWorkerRegister() {
 
     registerSW()
 
-    // Reload when the new SW takes over
     let refreshing = false
     const onControllerChange = () => {
       if (refreshing) return
       refreshing = true
-
       window.location.reload()
     }
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange)
