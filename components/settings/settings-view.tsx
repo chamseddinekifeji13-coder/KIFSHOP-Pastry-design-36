@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,8 +34,47 @@ export function SettingsView() {
   const [usersOpen, setUsersOpen] = useState(false)
 
   // Update check
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date">("idle")
-  const [cacheVersion, setCacheVersion] = useState("v6")
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date" | "forcing">("idle")
+  const [cacheVersion] = useState("v7")
+
+  // Force complete cache clear and reload
+  const handleForceUpdate = useCallback(async () => {
+    setUpdateStatus("forcing")
+    toast("Nettoyage du cache en cours...", { duration: 2000 })
+    
+    try {
+      // 1. Clear all caches
+      if ("caches" in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map(name => caches.delete(name)))
+      }
+      
+      // 2. Unregister service worker
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map(reg => reg.unregister()))
+      }
+      
+      // 3. Clear localStorage app data (keep auth)
+      const keysToKeep = ["supabase.auth.token", "sb-"]
+      Object.keys(localStorage).forEach(key => {
+        if (!keysToKeep.some(k => key.includes(k))) {
+          localStorage.removeItem(key)
+        }
+      })
+      
+      toast.success("Cache vide ! Rechargement...", { duration: 1500 })
+      
+      // 4. Hard reload
+      setTimeout(() => {
+        window.location.href = window.location.href.split("?")[0] + "?cache_bust=" + Date.now()
+      }, 1500)
+    } catch (err) {
+      console.error("Force update failed:", err)
+      toast.error("Erreur lors du nettoyage")
+      setUpdateStatus("idle")
+    }
+  }, [])
 
   const handleCheckUpdate = useCallback(async () => {
     if (!("serviceWorker" in navigator)) {
@@ -553,41 +592,61 @@ export function SettingsView() {
               </div>
             </div>
 
-            <Button
-              onClick={handleCheckUpdate}
-              disabled={updateStatus === "checking" || updateStatus === "updating"}
-              className="w-full gap-2"
-              variant={updateStatus === "up-to-date" ? "outline" : "default"}
-            >
-              {updateStatus === "checking" && (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Verification en cours...
-                </>
-              )}
-              {updateStatus === "updating" && (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Mise a jour en cours...
-                </>
-              )}
-              {updateStatus === "up-to-date" && (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  Vous etes a jour !
-                </>
-              )}
-              {updateStatus === "idle" && (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  Verifier les mises a jour
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleCheckUpdate}
+                disabled={updateStatus === "checking" || updateStatus === "updating" || updateStatus === "forcing"}
+                className="flex-1 gap-2"
+                variant={updateStatus === "up-to-date" ? "outline" : "default"}
+              >
+                {updateStatus === "checking" && (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Verification...
+                  </>
+                )}
+                {updateStatus === "updating" && (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Mise a jour...
+                  </>
+                )}
+                {updateStatus === "up-to-date" && (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    A jour !
+                  </>
+                )}
+                {(updateStatus === "idle" || updateStatus === "forcing") && (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Verifier
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleForceUpdate}
+                disabled={updateStatus === "checking" || updateStatus === "updating" || updateStatus === "forcing"}
+                variant="destructive"
+                className="gap-2"
+              >
+                {updateStatus === "forcing" ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Nettoyage...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Forcer MAJ
+                  </>
+                )}
+              </Button>
+            </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              L{"'"}application verifie automatiquement les mises a jour toutes les 30 secondes.
-              Utilisez ce bouton pour forcer une verification immediate.
+              {"\"Verifier\""} cherche une mise a jour. {"\"Forcer MAJ\""} vide le cache et recharge completement.
             </p>
           </CardContent>
         </Card>
