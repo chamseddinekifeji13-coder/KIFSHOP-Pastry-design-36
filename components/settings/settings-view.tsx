@@ -35,6 +35,7 @@ export function SettingsView() {
 
   // Update check
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date">("idle")
+  const [cacheVersion, setCacheVersion] = useState("v6")
 
   const handleCheckUpdate = useCallback(async () => {
     if (!("serviceWorker" in navigator)) {
@@ -49,21 +50,32 @@ export function SettingsView() {
         setUpdateStatus("idle")
         return
       }
+      
+      // Force fetch the SW file to bypass any network cache
       await reg.update()
-      // Wait briefly for the update to be detected
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Wait for update to be detected
+      await new Promise(resolve => setTimeout(resolve, 2500))
+      
+      // Re-check registration state after update
+      const updatedReg = await navigator.serviceWorker.getRegistration()
 
-      if (reg.waiting) {
+      if (updatedReg?.waiting) {
         setUpdateStatus("updating")
         toast("Nouvelle version detectee ! Mise a jour en cours...", { duration: 3000 })
-        reg.waiting.postMessage({ type: "SKIP_WAITING" })
+        updatedReg.waiting.postMessage({ type: "SKIP_WAITING" })
         // The controllerchange listener in ServiceWorkerRegister will reload
-      } else if (reg.installing) {
+      } else if (updatedReg?.installing) {
         setUpdateStatus("updating")
         toast("Mise a jour en cours d'installation...", { duration: 3000 })
-        reg.installing.addEventListener("statechange", function handler() {
-          if (reg.installing?.state === "installed" || reg.waiting) {
-            reg.waiting?.postMessage({ type: "SKIP_WAITING" })
+        
+        // Wait for installation to complete
+        updatedReg.installing.addEventListener("statechange", function handler(this: ServiceWorker) {
+          if (this.state === "installed") {
+            const waitingSW = updatedReg.waiting
+            if (waitingSW) {
+              waitingSW.postMessage({ type: "SKIP_WAITING" })
+            }
           }
         })
       } else {
@@ -71,7 +83,8 @@ export function SettingsView() {
         toast.success("Vous etes deja sur la derniere version !")
         setTimeout(() => setUpdateStatus("idle"), 4000)
       }
-    } catch {
+    } catch (err) {
+      console.error("[v0] Update check failed:", err)
       toast.error("Erreur lors de la verification des mises a jour")
       setUpdateStatus("idle")
     }
@@ -536,7 +549,7 @@ export function SettingsView() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Cache</span>
-                <span className="text-sm font-medium">v5</span>
+                <span className="text-sm font-medium">{cacheVersion}</span>
               </div>
             </div>
 
@@ -573,7 +586,7 @@ export function SettingsView() {
             </Button>
 
             <p className="text-xs text-muted-foreground text-center">
-              L{"'"}application verifie automatiquement les mises a jour toutes les 60 secondes.
+              L{"'"}application verifie automatiquement les mises a jour toutes les 30 secondes.
               Utilisez ce bouton pour forcer une verification immediate.
             </p>
           </CardContent>

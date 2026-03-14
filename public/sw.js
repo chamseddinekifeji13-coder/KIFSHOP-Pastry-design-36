@@ -1,7 +1,11 @@
-const CACHE_VERSION = 'v5';
+// IMPORTANT: Increment version on each deployment to force cache invalidation
+const CACHE_VERSION = 'v6';
+const BUILD_TIMESTAMP = '2026-03-14';
 const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION;
 const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION;
 const OFFLINE_URL = '/offline.html';
+
+console.log('[SW] Version', CACHE_VERSION, 'Build:', BUILD_TIMESTAMP);
 
 // Static assets cached on install — use individual adds so one failure
 // doesn't block the whole SW installation (icon files may be missing).
