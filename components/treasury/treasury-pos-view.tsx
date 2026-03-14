@@ -32,6 +32,7 @@ import { DiscountManager } from "./discount-manager"
 import { ProductSearchAdvanced } from "./product-search-advanced"
 import { PrinterSettings } from "./printer-settings"
 import { getPrinter } from "@/lib/thermal-printer"
+import { getQZTrayService } from "@/lib/qz-tray-service"
 import { useSoundManager } from "@/lib/sound-manager"
 
 // Types
@@ -265,30 +266,29 @@ export function TreasuryPosView() {
   // Quick cash amounts
   const quickAmounts = [5, 10, 20, 50, 100]
 
-  // Open cash drawer - supports Bridge, USB, Network and Windows modes
+  // Open cash drawer - supports QZ Tray, USB, Network and Windows modes
   const openDrawer = async () => {
-    const printerModeStored = localStorage.getItem("printer-mode") || "bridge"
+    const printerModeStored = localStorage.getItem("printer-mode") || "qz-tray"
     
     try {
-      // Mode Bridge (recommended - direct Windows printing)
-      if (printerModeStored === "bridge") {
-        const printerName = localStorage.getItem("bridge-printer-name")
+      // Mode QZ Tray (recommended - direct printing via QZ Tray application)
+      if (printerModeStored === "qz-tray" || printerModeStored === "bridge") {
+        const printerName = localStorage.getItem("qz-printer-name") || localStorage.getItem("bridge-printer-name")
         if (!printerName) {
-          toast.info("Configurez l'imprimante dans le mode Bridge (bouton Imprimante)", { duration: 4000 })
+          toast.info("Configurez l'imprimante dans le mode QZ Tray (bouton Imprimante)", { duration: 4000 })
           return
         }
-        const res = await fetch("http://localhost:7731/print", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "open_drawer", printerName }),
-          signal: AbortSignal.timeout(5000),
-        })
-        const data = await res.json()
-        if (data.success) {
-          toast.success("Tiroir-caisse ouvert!")
-        } else {
-          toast.error("Erreur tiroir: " + data.error)
+        const qzService = getQZTrayService()
+        if (!qzService.isConnected()) {
+          const connected = await qzService.connect()
+          if (!connected) {
+            toast.error("QZ Tray non disponible. Lancez l'application QZ Tray.", { duration: 4000 })
+            return
+          }
         }
+        qzService.selectPrinter(printerName)
+        await qzService.openDrawer()
+        toast.success("Tiroir-caisse ouvert!")
         return
       }
 
@@ -333,54 +333,62 @@ export function TreasuryPosView() {
     }
   }
 
-  // Print receipt - checks printer mode (bridge/windows/usb/network)
+  // Print receipt - checks printer mode (qz-tray/windows/usb/network)
   const printReceipt = async (transactionData?: any) => {
     const data = transactionData || lastTransaction
     if (!data) return
 
-    const printerModeStored = localStorage.getItem("printer-mode") || "bridge"
+    const printerModeStored = localStorage.getItem("printer-mode") || "qz-tray"
     const printer = getPrinter()
 
-    // Mode Bridge (recommended) - sends raw ESC/POS + opens drawer for cash payments
-    if (printerModeStored === "bridge") {
-      const printerName = localStorage.getItem("bridge-printer-name")
+    // Mode QZ Tray (recommended) - sends raw ESC/POS + opens drawer for cash payments
+    if (printerModeStored === "qz-tray" || printerModeStored === "bridge") {
+      const printerName = localStorage.getItem("qz-printer-name") || localStorage.getItem("bridge-printer-name")
       if (printerName) {
         try {
-          const isCash = (data.paymentMethod || paymentMethod) === "cash"
-          const res = await fetch("http://localhost:7731/print", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: isCash ? "print_and_open_drawer" : "print_receipt",
-              printerName,
-              data: {
-                storeName: currentTenant?.name || "KIFSHOP PASTRY",
-                cashierName: currentUser?.name || "Caissier",
-                items: (data.items || cart).map((item: any) => ({
-                  name: item.name,
-                  qty: item.quantity,
-                  price: item.price,
-                })),
-                subtotal: data.subtotal || subtotal,
-                discount: discountAmount > 0 ? discountAmount : undefined,
-                total: data.total || total,
-                paymentMethod: isCash ? "Espèces" : "Carte bancaire",
-                amountPaid: data.cashReceived,
-                change: data.change,
-                transactionId: data.id || Date.now().toString().slice(-6),
-              },
-            }),
-            signal: AbortSignal.timeout(8000),
-          })
-          const result = await res.json()
-          if (result.success) {
-            toast.success(isCash ? "Ticket imprimé + tiroir ouvert!" : "Ticket imprimé!")
-          } else {
-            toast.error("Erreur bridge: " + result.error)
+          const qzService = getQZTrayService()
+          if (!qzService.isConnected()) {
+            const connected = await qzService.connect()
+            if (!connected) {
+              toast.error("QZ Tray non disponible - impression navigateur utilisée")
+              // Fall through to browser print
+            }
           }
-          return
+          
+          if (qzService.isConnected()) {
+            qzService.selectPrinter(printerName)
+            const isCash = (data.paymentMethod || paymentMethod) === "cash"
+            
+            const receiptData = {
+              storeName: currentTenant?.name || "KIFSHOP PASTRY",
+              cashierName: currentUser?.name || "Caissier",
+              items: (data.items || cart).map((item: any) => ({
+                name: item.name,
+                qty: item.quantity,
+                price: item.price,
+              })),
+              subtotal: data.subtotal || subtotal,
+              discount: discountAmount > 0 ? discountAmount : undefined,
+              total: data.total || total,
+              paymentMethod: isCash ? "Espèces" : "Carte bancaire",
+              amountPaid: data.cashReceived,
+              change: data.change,
+              transactionId: data.id || Date.now().toString().slice(-6),
+              date: new Date(),
+            }
+            
+            if (isCash) {
+              await qzService.printAndOpenDrawer(receiptData)
+              toast.success("Ticket imprimé + tiroir ouvert!")
+            } else {
+              await qzService.printReceipt(receiptData)
+              toast.success("Ticket imprimé!")
+            }
+            return
+          }
         } catch (err: any) {
-          toast.error("Bridge non disponible - impression navigateur utilisée")
+          console.error("[QZ Tray] Print error:", err)
+          toast.error("QZ Tray erreur - impression navigateur utilisée")
           // Fall through to browser print
         }
       }
