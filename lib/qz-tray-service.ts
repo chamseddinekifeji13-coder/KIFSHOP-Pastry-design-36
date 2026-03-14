@@ -138,43 +138,55 @@ class QZTrayService {
 
   private async _connect(): Promise<boolean> {
     try {
+      console.log("[QZ Tray] Starting connection...")
+      
       // Load library if needed
       const loaded = await this.loadQZLibrary()
+      console.log("[QZ Tray] Library loaded:", loaded)
       if (!loaded || !this.qz) {
-        console.error("[QZ Tray] Library not available")
+        console.error("[QZ Tray] Library not available - make sure QZ Tray app is running")
         return false
       }
 
+      console.log("[QZ Tray] Checking existing connection...")
+      
       // Check if already connected
       if (this.qz.websocket.isActive()) {
+        console.log("[QZ Tray] Already connected")
         this.state.connected = true
         await this.loadPrinters()
         this.notifyListeners()
         return true
       }
 
-      // Configure security (for development - in production use signed certificates)
+      console.log("[QZ Tray] Configuring security...")
+      
+      // Configure security (QZ Tray will use its default certificate)
+      // This is safe for localhost/development - no need for custom certificates
       this.qz.security.setCertificatePromise((resolve: any) => {
-        resolve("-----BEGIN CERTIFICATE-----\n" +
-          "MIIFAzCCAuugAwIBAgICEAIwDQYJKoZIhvcNAQEFBQAwgZgxCzAJBgNVBAYTAlVT\n" +
-          "-----END CERTIFICATE-----")
+        // Return empty string to use QZ Tray's default certificate
+        resolve("")
       })
 
-      this.qz.security.setSignaturePromise(() => (resolve: any) => {
-        resolve()
+      this.qz.security.setSignaturePromise((resolve: any, reject: any) => {
+        // Return empty string - signatures optional for development
+        resolve("")
       })
 
+      console.log("[QZ Tray] Connecting WebSocket...")
+      
       // Connect to QZ Tray with timeout
       await Promise.race([
         this.qz.websocket.connect(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout")), 5000)
+          setTimeout(() => reject(new Error("Connection timeout - QZ Tray not running?")), 5000)
         )
       ])
 
       // Get version
       try {
         this.state.version = await this.qz.api.getVersion()
+        console.log("[QZ Tray] Version:", this.state.version)
       } catch {
         this.state.version = "Unknown"
       }
@@ -183,10 +195,10 @@ class QZTrayService {
       await this.loadPrinters()
       this.notifyListeners()
 
-      console.log("[QZ Tray] Connected successfully, version:", this.state.version)
+      console.log("[QZ Tray] Connected successfully, found printers:", this.state.printers)
       return true
     } catch (error: any) {
-      console.error("[QZ Tray] Connection error:", error.message)
+      console.error("[QZ Tray] Connection failed:", error.message)
       this.state.connected = false
       this.state.printers = []
       this.notifyListeners()
