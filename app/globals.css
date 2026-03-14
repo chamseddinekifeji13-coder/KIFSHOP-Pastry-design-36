@@ -5,74 +5,75 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  /* Premium Luxury Palette - Converted to HSL */
-  /* Backgrounds & Surfaces */
-  --background: 0 0% 99%;
-  --foreground: 60 8% 10%;
-  --card: 90 1% 98%;
-  --card-foreground: 60 8% 10%;
-  --popover: 90 1% 98%;
-  --popover-foreground: 60 8% 10%;
-  
-  /* Primary: Rich Gold (#c6a55f) */
-  --primary: 42 68% 62%;
-  --primary-foreground: 0 0% 99%;
-  
-  /* Secondary: Charcoal Noir */
-  --secondary: 60 5% 14%;
-  --secondary-foreground: 0 0% 99%;
-  
-  /* Muted: Taupe Gray */
-  --muted: 90 2% 90%;
-  --muted-foreground: 60 3% 48%;
-  
-  /* Accent: Warm Cream */
-  --accent: 90 3% 95%;
-  --accent-foreground: 60 8% 10%;
-  
-  /* Status Colors */
-  --destructive: 28 73% 58%;
-  --destructive-foreground: 0 0% 99%;
-  --warning: 70 56% 80%;
-  --warning-foreground: 60 8% 10%;
-  --success: 130 56% 58%;
-  --success-foreground: 0 0% 99%;
-  
-  /* UI Elements */
-  --border: 90 2% 92%;
-  --input: 90 1% 96%;
-  --ring: 42 68% 62%;
-  
-  /* Chart Colors - Luxury Palette */
-  --chart-1: 42 68% 62%;
-  --chart-2: 60 5% 14%;
-  --chart-3: 130 56% 58%;
-  --chart-4: 70 56% 80%;
-  --chart-5: 28 73% 58%;
-  
-  /* Border Radius */
-  --radius: 0.75rem;
-  
-  /* Sidebar - Dark Luxury */
-  --sidebar: 60 3% 15%;
-  --sidebar-foreground: 90 2% 95%;
-  --sidebar-primary: 42 68% 62%;
-  --sidebar-primary-foreground: 60 3% 15%;
-  --sidebar-accent: 90 4% 25%;
-  --sidebar-accent-foreground: 90 2% 95%;
-  --sidebar-border: 60 5% 22%;
-  --sidebar-ring: 42 68% 62%;
-}
-
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  
+  /* Premium Luxury Palette - Colors */
+  --color-background: hsl(0 0% 99%);
+  --color-foreground: hsl(60 8% 10%);
+  --color-card: hsl(90 1% 98%);
+  --color-card-foreground: hsl(60 8% 10%);
+  --color-popover: hsl(90 1% 98%);
+  --color-popover-foreground: hsl(60 8% 10%);
+  
+  /* Primary: Rich Gold (#c6a55f) */
+  --color-primary: hsl(42 68% 62%);
+  --color-primary-foreground: hsl(0 0% 99%);
+  
+  /* Secondary: Charcoal Noir */
+  --color-secondary: hsl(60 5% 14%);
+  --color-secondary-foreground: hsl(0 0% 99%);
+  
+  /* Muted: Taupe Gray */
+  --color-muted: hsl(90 2% 90%);
+  --color-muted-foreground: hsl(60 3% 48%);
+  
+  /* Accent: Warm Cream */
+  --color-accent: hsl(90 3% 95%);
+  --color-accent-foreground: hsl(60 8% 10%);
+  
+  /* Status Colors */
+  --color-destructive: hsl(28 73% 58%);
+  --color-destructive-foreground: hsl(0 0% 99%);
+  --color-warning: hsl(70 56% 80%);
+  --color-warning-foreground: hsl(60 8% 10%);
+  --color-success: hsl(130 56% 58%);
+  --color-success-foreground: hsl(0 0% 99%);
+  
+  /* UI Elements */
+  --color-border: hsl(90 2% 92%);
+  --color-input: hsl(90 1% 96%);
+  --color-ring: hsl(42 68% 62%);
+  
+  /* Chart Colors - Luxury Palette */
+  --color-chart-1: hsl(42 68% 62%);
+  --color-chart-2: hsl(60 5% 14%);
+  --color-chart-3: hsl(130 56% 58%);
+  --color-chart-4: hsl(70 56% 80%);
+  --color-chart-5: hsl(28 73% 58%);
+  
+  /* Sidebar - Dark Luxury */
+  --color-sidebar: hsl(60 3% 15%);
+  --color-sidebar-foreground: hsl(90 2% 95%);
+  --color-sidebar-primary: hsl(42 68% 62%);
+  --color-sidebar-primary-foreground: hsl(60 3% 15%);
+  --color-sidebar-accent: hsl(90 4% 25%);
+  --color-sidebar-accent-foreground: hsl(90 2% 95%);
+  --color-sidebar-border: hsl(60 5% 22%);
+  --color-sidebar-ring: hsl(42 68% 62%);
+  
+  /* Border Radius */
+  --radius: 0.75rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-none;
   }
   body {
     @apply bg-background text-foreground;
