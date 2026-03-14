@@ -103,14 +103,26 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
 
   const checkQZTrayStatus = async () => {
     setIsCheckingQZ(true)
+    console.log("[v0] Starting QZ Tray check...")
     try {
       const qzService = getQZTrayService()
+      console.log("[v0] QZ Service initialized")
+      
       const connected = await qzService.connect()
+      console.log("[v0] QZ Tray connection result:", connected)
+      
       if (connected) {
-        setQzState(qzService.getState())
+        const state = qzService.getState()
+        console.log("[v0] QZ State after connect:", state)
+        setQzState(state)
+        toast.success(`QZ Tray connecté! ${state.printers.length} imprimante(s) trouvée(s)`)
+      } else {
+        console.log("[v0] QZ Tray connection failed")
+        toast.error("QZ Tray non disponible. Assurez-vous que QZ Tray est lancé.")
       }
-    } catch (error) {
-      console.error("[QZ Tray] Check status error:", error)
+    } catch (error: any) {
+      console.error("[v0] QZ Tray check error:", error)
+      toast.error("Erreur: " + (error?.message || "Impossible de se connecter à QZ Tray"))
     } finally {
       setIsCheckingQZ(false)
     }
