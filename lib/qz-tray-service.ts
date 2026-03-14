@@ -103,24 +103,118 @@ class QZTrayService {
     // Check if already loaded
     if ((window as any).qz) {
       this.qz = (window as any).qz
+      console.log("[QZ Tray] Library already loaded")
       return true
     }
 
-    // Dynamically load QZ Tray script
+    // Remove any existing QZ script to avoid conflicts
+    const existingScript = document.querySelector('script[src*="qz-tray"]')
+    if (existingScript) {
+      existingScript.remove()
+    }
+
+    // Try multiple CDN sources
+    const cdnSources = [
+      "https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js",
+      "https://unpkg.com/qz-tray@2.2.4/qz-tray.min.js",
+      "https://cdn.jsdelivr.net/npm/qz-tray@2.2.3/qz-tray.min.js",
+    ]
+
+    for (const src of cdnSources) {
+      console.log("[QZ Tray] Trying to load from:", src)
+      const loaded = await this.tryLoadScript(src)
+      if (loaded) {
+        console.log("[QZ Tray] Library loaded successfully from:", src)
+        return true
+      }
+    }
+
+    console.error("[QZ Tray] Failed to load library from all CDN sources")
+    return false
+  }
+
+  private tryLoadScript(src: string): Promise<boolean> {
     return new Promise((resolve) => {
       const script = document.createElement("script")
-      script.src = "https://cdn.jsdelivr.net/npm/qz-tray@2.2.5/qz-tray.min.js"
+      script.src = src
       script.async = true
+      
+      const timeout = setTimeout(() => {
+        console.warn("[QZ Tray] Script load timeout for:", src)
+        resolve(false)
+      }, 10000)
+
       script.onload = () => {
-        this.qz = (window as any).qz
-        resolve(true)
+        clearTimeout(timeout)
+        if ((window as any).qz) {
+          this.qz = (window as any).qz
+          resolve(true)
+        } else {
+          console.warn("[QZ Tray] Script loaded but qz object not found")
+          resolve(false)
+        }
       }
       script.onerror = () => {
-        console.error("[QZ Tray] Failed to load library")
+        clearTimeout(timeout)
+        console.warn("[QZ Tray] Script load error for:", src)
         resolve(false)
       }
       document.head.appendChild(script)
     })
+  }
+
+  // Check if QZ Tray is reachable
+  private async checkQZTrayReachable(): Promise<boolean> {
+    // QZ Tray runs a WebSocket server on these ports
+    const ports = [8181, 8282, 8383, 8484]
+    
+    for (const port of ports) {
+      try {
+        console.log(`[QZ Tray] Checking port ${port}...`)
+        
+        // Try to create a WebSocket connection to check if QZ Tray is running
+        const result = await new Promise<boolean>((resolve) => {
+          const ws = new WebSocket(`wss://localhost:${port}`)
+          const timeout = setTimeout(() => {
+            ws.close()
+            resolve(false)
+          }, 3000)
+          
+          ws.onopen = () => {
+            clearTimeout(timeout)
+            ws.close()
+            console.log(`[QZ Tray] Found QZ Tray on port ${port}`)
+            resolve(true)
+          }
+          ws.onerror = () => {
+            clearTimeout(timeout)
+            // Try ws:// instead of wss://
+            const wsPlain = new WebSocket(`ws://localhost:${port}`)
+            const timeout2 = setTimeout(() => {
+              wsPlain.close()
+              resolve(false)
+            }, 3000)
+            
+            wsPlain.onopen = () => {
+              clearTimeout(timeout2)
+              wsPlain.close()
+              console.log(`[QZ Tray] Found QZ Tray on port ${port} (ws)`)
+              resolve(true)
+            }
+            wsPlain.onerror = () => {
+              clearTimeout(timeout2)
+              resolve(false)
+            }
+          }
+        })
+        
+        if (result) return true
+      } catch (e) {
+        console.log(`[QZ Tray] Port ${port} check failed:`, e)
+      }
+    }
+    
+    return false
   }
 
   // Connect to QZ Tray
@@ -175,11 +269,18 @@ class QZTrayService {
 
       console.log("[QZ Tray] Connecting WebSocket...")
       
-      // Connect to QZ Tray with timeout
+      // First check if QZ Tray is reachable via a simple fetch test
+      const isReachable = await this.checkQZTrayReachable()
+      if (!isReachable) {
+        console.error("[QZ Tray] QZ Tray application is not running on localhost")
+        throw new Error("QZ Tray n'est pas lancé. Veuillez démarrer QZ Tray depuis le menu Démarrer.")
+      }
+      
+      // Connect to QZ Tray with longer timeout
       await Promise.race([
         this.qz.websocket.connect(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Connection timeout - QZ Tray not running?")), 5000)
+          setTimeout(() => reject(new Error("Timeout de connexion - QZ Tray ne répond pas")), 15000)
         )
       ])
 

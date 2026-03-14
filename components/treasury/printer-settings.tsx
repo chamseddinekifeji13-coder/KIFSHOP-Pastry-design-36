@@ -118,11 +118,37 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
         toast.success(`QZ Tray connecté! ${state.printers.length} imprimante(s) trouvée(s)`)
       } else {
         console.log("[v0] QZ Tray connection failed")
-        toast.error("QZ Tray non disponible. Assurez-vous que QZ Tray est lancé.")
+        toast.error(
+          "QZ Tray non disponible",
+          {
+            description: "1. Téléchargez QZ Tray depuis qz.io/download\n2. Installez et lancez l'application\n3. Cliquez à nouveau sur Vérifier",
+            duration: 8000,
+          }
+        )
       }
     } catch (error: any) {
       console.error("[v0] QZ Tray check error:", error)
-      toast.error("Erreur: " + (error?.message || "Impossible de se connecter à QZ Tray"))
+      const errorMsg = error?.message || "Impossible de se connecter"
+      
+      if (errorMsg.includes("n'est pas lancé") || errorMsg.includes("not running")) {
+        toast.error(
+          "QZ Tray n'est pas démarré",
+          {
+            description: "Lancez QZ Tray depuis le menu Démarrer Windows, puis cliquez sur Vérifier",
+            duration: 6000,
+          }
+        )
+      } else if (errorMsg.includes("Timeout") || errorMsg.includes("timeout")) {
+        toast.error(
+          "QZ Tray ne répond pas",
+          {
+            description: "Vérifiez que QZ Tray est lancé (icône dans la barre des tâches)",
+            duration: 6000,
+          }
+        )
+      } else {
+        toast.error("Erreur: " + errorMsg)
+      }
     } finally {
       setIsCheckingQZ(false)
     }
@@ -437,36 +463,61 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
               </>
             )}
 
-            {!qzState.connected && (
+            {isCheckingQZ && (
               <Card className="border-blue-200 bg-blue-50">
-                <CardContent className="pt-4 space-y-2">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+                    <div>
+                      <p className="font-medium text-sm text-blue-800">Recherche de QZ Tray...</p>
+                      <p className="text-xs text-blue-600">Vérification des ports 8181, 8282, 8383, 8484</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!qzState.connected && !isCheckingQZ && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="pt-4 space-y-3">
                   <h4 className="font-semibold text-sm text-blue-800">
-                    Mode recommandé pour POS80 avec imprimante intégrée
+                    Mode recommandé pour POS80
                   </h4>
                   <p className="text-xs text-blue-700">
                     QZ Tray est une application gratuite qui permet l&apos;impression directe sur imprimante thermique
                     sans popup, avec ouverture automatique du tiroir-caisse.
                   </p>
-                  <div className="text-xs text-blue-700 space-y-1">
-                    <p className="font-medium">Installation (une seule fois):</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-1">
-                      <li>Téléchargez QZ Tray sur <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer" className="underline font-medium">qz.io/download</a></li>
-                      <li>Installez l&apos;application sur votre PC</li>
-                      <li>Lancez QZ Tray (icône dans la barre des tâches)</li>
-                      <li>Revenez ici et cliquez <strong>Vérifier</strong></li>
+                  
+                  <div className="bg-white/70 rounded-lg p-3 space-y-2">
+                    <p className="font-semibold text-xs text-blue-800">Installation (une seule fois):</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-xs text-blue-700 ml-1">
+                      <li>
+                        <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-blue-900">
+                          Téléchargez QZ Tray
+                        </a> (gratuit)
+                      </li>
+                      <li>Installez l&apos;application sur votre PC (clic droit → Administrateur)</li>
+                      <li>Lancez QZ Tray depuis le <strong>menu Démarrer</strong></li>
+                      <li>Une icône apparaîtra dans la <strong>barre des tâches</strong></li>
+                      <li>Cliquez sur <strong>Vérifier</strong> ci-dessus</li>
                     </ol>
                   </div>
-                  <div className="pt-2">
+                  
+                  <div className="flex gap-2">
                     <a
                       href="https://qz.io/download/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
                     >
                       <Zap className="h-4 w-4" />
                       Télécharger QZ Tray
                     </a>
                   </div>
+                  
+                  <p className="text-xs text-blue-600 text-center">
+                    QZ Tray est déjà installé? Lancez-le depuis le menu Démarrer puis cliquez Vérifier
+                  </p>
                 </CardContent>
               </Card>
             )}
