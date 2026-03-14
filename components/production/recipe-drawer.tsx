@@ -250,7 +250,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+      <SheetContent className="sm:max-w-2xl w-full p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
         <div className="bg-gradient-to-br from-secondary to-secondary/80 px-6 py-8 text-secondary-foreground">
           <div className="flex items-center gap-3 mb-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"><ChefHat className="h-5 w-5" /></div>
@@ -300,15 +300,54 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
                                 key={r.id}
                                 value={r.name}
                                 onSelect={(val) => {
+                                  // Auto-fill: copier le nom et pre-remplir les ingredients
                                   setName(val)
                                   setCustomNameInput("")
                                   setOpenNameCombobox(false)
+                                  
+                                  // Pre-remplir la categorie
+                                  if (r.category) {
+                                    setCategory(r.category)
+                                  }
+                                  
+                                  // Pre-remplir les ingredients si disponibles
+                                  if (r.ingredients && r.ingredients.length > 0) {
+                                    const existingIngs = r.ingredients.map((ing: any) => ({
+                                      materialId: ing.raw_material_id || ing.materialId,
+                                      name: ing.name,
+                                      quantity: ing.quantity?.toString() || "0",
+                                      unit: ing.unit || "g"
+                                    }))
+                                    setIngredients(existingIngs)
+                                    toast.success("Recette pre-remplie", {
+                                      description: `${existingIngs.length} ingredients copies depuis "${val}"`
+                                    })
+                                  }
+                                  
+                                  // Pre-remplir le conditionnement si disponible
+                                  if (r.packaging && r.packaging.length > 0) {
+                                    const existingPkgs = r.packaging.map((pkg: any) => ({
+                                      packagingId: pkg.packaging_id || pkg.packagingId,
+                                      name: pkg.name,
+                                      quantity: pkg.quantity || 0,
+                                      weight: pkg.weight_grams || pkg.weight || 0,
+                                      unit: pkg.unit || "pcs"
+                                    }))
+                                    setPackagingItems(existingPkgs)
+                                  }
                                 }}
                               >
                                 <Check className={cn("mr-2 h-4 w-4", name === r.name ? "opacity-100" : "opacity-0")} />
                                 <div className="flex-1">
                                   <div className="font-medium">{r.name}</div>
-                                  {r.category && <div className="text-xs text-muted-foreground">{r.category}</div>}
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    {r.category && <span>{r.category}</span>}
+                                    {r.ingredients?.length > 0 && (
+                                      <Badge variant="secondary" className="h-4 text-[10px]">
+                                        {r.ingredients.length} ing.
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                               </CommandItem>
                             ))}
@@ -345,11 +384,65 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><FlaskConical className="h-3.5 w-3.5" /> Ingredients</div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex gap-2">
-                <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
-                  <SelectTrigger className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matiere premiere" /></SelectTrigger>
-                  <SelectContent>{availableMaterials.map((m: any) => (<SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>))}</SelectContent>
-                </Select>
-                <Input type="number" step="0.01" placeholder="Qte" value={ingredientQty} onChange={(e) => setIngredientQty(e.target.value)} className="w-20 bg-muted/50 border-0" />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="flex-1 justify-between bg-muted/50 border-0 font-normal"
+                    >
+                      {selectedMaterial 
+                        ? rawMaterials.find((m: any) => m.id === selectedMaterial)?.name || "Matiere premiere"
+                        : "Matiere premiere"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Rechercher une matiere..." />
+                      <CommandList>
+                        <CommandEmpty>Aucune matiere trouvee.</CommandEmpty>
+                        <CommandGroup heading="Matieres premieres disponibles">
+                          {availableMaterials.map((m: any) => (
+                            <CommandItem
+                              key={m.id}
+                              value={m.name}
+                              onSelect={() => {
+                                setSelectedMaterial(m.id)
+                                // Auto-focus sur le champ quantite
+                                setTimeout(() => {
+                                  document.getElementById("ingredient-qty-input")?.focus()
+                                }, 100)
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedMaterial === m.id ? "opacity-100" : "opacity-0")} />
+                              <div className="flex-1">
+                                <div className="font-medium">{m.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Unite: {m.unit} | Stock: {m.quantity || 0} {m.unit}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <Input 
+                  id="ingredient-qty-input"
+                  type="number" 
+                  step="0.01" 
+                  placeholder="Qte" 
+                  value={ingredientQty} 
+                  onChange={(e) => setIngredientQty(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && selectedMaterial && ingredientQty) {
+                      addIngredient()
+                    }
+                  }}
+                  className="w-20 bg-muted/50 border-0" 
+                />
                 <Button size="icon" variant="outline" onClick={addIngredient} className="shrink-0 rounded-lg"><Plus className="h-4 w-4" /></Button>
               </div>
               {ingredients.length > 0 ? (
@@ -399,30 +492,75 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             </div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex gap-2">
-                <Select value={selectedPackaging} onValueChange={setSelectedPackaging}>
-                  <SelectTrigger className="flex-1 bg-muted/50 border-0">
-                    <SelectValue placeholder="Emballage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {packagingList.map((pkg: any) => (
-                      <SelectItem key={pkg.id} value={pkg.id}>
-                        {pkg.name} ({pkg.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="flex-1 justify-between bg-muted/50 border-0 font-normal"
+                    >
+                      {selectedPackaging 
+                        ? packagingList.find((p: any) => p.id === selectedPackaging)?.name || "Emballage"
+                        : "Emballage"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[280px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Rechercher un emballage..." />
+                      <CommandList>
+                        <CommandEmpty>Aucun emballage trouve.</CommandEmpty>
+                        <CommandGroup heading="Emballages disponibles">
+                          {packagingList.map((pkg: any) => (
+                            <CommandItem
+                              key={pkg.id}
+                              value={pkg.name}
+                              onSelect={() => {
+                                setSelectedPackaging(pkg.id)
+                                // Auto-focus sur le champ poids
+                                setTimeout(() => {
+                                  document.getElementById("packaging-weight-input")?.focus()
+                                }, 100)
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedPackaging === pkg.id ? "opacity-100" : "opacity-0")} />
+                              <div className="flex-1">
+                                <div className="font-medium">{pkg.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  Type: {pkg.type} | Stock: {pkg.quantity || 0}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <Input 
+                  id="packaging-weight-input"
                   type="number" 
                   placeholder="Poids (g)" 
                   value={packagingWeight} 
                   onChange={(e) => setPackagingWeight(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      document.getElementById("packaging-qty-input")?.focus()
+                    }
+                  }}
                   className="w-24 bg-muted/50 border-0" 
                 />
                 <Input 
+                  id="packaging-qty-input"
                   type="number" 
                   placeholder="Qte" 
                   value={packagingQty} 
                   onChange={(e) => setPackagingQty(e.target.value)} 
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && selectedPackaging && packagingWeight && packagingQty) {
+                      addPackaging()
+                    }
+                  }}
                   className="w-20 bg-muted/50 border-0" 
                 />
                 <Button size="icon" variant="outline" onClick={addPackaging} className="shrink-0 rounded-lg">
