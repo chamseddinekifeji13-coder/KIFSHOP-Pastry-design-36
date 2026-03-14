@@ -134,27 +134,7 @@ export function OrdersView() {
     return "standard"
   })
 
-  const toggleViewMode = () => {
-    const newMode = viewMode === "fast" ? "standard" : "fast"
-    setViewMode(newMode)
-    localStorage.setItem("orders-view-mode", newMode)
-  }
-
-  // If fast sales mode, render that view
-  if (viewMode === "fast") {
-    return (
-      <div className="relative">
-        <div className="absolute top-0 right-0 z-10">
-          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
-            <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">Mode Standard</span>
-          </Button>
-        </div>
-        <FastSalesView />
-      </div>
-    )
-  }
-
+  // ALL hooks must be declared before any conditional return
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [newOrderOpen, setNewOrderOpen] = useState(false)
@@ -227,6 +207,28 @@ export function OrdersView() {
       setNewOrderOpen(true)
     }
   }, [searchParams])
+
+  // Toggle view mode function
+  const toggleViewMode = () => {
+    const newMode = viewMode === "fast" ? "standard" : "fast"
+    setViewMode(newMode)
+    localStorage.setItem("orders-view-mode", newMode)
+  }
+
+  // Conditional render for fast sales mode - AFTER all hooks
+  if (viewMode === "fast") {
+    return (
+      <div className="relative">
+        <div className="absolute top-0 right-0 z-10">
+          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Mode Standard</span>
+          </Button>
+        </div>
+        <FastSalesView />
+      </div>
+    )
+  }
 
   const ordersByStatus = {
     nouveau: orders.filter((o) => o.status === "nouveau"),
