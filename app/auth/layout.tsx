@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ChefHat, BarChart3, ShoppingCart, Package, Sparkles, TrendingUp, Users } from "lucide-react"
+import Image from "next/image"
+import { ChefHat } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Connexion - KIFSHOP Pastry Logiciel Gestion Patisserie Tunisie",
@@ -21,102 +22,84 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh">
-      {/* Left panel - Premium branded section (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden bg-secondary flex-col justify-between p-10">
-        {/* Subtle geometric pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
+    <div className="min-h-svh flex flex-col lg:flex-row">
+      {/* Left side - Image with overlay */}
+      <div className="hidden lg:block lg:w-1/2 relative">
+        <Image
+          src="https://images.unsplash.com/photo-1517433670267-08bbd4be890f?q=80&w=1920&auto=format&fit=crop"
+          alt="Patisserie artisanale"
+          fill
+          className="object-cover"
+          priority
         />
+        {/* Dark overlay with gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-secondary/95 via-secondary/80 to-secondary/95" />
         
-        {/* Premium gradient accents */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-primary/5 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
-        
-        {/* Top: Logo */}
-        <div className="relative z-10">
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-secondary shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
-              <ChefHat className="h-5 w-5" />
+        {/* Content over image */}
+        <div className="absolute inset-0 flex flex-col justify-between p-12">
+          {/* Logo */}
+          <Link href="/" className="inline-flex items-center gap-3 group w-fit">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-secondary shadow-lg shadow-primary/30 transition-transform group-hover:scale-105">
+              <ChefHat className="h-6 w-6" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-bold text-white tracking-tight">
-                KIFSHOP <span className="font-normal text-primary">Pastry</span>
+              <span className="text-2xl font-bold text-white tracking-tight">
+                KIFSHOP <span className="font-light text-primary">Pastry</span>
               </span>
-              <span className="text-xs text-white/40">Gestion Patisserie Pro</span>
+              <span className="text-xs text-white/50">Gestion Patisserie Pro</span>
             </div>
           </Link>
-        </div>
-
-        {/* Center: Main content */}
-        <div className="relative z-10 flex flex-col max-w-lg">
-          <div className="inline-flex items-center gap-2 text-primary text-sm font-medium mb-4">
-            <Sparkles className="h-4 w-4" />
-            <span>Solution complete pour artisans</span>
-          </div>
           
-          <h1 className="text-4xl font-bold text-white leading-tight mb-4 text-balance">
-            Simplifiez la gestion de votre patisserie
-          </h1>
-          
-          <p className="text-white/50 text-lg leading-relaxed mb-10 text-pretty">
-            Stocks, production, commandes et tresorerie reunis dans une interface intuitive.
-          </p>
-
-          {/* Feature cards - Modern glass style */}
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: Package, label: "Gestion stocks", desc: "Matieres premieres" },
-              { icon: ChefHat, label: "Production", desc: "Planification" },
-              { icon: ShoppingCart, label: "Commandes", desc: "Ventes & POS" },
-              { icon: BarChart3, label: "Analytics", desc: "Tableau de bord" },
-            ].map((feat) => (
-              <div
-                key={feat.label}
-                className="group flex items-start gap-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] p-4 transition-all hover:bg-white/[0.06] hover:border-primary/20"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
-                  <feat.icon className="h-5 w-5" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-white">{feat.label}</span>
-                  <span className="text-xs text-white/40">{feat.desc}</span>
-                </div>
+          {/* Main text */}
+          <div className="max-w-md">
+            <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight mb-6">
+              Gerez votre patisserie en toute simplicite
+            </h1>
+            <p className="text-lg text-white/70 leading-relaxed">
+              Une solution complete pour les artisans patissiers tunisiens. Stocks, production, commandes et tresorerie reunis.
+            </p>
+            
+            {/* Stats */}
+            <div className="flex items-center gap-8 mt-10">
+              <div>
+                <div className="text-3xl font-bold text-primary">150+</div>
+                <div className="text-sm text-white/50">Patisseries</div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom: Social proof */}
-        <div className="relative z-10 flex items-center gap-6 pt-6 border-t border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              <div className="h-8 w-8 rounded-full bg-primary/20 border-2 border-secondary flex items-center justify-center">
-                <Users className="h-3.5 w-3.5 text-primary" />
+              <div className="h-10 w-px bg-white/20" />
+              <div>
+                <div className="text-3xl font-bold text-white">100%</div>
+                <div className="text-sm text-white/50">Tunisien</div>
               </div>
-              <div className="h-8 w-8 rounded-full bg-emerald-500/20 border-2 border-secondary flex items-center justify-center">
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+              <div className="h-10 w-px bg-white/20" />
+              <div>
+                <div className="text-3xl font-bold text-white">24/7</div>
+                <div className="text-sm text-white/50">Support</div>
               </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-white">+150 patisseries</span>
-              <span className="text-xs text-white/40">font confiance a KIFSHOP</span>
-            </div>
           </div>
-          <div className="h-8 w-px bg-white/10" />
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">100% Tunisien</span>
-            <span className="text-xs text-white/40">Support local</span>
+          
+          {/* Footer */}
+          <div className="text-sm text-white/40">
+            2024 KIFSHOP. Tous droits reserves.
           </div>
         </div>
       </div>
 
-      {/* Right panel - Form area with refined styling */}
-      <div className="flex flex-1 items-center justify-center bg-background p-6 lg:p-12">
+      {/* Right side - Form */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-background">
         <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="flex flex-col items-center mb-10 lg:hidden">
+            <Link href="/" className="inline-flex items-center gap-3 group">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-secondary shadow-lg shadow-primary/30">
+                <ChefHat className="h-7 w-7" />
+              </div>
+            </Link>
+            <h1 className="text-2xl font-bold text-foreground mt-4">
+              KIFSHOP <span className="font-light text-primary">Pastry</span>
+            </h1>
+          </div>
+          
           {children}
         </div>
       </div>
