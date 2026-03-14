@@ -73,7 +73,7 @@
 
 @layer base {
   * {
-    @apply border-border outline-none;
+    @apply border-current outline-none;
   }
   body {
     @apply bg-background text-foreground;
