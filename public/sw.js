@@ -1,11 +1,12 @@
 // IMPORTANT: Increment version on each deployment to force cache invalidation
-const CACHE_VERSION = 'v7';
-const BUILD_TIMESTAMP = Date.now();
-const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION;
-const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION;
+// BUILD_ID is set at build time - change this string for each deployment
+const CACHE_VERSION = 'v8';
+const BUILD_ID = '20260314-audit-fix';
+const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION + '-' + BUILD_ID;
+const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION + '-' + BUILD_ID;
 const OFFLINE_URL = '/offline.html';
 
-console.log('[SW] Version', CACHE_VERSION, 'Build:', BUILD_TIMESTAMP);
+console.log('[SW] Version', CACHE_VERSION, 'Build:', BUILD_ID);
 
 // Static assets cached on install — use individual adds so one failure
 // doesn't block the whole SW installation (icon files may be missing).
@@ -64,9 +65,10 @@ function isAppPage(url) {
 }
 
 function shouldSkip(url) {
+  // Skip API routes, Supabase calls, and auth callback (not the login page)
   return (
     url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/auth/') ||
+    url.pathname === '/auth/callback' ||
     url.hostname.includes('supabase') ||
     url.hostname.includes('googleapis') ||
     !url.protocol.startsWith('http')
