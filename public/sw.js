@@ -1,6 +1,6 @@
 // IMPORTANT: Increment version on each deployment to force cache invalidation
-const CACHE_VERSION = 'v6';
-const BUILD_TIMESTAMP = '2026-03-14';
+const CACHE_VERSION = 'v7';
+const BUILD_TIMESTAMP = Date.now();
 const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION;
 const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION;
 const OFFLINE_URL = '/offline.html';
@@ -80,20 +80,41 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (shouldSkip(url)) return;
 
-  // Strategy 1: Cache-first for static assets (JS, CSS, fonts, images)
+  // Strategy 1: Network-first for JS/CSS (to get latest deployed code), cache-first for fonts/images
   if (isStaticAsset(url)) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
-          if (response.status === 200) {
-            const clone = response.clone();
-            caches.open(STATIC_CACHE).then((c) => c.put(event.request, clone));
-          }
-          return response;
-        });
-      })
-    );
+    const isCodeFile = /\.(js|css)(\?|$)/.test(url.pathname);
+    
+    if (isCodeFile) {
+      // Network-first for JS/CSS to always get latest deployment
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            if (response.status === 200) {
+              const clone = response.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(event.request, clone));
+            }
+            return response;
+          })
+          .catch(async () => {
+            const cached = await caches.match(event.request);
+            return cached || new Response('Offline', { status: 503 });
+          })
+      );
+    } else {
+      // Cache-first for fonts/images (they rarely change)
+      event.respondWith(
+        caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return fetch(event.request).then((response) => {
+            if (response.status === 200) {
+              const clone = response.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(event.request, clone));
+            }
+            return response;
+          });
+        })
+      );
+    }
     return;
   }
 
