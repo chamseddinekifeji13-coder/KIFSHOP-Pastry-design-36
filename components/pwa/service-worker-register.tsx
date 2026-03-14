@@ -10,8 +10,10 @@ export function ServiceWorkerRegister() {
     const waiting = reg.waiting
     if (!waiting) return
 
-    toast("Mise \u00e0 jour en cours...", {
-      description: "KIFSHOP se met \u00e0 jour automatiquement.",
+    console.log("[v0] SW update detected, activating new version...")
+
+    toast("Mise a jour en cours...", {
+      description: "KIFSHOP se met a jour automatiquement.",
       duration: 3000,
     })
 
@@ -23,10 +25,24 @@ export function ServiceWorkerRegister() {
 
     let intervalId: ReturnType<typeof setInterval> | null = null
 
-    navigator.serviceWorker
-      .register("/sw.js", { updateViaCache: "none" })
-      .then((reg) => {
-        // Check for waiting worker on load — auto-activate
+    // Force unregister any existing SW first to ensure clean deployment
+    const registerSW = async () => {
+      try {
+        // Check for existing registration and update immediately
+        const existingReg = await navigator.serviceWorker.getRegistration()
+        if (existingReg) {
+          console.log("[v0] Existing SW found, checking for updates...")
+          await existingReg.update()
+        }
+
+        const reg = await navigator.serviceWorker.register("/sw.js", { 
+          updateViaCache: "none",
+          scope: "/"
+        })
+
+        console.log("[v0] SW registered successfully")
+
+        // Check for waiting worker on load - auto-activate
         if (reg.waiting) {
           onUpdate(reg)
           return
@@ -36,30 +52,45 @@ export function ServiceWorkerRegister() {
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing
           if (!newWorker) return
+          console.log("[v0] New SW installing...")
           newWorker.addEventListener("statechange", () => {
             if (
               newWorker.state === "installed" &&
               navigator.serviceWorker.controller
             ) {
+              console.log("[v0] New SW installed, triggering update...")
               onUpdate(reg)
             }
           })
         })
 
-        // Proactively check for SW updates every 60 seconds (important for mobile)
+        // Proactively check for SW updates every 30 seconds (important for mobile)
         intervalId = setInterval(() => {
           reg.update().catch(() => {})
-        }, 60 * 1000)
-      })
-      .catch((err) => {
+        }, 30 * 1000)
+
+        // Also check immediately on visibility change (when user returns to tab/app)
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === "visible") {
+            console.log("[v0] App visible, checking for SW updates...")
+            reg.update().catch(() => {})
+          }
+        }
+        document.addEventListener("visibilitychange", handleVisibilityChange)
+
+      } catch (err) {
         console.warn("[SW] Registration failed:", err)
-      })
+      }
+    }
+
+    registerSW()
 
     // Reload when the new SW takes over
     let refreshing = false
     const onControllerChange = () => {
       if (refreshing) return
       refreshing = true
+      console.log("[v0] New SW controller active, reloading...")
       window.location.reload()
     }
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange)
