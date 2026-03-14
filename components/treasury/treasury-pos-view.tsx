@@ -598,24 +598,25 @@ export function TreasuryPosView() {
     .reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
 
   return (
-    <div className="h-[calc(100vh-60px)] flex flex-col bg-amber-50/30">
-      {/* Header - Clean bakery theme */}
-      <div className="bg-white border-b border-amber-200 px-4 py-3 shadow-sm">
+    <div className="h-[calc(100vh-60px)] flex flex-col bg-[#1a1a1a]">
+      {/* Header - Premium dark theme */}
+      <div className="bg-[#0f0f0f] border-b border-[#2a2a2a] px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Left: Store info + Mode Bureau button */}
           <div className="flex items-center gap-4">
-            <div className="bg-amber-100 p-2 rounded-xl">
-              <ShoppingBag className="h-6 w-6 text-amber-700" />
+            <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-2.5 rounded-xl shadow-lg shadow-amber-500/20">
+              <ShoppingBag className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-amber-900">{currentTenant?.name || "KIFSHOP"}</h1>
-              <div className="flex items-center gap-2 text-sm text-amber-700">
+              <h1 className="font-bold text-lg text-white">{currentTenant?.name || "KIFSHOP"}</h1>
+              <div className="flex items-center gap-2 text-sm text-amber-400/80">
                 <User className="h-3.5 w-3.5" />
                 <span>{currentUser?.name || "Caissier"}</span>
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">Gerant</Badge>
               </div>
             </div>
 
-            {/* Mode Bureau button - in header left, far from payment buttons */}
+            {/* Mode Bureau button */}
             <Button
               onClick={() => {
                 localStorage.setItem("treasury-view-mode", "desktop")
@@ -623,49 +624,53 @@ export function TreasuryPosView() {
               }}
               variant="outline"
               size="sm"
-              className="gap-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              className="gap-2 border-[#3a3a3a] bg-[#2a2a2a] text-gray-300 hover:text-white hover:bg-[#3a3a3a] hover:border-[#4a4a4a]"
             >
               <Settings className="h-4 w-4" />
               <span>Mode Bureau</span>
             </Button>
           </div>
 
-          {/* Center: Modern Clock */}
-          <div className="flex items-center gap-1.5 bg-white border border-amber-200 px-4 py-2 rounded-2xl shadow-sm">
+          {/* Center: Premium Clock */}
+          <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#3a3a3a] px-5 py-2.5 rounded-2xl">
             {currentTime ? (() => {
               const parts = currentTime.split(":")
               return (
                 <>
-                  <span className="text-2xl font-bold tabular-nums text-amber-900 tracking-tight">{parts[0]}</span>
-                  <span className="text-xl font-light text-amber-400 animate-pulse">:</span>
-                  <span className="text-2xl font-bold tabular-nums text-amber-900 tracking-tight">{parts[1]}</span>
-                  <span className="text-xl font-light text-amber-400 animate-pulse">:</span>
-                  <span className="text-xl font-semibold tabular-nums text-amber-500 tracking-tight">{parts[2]}</span>
-                  <div className="ml-2 flex flex-col items-start leading-none">
-                    <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-widest">
+                  <span className="text-3xl font-bold tabular-nums text-white tracking-tight">{parts[0]}</span>
+                  <span className="text-2xl font-light text-amber-500 animate-pulse">:</span>
+                  <span className="text-3xl font-bold tabular-nums text-white tracking-tight">{parts[1]}</span>
+                  <span className="text-2xl font-light text-amber-500 animate-pulse">:</span>
+                  <span className="text-2xl font-semibold tabular-nums text-gray-400 tracking-tight">{parts[2]}</span>
+                  <div className="ml-3 pl-3 border-l border-[#3a3a3a] flex flex-col items-start leading-none">
+                    <span className="text-xs font-semibold text-amber-500 uppercase tracking-widest">
                       {new Date().toLocaleDateString("fr-TN", { weekday: "short" })}
                     </span>
-                    <span className="text-[10px] text-amber-400">
+                    <span className="text-xs text-gray-500">
                       {new Date().toLocaleDateString("fr-TN", { day: "2-digit", month: "short" })}
                     </span>
                   </div>
                 </>
               )
-            })() : <span className="text-2xl font-bold text-amber-300">--:--:--</span>}
+            })() : <span className="text-2xl font-bold text-gray-600">--:--:--</span>}
           </div>
 
           {/* Right: Stats & Actions */}
           <div className="flex items-center gap-3">
             {/* Today's stats */}
-            <div className="flex items-center gap-4 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200">
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-                <span className="font-bold text-emerald-700">{formatCurrency(todayIncome)}</span>
+            <div className="flex items-center gap-4 bg-[#1a1a1a] px-4 py-2.5 rounded-xl border border-[#2a2a2a]">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500/10 rounded-lg">
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                </div>
+                <span className="font-bold text-emerald-400">{formatCurrency(todayIncome)}</span>
               </div>
-              <div className="w-px h-6 bg-emerald-200" />
-              <div className="flex items-center gap-1.5">
-                <TrendingDown className="h-4 w-4 text-red-500" />
-                <span className="font-bold text-red-600">{formatCurrency(todayExpense)}</span>
+              <div className="w-px h-6 bg-[#3a3a3a]" />
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-red-500/10 rounded-lg">
+                  <TrendingDown className="h-4 w-4 text-red-400" />
+                </div>
+                <span className="font-bold text-red-400">{formatCurrency(todayExpense)}</span>
               </div>
             </div>
 
@@ -676,7 +681,7 @@ export function TreasuryPosView() {
             <Button 
               variant="outline"
               onClick={openDrawer}
-              className="h-11 px-4 border-amber-300 hover:bg-amber-100 text-amber-800"
+              className="h-11 px-4 border-[#3a3a3a] bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 hover:text-white"
             >
               <Unlock className="h-4 w-4 mr-2" />
               Tiroir
@@ -686,7 +691,7 @@ export function TreasuryPosView() {
             <Button 
               variant="outline"
               onClick={() => refreshProducts()}
-              className="h-11 w-11 p-0 border-amber-300 hover:bg-amber-100 text-amber-800"
+              className="h-11 w-11 p-0 border-[#3a3a3a] bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 hover:text-white"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -701,12 +706,12 @@ export function TreasuryPosView() {
           {/* Search */}
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
               <Input
                 placeholder="Rechercher un produit..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-14 text-lg bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400 rounded-xl"
+                className="pl-12 h-14 text-lg bg-[#252525] border-[#3a3a3a] text-white placeholder:text-gray-500 focus:border-amber-500 focus:ring-amber-500/20 rounded-xl"
               />
             </div>
           </div>
@@ -719,8 +724,8 @@ export function TreasuryPosView() {
               className={cn(
                 "h-11 px-5 rounded-full font-medium transition-all",
                 selectedCategory === null 
-                  ? "bg-amber-600 hover:bg-amber-700 text-white" 
-                  : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20" 
+                  : "border-[#3a3a3a] bg-[#252525] text-gray-300 hover:bg-[#3a3a3a] hover:text-white"
               )}
             >
               Tous
@@ -733,8 +738,8 @@ export function TreasuryPosView() {
                 className={cn(
                   "h-11 px-5 rounded-full font-medium transition-all",
                   selectedCategory === cat 
-                    ? "bg-amber-600 hover:bg-amber-700 text-white" 
-                    : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20" 
+                    : "border-[#3a3a3a] bg-[#252525] text-gray-300 hover:bg-[#3a3a3a] hover:text-white"
                 )}
               >
                 {cat}
@@ -742,14 +747,14 @@ export function TreasuryPosView() {
             ))}
           </div>
 
-          {/* Products grid - with proper scrolling */}
+          {/* Products grid */}
           <div className="flex-1 overflow-y-auto pr-2 max-h-[calc(100vh-280px)]">
             {productsLoading ? (
               <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-amber-600">
+              <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                 <Package className="h-16 w-16 mb-4 opacity-50" />
                 <p className="text-lg">Aucun produit trouve</p>
               </div>
@@ -765,22 +770,22 @@ export function TreasuryPosView() {
                       key={product.id}
                       onClick={() => addToCart(product)}
                       className={cn(
-                        "group relative bg-white rounded-2xl p-3 text-left transition-all duration-200",
-                        "border-2 hover:shadow-lg active:scale-[0.98]",
+                        "group relative bg-[#252525] rounded-2xl p-3 text-left transition-all duration-200",
+                        "border-2 hover:shadow-xl active:scale-[0.98]",
                         inCart 
-                          ? "border-amber-500 shadow-md ring-2 ring-amber-200" 
-                          : "border-amber-100 hover:border-amber-300"
+                          ? "border-amber-500 shadow-lg shadow-amber-500/20 ring-1 ring-amber-500/50" 
+                          : "border-[#3a3a3a] hover:border-[#4a4a4a] hover:shadow-lg hover:shadow-black/20"
                       )}
                     >
                       {/* Quantity badge */}
                       {inCart && (
-                        <div className="absolute -top-2 -right-2 bg-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-br from-amber-500 to-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
                           {inCart.quantity}
                         </div>
                       )}
 
                       {/* Product image */}
-                      <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-amber-50">
+                      <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-[#1a1a1a]">
                         {productImage ? (
                           <img
                             src={productImage}
@@ -788,19 +793,19 @@ export function TreasuryPosView() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-amber-300">
+                          <div className="w-full h-full flex flex-col items-center justify-center text-amber-500/50">
                             <ImageIcon className="h-10 w-10 mb-1" />
-                            <span className="text-xs">Pas d'image</span>
+                            <span className="text-xs text-gray-600">Pas d'image</span>
                           </div>
                         )}
                       </div>
 
                       {/* Product info */}
-                      <h3 className="font-semibold text-sm text-amber-900 line-clamp-2 min-h-[2.5rem]">
+                      <h3 className="font-semibold text-sm text-white line-clamp-2 min-h-[2.5rem]">
                         {product.name}
                       </h3>
-                      <p className="text-amber-700 font-bold text-base mt-1">
-                        {formatCurrency(productPrice)} <span className="text-xs font-normal">TND</span>
+                      <p className="text-amber-400 font-bold text-base mt-1">
+                        {formatCurrency(productPrice)} <span className="text-xs font-normal text-gray-500">TND</span>
                       </p>
                     </button>
                   )
@@ -811,15 +816,15 @@ export function TreasuryPosView() {
         </div>
 
         {/* Cart section */}
-        <div className="w-[380px] bg-white border-l border-amber-200 flex flex-col">
+        <div className="w-[380px] bg-[#0f0f0f] border-l border-[#2a2a2a] flex flex-col">
           {/* Cart header */}
-          <div className="p-4 border-b border-amber-100 bg-amber-50/50">
+          <div className="p-4 border-b border-[#2a2a2a]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-amber-700" />
-                <h2 className="font-bold text-lg text-amber-900">Panier</h2>
+                <ShoppingBag className="h-5 w-5 text-amber-500" />
+                <h2 className="font-bold text-lg text-white">Panier</h2>
                 {cart.length > 0 && (
-                  <Badge className="bg-amber-600 text-white">{cart.length}</Badge>
+                  <Badge className="bg-amber-500 text-white">{cart.length}</Badge>
                 )}
               </div>
               {cart.length > 0 && (
@@ -827,7 +832,7 @@ export function TreasuryPosView() {
                   variant="ghost"
                   size="sm"
                   onClick={clearCart}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Vider
@@ -839,25 +844,25 @@ export function TreasuryPosView() {
           {/* Cart items */}
           <ScrollArea className="flex-1 p-4">
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-amber-400">
-                <ShoppingBag className="h-16 w-16 mb-3 opacity-50" />
-                <p>Panier vide</p>
-                <p className="text-sm mt-1">Cliquez sur un produit pour l'ajouter</p>
+              <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                <ShoppingBag className="h-16 w-16 mb-3 opacity-30 text-amber-500" />
+                <p className="text-amber-500/80">Panier vide</p>
+                <p className="text-sm mt-1 text-gray-600">Cliquez sur un produit pour l'ajouter</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {cart.map(item => (
                   <div
                     key={item.id}
-                    className="bg-amber-50/50 rounded-xl p-3 border border-amber-100"
+                    className="bg-[#1a1a1a] rounded-xl p-3 border border-[#2a2a2a]"
                   >
                     <div className="flex items-start gap-3">
                       {/* Image */}
-                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-white flex-shrink-0">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#252525] flex-shrink-0">
                         {item.image ? (
                           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-amber-300">
+                          <div className="w-full h-full flex items-center justify-center text-gray-600">
                             <Package className="h-6 w-6" />
                           </div>
                         )}
@@ -865,24 +870,24 @@ export function TreasuryPosView() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-amber-900 text-sm line-clamp-1">{item.name}</h4>
-                        <p className="text-amber-600 text-sm">{formatCurrency(item.price)} TND</p>
+                        <h4 className="font-medium text-white text-sm line-clamp-1">{item.name}</h4>
+                        <p className="text-gray-400 text-sm">{formatCurrency(item.price)} TND</p>
                         
                         {/* Quantity controls */}
                         <div className="flex items-center gap-2 mt-2">
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 rounded-lg border-amber-300"
+                            className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
                             onClick={() => updateQuantity(item.id, -1)}
                           >
                             <Minus className="h-3.5 w-3.5" />
                           </Button>
-                          <span className="w-8 text-center font-bold text-amber-900">{item.quantity}</span>
+                          <span className="w-8 text-center font-bold text-white">{item.quantity}</span>
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 rounded-lg border-amber-300"
+                            className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
                             onClick={() => updateQuantity(item.id, 1)}
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -895,12 +900,12 @@ export function TreasuryPosView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
                           onClick={() => removeFromCart(item.id)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
-                        <span className="font-bold text-amber-900">
+                        <span className="font-bold text-amber-400">
                           {formatCurrency(item.price * item.quantity)}
                         </span>
                       </div>
@@ -912,10 +917,10 @@ export function TreasuryPosView() {
           </ScrollArea>
 
           {/* Cart footer */}
-          <div className="border-t border-amber-200 p-4 bg-amber-50/30">
+          <div className="border-t border-[#2a2a2a] p-4 bg-[#0a0a0a]">
             {/* Totals */}
             <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-amber-700">
+              <div className="flex justify-between text-gray-400">
                 <span>Sous-total</span>
                 <span>{formatCurrency(subtotal)} TND</span>
               </div>
@@ -923,19 +928,19 @@ export function TreasuryPosView() {
               {/* Discounts section */}
               {appliedDiscounts.length > 0 && (
                 <>
-                  <div className="bg-amber-50 rounded-lg p-2 space-y-1">
+                  <div className="bg-red-500/10 rounded-lg p-2 space-y-1 border border-red-500/20">
                     {appliedDiscounts.map(discount => (
-                      <div key={discount.id} className="flex justify-between text-sm text-red-600">
+                      <div key={discount.id} className="flex justify-between text-sm text-red-400">
                         <span>{discount.label}</span>
                         <button
                           onClick={() => setAppliedDiscounts(prev => prev.filter(d => d.id !== discount.id))}
-                          className="text-xs hover:text-red-800"
+                          className="text-xs hover:text-red-300"
                         >
-                          - {discount.type === "percentage" ? `${discount.value}%` : formatCurrency(discount.value)} ✕
+                          - {discount.type === "percentage" ? `${discount.value}%` : formatCurrency(discount.value)} x
                         </button>
                       </div>
                     ))}
-                    <div className="flex justify-between text-sm font-semibold text-red-700 pt-1 border-t border-amber-200">
+                    <div className="flex justify-between text-sm font-semibold text-red-400 pt-1 border-t border-red-500/20">
                       <span>Total remise</span>
                       <span>-{formatCurrency(discountAmount)} TND</span>
                     </div>
@@ -947,9 +952,8 @@ export function TreasuryPosView() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full text-xs border-amber-300 text-amber-800 hover:bg-amber-100"
+                className="w-full text-xs border-[#3a3a3a] bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                 onClick={() => {
-                  // Simple preset discounts for quick access
                   const newDiscount = { id: Date.now().toString(), type: "percentage" as const, value: 5, label: "Remise 5%" }
                   setAppliedDiscounts([...appliedDiscounts, newDiscount])
                 }}
@@ -957,10 +961,10 @@ export function TreasuryPosView() {
                 + Remise
               </Button>
 
-              <Separator className="bg-amber-200" />
-              <div className="flex justify-between text-xl font-bold text-amber-900">
+              <Separator className="bg-[#2a2a2a]" />
+              <div className="flex justify-between text-xl font-bold text-white">
                 <span>TOTAL</span>
-                <span>{formatCurrency(total)} TND</span>
+                <span className="text-amber-400">{formatCurrency(total)} TND</span>
               </div>
             </div>
 
@@ -968,7 +972,7 @@ export function TreasuryPosView() {
             <div className="grid grid-cols-2 gap-3 mb-3">
               <Button
                 variant="outline"
-                className="h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+                className="h-12 border-[#3a3a3a] bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                 onClick={() => lastTransaction && setShowReceiptPreview(true)}
                 disabled={!lastTransaction}
               >
@@ -977,7 +981,7 @@ export function TreasuryPosView() {
               </Button>
               <Button
                 variant="outline"
-                className="h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+                className="h-12 border-[#3a3a3a] bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                 onClick={openDrawer}
               >
                 <Unlock className="h-4 w-4 mr-2" />
@@ -993,7 +997,7 @@ export function TreasuryPosView() {
                   setShowPaymentDialog(true)
                 }}
                 disabled={cart.length === 0}
-                className="h-14 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="h-14 text-base font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50"
               >
                 <Banknote className="h-5 w-5 mr-2" />
                 ESPECES
@@ -1004,7 +1008,7 @@ export function TreasuryPosView() {
                   setShowPaymentDialog(true)
                 }}
                 disabled={cart.length === 0}
-                className="h-14 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                className="h-14 text-base font-bold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-500/20 disabled:opacity-50"
               >
                 <CreditCard className="h-5 w-5 mr-2" />
                 CARTE
@@ -1016,14 +1020,14 @@ export function TreasuryPosView() {
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md bg-white flex flex-col max-h-[90dvh] p-0 gap-0">
+        <DialogContent className="sm:max-w-md bg-[#1a1a1a] border-[#2a2a2a] flex flex-col max-h-[90dvh] p-0 gap-0">
           {/* Header fixe */}
-          <div className="px-5 pt-5 pb-3 border-b border-amber-100 shrink-0">
-            <DialogTitle className="text-xl text-amber-900">
+          <div className="px-5 pt-5 pb-3 border-b border-[#2a2a2a] shrink-0">
+            <DialogTitle className="text-xl text-white">
               {paymentMethod === "cash" ? "Paiement en especes" : "Paiement par carte"}
             </DialogTitle>
-            <DialogDescription className="text-amber-600 mt-0.5">
-              Total a payer: <span className="font-bold text-amber-900">{formatCurrency(total)} TND</span>
+            <DialogDescription className="text-gray-400 mt-0.5">
+              Total a payer: <span className="font-bold text-amber-400">{formatCurrency(total)} TND</span>
             </DialogDescription>
           </div>
 
@@ -1032,9 +1036,9 @@ export function TreasuryPosView() {
             {paymentMethod === "cash" ? (
               <div className="space-y-3">
                 {/* Payment Numpad */}
-                <div className="bg-amber-50 rounded-xl p-3">
-                  <label className="block text-xs font-medium text-amber-700 mb-2">Montant recu</label>
-                  <div className="text-3xl font-bold text-amber-900 text-center mb-3 font-mono">
+                <div className="bg-[#252525] rounded-xl p-3 border border-[#3a3a3a]">
+                  <label className="block text-xs font-medium text-gray-400 mb-2">Montant recu</label>
+                  <div className="text-3xl font-bold text-amber-400 text-center mb-3 font-mono">
                     {cashReceived || "0.000"} TND
                   </div>
                   <PaymentNumpad
@@ -1052,7 +1056,7 @@ export function TreasuryPosView() {
                       key={amount}
                       variant="outline"
                       onClick={() => setCashReceived(amount.toString())}
-                      className="h-10 font-bold border-amber-300 text-amber-800 hover:bg-amber-100 text-sm"
+                      className="h-10 font-bold border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a] text-sm"
                     >
                       {amount}
                     </Button>
@@ -1063,7 +1067,7 @@ export function TreasuryPosView() {
                 <Button
                   variant="outline"
                   onClick={() => setCashReceived(total.toFixed(3))}
-                  className="w-full h-10 border-amber-300 text-amber-800 hover:bg-amber-100"
+                  className="w-full h-10 border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
                 >
                   <Calculator className="h-4 w-4 mr-2" />
                   Exact ({formatCurrency(total)})
@@ -1071,29 +1075,29 @@ export function TreasuryPosView() {
 
                 {/* Change display */}
                 {cashReceivedNum >= total && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
-                    <p className="text-xs text-emerald-600 mb-0.5">Monnaie</p>
-                    <p className="text-2xl font-bold text-emerald-700">{formatCurrency(change)} TND</p>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-center">
+                    <p className="text-xs text-emerald-400 mb-0.5">Monnaie</p>
+                    <p className="text-2xl font-bold text-emerald-400">{formatCurrency(change)} TND</p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="py-6 text-center">
-                <div className="bg-blue-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                  <CreditCard className="h-10 w-10 text-blue-600" />
+                <div className="bg-blue-500/10 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
+                  <CreditCard className="h-10 w-10 text-blue-400" />
                 </div>
-                <p className="text-lg text-amber-700">Presentez la carte au terminal</p>
-                <p className="text-3xl font-bold text-amber-900 mt-2">{formatCurrency(total)} TND</p>
+                <p className="text-lg text-gray-400">Presentez la carte au terminal</p>
+                <p className="text-3xl font-bold text-white mt-2">{formatCurrency(total)} TND</p>
               </div>
             )}
           </div>
 
           {/* Bouton validation toujours visible en bas */}
-          <div className="px-5 pb-5 pt-3 border-t border-amber-100 shrink-0">
+          <div className="px-5 pb-5 pt-3 border-t border-[#2a2a2a] shrink-0">
             <Button
               onClick={processPayment}
               disabled={isProcessing || (paymentMethod === "cash" && cashReceivedNum < total)}
-              className="w-full h-12 text-base font-bold bg-amber-600 hover:bg-amber-700 text-white"
+              className="w-full h-12 text-base font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20"
             >
               {isProcessing ? (
                 <>
@@ -1113,31 +1117,31 @@ export function TreasuryPosView() {
 
       {/* Receipt Preview Dialog */}
       <Dialog open={showReceiptPreview} onOpenChange={setShowReceiptPreview}>
-        <DialogContent className="sm:max-w-sm bg-white">
+        <DialogContent className="sm:max-w-sm bg-[#1a1a1a] border-[#2a2a2a]">
           <DialogHeader>
-            <DialogTitle>Dernier ticket</DialogTitle>
+            <DialogTitle className="text-white">Dernier ticket</DialogTitle>
           </DialogHeader>
           {lastTransaction && (
-            <div className="bg-amber-50 rounded-xl p-4 font-mono text-sm">
-              <div className="text-center border-b border-amber-200 pb-2 mb-2">
-                <p className="font-bold">{currentTenant?.name || "KIFSHOP"}</p>
-                <p className="text-xs text-amber-600">Ticket #{lastTransaction.id}</p>
+            <div className="bg-[#252525] rounded-xl p-4 font-mono text-sm border border-[#3a3a3a]">
+              <div className="text-center border-b border-[#3a3a3a] pb-2 mb-2">
+                <p className="font-bold text-white">{currentTenant?.name || "KIFSHOP"}</p>
+                <p className="text-xs text-gray-500">Ticket #{lastTransaction.id}</p>
               </div>
               {lastTransaction.items.map((item: CartItem) => (
-                <div key={item.id} className="flex justify-between py-1">
+                <div key={item.id} className="flex justify-between py-1 text-gray-300">
                   <span className="truncate flex-1">{item.name} x{item.quantity}</span>
                   <span>{formatCurrency(item.price * item.quantity)}</span>
                 </div>
               ))}
-              <div className="border-t border-amber-200 mt-2 pt-2 font-bold text-lg flex justify-between">
-                <span>TOTAL</span>
-                <span>{formatCurrency(lastTransaction.total)} TND</span>
+              <div className="border-t border-[#3a3a3a] mt-2 pt-2 font-bold text-lg flex justify-between">
+                <span className="text-white">TOTAL</span>
+                <span className="text-amber-400">{formatCurrency(lastTransaction.total)} TND</span>
               </div>
             </div>
           )}
           <Button
             onClick={() => printReceipt()}
-            className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white"
+            className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20"
           >
             <Printer className="h-4 w-4 mr-2" />
             Imprimer
