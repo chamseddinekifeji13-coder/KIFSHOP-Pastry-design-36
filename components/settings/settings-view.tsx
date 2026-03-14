@@ -35,7 +35,16 @@ export function SettingsView() {
 
   // Update check
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date" | "forcing">("idle")
-  const [cacheVersion] = useState("v7")
+  const [serverVersion, setServerVersion] = useState<string | null>(null)
+  const [localVersion] = useState("v8-20260314-audit")
+
+  // Fetch server version on mount
+  useEffect(() => {
+    fetch('/api/version', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => setServerVersion(data.version))
+      .catch(() => setServerVersion(null))
+  }, [])
 
   // Force complete cache clear and reload
   const handleForceUpdate = useCallback(async () => {
@@ -579,16 +588,26 @@ export function SettingsView() {
           <CardContent className="space-y-4">
             <div className="rounded-lg border p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Version actuelle</span>
-                <Badge variant="secondary" className="font-mono text-xs">v1.0.0</Badge>
+                <span className="text-sm text-muted-foreground">Version locale</span>
+                <Badge variant="secondary" className="font-mono text-xs">{localVersion}</Badge>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Version serveur</span>
+                <Badge 
+                  variant={serverVersion === localVersion ? "default" : "destructive"} 
+                  className="font-mono text-xs"
+                >
+                  {serverVersion || "..."}
+                </Badge>
+              </div>
+              {serverVersion && serverVersion !== localVersion && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                  Une nouvelle version est disponible ! Cliquez sur {"\"Forcer MAJ\""} pour mettre a jour.
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Type</span>
                 <span className="text-sm font-medium">Progressive Web App</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Cache</span>
-                <span className="text-sm font-medium">{cacheVersion}</span>
               </div>
             </div>
 

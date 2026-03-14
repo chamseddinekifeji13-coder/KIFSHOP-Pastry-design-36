@@ -10,7 +10,7 @@ export function ServiceWorkerRegister() {
     const waiting = reg.waiting
     if (!waiting) return
 
-    console.log("[v0] SW update detected, activating new version...")
+
 
     toast("Mise a jour en cours...", {
       description: "KIFSHOP se met a jour automatiquement.",
@@ -31,7 +31,7 @@ export function ServiceWorkerRegister() {
         // Check for existing registration and update immediately
         const existingReg = await navigator.serviceWorker.getRegistration()
         if (existingReg) {
-          console.log("[v0] Existing SW found, checking for updates...")
+  
           await existingReg.update()
         }
 
@@ -40,7 +40,7 @@ export function ServiceWorkerRegister() {
           scope: "/"
         })
 
-        console.log("[v0] SW registered successfully")
+
 
         // Check for waiting worker on load - auto-activate
         if (reg.waiting) {
@@ -52,13 +52,13 @@ export function ServiceWorkerRegister() {
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing
           if (!newWorker) return
-          console.log("[v0] New SW installing...")
+
           newWorker.addEventListener("statechange", () => {
             if (
               newWorker.state === "installed" &&
               navigator.serviceWorker.controller
             ) {
-              console.log("[v0] New SW installed, triggering update...")
+
               onUpdate(reg)
             }
           })
@@ -72,7 +72,7 @@ export function ServiceWorkerRegister() {
         // Also check immediately on visibility change (when user returns to tab/app)
         const handleVisibilityChange = () => {
           if (document.visibilityState === "visible") {
-            console.log("[v0] App visible, checking for SW updates...")
+
             reg.update().catch(() => {})
           }
         }
@@ -90,7 +90,7 @@ export function ServiceWorkerRegister() {
     const onControllerChange = () => {
       if (refreshing) return
       refreshing = true
-      console.log("[v0] New SW controller active, reloading...")
+
       window.location.reload()
     }
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange)
