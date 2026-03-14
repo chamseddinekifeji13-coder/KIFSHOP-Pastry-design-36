@@ -246,9 +246,12 @@ export function ProductionView() {
             <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button><Play className="mr-2 h-4 w-4" />Lancer production</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Lancer une production</DialogTitle><DialogDescription>Selectionnez une recette et la quantite a produire</DialogDescription></DialogHeader>
-              <div className="space-y-4 py-4">
+            <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="shrink-0">
+                <DialogTitle>Lancer une production</DialogTitle>
+                <DialogDescription>Selectionnez une recette et la quantite a produire</DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
                 <div className="space-y-2">
                   <Label>Recette</Label>
                   <Select value={selectedRecipe} onValueChange={setSelectedRecipe}>
@@ -263,7 +266,7 @@ export function ProductionView() {
                       <div className="space-y-4">
                         <RecipeCostPanel recipeId={selectedRecipe} defaultQuantity={parseFloat(quantity) || 1} />
                         <Label>Matieres premieres requises</Label>
-                        <div className="rounded-lg border divide-y">
+                        <div className="rounded-lg border divide-y max-h-[200px] overflow-y-auto">
                           {requiredMaterials.map((m, idx) => (
                             <div key={idx} className={`flex items-center justify-between p-3 text-sm ${m.sufficient ? "" : "bg-destructive/5"}`}>
                               <div><span className="font-medium">{allMaterials.find(rm => rm.id === m.rawMaterialId)?.name || "?"}</span><span className="text-muted-foreground ml-2">{m.required.toFixed(2)} {m.unit}</span></div>
@@ -279,7 +282,7 @@ export function ProductionView() {
                   </>
                 )}
               </div>
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-4 border-t shrink-0">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
                 <Button onClick={handleStartProduction} disabled={!canProduce || producing}>
                   {producing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Production en cours...</> : <><Play className="mr-2 h-4 w-4" />Lancer la production</>}
