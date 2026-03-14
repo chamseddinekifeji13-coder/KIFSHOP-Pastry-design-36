@@ -16,6 +16,7 @@ import {
   STATUS_LABELS, STATUS_COLORS, SOURCE_LABELS, PIPELINE_ORDER,
 } from "@/lib/super-admin/prospect-types"
 import { toast } from "sonner"
+import { CrmInteractionsPanel } from "./crm-interactions-panel"
 
 interface ProspectDetailDrawerProps {
   prospect: PlatformProspect
@@ -290,6 +291,11 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                   <Separator />
                 </>
               )}
+
+              {/* Interactions History */}
+              <CrmInteractionsPanel prospectId={prospect.id} prospectName={prospect.businessName} />
+
+              <Separator />
 
               {/* Meta */}
               <div className="flex items-center justify-between text-xs text-muted-foreground">
