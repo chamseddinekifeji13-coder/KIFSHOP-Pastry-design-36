@@ -9,10 +9,10 @@ export function FooterSection() {
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4A7C59] text-white">
-                <ChefHat className="h-4 w-4" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 text-background shadow-lg shadow-primary/30">
+                <ChefHat className="h-5 w-5" />
               </div>
-              <span className="text-lg font-bold text-foreground">KIFSHOP <span className="font-normal text-[#4A7C59]">Pastry</span></span>
+              <span className="text-lg font-bold text-foreground">KIFSHOP <span className="font-normal text-primary">Pastry</span></span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Solution de gestion tout-en-un pour patisseries, boulangeries et laboratoires en Tunisie.
@@ -24,9 +24,9 @@ export function FooterSection() {
           <div>
             <h4 className="text-sm font-semibold text-foreground">Produit</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><Link href="#features" className="transition-colors hover:text-foreground">Fonctionnalites</Link></li>
-              <li><Link href="#download" className="transition-colors hover:text-foreground">Telechargement</Link></li>
-              <li><Link href="/auth/sign-up" className="transition-colors hover:text-foreground">Essai gratuit</Link></li>
+              <li><Link href="#features" className="transition-colors hover:text-primary">Fonctionnalites</Link></li>
+              <li><Link href="#download" className="transition-colors hover:text-primary">Telechargement</Link></li>
+              <li><Link href="/auth/sign-up" className="transition-colors hover:text-primary">Essai gratuit</Link></li>
             </ul>
           </div>
 
@@ -34,9 +34,9 @@ export function FooterSection() {
           <div>
             <h4 className="text-sm font-semibold text-foreground">Ressources</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/auth/login" className="transition-colors hover:text-foreground">Connexion</Link></li>
-              <li><Link href="/auth/sign-up" className="transition-colors hover:text-foreground">Creer un compte</Link></li>
-              <li><a href="tel:+21625122212" className="transition-colors hover:text-foreground">Nous contacter</a></li>
+              <li><Link href="/auth/login" className="transition-colors hover:text-primary">Connexion</Link></li>
+              <li><Link href="/auth/sign-up" className="transition-colors hover:text-primary">Creer un compte</Link></li>
+              <li><a href="tel:+21625122212" className="transition-colors hover:text-primary">Nous contacter</a></li>
             </ul>
           </div>
 
@@ -45,7 +45,7 @@ export function FooterSection() {
             <h4 className="text-sm font-semibold text-foreground">Contact</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>contact@kifshop.tn</li>
-              <li><a href="tel:+21625122212" className="transition-colors hover:text-foreground">+216 25 12 22 12</a></li>
+              <li><a href="tel:+21625122212" className="transition-colors hover:text-primary">+216 25 12 22 12</a></li>
               <li>Tunisie</li>
             </ul>
           </div>

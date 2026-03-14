@@ -62,7 +62,7 @@ export function PricingSection() {
       <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[#4A7C59]">
+          <p className="text-sm font-semibold uppercase tracking-widest text-primary">
             Tarifs
           </p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground text-balance sm:text-4xl">
@@ -80,12 +80,12 @@ export function PricingSection() {
               key={plan.name}
               className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
                 plan.highlight
-                  ? "border-[#4A7C59]/40 bg-card shadow-md"
+                  ? "border-primary/40 bg-card shadow-md shadow-primary/20"
                   : "border-border bg-card shadow-sm"
               }`}
             >
               {plan.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#4A7C59] px-4 py-1 text-xs font-semibold text-white shadow-md">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-semibold text-background shadow-lg shadow-primary/30">
                   {plan.badge}
                 </div>
               )}
@@ -99,7 +99,7 @@ export function PricingSection() {
                 <div className="flex items-baseline gap-1">
                   {plan.currency ? (
                     <>
-                      <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                      <span className="text-4xl font-bold text-primary">{plan.price}</span>
                       <span className="text-lg font-medium text-muted-foreground">{plan.currency}</span>
                       <span className="text-sm text-muted-foreground">{plan.period}</span>
                     </>
@@ -117,7 +117,7 @@ export function PricingSection() {
               <ul className="mb-8 flex-1 space-y-3">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2.5 text-sm text-foreground">
-                    <Check className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlight ? "text-[#4A7C59]" : "text-muted-foreground"}`} />
+                    <Check className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlight ? "text-primary" : "text-muted-foreground"}`} />
                     {feature}
                   </li>
                 ))}
@@ -126,7 +126,7 @@ export function PricingSection() {
               <Button
                 className={`w-full h-11 gap-2 ${
                   plan.highlight
-                    ? "bg-[#4A7C59] hover:bg-[#3d6a4b] text-white"
+                    ? "bg-primary hover:bg-primary/90 text-background shadow-lg shadow-primary/40 hover:shadow-primary/60 transition-all duration-300"
                     : ""
                 }`}
                 variant={plan.highlight ? "default" : "outline"}

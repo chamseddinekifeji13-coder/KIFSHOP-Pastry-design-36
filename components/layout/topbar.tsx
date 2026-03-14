@@ -80,16 +80,16 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b bg-card px-3 sm:px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-border bg-card/95 backdrop-blur-xl shadow-sm px-3 sm:px-4 lg:px-6">
       <div className="flex items-center gap-4">
         <SidebarTrigger className="-ml-1 lg:hidden" />
 
         {/* Tenant Switcher */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2">
+            <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-muted/50 transition-colors">
               <div
-                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-primary-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-background shadow-md transition-all"
                 style={{ backgroundColor: currentTenant.primaryColor }}
               >
                 {currentTenant.logo}
@@ -110,14 +110,14 @@ export function Topbar() {
                 className="flex items-center gap-2"
               >
                 <div
-                  className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-primary-foreground"
+                  className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-background shadow-sm"
                   style={{ backgroundColor: tenant.primaryColor }}
                 >
                   {tenant.logo}
                 </div>
                 <span>{tenant.name}</span>
                 {currentTenant.id === tenant.id && (
-                  <Badge variant="secondary" className="ml-auto text-[10px]">
+                  <Badge className="ml-auto text-[10px] bg-primary text-background" >
                     {t("topbar.active")}
                   </Badge>
                 )}
@@ -131,10 +131,10 @@ export function Topbar() {
         {/* User / Role Selector (for demo) */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent gap-2">
+            <Button variant="outline" size="sm" className="hidden sm:flex bg-transparent gap-2 border-primary/30 hover:bg-muted/50">
               <Users className="h-3.5 w-3.5" />
               <span className="max-w-[120px] truncate">{currentUser.name}</span>
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              <Badge className="text-[10px] px-1.5 py-0 bg-primary/20 text-primary hover:bg-primary/30">
                 {ROLE_LABELS[currentRole]}
               </Badge>
               <ChevronDown className="ml-1 h-3 w-3" />
@@ -157,12 +157,12 @@ export function Topbar() {
                       onClick={() => handleUserSwitch(user.id)}
                       className="flex items-center gap-2"
                     >
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-[10px] font-medium text-primary">
                         {user.initials}
                       </div>
                       <span>{user.name}</span>
                       {currentUser.id === user.id && (
-                        <Badge variant="secondary" className="ml-auto text-[10px]">
+                        <Badge className="ml-auto text-[10px] bg-primary text-background">
                           {t("topbar.active")}
                         </Badge>
                       )}
@@ -179,11 +179,11 @@ export function Topbar() {
           variant="ghost"
           size="icon"
           onClick={() => setLocale(locale === "fr" ? "ar" : "fr")}
-          className="relative h-8 w-8"
+          className="relative h-8 w-8 hover:bg-muted/50"
           title={t("topbar.language")}
         >
           <Globe className="h-4 w-4" />
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-primary-foreground">
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-bold text-background shadow-md">
             {locale === "fr" ? "ع" : "Fr"}
           </span>
         </Button>
@@ -194,9 +194,9 @@ export function Topbar() {
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full hover:bg-muted/50">
               <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-background text-xs font-medium">
                   {currentUser.initials}
                 </AvatarFallback>
               </Avatar>
@@ -229,11 +229,11 @@ export function Topbar() {
                     onClick={() => handleUserSwitch(user.id)}
                     className="flex items-center gap-2 sm:hidden"
                   >
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-medium">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-[9px] font-medium text-primary">
                       {user.initials}
                     </div>
                     <span className="text-xs">{user.name}</span>
-                    <Badge variant="outline" className="ml-auto text-[9px] px-1 py-0">
+                    <Badge className="ml-auto text-[9px] px-1 py-0 bg-primary/10">
                       {ROLE_LABELS[user.role]}
                     </Badge>
                   </DropdownMenuItem>
