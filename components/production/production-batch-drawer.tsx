@@ -116,66 +116,69 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium">Sélectionner une recette *</Label>
-              <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={openCombobox}
-                    className="w-full justify-between bg-muted/50 border-0"
-                  >
-                    {selectedRecipe ? (
-                      <div className="flex items-center gap-2">
-                        <span>{selectedRecipe.name}</span>
-                        {selectedRecipe.category && (
-                          <Badge variant="secondary" className="text-xs ml-auto">{selectedRecipe.category}</Badge>
-                        )}
-                      </div>
-                    ) : (
-                      "Chercher une recette..."
-                    )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Chercher une recette..." />
-                    <CommandEmpty>Aucune recette trouvée.</CommandEmpty>
-                    <CommandList>
-                      <CommandGroup>
-                        {recipes.map((recipe: any) => (
-                          <CommandItem
-                            key={recipe.id}
-                            value={recipe.id}
-                            onSelect={(currentValue) => {
-                              setSelectedRecipeId(currentValue === selectedRecipeId ? "" : currentValue)
-                              setOpenCombobox(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedRecipeId === recipe.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            <div className="flex-1">
-                              <div className="font-medium">{recipe.name}</div>
-                              {recipe.category && (
-                                <div className="text-xs text-muted-foreground">{recipe.category}</div>
-                              )}
-                              {recipe.ingredients?.length > 0 && (
-                                <div className="text-xs text-muted-foreground">
-                                  {recipe.ingredients.length} ingrédient{recipe.ingredients.length > 1 ? "s" : ""}
-                                </div>
-                              )}
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <div className="flex gap-2">
+                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openCombobox}
+                      className="flex-1 justify-between bg-muted/50 border-0"
+                    >
+                      {selectedRecipe ? (
+                        <div className="flex items-center gap-2">
+                          <span>{selectedRecipe.name}</span>
+                          {selectedRecipe.category && (
+                            <Badge variant="secondary" className="text-xs ml-auto">{selectedRecipe.category}</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        "Chercher une recette..."
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Chercher une recette..." />
+                      <CommandEmpty>Aucune recette trouvée.</CommandEmpty>
+                      <CommandList>
+                        <CommandGroup>
+                          {recipes.map((recipe: any) => (
+                            <CommandItem
+                              key={recipe.id}
+                              value={recipe.id}
+                              onSelect={(currentValue) => {
+                                setSelectedRecipeId(currentValue === selectedRecipeId ? "" : currentValue)
+                                setOpenCombobox(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedRecipeId === recipe.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex-1">
+                                <div className="font-medium">{recipe.name}</div>
+                                {recipe.category && (
+                                  <div className="text-xs text-muted-foreground">{recipe.category}</div>
+                                )}
+                                {recipe.ingredients?.length > 0 && (
+                                  <div className="text-xs text-muted-foreground">
+                                    {recipe.ingredients.length} ingrédient{recipe.ingredients.length > 1 ? "s" : ""}
+                                  </div>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Cliquer pour chercher et sélectionner une recette existante</p>
             </div>
           </div>
 
