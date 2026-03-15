@@ -82,10 +82,11 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
     const qzService = getQZTrayService()
     const unsubscribe = qzService.subscribe(setQzState)
 
-    // Auto-check QZ Tray if in qz-tray mode
+    // Auto-check QZ Tray silently at mount (without error toasts)
     const savedMode = localStorage.getItem("printer-mode") || "qz-tray"
     if (savedMode === "qz-tray" || savedMode === "bridge") {
-      checkQZTrayStatus()
+      // Silent check - don't show errors on initial load
+      silentQZTrayCheck()
     }
 
     // If QZ Tray was active, mark as connected
@@ -100,6 +101,23 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
   }, [])
 
   // ──── QZ Tray mode ────────────────────────────────────────
+
+  // Silent check - used at mount, doesn't show error toasts
+  const silentQZTrayCheck = async () => {
+    try {
+      const qzService = getQZTrayService()
+      const connected = await qzService.connect()
+      if (connected) {
+        const state = qzService.getState()
+        setQzState(state)
+        setIsConnected(true)
+        console.log("[v0] QZ Tray auto-connected with", state.printers.length, "printers")
+      }
+    } catch (error) {
+      // Silent - don't show errors on initial mount
+      console.log("[v0] QZ Tray not available at startup (this is normal if not installed)")
+    }
+  }
 
   const checkQZTrayStatus = async () => {
     setIsCheckingQZ(true)
@@ -130,24 +148,43 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
       console.error("[v0] QZ Tray check error:", error)
       const errorMsg = error?.message || "Impossible de se connecter"
       
-      if (errorMsg.includes("n'est pas lancé") || errorMsg.includes("not running")) {
+      // Check for common error patterns
+      if (errorMsg.includes("Unable to establish connection") || 
+          errorMsg.includes("WebSocket") ||
+          errorMsg.includes("ECONNREFUSED") ||
+          errorMsg.includes("n'est pas lancé") || 
+          errorMsg.includes("not running")) {
         toast.error(
-          "QZ Tray n'est pas démarré",
+          "QZ Tray n'est pas accessible",
           {
-            description: "Lancez QZ Tray depuis le menu Démarrer Windows, puis cliquez sur Vérifier",
-            duration: 6000,
+            description: "Assurez-vous que QZ Tray est lancé et visible dans la barre des tâches Windows (près de l'horloge)",
+            duration: 8000,
           }
         )
       } else if (errorMsg.includes("Timeout") || errorMsg.includes("timeout")) {
         toast.error(
           "QZ Tray ne répond pas",
           {
-            description: "Vérifiez que QZ Tray est lancé (icône dans la barre des tâches)",
+            description: "QZ Tray met du temps à répondre. Essayez de redémarrer QZ Tray et réessayez.",
+            duration: 6000,
+          }
+        )
+      } else if (errorMsg.includes("certificate") || errorMsg.includes("security")) {
+        toast.error(
+          "Erreur de sécurité QZ Tray",
+          {
+            description: "Redémarrez QZ Tray et acceptez les permissions si demandé",
             duration: 6000,
           }
         )
       } else {
-        toast.error("Erreur: " + errorMsg)
+        toast.error(
+          "Erreur de connexion QZ Tray",
+          {
+            description: errorMsg,
+            duration: 6000,
+          }
+        )
       }
     } finally {
       setIsCheckingQZ(false)
