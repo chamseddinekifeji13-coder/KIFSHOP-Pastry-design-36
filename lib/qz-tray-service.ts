@@ -228,17 +228,23 @@ class QZTrayService {
       console.log("[QZ Tray] Connecting WebSocket...")
       
       // QZ Tray connection approach:
-      // 1. First try without any options (let qz-tray auto-detect)
-      // 2. Then try secure (wss://localhost:8181)
-      // 3. Then try insecure (ws://localhost:8182)
-      // 4. Try with 127.0.0.1 as fallback
+      // IMPORTANT: Sites without signed certificates (like kifshop.tn) are treated as "untrusted"
+      // QZ Tray shows "Untrusted website" dialog for unsigned sites on secure port (8181)
+      // Using insecure port (8182) directly avoids the permission popup issues
+      // 
+      // Priority order:
+      // 1. Insecure port 8182 first (avoids certificate/signature requirements)
+      // 2. Then try secure as fallback
       
       const connectionStrategies = [
-        { name: "auto-detect", options: {} },
-        { name: "wss://localhost:8181", options: { host: "localhost", usingSecure: true } },
+        // Try insecure first - this works without certificate signing
         { name: "ws://localhost:8182", options: { host: "localhost", usingSecure: false } },
-        { name: "wss://127.0.0.1:8181", options: { host: "127.0.0.1", usingSecure: true } },
         { name: "ws://127.0.0.1:8182", options: { host: "127.0.0.1", usingSecure: false } },
+        // Fallback to secure if insecure doesn't work
+        { name: "wss://localhost:8181", options: { host: "localhost", usingSecure: true } },
+        { name: "wss://127.0.0.1:8181", options: { host: "127.0.0.1", usingSecure: true } },
+        // Auto-detect as last resort
+        { name: "auto-detect", options: {} },
       ]
       
       let lastError: any = null
