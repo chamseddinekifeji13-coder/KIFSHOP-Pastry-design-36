@@ -260,13 +260,21 @@ class QZTrayService {
             }
           }
           
-          // Increased timeout to 15 seconds to allow time for user to approve QZ Tray permission dialog
+          // Wait a bit before connecting to give QZ Tray time to process
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Increased timeout to 20 seconds to allow time for user to approve QZ Tray permission dialog
+          // When user checks "Remember this decision", the Allow button gets temporarily disabled while QZ processes
+          console.log(`[QZ Tray] Connecting with 20 second timeout (permission dialog may appear)...`)
           await Promise.race([
             this.qz.websocket.connect(strategy.options),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error(`Timeout for ${strategy.name}`)), 15000)
+              setTimeout(() => reject(new Error(`Timeout for ${strategy.name} - Permission dialog may be pending. Click Allow when prompted.`)), 20000)
             )
           ])
+          
+          // Small delay after connection to ensure WebSocket is fully initialized
+          await new Promise(resolve => setTimeout(resolve, 500))
           
           // Verify connection is active
           if (this.qz.websocket.isActive()) {
@@ -280,6 +288,15 @@ class QZTrayService {
         } catch (error: any) {
           lastError = error
           console.log(`[QZ Tray] ${strategy.name} failed:`, error.message || error)
+          
+          // Add specific guidance for permission issues
+          if (error.message?.includes("Permission") || error.message?.includes("Untrusted") || error.message?.includes("dialog")) {
+            console.warn(`[QZ Tray] CONSEIL: Une boîte de dialogue QZ Tray peut être visible sur votre écran.`)
+            console.warn(`[QZ Tray] 1. Cochez "Remember this decision"`)
+            console.warn(`[QZ Tray] 2. Attendez que le bouton "Allow" se réactive (2-3 secondes)`)
+            console.warn(`[QZ Tray] 3. Cliquez sur "Allow"`)
+            console.warn(`[QZ Tray] 4. Attendez 3-5 secondes pour finaliser la permission`)
+          }
         }
       }
       
