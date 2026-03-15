@@ -194,6 +194,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
 
           {/* Identity */}
           {!isLoading && (
+          <>
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Building className="h-3.5 w-3.5" />
@@ -292,6 +293,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
               </div>
             </div>
           </div>
+          </>
           )}
         </div>
 
