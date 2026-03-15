@@ -40,6 +40,7 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [debugLogs, setDebugLogs] = useState<string[]>([])
 
   // QZ Tray state
   const [qzState, setQzState] = useState<QZState>({
@@ -48,6 +49,36 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
     selectedPrinter: null,
     version: null,
   })
+
+  // Capture console logs for debugging
+  useEffect(() => {
+    const originalLog = console.log
+    const originalError = console.error
+    
+    const captureLog = (...args: any[]) => {
+      const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')
+      if (msg.includes('[QZ Tray]') || msg.includes('[v0]')) {
+        setDebugLogs(prev => [...prev.slice(-20), msg])
+      }
+      originalLog(...args)
+    }
+    
+    const captureError = (...args: any[]) => {
+      const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')
+      if (msg.includes('[QZ Tray]') || msg.includes('[v0]')) {
+        setDebugLogs(prev => [...prev.slice(-20), '❌ ' + msg])
+      }
+      originalError(...args)
+    }
+    
+    console.log = captureLog
+    console.error = captureError
+    
+    return () => {
+      console.log = originalLog
+      console.error = originalError
+    }
+  }, [])
   const [isCheckingQZ, setIsCheckingQZ] = useState(false)
   const [selectedQZPrinter, setSelectedQZPrinter] = useState(() => {
     if (typeof window !== "undefined") {
@@ -555,6 +586,24 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                   <p className="text-xs text-blue-600 text-center">
                     QZ Tray est déjà installé? Lancez-le depuis le menu Démarrer puis cliquez Vérifier
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Debug Logs */}
+            {debugLogs.length > 0 && (
+              <Card className="border-slate-300 bg-slate-100">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs text-slate-700">Logs de débogage (derniers 20)</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-2 px-3 pb-3">
+                  <div className="bg-slate-900 text-slate-100 p-2.5 rounded-md font-mono text-xs space-y-1 max-h-40 overflow-y-auto">
+                    {debugLogs.map((log, idx) => (
+                      <div key={idx} className={log.startsWith('❌') ? 'text-red-300' : log.includes('Connected') ? 'text-green-300' : 'text-slate-300'}>
+                        {log}
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}
