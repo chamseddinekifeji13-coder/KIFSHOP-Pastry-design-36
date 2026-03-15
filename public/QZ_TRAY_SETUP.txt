@@ -1,0 +1,45 @@
+==================================================
+CONFIGURATION QZ TRAY POUR KIFSHOP.TN
+==================================================
+
+PROBLEME: QZ Tray affiche "Untrusted website" car kifshop.tn 
+n'a pas de certificat de signature QZ Tray.
+
+SOLUTION RAPIDE (Recommandee):
+------------------------------
+1. Clic-droit sur l'icone QZ Tray (barre des taches Windows)
+2. Cliquez sur "Advanced" > "Site Manager"
+3. Cliquez sur "+" pour ajouter un site
+4. Entrez: kifshop.tn
+5. Cochez "Allow" pour toutes les permissions
+6. Cliquez "Save"
+7. Redemarrez QZ Tray
+
+ALTERNATIVE - Desactiver la securite (Non recommande en production):
+--------------------------------------------------------------------
+1. Clic-droit sur l'icone QZ Tray
+2. "Advanced" > "Security"
+3. Decochez "Block unsigned requests"
+4. Redemarrez QZ Tray
+
+PORTS UTILISES:
+---------------
+- Port 8181 (wss://) : Connexion securisee - requiert certificat
+- Port 8182 (ws://)  : Connexion non securisee - fonctionne sans certificat
+
+KIFSHOP utilise maintenant le port 8182 par defaut pour eviter
+les problemes de permission.
+
+VERIFICATION:
+-------------
+1. Ouvrez kifshop.tn dans votre navigateur
+2. Allez a Tresorerie > Parametres d'Imprimante
+3. Cliquez "Verifier QZ Tray"
+4. Vous devriez voir "QZ Tray connecte" sans popup de permission
+
+SUPPORT:
+--------
+Si le probleme persiste:
+1. Verifiez que QZ Tray est lance (icone dans la barre des taches)
+2. Redemarrez QZ Tray
+3. Rechargez la page KIFSHOP (Ctrl+Shift+R)

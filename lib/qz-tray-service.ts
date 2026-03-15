@@ -228,17 +228,23 @@ class QZTrayService {
       console.log("[QZ Tray] Connecting WebSocket...")
       
       // QZ Tray connection approach:
-      // 1. First try without any options (let qz-tray auto-detect)
-      // 2. Then try secure (wss://localhost:8181)
-      // 3. Then try insecure (ws://localhost:8182)
-      // 4. Try with 127.0.0.1 as fallback
+      // IMPORTANT: Sites without signed certificates (like kifshop.tn) are treated as "untrusted"
+      // QZ Tray shows "Untrusted website" dialog for unsigned sites on secure port (8181)
+      // Using insecure port (8182) directly avoids the permission popup issues
+      // 
+      // Priority order:
+      // 1. Insecure port 8182 first (avoids certificate/signature requirements)
+      // 2. Then try secure as fallback
       
       const connectionStrategies = [
-        { name: "auto-detect", options: {} },
-        { name: "wss://localhost:8181", options: { host: "localhost", usingSecure: true } },
+        // Try insecure first - this works without certificate signing
         { name: "ws://localhost:8182", options: { host: "localhost", usingSecure: false } },
-        { name: "wss://127.0.0.1:8181", options: { host: "127.0.0.1", usingSecure: true } },
         { name: "ws://127.0.0.1:8182", options: { host: "127.0.0.1", usingSecure: false } },
+        // Fallback to secure if insecure doesn't work
+        { name: "wss://localhost:8181", options: { host: "localhost", usingSecure: true } },
+        { name: "wss://127.0.0.1:8181", options: { host: "127.0.0.1", usingSecure: true } },
+        // Auto-detect as last resort
+        { name: "auto-detect", options: {} },
       ]
       
       let lastError: any = null
@@ -260,12 +266,21 @@ class QZTrayService {
             }
           }
           
+          // Wait a bit before connecting to give QZ Tray time to process
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Increased timeout to 20 seconds to allow time for user to approve QZ Tray permission dialog
+          // When user checks "Remember this decision", the Allow button gets temporarily disabled while QZ processes
+          console.log(`[QZ Tray] Connecting with 20 second timeout (permission dialog may appear)...`)
           await Promise.race([
             this.qz.websocket.connect(strategy.options),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error(`Timeout for ${strategy.name}`)), 5000)
+              setTimeout(() => reject(new Error(`Timeout for ${strategy.name} - Permission dialog may be pending. Click Allow when prompted.`)), 20000)
             )
           ])
+          
+          // Small delay after connection to ensure WebSocket is fully initialized
+          await new Promise(resolve => setTimeout(resolve, 500))
           
           // Verify connection is active
           if (this.qz.websocket.isActive()) {
@@ -279,6 +294,15 @@ class QZTrayService {
         } catch (error: any) {
           lastError = error
           console.log(`[QZ Tray] ${strategy.name} failed:`, error.message || error)
+          
+          // Add specific guidance for permission issues
+          if (error.message?.includes("Permission") || error.message?.includes("Untrusted") || error.message?.includes("dialog")) {
+            console.warn(`[QZ Tray] CONSEIL: Une boîte de dialogue QZ Tray peut être visible sur votre écran.`)
+            console.warn(`[QZ Tray] 1. Cochez "Remember this decision"`)
+            console.warn(`[QZ Tray] 2. Attendez que le bouton "Allow" se réactive (2-3 secondes)`)
+            console.warn(`[QZ Tray] 3. Cliquez sur "Allow"`)
+            console.warn(`[QZ Tray] 4. Attendez 3-5 secondes pour finaliser la permission`)
+          }
         }
       }
       
@@ -326,21 +350,42 @@ class QZTrayService {
     this.notifyListeners()
   }
 
-  // Load available printers
+  // Load available printers with retry
   async loadPrinters(): Promise<string[]> {
-    if (!this.qz || !this.state.connected) {
+    if (!this.qz) {
       return []
     }
 
-    try {
-      const printers = await this.qz.printers.find()
-      this.state.printers = Array.isArray(printers) ? printers : [printers]
-      this.notifyListeners()
-      return this.state.printers
-    } catch (error) {
-      console.error("[QZ Tray] Error loading printers:", error)
-      return []
+    // Retry loading printers up to 3 times with delay
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Check if connection is still active
+        if (!this.qz.websocket.isActive()) {
+          console.log("[QZ Tray] WebSocket not active, cannot load printers")
+          return []
+        }
+        
+        console.log(`[QZ Tray] Loading printers (attempt ${attempt}/3)...`)
+        const printers = await Promise.race([
+          this.qz.printers.find(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Printer list timeout")), 10000)
+          )
+        ])
+        this.state.printers = Array.isArray(printers) ? printers : (printers ? [printers] : [])
+        console.log("[QZ Tray] Printers found:", this.state.printers)
+        this.notifyListeners()
+        return this.state.printers
+      } catch (error: any) {
+        console.error(`[QZ Tray] Error loading printers (attempt ${attempt}):`, error.message || error)
+        if (attempt < 3) {
+          // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
     }
+    
+    return []
   }
 
   // Set selected printer
