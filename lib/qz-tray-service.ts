@@ -73,11 +73,54 @@ class QZTrayService {
   private qz: any = null
   private connectionPromise: Promise<boolean> | null = null
   private listeners: Set<(state: QZState) => void> = new Set()
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 5
+  private reconnectTimeout: NodeJS.Timeout | null = null
 
   constructor() {
     // Load saved printer from localStorage
     if (typeof window !== "undefined") {
       this.state.selectedPrinter = localStorage.getItem("qz-printer-name") || null
+    }
+  }
+
+  // Setup WebSocket close handler for auto-reconnect
+  private setupCloseHandler() {
+    if (!this.qz || !this.qz.websocket) return
+
+    // Listen for WebSocket close events
+    this.qz.websocket.setClosedCallbacks((closeEvent: any) => {
+      console.log("[QZ Tray] WebSocket closed:", closeEvent?.reason || "Connection lost")
+      this.state.connected = false
+      this.notifyListeners()
+
+      // Attempt auto-reconnect if not intentionally disconnected
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        const delay = Math.min(2000 * (this.reconnectAttempts + 1), 10000) // Exponential backoff up to 10s
+        console.log(`[QZ Tray] Auto-reconnect in ${delay/1000}s (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`)
+        
+        this.reconnectTimeout = setTimeout(async () => {
+          this.reconnectAttempts++
+          console.log("[QZ Tray] Auto-reconnecting...")
+          this.connectionPromise = null // Reset to allow new connection
+          const success = await this.connect()
+          if (success) {
+            console.log("[QZ Tray] Auto-reconnect successful!")
+            this.reconnectAttempts = 0 // Reset on success
+          }
+        }, delay)
+      } else {
+        console.warn("[QZ Tray] Max reconnect attempts reached. Manual reconnection required.")
+      }
+    })
+  }
+
+  // Reset reconnect counter (call after successful manual connect)
+  resetReconnect() {
+    this.reconnectAttempts = 0
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
     }
   }
 
@@ -313,6 +356,10 @@ class QZTrayService {
       if (!connected) {
         throw new Error("Connexion echouee sans erreur specifique")
       }
+
+      // Setup auto-reconnect handler
+      this.setupCloseHandler()
+      this.resetReconnect() // Reset counter on successful connection
 
       // Get version
       try {
