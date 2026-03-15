@@ -202,47 +202,48 @@ class QZTrayService {
       console.log("[QZ Tray] Configuring security...")
       
       // Configure security for QZ Tray
-      // Important: QZ Tray 2.1+ allows unsigned requests from localhost by default
-      // But we still need to set up the promise handlers
-      
-      if (typeof this.qz.security.setCertificatePromise === 'function') {
-        this.qz.security.setCertificatePromise((resolve: (cert: string) => void) => {
-          // For localhost development, we can use an empty certificate
-          // QZ Tray will accept unsigned requests from localhost
-          console.log("[QZ Tray] Certificate promise called")
-          resolve("")
-        })
-      }
+      // QZ Tray 2.1+ allows unsigned requests from localhost by default
+      this.qz.security.setCertificatePromise((resolve: any) => {
+        console.log("[QZ Tray] Certificate promise called")
+        resolve("")
+      })
 
-      if (typeof this.qz.security.setSignaturePromise === 'function') {
-        this.qz.security.setSignaturePromise((toSign: string) => {
-          // Return a resolved promise with empty signature for localhost
-          console.log("[QZ Tray] Signature promise called for:", toSign?.substring(0, 50))
-          return Promise.resolve("")
-        })
-      }
+      this.qz.security.setSignaturePromise((toSign: string) => {
+        console.log("[QZ Tray] Signature promise called")
+        return Promise.resolve("")
+      })
 
       console.log("[QZ Tray] Connecting WebSocket...")
       
-      // Configure WebSocket options for better compatibility
-      if (this.qz.websocket && typeof this.qz.websocket.setOptions === 'function') {
+      // Try to connect with retries
+      let lastError: any = null
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          this.qz.websocket.setOptions({
-            retries: 3,
-            delay: 1
-          })
-        } catch (e) {
-          console.log("[QZ Tray] Could not set websocket options:", e)
+          console.log(`[QZ Tray] Connection attempt ${attempt}/3...`)
+          
+          await Promise.race([
+            this.qz.websocket.connect(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error(`Timeout attempt ${attempt}`)), 10000)
+            )
+          ])
+          
+          console.log("[QZ Tray] Connected successfully on attempt", attempt)
+          lastError = null
+          break
+        } catch (error: any) {
+          lastError = error
+          console.log(`[QZ Tray] Connection attempt ${attempt} failed:`, error.message)
+          if (attempt < 3) {
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
         }
       }
       
-      // Connect to QZ Tray with longer timeout - let the library handle the connection
-      await Promise.race([
-        this.qz.websocket.connect(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Timeout de connexion - Vérifiez que QZ Tray est lancé")), 20000)
-        )
-      ])
+      if (lastError) {
+        throw lastError
+      }
 
       // Get version
       try {
