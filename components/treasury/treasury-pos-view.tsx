@@ -191,6 +191,31 @@ export function TreasuryPosView() {
     return () => clearInterval(timer)
   }, [])
 
+  // Auto-check QZ Tray on POS view mount
+  useEffect(() => {
+    const checkQZTray = async () => {
+      const savedMode = localStorage.getItem("printer-mode") || "qz-tray"
+      if (savedMode === "qz-tray" || savedMode === "bridge") {
+        try {
+          const qzService = getQZTrayService()
+          const connected = await qzService.connect()
+          if (connected) {
+            const savedPrinter = localStorage.getItem("qz-printer-name")
+            const state = qzService.getState()
+            if (savedPrinter && state.printers.includes(savedPrinter)) {
+              console.log("[v0] QZ Tray ready with printer:", savedPrinter)
+            }
+          }
+        } catch (e) {
+          console.log("[v0] QZ Tray not available")
+        }
+      }
+    }
+    // Slight delay to let the page render first
+    const timer = setTimeout(checkQZTray, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
   // Get categories from products
   const categories = products
     ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]

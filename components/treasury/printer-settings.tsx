@@ -133,7 +133,7 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
 
   // ──── QZ Tray mode ────────────────────────────────────────
 
-  // Silent check - used at mount, doesn't show error toasts
+  // Silent check - used at mount, shows success toast if connected
   const silentQZTrayCheck = async () => {
     try {
       const qzService = getQZTrayService()
@@ -143,6 +143,20 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
         setQzState(state)
         setIsConnected(true)
         console.log("[v0] QZ Tray auto-connected with", state.printers.length, "printers")
+        
+        // Show success notification when auto-detected
+        const savedPrinter = localStorage.getItem("qz-printer-name")
+        if (savedPrinter && state.printers.includes(savedPrinter)) {
+          toast.success(`QZ Tray detecte - ${savedPrinter}`, {
+            description: "Imprimante thermique prete",
+            duration: 3000,
+          })
+        } else if (state.printers.length > 0) {
+          toast.info(`QZ Tray detecte - ${state.printers.length} imprimante(s)`, {
+            description: "Selectionnez une imprimante dans les parametres",
+            duration: 4000,
+          })
+        }
       }
     } catch (error) {
       // Silent - don't show errors on initial mount
