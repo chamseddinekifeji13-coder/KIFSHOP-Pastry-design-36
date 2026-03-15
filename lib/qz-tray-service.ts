@@ -256,36 +256,72 @@ class QZTrayService {
 
       console.log("[QZ Tray] Configuring security...")
       
-      // Configure security for QZ Tray
-      // QZ Tray 2.1+ allows unsigned requests from localhost by default
-      this.qz.security.setCertificatePromise((resolve: any) => {
-        console.log("[QZ Tray] Certificate promise called")
-        resolve("")
+      // Configure security for QZ Tray with proper certificate and signing
+      // This eliminates "Untrusted website" warnings
+      this.qz.security.setCertificatePromise((resolve: (cert: string) => void, reject: (err: Error) => void) => {
+        console.log("[QZ Tray] Fetching certificate from server...")
+        fetch("/api/qz-tray/certificate", { 
+          cache: 'no-store',
+          headers: { 'Content-Type': 'text/plain' }
+        })
+          .then(response => {
+            if (response.ok) {
+              return response.text()
+            }
+            throw new Error("Certificate fetch failed")
+          })
+          .then(cert => {
+            console.log("[QZ Tray] Certificate loaded successfully")
+            resolve(cert)
+          })
+          .catch(err => {
+            console.warn("[QZ Tray] Certificate fetch failed, using empty cert:", err.message)
+            // Fallback to empty certificate for localhost
+            resolve("")
+          })
       })
 
+      // Set signature algorithm to SHA512 (required for QZ Tray 2.1+)
+      if (this.qz.security.setSignatureAlgorithm) {
+        this.qz.security.setSignatureAlgorithm("SHA512")
+      }
+
       this.qz.security.setSignaturePromise((toSign: string) => {
-        console.log("[QZ Tray] Signature promise called")
-        return Promise.resolve("")
+        return (resolve: (sig: string) => void, reject: (err: Error) => void) => {
+          console.log("[QZ Tray] Signing message via server...")
+          fetch("/api/qz-tray/sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toSign })
+          })
+            .then(response => response.json())
+            .then(data => {
+              console.log("[QZ Tray] Message signed successfully")
+              resolve(data.signature || "")
+            })
+            .catch(err => {
+              console.warn("[QZ Tray] Signing failed, using empty signature:", err.message)
+              // Fallback to empty signature
+              resolve("")
+            })
+        }
       })
 
       console.log("[QZ Tray] Connecting WebSocket...")
       
-      // QZ Tray connection approach:
-      // IMPORTANT: Sites without signed certificates (like kifshop.tn) are treated as "untrusted"
-      // QZ Tray shows "Untrusted website" dialog for unsigned sites on secure port (8181)
-      // Using insecure port (8182) directly avoids the permission popup issues
+      // QZ Tray connection strategy:
+      // 1. SECURE port (8181) FIRST - uses certificate/signature for trusted connection
+      // 2. Insecure port (8182) as fallback - works without certificates
       // 
-      // Priority order:
-      // 1. Insecure port 8182 first (avoids certificate/signature requirements)
-      // 2. Then try secure as fallback
+      // With proper certificate setup, the secure port eliminates "untrusted website" warnings
       
       const connectionStrategies = [
-        // Try insecure first - this works without certificate signing
-        { name: "ws://localhost:8182", options: { host: "localhost", usingSecure: false } },
-        { name: "ws://127.0.0.1:8182", options: { host: "127.0.0.1", usingSecure: false } },
-        // Fallback to secure if insecure doesn't work
+        // Try SECURE first - proper certificate eliminates warnings
         { name: "wss://localhost:8181", options: { host: "localhost", usingSecure: true } },
         { name: "wss://127.0.0.1:8181", options: { host: "127.0.0.1", usingSecure: true } },
+        // Fallback to insecure if secure fails
+        { name: "ws://localhost:8182", options: { host: "localhost", usingSecure: false } },
+        { name: "ws://127.0.0.1:8182", options: { host: "127.0.0.1", usingSecure: false } },
         // Auto-detect as last resort
         { name: "auto-detect", options: {} },
       ]

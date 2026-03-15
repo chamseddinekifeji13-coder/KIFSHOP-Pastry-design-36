@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { getServerSession } from '@/lib/active-profile'
+import { withSession, serverErrorResponse } from '@/lib/api-helpers'
 import * as net from 'net'
 
 // ESC/POS Commands for cash drawer
@@ -175,12 +175,11 @@ function generateZReport(closure: {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
-  try {
-    const session = await getServerSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  // Get session with proper error handling
+  const [session, authError] = await withSession()
+  if (authError) return authError
 
+  try {
     const body = await request.json()
     const { action, printerIp, printerPort = 9100, items, total, cashierName, paymentMethod, amountPaid, change, closure, managerName } = body
 
@@ -266,10 +265,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       })
     })
   } catch (error) {
-    console.error('[Treasury] ESC/POS Error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Erreur serveur' },
-      { status: 500 }
-    )
+    return serverErrorResponse(error)
   }
 }
