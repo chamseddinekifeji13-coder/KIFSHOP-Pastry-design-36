@@ -113,30 +113,35 @@ class QZTrayService {
       existingScript.remove()
     }
 
-  // Try multiple CDN sources - using latest stable versions
-  // Note: QZ Tray 2.2.x requires matching client library version
-  const cdnSources = [
-    "https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js",
-    "https://cdn.jsdelivr.net/npm/qz-tray@2.2.3/qz-tray.min.js",
-    "https://cdn.jsdelivr.net/npm/qz-tray@2.2.2/qz-tray.min.js",
-    "https://cdn.jsdelivr.net/npm/qz-tray@2.2.1/qz-tray.min.js",
-    "https://cdn.jsdelivr.net/npm/qz-tray@2.2.0/qz-tray.min.js",
-    "https://cdn.jsdelivr.net/npm/qz-tray@2.1.7/qz-tray.min.js",
-    "https://unpkg.com/qz-tray@2.2.4/qz-tray.min.js",
-  ]
-  
-  console.log("[QZ Tray] Starting CDN library load, trying", cdnSources.length, "sources...")
+    // PRIORITY 1: Load from local file (avoids CSP issues)
+    // The qz-tray.js file is hosted locally in /public/qz-tray.js
+    const localSource = "/qz-tray.js"
+    
+    console.log("[QZ Tray] Loading library from LOCAL source:", localSource)
+    const localLoaded = await this.tryLoadScript(localSource)
+    if (localLoaded) {
+      console.log("[QZ Tray] Library loaded successfully from LOCAL source")
+      return true
+    }
+    
+    // FALLBACK: Try CDN sources if local fails
+    const cdnSources = [
+      "https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js",
+      "https://cdn.jsdelivr.net/npm/qz-tray@2.2.3/qz-tray.min.js",
+    ]
+    
+    console.log("[QZ Tray] Local failed, trying CDN fallback...")
 
     for (const src of cdnSources) {
-      console.log("[QZ Tray] Trying to load from:", src)
+      console.log("[QZ Tray] Trying CDN:", src)
       const loaded = await this.tryLoadScript(src)
       if (loaded) {
-        console.log("[QZ Tray] Library loaded successfully from:", src)
+        console.log("[QZ Tray] Library loaded from CDN:", src)
         return true
       }
     }
 
-    console.error("[QZ Tray] Failed to load library from all CDN sources")
+    console.error("[QZ Tray] Failed to load library from all sources (local + CDN)")
     return false
   }
 

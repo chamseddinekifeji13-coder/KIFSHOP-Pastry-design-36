@@ -1,7 +1,7 @@
 // IMPORTANT: Increment version on each deployment to force cache invalidation
 // BUILD_ID is set at build time - change this string for each deployment
-const CACHE_VERSION = 'v8';
-const BUILD_ID = '20260314-audit-fix';
+const CACHE_VERSION = 'v9';
+const BUILD_ID = '20260315-qz-local-fix';
 const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION + '-' + BUILD_ID;
 const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION + '-' + BUILD_ID;
 const OFFLINE_URL = '/offline.html';
@@ -13,6 +13,7 @@ console.log('[SW] Version', CACHE_VERSION, 'Build:', BUILD_ID);
 const PRECACHE_ASSETS = [
   '/offline.html',
   '/manifest.json',
+  '/qz-tray.js',  // QZ Tray library for thermal printing
 ];
 
 // App shell pages to cache after first visit
