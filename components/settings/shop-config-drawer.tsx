@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,35 +8,130 @@ import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useTenant } from "@/lib/tenant-context"
 import { toast } from "sonner"
-import { Store, Building, Phone, Mail, Palette, Save } from "lucide-react"
+import { Store, Building, Phone, Mail, Palette, Save, Loader2, AlertCircle } from "lucide-react"
 
 interface ShopConfigDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) {
-  const { currentTenant } = useTenant()
+interface ShopConfig {
+  name: string
+  primaryColor: string
+  address: string
+  phone: string
+  email: string
+  taxId: string
+}
 
-  const [formData, setFormData] = useState({
+export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) {
+  const { currentTenant, setCurrentTenant } = useTenant()
+
+  const [formData, setFormData] = useState<ShopConfig>({
     name: currentTenant.name,
-    address: "Avenue Habib Bourguiba, Tunis",
-    phone: "+216 71 123 456",
-    email: "contact@patisserie.tn",
-    taxId: "1234567ABC",
+    address: "",
+    phone: "",
+    email: "",
+    taxId: "",
     primaryColor: currentTenant.primaryColor,
   })
 
+  const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  // Fetch current configuration when drawer opens
+  const loadConfig = useCallback(async () => {
+    if (!open || currentTenant.id === "__fallback__") return
+    
+    setIsLoading(true)
+    setLoadError(null)
+    
+    try {
+      const res = await fetch('/api/shop-config', { cache: 'no-store' })
+      const data = await res.json()
+      
+      if (data.success && data.config) {
+        setFormData({
+          name: data.config.name || currentTenant.name,
+          primaryColor: data.config.primaryColor || currentTenant.primaryColor,
+          address: data.config.address || "",
+          phone: data.config.phone || "",
+          email: data.config.email || "",
+          taxId: data.config.taxId || "",
+        })
+      } else {
+        // Fallback to current tenant data
+        setFormData({
+          name: currentTenant.name,
+          primaryColor: currentTenant.primaryColor,
+          address: "",
+          phone: "",
+          email: "",
+          taxId: "",
+        })
+      }
+    } catch (err) {
+      console.error('[Shop Config] Load error:', err)
+      setLoadError("Impossible de charger la configuration")
+      // Use fallback data
+      setFormData({
+        name: currentTenant.name,
+        primaryColor: currentTenant.primaryColor,
+        address: "",
+        phone: "",
+        email: "",
+        taxId: "",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [open, currentTenant.id, currentTenant.name, currentTenant.primaryColor])
+
+  useEffect(() => {
+    loadConfig()
+  }, [loadConfig])
 
   const handleSubmit = async () => {
+    // Validate required fields
+    if (!formData.name.trim()) {
+      toast.error("Le nom de la boutique est obligatoire")
+      return
+    }
+
     setIsSubmitting(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    toast.success("Configuration mise a jour", {
-      description: "Les modifications ont ete enregistrees avec succes.",
-    })
-    setIsSubmitting(false)
-    onOpenChange(false)
+    
+    try {
+      const res = await fetch('/api/shop-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+      
+      const data = await res.json()
+      
+      if (data.success) {
+        // Update tenant context with new values
+        setCurrentTenant({
+          ...currentTenant,
+          name: data.config.name,
+          primaryColor: data.config.primaryColor,
+          logo: data.config.name.charAt(0).toUpperCase(),
+        })
+        
+        toast.success("Configuration mise a jour", {
+          description: "Les modifications ont ete enregistrees avec succes.",
+        })
+        onOpenChange(false)
+      } else {
+        toast.error(data.error || "Erreur lors de la sauvegarde")
+      }
+    } catch (err) {
+      console.error('[Shop Config] Save error:', err)
+      toast.error("Erreur de connexion. Veuillez reessayer.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const colorOptions = [
@@ -79,7 +174,26 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
 
         {/* Body */}
         <div className="flex-1 px-6 py-6 space-y-5">
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {/* Error State */}
+          {loadError && !isLoading && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{loadError}</span>
+              <Button variant="ghost" size="sm" onClick={loadConfig} className="ml-auto">
+                Reessayer
+              </Button>
+            </div>
+          )}
+
           {/* Identity */}
+          {!isLoading && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <Building className="h-3.5 w-3.5" />
@@ -178,6 +292,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
               </div>
             </div>
           </div>
+          )}
         </div>
 
         {/* Footer */}
