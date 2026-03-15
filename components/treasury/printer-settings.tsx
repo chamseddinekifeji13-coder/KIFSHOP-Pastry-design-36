@@ -657,26 +657,34 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
               </Card>
             )}
 
-{/* Diagnostic Button */}
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={runDiagnostic}
-                      className="gap-1.5 text-xs"
-                    >
-                      <Settings className="h-3.5 w-3.5" />
-                      Diagnostic Complet
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setDebugLogs([])}
-                      className="text-xs text-slate-500"
-                    >
-                      Effacer logs
-                    </Button>
-                  </div>
+{/* Diagnostic and Help Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={runDiagnostic}
+                className="gap-1.5 text-xs"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Diagnostic
+              </Button>
+              <a
+                href="/QZ_TRAY_SETUP.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs border rounded-md hover:bg-accent"
+              >
+                Guide de config
+              </a>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setDebugLogs([])}
+                className="text-xs text-slate-500"
+              >
+                Effacer logs
+              </Button>
+            </div>
 
                   {/* Debug Logs */}
                   {debugLogs.length > 0 && (
