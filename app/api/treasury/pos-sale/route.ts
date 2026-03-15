@@ -9,16 +9,20 @@ export async function POST(request: Request) {
       hasSession: !!session, 
       tenantId: session?.tenantId,
       activeProfileId: session?.activeProfileId,
-      displayName: session?.displayName
+      displayName: session?.displayName,
+      userId: session?.user?.id
     })
     
     if (!session) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 })
+      return NextResponse.json({ 
+        error: "Non authentifie",
+        details: "Veuillez vous connecter pour enregistrer une vente"
+      }, { status: 401 })
     }
     
     // Validate session has required fields
     if (!session.tenantId) {
-      console.error("POS Sale: Missing tenantId in session", session)
+      console.error("[POS Sale] Missing tenantId in session", session)
       return NextResponse.json({ 
         error: "Session invalide: tenant manquant",
         debug: "Verifiez que vous etes connecte a un tenant"
@@ -27,7 +31,16 @@ export async function POST(request: Request) {
     
     const supabase = await createClient()
 
-    const body = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch (e) {
+      return NextResponse.json({ 
+        error: "Format JSON invalide",
+        details: String(e)
+      }, { status: 400 })
+    }
+    
     console.log("[POS Sale] Request body:", body)
     
     const { items, total, paymentMethod, cashReceived } = body
@@ -48,8 +61,7 @@ export async function POST(request: Request) {
       `${item.name} x${item.quantity}`
     ).join(", ")
 
-    // Insert transaction - description includes all details since 'notes' column doesn't exist
-    // Note: 'type' column only accepts 'income' or 'expense', so we use 'income' for POS sales
+    // Insert transaction
     const fullDescription = `Vente POS #${transactionId}: ${itemsDescription}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
     
     // Build insert object with only valid fields
@@ -75,17 +87,32 @@ export async function POST(request: Request) {
       .select()
 
     if (transactionError) {
-      console.error("[POS Sale] Supabase error:", transactionError)
+      console.error("[POS Sale] Supabase error:", {
+        code: transactionError.code,
+        message: transactionError.message,
+        details: transactionError.details,
+        hint: transactionError.hint
+      })
       
       // Check if it's an RLS policy issue
       if (transactionError.code === "PGRST301" || transactionError.message?.includes("policy")) {
         return NextResponse.json({ 
           success: false,
           error: "Erreur de permission (RLS Policy)",
-          details: "Vous n'avez pas la permission d'enregistrer une transaction",
+          details: transactionError.message,
           code: transactionError.code,
-          hint: "Verifiez que vous etes un membre du tenant"
+          hint: "Verifiez que vous etes un membre actif du tenant"
         }, { status: 403 })
+      }
+      
+      // Check for other common errors
+      if (transactionError.message?.includes("NOT NULL")) {
+        return NextResponse.json({ 
+          success: false,
+          error: "Donnees manquantes",
+          details: transactionError.message,
+          hint: "Verifiez que tous les champs sont remplis"
+        }, { status: 400 })
       }
       
       return NextResponse.json({ 
@@ -100,12 +127,12 @@ export async function POST(request: Request) {
     if (!transaction || transaction.length === 0) {
       return NextResponse.json({ 
         success: false,
-        error: "Transaction not created",
+        error: "Transaction non creee",
         details: "L'insertion a reussi mais aucune donnee n'a ete retournee"
       }, { status: 500 })
     }
 
-    console.log("[POS Sale] Transaction created successfully:", transaction[0])
+    console.log("[POS Sale] Transaction created successfully:", transaction[0].id)
 
     return NextResponse.json({
       success: true,
@@ -116,7 +143,8 @@ export async function POST(request: Request) {
     console.error("[POS Sale] Unexpected error:", error)
     return NextResponse.json({
       error: "Erreur serveur",
-      details: error.message || String(error)
+      details: error.message || String(error),
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     }, { status: 500 })
   }
 }
