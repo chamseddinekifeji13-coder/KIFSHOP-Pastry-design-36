@@ -203,14 +203,21 @@ class QZTrayService {
       
       // Configure security for QZ Tray
       // QZ Tray 2.1+ allows unsigned requests from localhost by default
-      this.qz.security.setCertificatePromise((resolve: any) => {
+      // 
+      // setCertificatePromise: function(resolve, reject) - resolve with certificate string
+      // setSignaturePromise: function(toSign) returns function(resolve, reject) - resolve with signature
+      //
+      // For localhost/unsigned mode, we return empty strings
+      this.qz.security.setCertificatePromise((resolve: (cert: string) => void) => {
         console.log("[QZ Tray] Certificate promise called")
         resolve("")
       })
 
       this.qz.security.setSignaturePromise((toSign: string) => {
-        console.log("[QZ Tray] Signature promise called")
-        return Promise.resolve("")
+        return (resolve: (sig: string) => void) => {
+          console.log("[QZ Tray] Signature promise called for:", toSign?.substring(0, 50))
+          resolve("")
+        }
       })
 
       console.log("[QZ Tray] Connecting WebSocket...")

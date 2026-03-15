@@ -37,12 +37,13 @@ export async function POST(request: Request) {
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "sale",
+        type: "income",  // "sale" -> "income" to match expected DB schema
         amount: total,
+        category: "vente_pos",  // Add category for POS sales
         description: fullDescription,
         payment_method: paymentMethod === "card" ? "card" : "cash",
-        created_by: session.activeProfileId,
-        created_by_name: session.displayName
+        created_by: session.activeProfileId
+        // Note: created_by_name was removed as it's not a DB column
       })
       .select()
 
