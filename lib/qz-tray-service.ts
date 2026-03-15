@@ -366,25 +366,36 @@ class QZTrayService {
         }
         
         console.log(`[QZ Tray] Loading printers (attempt ${attempt}/3)...`)
+        
+        // Increase timeout to 15 seconds for printer detection (signature takes time)
         const printers = await Promise.race([
           this.qz.printers.find(),
           new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Printer list timeout")), 10000)
+            setTimeout(() => reject(new Error("Printer list timeout - QZ Tray not responding")), 15000)
           )
         ])
+        
         this.state.printers = Array.isArray(printers) ? printers : (printers ? [printers] : [])
-        console.log("[QZ Tray] Printers found:", this.state.printers)
+        console.log("[QZ Tray] Printers found:", this.state.printers.length, "printer(s)")
+        
+        // Even if no printers, mark as successful if we got a response
+        if (this.state.printers.length === 0) {
+          console.log("[QZ Tray] WARNING: No printers found - Check QZ Tray has printer configured")
+        }
+        
         this.notifyListeners()
         return this.state.printers
       } catch (error: any) {
         console.error(`[QZ Tray] Error loading printers (attempt ${attempt}):`, error.message || error)
         if (attempt < 3) {
-          // Wait 1 second before retry
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          // Wait 2 seconds before retry
+          console.log(`[QZ Tray] Retrying in 2 seconds...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
         }
       }
     }
     
+    console.warn("[QZ Tray] Failed to load printers after 3 attempts - Check QZ Tray connection")
     return []
   }
 
