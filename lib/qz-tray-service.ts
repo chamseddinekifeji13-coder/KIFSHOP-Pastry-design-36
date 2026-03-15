@@ -260,10 +260,11 @@ class QZTrayService {
             }
           }
           
+          // Increased timeout to 15 seconds to allow time for user to approve QZ Tray permission dialog
           await Promise.race([
             this.qz.websocket.connect(strategy.options),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error(`Timeout for ${strategy.name}`)), 5000)
+              setTimeout(() => reject(new Error(`Timeout for ${strategy.name}`)), 15000)
             )
           ])
           
@@ -326,21 +327,42 @@ class QZTrayService {
     this.notifyListeners()
   }
 
-  // Load available printers
+  // Load available printers with retry
   async loadPrinters(): Promise<string[]> {
-    if (!this.qz || !this.state.connected) {
+    if (!this.qz) {
       return []
     }
 
-    try {
-      const printers = await this.qz.printers.find()
-      this.state.printers = Array.isArray(printers) ? printers : [printers]
-      this.notifyListeners()
-      return this.state.printers
-    } catch (error) {
-      console.error("[QZ Tray] Error loading printers:", error)
-      return []
+    // Retry loading printers up to 3 times with delay
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Check if connection is still active
+        if (!this.qz.websocket.isActive()) {
+          console.log("[QZ Tray] WebSocket not active, cannot load printers")
+          return []
+        }
+        
+        console.log(`[QZ Tray] Loading printers (attempt ${attempt}/3)...`)
+        const printers = await Promise.race([
+          this.qz.printers.find(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Printer list timeout")), 10000)
+          )
+        ])
+        this.state.printers = Array.isArray(printers) ? printers : (printers ? [printers] : [])
+        console.log("[QZ Tray] Printers found:", this.state.printers)
+        this.notifyListeners()
+        return this.state.printers
+      } catch (error: any) {
+        console.error(`[QZ Tray] Error loading printers (attempt ${attempt}):`, error.message || error)
+        if (attempt < 3) {
+          // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
     }
+    
+    return []
   }
 
   // Set selected printer

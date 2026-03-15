@@ -10,6 +10,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Non authentifie" }, { status: 401 })
     }
     
+    // Validate session has required fields
+    if (!session.tenantId) {
+      console.error("POS Sale: Missing tenantId in session", session)
+      return NextResponse.json({ error: "Session invalide: tenant manquant" }, { status: 401 })
+    }
+    
     const supabase = await createClient()
 
     const { items, total, paymentMethod, cashReceived } = await request.json()
@@ -34,17 +40,26 @@ export async function POST(request: Request) {
     // Note: 'type' column only accepts 'income' or 'expense', so we use 'income' for POS sales
     const fullDescription = `Vente POS #${transactionId}: ${itemsDescription}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
     
+    // Build insert object - only include created_by if it exists
+    const insertData: Record<string, any> = {
+      tenant_id: session.tenantId,
+      type: "income",
+      amount: total,
+      category: "pos_sale",
+      description: fullDescription,
+      payment_method: paymentMethod === "card" ? "card" : "cash",
+    }
+    
+    // Only add created_by if it exists and is valid
+    if (session.activeProfileId) {
+      insertData.created_by = session.activeProfileId
+    }
+    
+    console.log("POS Sale: Inserting transaction", insertData)
+    
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
-      .insert({
-        tenant_id: session.tenantId,
-        type: "income",
-        amount: total,
-        category: "pos_sale",
-        description: fullDescription,
-        payment_method: paymentMethod === "card" ? "card" : "cash",
-        created_by: session.activeProfileId
-      })
+      .insert(insertData)
       .select()
 
     if (transactionError) {
@@ -54,7 +69,8 @@ export async function POST(request: Request) {
         success: false,
         error: "Erreur lors de l'enregistrement",
         details: transactionError.message,
-        code: transactionError.code
+        code: transactionError.code,
+        hint: transactionError.hint || null
       }, { status: 500 })
     }
 
