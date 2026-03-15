@@ -4,13 +4,23 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   try {
-    const session = await getServerSession()
+    let session
+    try {
+      session = await getServerSession()
+    } catch (authError: any) {
+      console.error("[POS Sale] Auth error:", authError.message)
+      return NextResponse.json({ 
+        error: "Non authentifie",
+        details: authError.message || "Veuillez vous connecter pour enregistrer une vente"
+      }, { status: 401 })
+    }
+    
     console.log("[POS Sale] Session check:", { 
       hasSession: !!session, 
       tenantId: session?.tenantId,
       activeProfileId: session?.activeProfileId,
       displayName: session?.displayName,
-      userId: session?.user?.id
+      authUserId: session?.authUserId
     })
     
     if (!session) {
