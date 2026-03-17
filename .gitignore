@@ -2,13 +2,19 @@
 
 # dependencies
 /node_modules
+npm-shrinkwrap.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
 
 # next.js
 /.next/
 /out/
+.vercel
 
 # production
 /build
+/dist
 
 # debug
 npm-debug.log*
@@ -17,11 +23,49 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
-.env*
-
-# vercel
-.vercel
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+.env.test.local
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+
+# Logs
+logs/
+*.log
+
+# Turbo
+.turbo/
+
+# Testing
+/coverage
+.nyc_output
+
+# Vercel build
+.vercel/
+
+# Temporary
+tmp/
+temp/
