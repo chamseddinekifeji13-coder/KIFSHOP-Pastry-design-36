@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "@/lib/active-profile"
 import { createClient } from "@/lib/supabase/server"
+import { withSession, serverErrorResponse, badRequestResponse } from "@/lib/api-helpers"
 
 export async function POST(request: Request) {
-  try {
-    const session = await getServerSession()
-    const supabase = await createClient()
+  // Get session with proper error handling
+  const [session, authError] = await withSession()
+  if (authError) return authError
 
+  try {
+    const supabase = await createClient()
     const body = await request.json()
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
@@ -133,10 +135,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, order })
   } catch (error) {
-    console.error("Quick order API error:", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Erreur serveur" },
-      { status: 500 }
-    )
+    return serverErrorResponse(error)
   }
 }

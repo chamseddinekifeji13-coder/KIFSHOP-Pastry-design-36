@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { ThermalPrinter, getPrinter } from "@/lib/thermal-printer"
-import { getQZTrayService, type QZState } from "@/lib/qz-tray-service"
+import { getQZTrayService, diagnoseQZTray, type QZState } from "@/lib/qz-tray-service"
 
 interface PrinterSettingsProps {
   onPrinterConnected?: (connected: boolean) => void
@@ -133,21 +133,88 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
 
   // ──── QZ Tray mode ────────────────────────────────────────
 
-  // Silent check - used at mount, doesn't show error toasts
+  // Silent check - used at mount, shows success toast if connected
   const silentQZTrayCheck = async () => {
+    console.log("[v0] Silent QZ Tray check starting...")
     try {
       const qzService = getQZTrayService()
+      console.log("[v0] QZ Service obtained, attempting connection...")
+      
       const connected = await qzService.connect()
+      console.log("[v0] QZ Tray connection result:", connected)
+      
       if (connected) {
         const state = qzService.getState()
+        console.log("[v0] QZ State:", JSON.stringify(state))
         setQzState(state)
         setIsConnected(true)
         console.log("[v0] QZ Tray auto-connected with", state.printers.length, "printers")
+        
+        // Show success notification when auto-detected
+        const savedPrinter = localStorage.getItem("qz-printer-name")
+        console.log("[v0] Saved printer from localStorage:", savedPrinter)
+        
+        if (savedPrinter && state.printers.includes(savedPrinter)) {
+          toast.success(`QZ Tray detecte - ${savedPrinter}`, {
+            description: "Imprimante thermique prete",
+            duration: 3000,
+          })
+        } else if (state.printers.length > 0) {
+          toast.info(`QZ Tray detecte - ${state.printers.length} imprimante(s)`, {
+            description: "Selectionnez une imprimante dans les parametres",
+            duration: 4000,
+          })
+        }
+      } else {
+        console.log("[v0] QZ Tray connection returned false")
       }
-    } catch (error) {
+    } catch (error: any) {
       // Silent - don't show errors on initial mount
-      console.log("[v0] QZ Tray not available at startup (this is normal if not installed)")
+      console.log("[v0] QZ Tray not available at startup:", error?.message || error)
     }
+  }
+
+  // Run full diagnostic
+  const runDiagnostic = async () => {
+    console.log("[v0] Running QZ Tray diagnostic...")
+    toast.info("Diagnostic en cours...", { duration: 2000 })
+    
+    const result = await diagnoseQZTray()
+    
+    const lines = [
+      `Bibliotheque: ${result.libraryLoaded ? "OK" : "NON"}`,
+      `WebSocket: ${result.websocketAvailable ? "OK" : "NON"}`,
+      `Connecte: ${result.connected ? "OUI" : "NON"}`,
+      `Imprimantes: ${result.printers.length || 0}`,
+      `Version: ${result.version || "N/A"}`,
+    ]
+    
+    if (result.error) {
+      lines.push(`Erreur: ${result.error}`)
+    }
+    
+    const message = lines.join("\n")
+    console.log("[v0] Diagnostic result:\n" + message)
+    
+    if (result.connected && result.printers.length > 0) {
+      toast.success("QZ Tray fonctionne!", {
+        description: `${result.printers.length} imprimante(s) trouvee(s)`,
+        duration: 5000,
+      })
+    } else if (result.libraryLoaded && !result.connected) {
+      toast.error("QZ Tray n'est pas connecte", {
+        description: "Verifiez que QZ Tray est lance sur votre PC (icone dans la barre des taches)",
+        duration: 8000,
+      })
+    } else {
+      toast.error("Probleme avec QZ Tray", {
+        description: result.error || "Bibliotheque non chargee",
+        duration: 8000,
+      })
+    }
+    
+    // Add to debug logs
+    setDebugLogs(prev => [...prev, `[DIAGNOSTIC] ${message.replace(/\n/g, " | ")}`])
   }
 
   const checkQZTrayStatus = async () => {
@@ -590,8 +657,37 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
               </Card>
             )}
 
-            {/* Debug Logs */}
-            {debugLogs.length > 0 && (
+{/* Diagnostic and Help Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={runDiagnostic}
+                className="gap-1.5 text-xs"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Diagnostic
+              </Button>
+              <a
+                href="/QZ_TRAY_SETUP.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs border rounded-md hover:bg-accent"
+              >
+                Guide de config
+              </a>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setDebugLogs([])}
+                className="text-xs text-slate-500"
+              >
+                Effacer logs
+              </Button>
+            </div>
+
+                  {/* Debug Logs */}
+                  {debugLogs.length > 0 && (
               <Card className="border-slate-300 bg-slate-100">
                 <CardHeader className="py-2 px-3">
                   <CardTitle className="text-xs text-slate-700">Logs de débogage (derniers 20)</CardTitle>

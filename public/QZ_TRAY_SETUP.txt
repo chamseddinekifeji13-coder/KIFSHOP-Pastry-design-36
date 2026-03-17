@@ -1,0 +1,87 @@
+================================================================================
+           GUIDE COMPLET QZ TRAY - KIFSHOP PASTRY
+================================================================================
+
+Ce guide vous aidera a configurer QZ Tray pour eliminer definitivement
+les avertissements "Site non approuve" / "Untrusted website".
+
+================================================================================
+ETAPE 1: INSTALLATION DE QZ TRAY
+================================================================================
+
+1. Telechargez QZ Tray: https://qz.io/download/
+2. Installez (acceptez tous les parametres par defaut)
+3. Lancez QZ Tray - icone visible dans la barre des taches (pres de l'horloge)
+
+================================================================================
+ETAPE 2: APPROUVER KIFSHOP (SOLUTION DEFINITIVE)
+================================================================================
+
+METHODE A - Via Site Manager (Recommandee)
+------------------------------------------
+1. Clic-droit sur l'icone QZ Tray dans la barre des taches
+2. Selectionnez "Advanced" > "Site Manager"
+3. Cliquez sur "+" puis "Create New" pour generer un certificat demo
+4. Acceptez toutes les questions (Yes)
+5. Les certificats seront places sur votre Bureau: "QZ Tray Demo Cert"
+6. Redemarrez QZ Tray (clic-droit > Exit, puis relancez)
+
+METHODE B - Approuver manuellement lors de la connexion
+-------------------------------------------------------
+1. Ouvrez Kifshop dans votre navigateur
+2. Quand le popup "Untrusted Website" apparait:
+   - IMPORTANT: Cochez "Remember this decision"
+   - Attendez 2-3 secondes que "Allow" s'active
+   - Cliquez sur "Allow"
+3. QZ Tray se souviendra de votre choix
+
+METHODE C - Ajouter Kifshop comme site de confiance
+---------------------------------------------------
+1. Clic-droit sur l'icone QZ Tray
+2. "Advanced" > "Site Manager"
+3. Cliquez "+" et entrez votre domaine Kifshop
+4. Cochez "Allow" pour toutes les permissions
+5. Cliquez "Save" puis redemarrez QZ Tray
+
+================================================================================
+ETAPE 3: VERIFICATION
+================================================================================
+
+1. Assurez-vous que QZ Tray est lance (icone dans la barre des taches)
+2. Ouvrez Kifshop > Parametres Imprimante > Onglet "QZ Tray"
+3. Cliquez "Verifier le statut"
+4. Resultat attendu: "QZ Tray Connecte" + liste des imprimantes
+5. Selectionnez votre imprimante POS80
+6. Testez avec "Test Impression"
+
+================================================================================
+DEPANNAGE
+================================================================================
+
+"QZ Tray n'est pas disponible"
+-> Verifiez que QZ Tray est lance (icone pres de l'horloge)
+-> Redemarrez QZ Tray: clic-droit > Exit, puis relancez
+
+"Untrusted website" a chaque connexion
+-> Utilisez la Methode A ci-dessus pour creer un certificat demo
+-> Ou cochez "Remember this decision" avant de cliquer "Allow"
+
+"Aucune imprimante detectee"
+-> Verifiez que l'imprimante est allumee et connectee
+-> Dans Windows > Parametres > Imprimantes, verifiez qu'elle apparait
+-> Redemarrez QZ Tray apres connexion de l'imprimante
+
+Impression ne fonctionne pas
+-> Testez l'impression depuis Windows (Bloc-notes > Imprimer)
+-> Essayez le mode "Windows" dans Kifshop comme alternative
+
+================================================================================
+PORTS UTILISES PAR QZ TRAY
+================================================================================
+
+- Port 8181 (WSS): Connexion securisee avec certificat (prioritaire)
+- Port 8182 (WS): Connexion non securisee (fallback automatique)
+
+================================================================================
+SUPPORT: Documentation QZ Tray - https://qz.io/docs
+================================================================================

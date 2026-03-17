@@ -1,0 +1,56 @@
+{
+  "buildCommand": "next build",
+  "devCommand": "next dev --port $PORT",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "nodeVersion": "20.x",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "regions": ["cdg"],
+  "env": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "CRON_SECRET"
+  ],
+  "envPrefix": "NEXT_PUBLIC_",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/sync-pos80",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ],
+  "redirects": [],
+  "rewrites": []
+}
+

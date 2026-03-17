@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/active-profile'
 import { createClient } from '@/lib/supabase/server'
+import { withSession, serverErrorResponse } from '@/lib/api-helpers'
 
 export async function GET(request: Request) {
-  try {
-    const session = await getServerSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  // Get session with proper error handling
+  const [session, authError] = await withSession()
+  if (authError) return authError
 
+  try {
     const { searchParams } = new URL(request.url)
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
@@ -75,10 +74,6 @@ export async function GET(request: Request) {
       generatedAt: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('[Treasury] Cashier Stats Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate cashier statistics' },
-      { status: 500 }
-    )
+    return serverErrorResponse(error)
   }
 }

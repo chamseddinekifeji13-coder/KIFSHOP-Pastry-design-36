@@ -48,7 +48,7 @@ export async function closeCashSession(
 
   let expectedBalance = cashSession?.opening_balance || 0
   for (const t of transactions || []) {
-    if (t.type === 'income' || t.type === 'collection') {
+    if (t.type === 'income') {
       expectedBalance += t.amount
     } else {
       expectedBalance -= t.amount
@@ -119,7 +119,8 @@ export async function collectOrderPayment(
       tenant_id: session.tenantId,
       description: `Collection - Order #${orderId}`,
       amount: amount,
-      type: 'collection',
+      type: 'income',
+      category: 'collection',
       payment_method: paymentMethod,
       created_by: session.activeProfileId,
       created_by_name: session.displayName,

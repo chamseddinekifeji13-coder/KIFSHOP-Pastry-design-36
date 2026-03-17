@@ -20,6 +20,7 @@ import {
   BarChart3,
   Megaphone,
   CreditCard,
+  Zap,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -86,6 +87,7 @@ const navigation = [
     fallback: "Finance",
     items: [
       { titleKey: "nav.treasury", fallback: "Tresorerie", href: "/tresorerie", icon: Wallet },
+      { titleKey: "nav.pos80", fallback: "POS80", href: "/pos80", icon: Zap },
     ],
   },
   {

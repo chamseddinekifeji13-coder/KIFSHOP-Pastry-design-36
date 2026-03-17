@@ -85,7 +85,19 @@ export const metadata: Metadata = {
     ],
   },
   other: {
-    'google-site-verification': '',
+    'google-site-verification': 'zLDCklZO1e4RWP56O1KJgjgmVcQcIOMsOo2UQAxn_ew',
+    'msvalidate.01': 'A_REMPLACER_PAR_VOTRE_CODE_BING',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 }
 

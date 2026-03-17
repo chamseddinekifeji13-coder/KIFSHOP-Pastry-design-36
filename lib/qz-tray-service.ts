@@ -73,11 +73,54 @@ class QZTrayService {
   private qz: any = null
   private connectionPromise: Promise<boolean> | null = null
   private listeners: Set<(state: QZState) => void> = new Set()
+  private reconnectAttempts = 0
+  private maxReconnectAttempts = 5
+  private reconnectTimeout: NodeJS.Timeout | null = null
 
   constructor() {
     // Load saved printer from localStorage
     if (typeof window !== "undefined") {
       this.state.selectedPrinter = localStorage.getItem("qz-printer-name") || null
+    }
+  }
+
+  // Setup WebSocket close handler for auto-reconnect
+  private setupCloseHandler() {
+    if (!this.qz || !this.qz.websocket) return
+
+    // Listen for WebSocket close events
+    this.qz.websocket.setClosedCallbacks((closeEvent: any) => {
+      console.log("[QZ Tray] WebSocket closed:", closeEvent?.reason || "Connection lost")
+      this.state.connected = false
+      this.notifyListeners()
+
+      // Attempt auto-reconnect if not intentionally disconnected
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        const delay = Math.min(2000 * (this.reconnectAttempts + 1), 10000) // Exponential backoff up to 10s
+        console.log(`[QZ Tray] Auto-reconnect in ${delay/1000}s (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`)
+        
+        this.reconnectTimeout = setTimeout(async () => {
+          this.reconnectAttempts++
+          console.log("[QZ Tray] Auto-reconnecting...")
+          this.connectionPromise = null // Reset to allow new connection
+          const success = await this.connect()
+          if (success) {
+            console.log("[QZ Tray] Auto-reconnect successful!")
+            this.reconnectAttempts = 0 // Reset on success
+          }
+        }, delay)
+      } else {
+        console.warn("[QZ Tray] Max reconnect attempts reached. Manual reconnection required.")
+      }
+    })
+  }
+
+  // Reset reconnect counter (call after successful manual connect)
+  resetReconnect() {
+    this.reconnectAttempts = 0
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+      this.reconnectTimeout = null
     }
   }
 
@@ -113,23 +156,35 @@ class QZTrayService {
       existingScript.remove()
     }
 
-    // Try multiple CDN sources
+    // PRIORITY 1: Load from local file (avoids CSP issues)
+    // The qz-tray.js file is hosted locally in /public/qz-tray.js
+    const localSource = "/qz-tray.js"
+    
+    console.log("[QZ Tray] Loading library from LOCAL source:", localSource)
+    const localLoaded = await this.tryLoadScript(localSource)
+    if (localLoaded) {
+      console.log("[QZ Tray] Library loaded successfully from LOCAL source")
+      return true
+    }
+    
+    // FALLBACK: Try CDN sources if local fails
     const cdnSources = [
       "https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.min.js",
-      "https://unpkg.com/qz-tray@2.2.4/qz-tray.min.js",
       "https://cdn.jsdelivr.net/npm/qz-tray@2.2.3/qz-tray.min.js",
     ]
+    
+    console.log("[QZ Tray] Local failed, trying CDN fallback...")
 
     for (const src of cdnSources) {
-      console.log("[QZ Tray] Trying to load from:", src)
+      console.log("[QZ Tray] Trying CDN:", src)
       const loaded = await this.tryLoadScript(src)
       if (loaded) {
-        console.log("[QZ Tray] Library loaded successfully from:", src)
+        console.log("[QZ Tray] Library loaded from CDN:", src)
         return true
       }
     }
 
-    console.error("[QZ Tray] Failed to load library from all CDN sources")
+    console.error("[QZ Tray] Failed to load library from all sources (local + CDN)")
     return false
   }
 
@@ -201,56 +256,146 @@ class QZTrayService {
 
       console.log("[QZ Tray] Configuring security...")
       
-      // Configure security for QZ Tray
-      // QZ Tray 2.1+ allows unsigned requests from localhost by default
-      // 
-      // setCertificatePromise: function(resolve, reject) - resolve with certificate string
-      // setSignaturePromise: function(toSign) returns function(resolve, reject) - resolve with signature
-      //
-      // For localhost/unsigned mode, we return empty strings
-      this.qz.security.setCertificatePromise((resolve: (cert: string) => void) => {
-        console.log("[QZ Tray] Certificate promise called")
-        resolve("")
+      // Configure security for QZ Tray with proper certificate and signing
+      // This eliminates "Untrusted website" warnings
+      this.qz.security.setCertificatePromise((resolve: (cert: string) => void, reject: (err: Error) => void) => {
+        console.log("[QZ Tray] Fetching certificate from server...")
+        fetch("/api/qz-tray/certificate", { 
+          cache: 'no-store',
+          headers: { 'Content-Type': 'text/plain' }
+        })
+          .then(response => {
+            if (response.ok) {
+              return response.text()
+            }
+            throw new Error("Certificate fetch failed")
+          })
+          .then(cert => {
+            console.log("[QZ Tray] Certificate loaded successfully")
+            resolve(cert)
+          })
+          .catch(err => {
+            console.warn("[QZ Tray] Certificate fetch failed, using empty cert:", err.message)
+            // Fallback to empty certificate for localhost
+            resolve("")
+          })
       })
 
+      // Set signature algorithm to SHA512 (required for QZ Tray 2.1+)
+      if (this.qz.security.setSignatureAlgorithm) {
+        this.qz.security.setSignatureAlgorithm("SHA512")
+      }
+
       this.qz.security.setSignaturePromise((toSign: string) => {
-        return (resolve: (sig: string) => void) => {
-          console.log("[QZ Tray] Signature promise called for:", toSign?.substring(0, 50))
-          resolve("")
+        return (resolve: (sig: string) => void, reject: (err: Error) => void) => {
+          console.log("[QZ Tray] Signing message via server...")
+          fetch("/api/qz-tray/sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toSign })
+          })
+            .then(response => response.json())
+            .then(data => {
+              console.log("[QZ Tray] Message signed successfully")
+              resolve(data.signature || "")
+            })
+            .catch(err => {
+              console.warn("[QZ Tray] Signing failed, using empty signature:", err.message)
+              // Fallback to empty signature
+              resolve("")
+            })
         }
       })
 
       console.log("[QZ Tray] Connecting WebSocket...")
       
-      // Try to connect with retries
+      // QZ Tray connection strategy:
+      // 1. SECURE port (8181) FIRST - uses certificate/signature for trusted connection
+      // 2. Insecure port (8182) as fallback - works without certificates
+      // 
+      // With proper certificate setup, the secure port eliminates "untrusted website" warnings
+      
+      const connectionStrategies = [
+        // Try SECURE first - proper certificate eliminates warnings
+        { name: "wss://localhost:8181", options: { host: "localhost", usingSecure: true } },
+        { name: "wss://127.0.0.1:8181", options: { host: "127.0.0.1", usingSecure: true } },
+        // Fallback to insecure if secure fails
+        { name: "ws://localhost:8182", options: { host: "localhost", usingSecure: false } },
+        { name: "ws://127.0.0.1:8182", options: { host: "127.0.0.1", usingSecure: false } },
+        // Auto-detect as last resort
+        { name: "auto-detect", options: {} },
+      ]
+      
       let lastError: any = null
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      let connected = false
+      
+      for (const strategy of connectionStrategies) {
+        if (connected) break
+        
+        console.log(`[QZ Tray] Trying: ${strategy.name}...`)
+        
         try {
-          console.log(`[QZ Tray] Connection attempt ${attempt}/3...`)
+          // Disconnect first if there's a stale connection
+          if (this.qz.websocket.isActive()) {
+            console.log("[QZ Tray] Disconnecting stale connection...")
+            try {
+              await this.qz.websocket.disconnect()
+            } catch (e) {
+              // Ignore disconnect errors
+            }
+          }
           
+          // Wait a bit before connecting to give QZ Tray time to process
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Increased timeout to 20 seconds to allow time for user to approve QZ Tray permission dialog
+          // When user checks "Remember this decision", the Allow button gets temporarily disabled while QZ processes
+          console.log(`[QZ Tray] Connecting with 20 second timeout (permission dialog may appear)...`)
           await Promise.race([
-            this.qz.websocket.connect(),
+            this.qz.websocket.connect(strategy.options),
             new Promise((_, reject) => 
-              setTimeout(() => reject(new Error(`Timeout attempt ${attempt}`)), 10000)
+              setTimeout(() => reject(new Error(`Timeout for ${strategy.name} - Permission dialog may be pending. Click Allow when prompted.`)), 20000)
             )
           ])
           
-          console.log("[QZ Tray] Connected successfully on attempt", attempt)
-          lastError = null
-          break
+          // Small delay after connection to ensure WebSocket is fully initialized
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Verify connection is active
+          if (this.qz.websocket.isActive()) {
+            console.log(`[QZ Tray] SUCCESS! Connected via ${strategy.name}`)
+            connected = true
+            lastError = null
+            break
+          } else {
+            console.log(`[QZ Tray] ${strategy.name} connected but websocket not active`)
+          }
         } catch (error: any) {
           lastError = error
-          console.log(`[QZ Tray] Connection attempt ${attempt} failed:`, error.message)
-          if (attempt < 3) {
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 1000))
+          console.log(`[QZ Tray] ${strategy.name} failed:`, error.message || error)
+          
+          // Add specific guidance for permission issues
+          if (error.message?.includes("Permission") || error.message?.includes("Untrusted") || error.message?.includes("dialog")) {
+            console.warn(`[QZ Tray] CONSEIL: Une boîte de dialogue QZ Tray peut être visible sur votre écran.`)
+            console.warn(`[QZ Tray] 1. Cochez "Remember this decision"`)
+            console.warn(`[QZ Tray] 2. Attendez que le bouton "Allow" se réactive (2-3 secondes)`)
+            console.warn(`[QZ Tray] 3. Cliquez sur "Allow"`)
+            console.warn(`[QZ Tray] 4. Attendez 3-5 secondes pour finaliser la permission`)
           }
         }
       }
       
-      if (lastError) {
-        throw lastError
+      if (!connected && lastError) {
+        throw new Error(`Toutes les strategies ont echoue. Dernier: ${lastError.message || lastError}`)
       }
+      
+      if (!connected) {
+        throw new Error("Connexion echouee sans erreur specifique")
+      }
+
+      // Setup auto-reconnect handler
+      this.setupCloseHandler()
+      this.resetReconnect() // Reset counter on successful connection
 
       // Get version
       try {
@@ -288,21 +433,53 @@ class QZTrayService {
     this.notifyListeners()
   }
 
-  // Load available printers
+  // Load available printers with retry
   async loadPrinters(): Promise<string[]> {
-    if (!this.qz || !this.state.connected) {
+    if (!this.qz) {
       return []
     }
 
-    try {
-      const printers = await this.qz.printers.find()
-      this.state.printers = Array.isArray(printers) ? printers : [printers]
-      this.notifyListeners()
-      return this.state.printers
-    } catch (error) {
-      console.error("[QZ Tray] Error loading printers:", error)
-      return []
+    // Retry loading printers up to 3 times with delay
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Check if connection is still active
+        if (!this.qz.websocket.isActive()) {
+          console.log("[QZ Tray] WebSocket not active, cannot load printers")
+          return []
+        }
+        
+        console.log(`[QZ Tray] Loading printers (attempt ${attempt}/3)...`)
+        
+        // Increase timeout to 15 seconds for printer detection (signature takes time)
+        const printers = await Promise.race([
+          this.qz.printers.find(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Printer list timeout - QZ Tray not responding")), 15000)
+          )
+        ])
+        
+        this.state.printers = Array.isArray(printers) ? printers : (printers ? [printers] : [])
+        console.log("[QZ Tray] Printers found:", this.state.printers.length, "printer(s)")
+        
+        // Even if no printers, mark as successful if we got a response
+        if (this.state.printers.length === 0) {
+          console.log("[QZ Tray] WARNING: No printers found - Check QZ Tray has printer configured")
+        }
+        
+        this.notifyListeners()
+        return this.state.printers
+      } catch (error: any) {
+        console.error(`[QZ Tray] Error loading printers (attempt ${attempt}):`, error.message || error)
+        if (attempt < 3) {
+          // Wait 2 seconds before retry
+          console.log(`[QZ Tray] Retrying in 2 seconds...`)
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
     }
+    
+    console.warn("[QZ Tray] Failed to load printers after 3 attempts - Check QZ Tray connection")
+    return []
   }
 
   // Set selected printer
@@ -590,6 +767,79 @@ export function getQZTrayService(): QZTrayService {
     qzServiceInstance = new QZTrayService()
   }
   return qzServiceInstance
+}
+
+// Diagnostic function to check QZ Tray connectivity
+export async function diagnoseQZTray(): Promise<{
+  libraryLoaded: boolean
+  websocketAvailable: boolean
+  connected: boolean
+  printers: string[]
+  version: string | null
+  error: string | null
+}> {
+  const result = {
+    libraryLoaded: false,
+    websocketAvailable: false,
+    connected: false,
+    printers: [] as string[],
+    version: null as string | null,
+    error: null as string | null,
+  }
+  
+  try {
+    // Check if running in browser
+    if (typeof window === "undefined") {
+      result.error = "Not running in browser"
+      return result
+    }
+    
+    // Check if qz library is available
+    const qz = (window as any).qz
+    if (qz) {
+      result.libraryLoaded = true
+      console.log("[QZ Diag] Library is loaded")
+      
+      // Check websocket availability
+      if (qz.websocket) {
+        result.websocketAvailable = true
+        console.log("[QZ Diag] WebSocket module available")
+        
+        // Check if connected
+        if (qz.websocket.isActive()) {
+          result.connected = true
+          console.log("[QZ Diag] Already connected")
+          
+          // Get printers
+          try {
+            const printers = await qz.printers.find()
+            result.printers = Array.isArray(printers) ? printers : [printers]
+          } catch (e) {
+            console.log("[QZ Diag] Could not get printers:", e)
+          }
+          
+          // Get version
+          try {
+            result.version = await qz.api.getVersion()
+          } catch (e) {
+            console.log("[QZ Diag] Could not get version:", e)
+          }
+        } else {
+          console.log("[QZ Diag] WebSocket not active, QZ Tray may not be running")
+          result.error = "WebSocket not active - QZ Tray may not be running on localhost:8181"
+        }
+      } else {
+        result.error = "WebSocket module not available in qz library"
+      }
+    } else {
+      result.error = "QZ library not loaded - CDN may be blocked or slow"
+    }
+  } catch (e: any) {
+    result.error = e.message || String(e)
+  }
+  
+  console.log("[QZ Diag] Result:", result)
+  return result
 }
 
 export type { QZState }

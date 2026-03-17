@@ -3,8 +3,6 @@
 
 /* KIFSHOP SaaS Theme */
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
