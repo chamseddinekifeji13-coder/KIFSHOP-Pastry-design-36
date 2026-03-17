@@ -334,7 +334,7 @@ export function SettingsView() {
         )}
 
         {/* POS80 Configuration - Owner & Gerant */}
-        {(currentRole === "owner" || currentRole === "gerant") && (
+        {(currentRole === "owner" || currentRole === "gerant") && currentTenant && (
           <POS80ConfigDrawer tenantId={currentTenant.id} />
         )}
 
