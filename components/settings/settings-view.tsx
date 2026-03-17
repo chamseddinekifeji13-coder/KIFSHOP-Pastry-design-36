@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2, Zap } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,6 @@ import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
 import { DeliveryCompaniesSettings } from "./delivery-companies-settings"
 import { StatsResetSettings } from "./stats-reset-settings"
-import { POS80ConfigDrawer } from "./pos80-config-drawer"
 import { ROLE_LABELS } from "@/lib/tenant-context"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -331,11 +330,6 @@ export function SettingsView() {
         {/* Stats Reset - Super Admin Only */}
         {currentRole === "owner" && (
           <StatsResetSettings />
-        )}
-
-        {/* POS80 Configuration - Owner & Gerant */}
-        {(currentRole === "owner" || currentRole === "gerant") && currentTenant && (
-          <POS80ConfigDrawer tenantId={currentTenant.id} />
         )}
 
         {/* Invoice & Billing Settings */}
