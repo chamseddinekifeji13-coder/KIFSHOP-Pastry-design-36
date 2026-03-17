@@ -64,7 +64,11 @@ export function ServiceWorkerRegister() {
         document.addEventListener("visibilitychange", handleVisibilityChange)
 
       } catch (err) {
-        console.warn("[SW] Registration failed:", err)
+        // Service Worker registration failures are not critical
+        // The app continues to function normally without PWA capabilities
+        if (process.env.NODE_ENV === "development") {
+          console.log("[SW] Registration info:", err)
+        }
       }
     }
 
