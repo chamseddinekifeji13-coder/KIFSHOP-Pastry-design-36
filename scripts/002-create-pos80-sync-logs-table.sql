@@ -1,7 +1,7 @@
 -- Create pos80_sync_logs table for tracking synchronization history
-CREATE TABLE IF NOT EXISTS pos80_sync_logs (
+CREATE TABLE IF NOT EXISTS public.pos80_sync_logs (
   id BIGSERIAL PRIMARY KEY,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   sync_type VARCHAR(20) NOT NULL, -- 'manual', 'cron', 'webhook'
   status VARCHAR(20) NOT NULL, -- 'running', 'success', 'failed', 'partial'
   transactions_count INT DEFAULT 0,
@@ -21,37 +21,31 @@ CREATE TABLE IF NOT EXISTS pos80_sync_logs (
 );
 
 -- Create indexes for faster queries
-CREATE INDEX IF NOT EXISTS idx_pos80_sync_logs_tenant_id ON pos80_sync_logs(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_pos80_sync_logs_created_at ON pos80_sync_logs(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_pos80_sync_logs_status ON pos80_sync_logs(status);
-
--- Create partitioned table for logs older than 30 days (optional optimization)
--- This can be enabled later if logs grow too large
+CREATE INDEX IF NOT EXISTS idx_pos80_sync_logs_tenant_id ON public.pos80_sync_logs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pos80_sync_logs_created_at ON public.pos80_sync_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pos80_sync_logs_status ON public.pos80_sync_logs(status);
 
 -- Enable RLS
-ALTER TABLE pos80_sync_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pos80_sync_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "pos80_sync_logs_select_policy" ON pos80_sync_logs
+CREATE POLICY "pos80_sync_logs_select_policy" ON public.pos80_sync_logs
   FOR SELECT USING (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid())
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "pos80_sync_logs_insert_policy" ON pos80_sync_logs
+CREATE POLICY "pos80_sync_logs_insert_policy" ON public.pos80_sync_logs
   FOR INSERT WITH CHECK (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid())
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "pos80_sync_logs_update_policy" ON pos80_sync_logs
+CREATE POLICY "pos80_sync_logs_update_policy" ON public.pos80_sync_logs
   FOR UPDATE USING (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid())
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()
     )
   );

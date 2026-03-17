@@ -1,7 +1,7 @@
 -- Create pos80_config table for storing POS80 API configuration
-CREATE TABLE IF NOT EXISTS pos80_config (
+CREATE TABLE IF NOT EXISTS public.pos80_config (
   id BIGSERIAL PRIMARY KEY,
-  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   api_url TEXT NOT NULL,
   api_key TEXT NOT NULL,
   merchant_id TEXT NOT NULL,
@@ -18,40 +18,36 @@ CREATE TABLE IF NOT EXISTS pos80_config (
 );
 
 -- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_pos80_config_tenant_id ON pos80_config(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_pos80_config_tenant_id ON public.pos80_config(tenant_id);
 
 -- Enable RLS
-ALTER TABLE pos80_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pos80_config ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-CREATE POLICY "pos80_config_select_policy" ON pos80_config
+CREATE POLICY "pos80_config_select_policy" ON public.pos80_config
   FOR SELECT USING (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid())
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()
     )
   );
 
-CREATE POLICY "pos80_config_insert_policy" ON pos80_config
+CREATE POLICY "pos80_config_insert_policy" ON public.pos80_config
   FOR INSERT WITH CHECK (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid() AND role = 'admin')
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid() AND tu.role IN ('owner', 'gerant')
     )
   );
 
-CREATE POLICY "pos80_config_update_policy" ON pos80_config
+CREATE POLICY "pos80_config_update_policy" ON public.pos80_config
   FOR UPDATE USING (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid() AND role = 'admin')
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid() AND tu.role IN ('owner', 'gerant')
     )
   );
 
-CREATE POLICY "pos80_config_delete_policy" ON pos80_config
+CREATE POLICY "pos80_config_delete_policy" ON public.pos80_config
   FOR DELETE USING (
     tenant_id IN (
-      SELECT id FROM tenants WHERE id = auth.uid() OR 
-      id IN (SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid() AND role = 'admin')
+      SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid() AND tu.role IN ('owner', 'gerant')
     )
   );
