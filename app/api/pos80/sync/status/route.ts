@@ -1,14 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getActiveProfile } from '@/lib/active-profile'
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = req.nextUrl.searchParams.get('tenantId')
+    const profile = await getActiveProfile()
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const tenantId = req.nextUrl.searchParams.get('tenantId') || profile.tenantId
     if (!tenantId) {
       return NextResponse.json(
         { error: 'tenantId required' },
@@ -16,6 +20,8 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    const supabase = createAdminClient()
+    
     // Get the latest sync
     const { data: lastSync, error } = await supabase
       .from('pos80_sync_logs')
@@ -26,6 +32,7 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (error && error.code !== 'PGRST116') {
+      console.error('[v0] Status GET error:', error)
       throw error
     }
 
@@ -38,7 +45,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(status)
   } catch (error) {
-    console.error('[POS80 Status GET]', error)
+    console.error('[v0] Status GET error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch status', isRunning: false },
       { status: 500 }

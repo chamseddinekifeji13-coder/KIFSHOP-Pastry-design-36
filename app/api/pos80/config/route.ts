@@ -1,14 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getActiveProfile } from '@/lib/active-profile'
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = req.nextUrl.searchParams.get('tenantId')
+    const profile = await getActiveProfile()
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const tenantId = req.nextUrl.searchParams.get('tenantId') || profile.tenantId
     if (!tenantId) {
       return NextResponse.json(
         { error: 'tenantId required' },
@@ -16,6 +20,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
+    const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('pos80_config')
       .select('*')
@@ -23,12 +28,29 @@ export async function GET(req: NextRequest) {
       .single()
 
     if (error && error.code !== 'PGRST116') {
+      console.error('[v0] Config GET error:', error)
       throw error
     }
 
-    return NextResponse.json(data || null)
+    // Transform snake_case to camelCase for client
+    if (data) {
+      return NextResponse.json({
+        id: data.id,
+        tenant_id: data.tenant_id,
+        api_url: data.api_url,
+        api_key: data.api_key,
+        merchant_id: data.merchant_id,
+        terminal_id: data.terminal_id,
+        is_active: data.is_active,
+        last_tested_at: data.last_tested_at,
+        test_status: data.test_status,
+        test_error_message: data.test_error_message,
+      })
+    }
+
+    return NextResponse.json(null)
   } catch (error) {
-    console.error('[POS80 Config GET]', error)
+    console.error('[v0] Config GET error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch config' },
       { status: 500 }
@@ -38,15 +60,27 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId, apiUrl, apiKey, merchantId, terminalId, isActive } = await req.json()
+    const profile = await getActiveProfile()
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
 
-    if (!tenantId || !apiUrl || !apiKey || !merchantId) {
+    const body = await req.json()
+    const { tenant_id, api_url, api_key, merchant_id, terminal_id, is_active } = body
+
+    const tenantId = tenant_id || profile.tenantId
+
+    if (!tenantId || !api_url || !api_key || !merchant_id) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
     }
 
+    const supabase = createAdminClient()
     const { data: existing } = await supabase
       .from('pos80_config')
       .select('id')
@@ -55,41 +89,45 @@ export async function POST(req: NextRequest) {
 
     let result
     if (existing) {
-      result = await supabase
+      const { data: updated, error: updateError } = await supabase
         .from('pos80_config')
         .update({
-          api_url: apiUrl,
-          api_key: apiKey,
-          merchant_id: merchantId,
-          terminal_id: terminalId,
-          is_active: isActive,
+          api_url,
+          api_key,
+          merchant_id,
+          terminal_id: terminal_id || null,
+          is_active: is_active ?? false,
           updated_at: new Date().toISOString(),
         })
         .eq('tenant_id', tenantId)
         .select()
         .single()
+
+      if (updateError) throw updateError
+      result = updated
     } else {
-      result = await supabase
+      const { data: inserted, error: insertError } = await supabase
         .from('pos80_config')
         .insert({
           tenant_id: tenantId,
-          api_url: apiUrl,
-          api_key: apiKey,
-          merchant_id: merchantId,
-          terminal_id: terminalId,
-          is_active: isActive,
+          api_url,
+          api_key,
+          merchant_id,
+          terminal_id: terminal_id || null,
+          is_active: is_active ?? false,
         })
         .select()
         .single()
+
+      if (insertError) throw insertError
+      result = inserted
     }
 
-    if (result.error) throw result.error
-
-    return NextResponse.json(result.data)
+    return NextResponse.json(result)
   } catch (error) {
-    console.error('[POS80 Config POST]', error)
+    console.error('[v0] Config POST error:', error)
     return NextResponse.json(
-      { error: 'Failed to save config' },
+      { error: error instanceof Error ? error.message : 'Failed to save config' },
       { status: 500 }
     )
   }
@@ -97,7 +135,15 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const tenantId = req.nextUrl.searchParams.get('tenantId')
+    const profile = await getActiveProfile()
+    if (!profile) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const tenantId = req.nextUrl.searchParams.get('tenantId') || profile.tenantId
     if (!tenantId) {
       return NextResponse.json(
         { error: 'tenantId required' },
@@ -105,6 +151,7 @@ export async function DELETE(req: NextRequest) {
       )
     }
 
+    const supabase = createAdminClient()
     const { error } = await supabase
       .from('pos80_config')
       .delete()
@@ -114,7 +161,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('[POS80 Config DELETE]', error)
+    console.error('[v0] Config DELETE error:', error)
     return NextResponse.json(
       { error: 'Failed to delete config' },
       { status: 500 }
