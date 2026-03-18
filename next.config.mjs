@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Force rebuild: $(date)
 const nextConfig = {
   reactStrictMode: true,
   compress: true,

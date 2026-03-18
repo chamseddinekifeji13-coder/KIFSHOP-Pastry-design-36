@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { WifiOff } from "lucide-react"
 
 export function OfflineIndicator() {
@@ -9,15 +9,13 @@ export function OfflineIndicator() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isVerifyingRef = useRef(false)
-  const isOfflineRef = useRef(false)
 
   // Smart connectivity check - actually verifies with a real request
   const verifyConnectivity = async () => {
-    if (isVerifyingRef.current) return
+    if (isVerifyingRef.current) return true
     isVerifyingRef.current = true
 
     try {
-      // Use a GET request with a cache-busting parameter for better reliability
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000)
 
@@ -29,11 +27,8 @@ export function OfflineIndicator() {
 
       clearTimeout(timeoutId)
       isVerifyingRef.current = false
-
-      // If we got a response, we're online
       return response.ok || response.status === 304
     } catch (error) {
-      // Network request failed - try a fallback
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000)
@@ -54,64 +49,65 @@ export function OfflineIndicator() {
     }
   }
 
-  // Handle offline event with verification
-  const handleOffline = useCallback(async () => {
-    // Don't immediately mark as offline - verify first
-    const isActuallyOffline = !(await verifyConnectivity())
-
-    if (isActuallyOffline) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      setIsOffline(true)
-      isOfflineRef.current = true
-      setShow(true)
-    }
-  }, [])
-
-  // Handle online event
-  const handleOnline = useCallback(() => {
-    setIsOffline(false)
-    isOfflineRef.current = false
-    // Keep showing the "back online" message for 3s, then hide
-    timerRef.current = setTimeout(() => setShow(false), 3000)
-  }, [])
-
   useEffect(() => {
+    let mounted = true
+    let intervalId: ReturnType<typeof setInterval> | null = null
+
     // Initial connectivity check
     const initCheck = async () => {
       const isConnected = await verifyConnectivity()
+      if (!mounted) return
+      
       if (!isConnected && !navigator.onLine) {
         setIsOffline(true)
-        isOfflineRef.current = true
         setShow(true)
       }
     }
 
     initCheck()
 
+    // Event handlers
+    const handleOffline = async () => {
+      const isActuallyOffline = !(await verifyConnectivity())
+      if (isActuallyOffline && mounted) {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
+        setIsOffline(true)
+        setShow(true)
+      }
+    }
+
+    const handleOnline = () => {
+      if (!mounted) return
+      setIsOffline(false)
+      timerRef.current = setTimeout(() => {
+        if (mounted) setShow(false)
+      }, 3000)
+    }
+
     window.addEventListener("offline", handleOffline)
     window.addEventListener("online", handleOnline)
 
-    // Periodic verification (every 30s) to catch lingering false offline states
-    const intervalId = setInterval(async () => {
-      if (isOfflineRef.current) {
-        const isConnected = await verifyConnectivity()
-        if (isConnected) {
-          handleOnline()
-        }
+    // Periodic verification (every 30s)
+    intervalId = setInterval(async () => {
+      if (!mounted || !navigator.onLine) return
+      const isConnected = await verifyConnectivity()
+      if (isConnected && mounted) {
+        setIsOffline(false)
       }
     }, 30000)
 
     return () => {
+      mounted = false
       window.removeEventListener("offline", handleOffline)
       window.removeEventListener("online", handleOnline)
-      clearInterval(intervalId)
+      if (intervalId) clearInterval(intervalId)
       if (timerRef.current) clearTimeout(timerRef.current)
       if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current)
     }
-  }, [handleOffline, handleOnline])
+  }, [])
 
   if (!show) return null
 
