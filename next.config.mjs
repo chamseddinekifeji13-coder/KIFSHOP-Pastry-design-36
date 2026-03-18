@@ -24,6 +24,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'img.shields.io',
       },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
     ],
   },
   async headers() {
