@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { WifiOff } from "lucide-react"
 
 export function OfflineIndicator() {
@@ -9,6 +9,7 @@ export function OfflineIndicator() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isVerifyingRef = useRef(false)
+  const isOfflineRef = useRef(false)
 
   // Smart connectivity check - actually verifies with a real request
   const verifyConnectivity = async () => {
@@ -54,7 +55,7 @@ export function OfflineIndicator() {
   }
 
   // Handle offline event with verification
-  const handleOffline = async () => {
+  const handleOffline = useCallback(async () => {
     // Don't immediately mark as offline - verify first
     const isActuallyOffline = !(await verifyConnectivity())
 
@@ -64,16 +65,18 @@ export function OfflineIndicator() {
         timerRef.current = null
       }
       setIsOffline(true)
+      isOfflineRef.current = true
       setShow(true)
     }
-  }
+  }, [])
 
   // Handle online event
-  const handleOnline = () => {
+  const handleOnline = useCallback(() => {
     setIsOffline(false)
+    isOfflineRef.current = false
     // Keep showing the "back online" message for 3s, then hide
     timerRef.current = setTimeout(() => setShow(false), 3000)
-  }
+  }, [])
 
   useEffect(() => {
     // Initial connectivity check
@@ -81,6 +84,7 @@ export function OfflineIndicator() {
       const isConnected = await verifyConnectivity()
       if (!isConnected && !navigator.onLine) {
         setIsOffline(true)
+        isOfflineRef.current = true
         setShow(true)
       }
     }
@@ -92,8 +96,7 @@ export function OfflineIndicator() {
 
     // Periodic verification (every 30s) to catch lingering false offline states
     const intervalId = setInterval(async () => {
-      const isCurrentlyOffline = isOffline
-      if (isCurrentlyOffline) {
+      if (isOfflineRef.current) {
         const isConnected = await verifyConnectivity()
         if (isConnected) {
           handleOnline()
@@ -108,7 +111,7 @@ export function OfflineIndicator() {
       if (timerRef.current) clearTimeout(timerRef.current)
       if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current)
     }
-  }, [])
+  }, [handleOffline, handleOnline])
 
   if (!show) return null
 
