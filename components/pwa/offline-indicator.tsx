@@ -7,11 +7,10 @@ export function OfflineIndicator() {
   const [isOffline, setIsOffline] = useState(false)
   const [show, setShow] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const verifyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handlersSetRef = useRef(false)
   const isVerifyingRef = useRef(false)
 
-  // Smart connectivity check - actually verifies with a real request
-  const verifyConnectivity = async () => {
+  const verifyConnectivity = async (): Promise<boolean> => {
     if (isVerifyingRef.current) return true
     isVerifyingRef.current = true
 
@@ -28,7 +27,7 @@ export function OfflineIndicator() {
       clearTimeout(timeoutId)
       isVerifyingRef.current = false
       return response.ok || response.status === 304
-    } catch (error) {
+    } catch {
       try {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 3000)
@@ -50,53 +49,45 @@ export function OfflineIndicator() {
   }
 
   useEffect(() => {
+    // Only setup once
+    if (handlersSetRef.current) return
+    handlersSetRef.current = true
+
     let mounted = true
-    let intervalId: ReturnType<typeof setInterval> | null = null
+    let intervalId: NodeJS.Timeout | null = null
 
-    // Initial connectivity check
-    const initCheck = async () => {
-      const isConnected = await verifyConnectivity()
-      if (!mounted) return
-      
-      if (!isConnected && !navigator.onLine) {
-        setIsOffline(true)
-        setShow(true)
-      }
-    }
-
-    initCheck()
-
-    // Event handlers
     const handleOffline = async () => {
       const isActuallyOffline = !(await verifyConnectivity())
       if (isActuallyOffline && mounted) {
-        if (timerRef.current) {
-          clearTimeout(timerRef.current)
-          timerRef.current = null
-        }
+        if (timerRef.current) clearTimeout(timerRef.current)
         setIsOffline(true)
         setShow(true)
       }
     }
 
     const handleOnline = () => {
-      if (!mounted) return
-      setIsOffline(false)
-      timerRef.current = setTimeout(() => {
-        if (mounted) setShow(false)
-      }, 3000)
+      if (mounted) {
+        setIsOffline(false)
+        timerRef.current = setTimeout(() => setShow(false), 3000)
+      }
     }
+
+    // Initial check
+    verifyConnectivity().then(isConnected => {
+      if (mounted && !isConnected && !navigator.onLine) {
+        setIsOffline(true)
+        setShow(true)
+      }
+    })
 
     window.addEventListener("offline", handleOffline)
     window.addEventListener("online", handleOnline)
 
-    // Periodic verification (every 30s)
+    // Periodic check every 30s
     intervalId = setInterval(async () => {
-      if (!mounted || !navigator.onLine) return
+      if (!mounted) return
       const isConnected = await verifyConnectivity()
-      if (isConnected && mounted) {
-        setIsOffline(false)
-      }
+      if (isConnected && mounted) setIsOffline(false)
     }, 30000)
 
     return () => {
@@ -105,7 +96,6 @@ export function OfflineIndicator() {
       window.removeEventListener("online", handleOnline)
       if (intervalId) clearInterval(intervalId)
       if (timerRef.current) clearTimeout(timerRef.current)
-      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current)
     }
   }, [])
 
@@ -120,10 +110,10 @@ export function OfflineIndicator() {
       {isOffline ? (
         <>
           <WifiOff className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>{"Mode hors ligne actif"}</span>
+          <span>Mode hors ligne actif</span>
         </>
       ) : (
-        <span>{"Connexion rétablie"}</span>
+        <span>Connexion rétablie</span>
       )}
     </div>
   )
