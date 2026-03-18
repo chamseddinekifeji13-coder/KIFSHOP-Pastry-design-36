@@ -1,3 +1,9 @@
+/**
+ * Root page:
+ * - Non-authenticated visitors: see the public landing page
+ * - Auth hash fragments (#access_token, ?code, ?token_hash): handled and redirected
+ * - Authenticated users: middleware.ts redirects to dashboard before this page loads
+ */
 "use client"
 
 import { useEffect, useState } from "react"
@@ -12,17 +18,18 @@ import { DownloadSection } from "@/components/landing/download-section"
 import { ContactSection } from "@/components/landing/contact-section"
 import { FooterSection } from "@/components/landing/footer-section"
 
-/**
- * Root page:
- * - Non-authenticated visitors: see the public landing page
- * - Auth hash fragments (#access_token, ?code, ?token_hash): handled and redirected
- * - Authenticated users: middleware.ts redirects to dashboard before this page loads
- */
 export default function RootPage() {
   const router = useRouter()
   const [showLanding, setShowLanding] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isHydrated) return
+
     const hash = window.location.hash
     const params = new URLSearchParams(window.location.search)
     const code = params.get("code")
@@ -65,12 +72,12 @@ export default function RootPage() {
     // 5. No auth params - show landing page
     // (proxy.ts already redirects authenticated users to dashboard)
     setShowLanding(true)
-  }, [router])
+  }, [isHydrated, router])
 
-  // Still processing auth flow
-  if (!showLanding) {
+  // Don't render anything until hydrated (prevents hydration mismatch)
+  if (!isHydrated || !showLanding) {
     return (
-      <div className="flex min-h-svh items-center justify-center">
+      <div className="flex min-h-svh items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
       </div>
     )
