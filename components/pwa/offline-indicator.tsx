@@ -92,7 +92,8 @@ export function OfflineIndicator() {
 
     // Periodic verification (every 30s) to catch lingering false offline states
     const intervalId = setInterval(async () => {
-      if (isOffline) {
+      const isCurrentlyOffline = isOffline
+      if (isCurrentlyOffline) {
         const isConnected = await verifyConnectivity()
         if (isConnected) {
           handleOnline()
@@ -107,7 +108,7 @@ export function OfflineIndicator() {
       if (timerRef.current) clearTimeout(timerRef.current)
       if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current)
     }
-  }, [isOffline])
+  }, [])
 
   if (!show) return null
 
