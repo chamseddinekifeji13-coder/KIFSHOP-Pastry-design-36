@@ -144,6 +144,18 @@ export default function LoginPage() {
         </Button>
       </form>
 
+      {/* Recovery options */}
+      <div className="mt-8 space-y-3 border-t pt-6">
+        <p className="text-sm text-center text-muted-foreground">
+          Vous avez oublie votre code PIN ?
+        </p>
+        <Link href="/auth/forgot-pin" className="w-full">
+          <Button variant="outline" className="w-full h-12 rounded-xl">
+            Recuperer votre PIN
+          </Button>
+        </Link>
+      </div>
+
       {/* Footer */}
       <div className="mt-8 text-center">
         <p className="text-muted-foreground">

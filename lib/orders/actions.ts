@@ -173,16 +173,9 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
     })
   }
 
-  // Filtrer les commandes invalides (sans prix ET sans nom)
-  const validOrders = orders.filter(order => {
-    const hasValidTotal = order.total != null && order.total > 0
-    const hasCustomerName = order.customerName && order.customerName.trim() !== ""
-    // Garder si a un prix OU un nom client
-    return hasValidTotal || hasCustomerName
-  })
-
+  // Return all valid orders - don't filter them out
   // Sort by creation date descending
-  return validOrders.sort((a, b) => {
+  return orders.sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime()
     const dateB = new Date(b.createdAt).getTime()
     return dateB - dateA
