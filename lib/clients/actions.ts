@@ -64,14 +64,8 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
 
   if (error) { console.error("Error fetching clients:", error); return [] }
   
-  // Filtrer les clients invalides: sans nom ET sans commandes
-  const validClients = (data || []).filter(client => {
-    const hasName = client.name && client.name.trim() !== ""
-    const hasOrders = (client.total_orders || 0) > 0
-    return hasName || hasOrders
-  })
-  
-  return validClients.map(mapClient)
+  // Return all clients - don't filter them out
+  return (data || []).map(mapClient)
 }
 
 // ─── Fetch Single Client ──────────────────────────────────────
