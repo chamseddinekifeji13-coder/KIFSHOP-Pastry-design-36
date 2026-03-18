@@ -9,15 +9,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'your-domain.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
+        hostname: '**',
       },
     ],
   },
