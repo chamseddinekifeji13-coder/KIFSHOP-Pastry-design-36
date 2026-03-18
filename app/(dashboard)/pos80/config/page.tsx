@@ -23,7 +23,6 @@ export default function POS80ConfigPage() {
   const [profile, setProfile] = useState<any>(null)
   const [config, setConfig] = useState<POS80ConfigDB | null>(null)
   const [loading, setLoading] = useState(true)
-  const [mounted, setMounted] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showApiKey, setShowApiKey] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; responseTime?: number } | null>(
@@ -41,12 +40,6 @@ export default function POS80ConfigPage() {
   })
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-
     async function load() {
       try {
         const p = await getActiveProfile()
@@ -73,7 +66,7 @@ export default function POS80ConfigPage() {
       }
     }
     load()
-  }, [mounted])
+  }, [])
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target

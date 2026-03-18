@@ -15,15 +15,8 @@ export default function POS80Page() {
   const [config, setConfig] = useState<any>(null)
   const [recentSync, setRecentSync] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-
     async function load() {
       try {
         const p = await getActiveProfile()
@@ -46,7 +39,7 @@ export default function POS80Page() {
       }
     }
     load()
-  }, [mounted])
+  }, [])
 
   if (loading) {
     return (

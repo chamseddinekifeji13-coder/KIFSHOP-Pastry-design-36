@@ -43,7 +43,6 @@ export default function POS80MonitoringPage() {
   const [profile, setProfile] = useState<any>(null)
   const [logs, setLogs] = useState<SyncLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [mounted, setMounted] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [stats, setStats] = useState({
     totalSyncs: 0,
@@ -54,14 +53,8 @@ export default function POS80MonitoringPage() {
   })
 
   useEffect(() => {
-    setMounted(true)
+    loadData()
   }, [])
-
-  useEffect(() => {
-    if (mounted) {
-      loadData()
-    }
-  }, [mounted])
 
   async function loadData() {
     try {
