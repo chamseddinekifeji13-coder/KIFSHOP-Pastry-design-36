@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   typescript: {
-    // Temporarily ignore TS errors to fix deployment
     ignoreBuildErrors: true,
   },
   images: {
@@ -25,9 +24,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Prevent browsers (especially mobile) from aggressively caching the
-        // service worker file. Forces re-validation on every navigation so
-        // deployments are picked up immediately.
         source: '/sw.js',
         headers: [
           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
