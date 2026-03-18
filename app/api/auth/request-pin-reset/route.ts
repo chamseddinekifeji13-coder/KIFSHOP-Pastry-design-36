@@ -35,14 +35,18 @@ export async function POST(request: NextRequest) {
         .single()
       user = data
     } else {
-      // Find user by email through auth
-      const { data: authUser } = await supabase.auth.admin.listUsers()
-      const foundAuthUser = authUser?.users?.find((u) => u.email === email)
-      if (foundAuthUser) {
+      // Find user by email - get from auth.users table
+      const { data: authUsers } = await supabase
+        .from("auth.users")
+        .select("id")
+        .eq("email", email)
+        .single()
+      
+      if (authUsers?.id) {
         const { data } = await supabase
           .from("tenant_users")
           .select("id, display_name, user_id")
-          .eq("user_id", foundAuthUser.id)
+          .eq("user_id", authUsers.id)
           .single()
         user = data
       }
@@ -55,28 +59,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate and store OTP in database
-    const { data: otpResult, error: otpError } = await supabase.rpc(
-      "initiate_pin_reset",
-      { p_tenant_user_id: user.id }
-    )
+    // Generate OTP (6 digits)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes
 
-    if (otpError) {
-      console.error("Error generating OTP:", otpError)
+    // Store OTP in database
+    const { error: updateError } = await supabase
+      .from("tenant_users")
+      .update({
+        pin_reset_otp: otp,
+        pin_reset_otp_expires_at: expiresAt.toISOString(),
+        pin_reset_requested_at: new Date().toISOString(),
+        otp_attempts: 0,
+      })
+      .eq("id", user.id)
+
+    if (updateError) {
+      console.error("Error storing OTP:", updateError)
       return NextResponse.json(
         { error: "Failed to generate recovery code" },
         { status: 500 }
       )
     }
 
-    // Get the generated OTP from the result
-    const otp = otpResult?.otp
-
     // Get the user's email
     const { data: authData } = await supabase.auth.admin.getUserById(user.user_id)
     const userEmail = authData?.user?.email
 
-    if (!userEmail || !otp) {
+    if (!userEmail) {
       return NextResponse.json(
         { error: "Unable to send recovery email" },
         { status: 500 }
@@ -102,7 +112,12 @@ export async function POST(request: NextRequest) {
       `,
     }
 
-    await transporter.sendMail(mailOptions)
+    try {
+      await transporter.sendMail(mailOptions)
+    } catch (emailError) {
+      console.error("Email sending error:", emailError)
+      // Don't fail the request, still return success for security
+    }
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { hash } from "bcryptjs"
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,49 +28,72 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Verify the OTP
-    const { data: verifyResult, error: verifyError } = await supabase.rpc(
-      "verify_pin_reset_otp",
-      { p_tenant_user_id: tenantUserId, p_otp: otp }
-    )
+    // Get the user and verify OTP
+    const { data: user, error: getUserError } = await supabase
+      .from("tenant_users")
+      .select("id, pin_reset_otp, pin_reset_otp_expires_at, otp_attempts")
+      .eq("id", tenantUserId)
+      .single()
 
-    if (verifyError) {
-      console.error("Error verifying OTP:", verifyError)
+    if (getUserError || !user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    // Check if OTP is expired
+    if (!user.pin_reset_otp || !user.pin_reset_otp_expires_at) {
+      return NextResponse.json({ error: "No OTP request found" }, { status: 400 })
+    }
+
+    const expiresAt = new Date(user.pin_reset_otp_expires_at)
+    if (expiresAt < new Date()) {
+      // Clear expired OTP
+      await supabase
+        .from("tenant_users")
+        .update({ pin_reset_otp: null, pin_reset_otp_expires_at: null })
+        .eq("id", tenantUserId)
+      return NextResponse.json({ error: "OTP has expired" }, { status: 400 })
+    }
+
+    // Check attempts (max 3)
+    if ((user.otp_attempts || 0) >= 3) {
       return NextResponse.json(
-        { error: "Invalid or expired OTP" },
+        { error: "Too many attempts. Please request a new OTP" },
         { status: 400 }
       )
     }
 
-    if (!verifyResult?.success) {
+    // Verify OTP
+    if (user.pin_reset_otp !== otp) {
+      const { error: updateError } = await supabase
+        .from("tenant_users")
+        .update({ otp_attempts: (user.otp_attempts || 0) + 1 })
+        .eq("id", tenantUserId)
+
+      const attemptsLeft = 3 - ((user.otp_attempts || 0) + 1)
       return NextResponse.json(
-        {
-          error: verifyResult?.error || "Invalid OTP",
-          attemptsLeft: verifyResult?.attemptsLeft,
-        },
+        { error: "Invalid OTP", attemptsLeft },
         { status: 400 }
       )
     }
 
-    // OTP verified - now reset the PIN
-    const { data: resetResult, error: resetError } = await supabase.rpc(
-      "reset_pin_after_otp",
-      { p_tenant_user_id: tenantUserId, p_new_pin: newPin }
-    )
+    // OTP verified - hash the new PIN
+    const hashedPin = await hash(newPin, 10)
 
-    if (resetError) {
-      console.error("Error resetting PIN:", resetError)
-      return NextResponse.json(
-        { error: "Failed to reset PIN" },
-        { status: 500 }
-      )
-    }
+    // Update PIN and clear OTP
+    const { error: updateError } = await supabase
+      .from("tenant_users")
+      .update({
+        pin_hash: hashedPin,
+        pin_reset_otp: null,
+        pin_reset_otp_expires_at: null,
+        pin_reset_requested_at: null,
+        otp_attempts: 0,
+      })
+      .eq("id", tenantUserId)
 
-    if (!resetResult?.success) {
-      return NextResponse.json(
-        { error: resetResult?.error || "Failed to reset PIN" },
-        { status: 400 }
-      )
+    if (updateError) {
+      console.error("Error updating PIN:", updateError)
+      return NextResponse.json({ error: "Failed to reset PIN" }, { status: 500 })
     }
 
     return NextResponse.json({
