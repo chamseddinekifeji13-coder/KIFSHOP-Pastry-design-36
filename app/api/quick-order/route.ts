@@ -52,9 +52,6 @@ export async function POST(request: Request) {
     const discount = isOffer && discountPercent ? (amount * (discountPercent / 100)) : 0
     const finalTotal = isOffer ? amount - discount : amount
 
-    // Debug: log the authUserId to verify it exists
-    console.log("[v0] Creating order with authUserId:", session.authUserId)
-    
     // Prepare base order data
     const baseOrderData = {
       tenant_id: session.tenantId,
