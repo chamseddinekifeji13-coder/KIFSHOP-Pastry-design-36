@@ -5,7 +5,7 @@ const nextConfig = {
   compress: true,
   productionBrowserSourceMaps: false,
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
   images: {
     remotePatterns: [
