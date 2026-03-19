@@ -17,6 +17,10 @@ export interface ClientData {
   delivery_count?: number
   delivery_returned?: number
   delivery_total?: number
+  // Aliases for camelCase access (used by components)
+  returnCount: number
+  totalOrders: number
+  totalSpent: number
 }
 
 interface UseClientStatusReturn {
@@ -114,6 +118,10 @@ export function useClientStatus(): UseClientStatusReturn {
           delivery_count: deliveryCount,
           delivery_returned: deliveryReturned,
           delivery_total: deliveryTotal,
+          // camelCase aliases
+          returnCount: data.return_count ?? 0,
+          totalOrders: data.total_orders ?? 0,
+          totalSpent: Number(data.total_spent) ?? 0,
         }
         setClient(clientData)
         return clientData
@@ -184,6 +192,10 @@ export function useClientStatus(): UseClientStatusReturn {
         delivery_count: deliveryCount,
         delivery_returned: deliveryReturned,
         delivery_total: deliveryTotal,
+        // camelCase aliases
+        returnCount: newClient.return_count ?? 0,
+        totalOrders: newClient.total_orders ?? 0,
+        totalSpent: Number(newClient.total_spent) ?? 0,
       }
       setClient(newClientData)
       setIsNewClient(existingShipments?.length === 0)
@@ -205,7 +217,7 @@ export function useClientStatus(): UseClientStatusReturn {
       .eq("id", clientId)
 
     if (!updateError && client) {
-      setClient({ ...client, return_count: 0, status: "normal" })
+      setClient({ ...client, return_count: 0, returnCount: 0, status: "normal" })
     }
   }, [client])
 
