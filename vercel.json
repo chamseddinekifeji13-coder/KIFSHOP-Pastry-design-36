@@ -12,7 +12,6 @@
     "SUPABASE_SERVICE_ROLE_KEY",
     "CRON_SECRET"
   ],
-  "envPrefix": "NEXT_PUBLIC_",
   "git": {
     "deploymentEnabled": {
       "main": true
