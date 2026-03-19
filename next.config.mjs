@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
-// Force rebuild: $(date)
 const nextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
   reactStrictMode: true,
   compress: true,
   productionBrowserSourceMaps: false,
