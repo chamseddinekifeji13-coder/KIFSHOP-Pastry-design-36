@@ -242,6 +242,8 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       offer_reason: data.offerReason || null,
       discount_percent: data.discountPercent || 0,
       discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
+      // Creator reference - required by foreign key constraint
+      created_by: user.id,
     })
     .select()
     .single()
