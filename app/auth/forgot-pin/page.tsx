@@ -33,8 +33,15 @@ export default function ForgotPinPage() {
         body: JSON.stringify({ email }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error("Failed to send recovery code")
+        throw new Error(data.error || "Failed to send recovery code")
+      }
+
+      // Store the tenantUserId for the next steps
+      if (data.tenantUserId) {
+        setTenantUserId(data.tenantUserId)
       }
 
       setStep("otp")
