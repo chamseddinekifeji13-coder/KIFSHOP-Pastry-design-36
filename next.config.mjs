@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {
+    root: '/vercel/share/v0-project',
+  },
   reactStrictMode: true,
   compress: true,
   productionBrowserSourceMaps: false,
