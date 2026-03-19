@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       confirmed_by: session.activeProfileId,
       confirmed_by_name: session.displayName,
       truecaller_verified: truecallerVerified || false,
-      created_by: session.activeProfileId,
+      created_by: session.authUserId,
     }
 
     // Add offer fields if they exist in the table
