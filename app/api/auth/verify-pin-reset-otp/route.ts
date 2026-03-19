@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 import { hash } from "bcryptjs"
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     // newPin is optional - if not provided, we just verify the OTP
     const isVerifyOnly = !newPin || newPin.length === 0
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // Get the user and verify OTP
     const { data: user, error: getUserError } = await supabase

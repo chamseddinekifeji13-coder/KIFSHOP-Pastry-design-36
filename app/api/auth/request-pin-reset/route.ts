@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,31 +13,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
-    // Find tenant_user by checking auth data for each user
-    const { data: tenantUsers, error: searchError } = await supabase
-      .from("tenant_users")
-      .select("id, display_name, user_id")
+    // First, find the auth user by email using admin API
+    const { data: authUsersData, error: authError } = await supabase.auth.admin.listUsers()
     
-    if (searchError) {
-      console.error("Error searching tenant_users:", searchError)
+    if (authError) {
+      console.error("Error listing auth users:", authError)
       return NextResponse.json(
         { success: true, message: "If an account exists, an OTP has been sent" }
       )
     }
 
-    // Find the matching user by checking auth data
-    let user = null
-    let userEmail = null
-    for (const tu of tenantUsers || []) {
-      const { data: authData } = await supabase.auth.admin.getUserById(tu.user_id)
-      if (authData?.user?.email?.toLowerCase() === email.toLowerCase()) {
-        user = tu
-        userEmail = authData.user.email
-        break
-      }
+    // Find the auth user with matching email
+    const authUser = authUsersData.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase()
+    )
+
+    if (!authUser) {
+      // Don't reveal whether user exists for security
+      return NextResponse.json(
+        { success: true, message: "If an account exists, an OTP has been sent to the email" }
+      )
     }
+
+    // Now find the tenant_user associated with this auth user
+    const { data: user, error: searchError } = await supabase
+      .from("tenant_users")
+      .select("id, display_name, user_id")
+      .eq("user_id", authUser.id)
+      .single()
+    
+    if (searchError || !user) {
+      // Don't reveal whether user exists for security
+      return NextResponse.json(
+        { success: true, message: "If an account exists, an OTP has been sent to the email" }
+      )
+    }
+
+    const userEmail = authUser.email
 
     if (!user || !userEmail) {
       // Don't reveal whether user exists for security
