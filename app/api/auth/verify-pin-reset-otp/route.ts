@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 import { hash } from "bcryptjs"
 
 export async function POST(request: NextRequest) {
@@ -19,14 +19,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "OTP is required" }, { status: 400 })
     }
 
-    if (!newPin || newPin.length < 4) {
-      return NextResponse.json(
-        { error: "PIN must be at least 4 digits" },
-        { status: 400 }
-      )
-    }
+    // newPin is optional - if not provided, we just verify the OTP
+    const isVerifyOnly = !newPin || newPin.length === 0
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // Get the user and verify OTP
     const { data: user, error: getUserError } = await supabase
@@ -64,7 +60,7 @@ export async function POST(request: NextRequest) {
 
     // Verify OTP
     if (user.pin_reset_otp !== otp) {
-      const { error: updateError } = await supabase
+      await supabase
         .from("tenant_users")
         .update({ otp_attempts: (user.otp_attempts || 0) + 1 })
         .eq("id", tenantUserId)
@@ -72,6 +68,23 @@ export async function POST(request: NextRequest) {
       const attemptsLeft = 3 - ((user.otp_attempts || 0) + 1)
       return NextResponse.json(
         { error: "Invalid OTP", attemptsLeft },
+        { status: 400 }
+      )
+    }
+
+    // If verify only mode (no new PIN), just confirm OTP is valid
+    if (isVerifyOnly) {
+      return NextResponse.json({
+        success: true,
+        verified: true,
+        message: "OTP verified successfully",
+      })
+    }
+
+    // Validate new PIN
+    if (newPin.length < 4 || newPin.length > 6) {
+      return NextResponse.json(
+        { error: "PIN must be between 4 and 6 digits" },
         { status: 400 }
       )
     }
