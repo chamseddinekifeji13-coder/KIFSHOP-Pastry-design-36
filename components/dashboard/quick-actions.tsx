@@ -5,7 +5,7 @@ import { Plus, ShoppingCart, Package, ChefHat, Store, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
-import { QuickOrder } from "@/components/orders/quick-order"
+import { UnifiedOrderDialog } from "@/components/orders/unified-order-dialog"
 
 const actions = [
   {
@@ -88,7 +88,7 @@ export function QuickActions() {
         </CardContent>
       </Card>
 
-      <QuickOrder
+      <UnifiedOrderDialog
         open={quickOrderOpen}
         onOpenChange={setQuickOrderOpen}
       />
