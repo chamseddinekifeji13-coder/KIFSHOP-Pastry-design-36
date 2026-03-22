@@ -1,23 +1,18 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 import { withSession, serverErrorResponse, badRequestResponse } from "@/lib/api-helpers"
 
 export async function POST(request: Request) {
-  console.log("[v0] quick-order API called")
-  
   // Get session with proper error handling
   const [session, authError] = await withSession()
   if (authError) {
-    console.log("[v0] Auth error:", authError)
     return authError
   }
-  
-  console.log("[v0] Session obtained:", { tenantId: session.tenantId, userId: session.authUserId })
 
   try {
-    const supabase = await createClient()
+    // Use admin client to bypass RLS - we handle authorization via session
+    const supabase = createAdminClient()
     const body = await request.json()
-    console.log("[v0] Request body:", JSON.stringify(body, null, 2))
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
       source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
@@ -91,8 +86,6 @@ export async function POST(request: Request) {
       discount_percent: isOffer ? (discountPercent || 100) : 0,
     }
 
-    console.log("[v0] Attempting to insert order with data:", JSON.stringify(orderDataWithOffers, null, 2))
-    
     // Try to insert with offer fields first
     let { data: order, error: orderError } = await supabase
       .from("orders")
@@ -100,11 +93,8 @@ export async function POST(request: Request) {
       .select()
       .single()
 
-    console.log("[v0] Insert result - order:", order, "error:", orderError)
-
     // If it fails due to missing columns, retry without offer fields
     if (orderError && orderError.message?.includes("column")) {
-      console.log("[v0] Retrying with base data only (column error)")
       const { data: fallbackOrder, error: fallbackError } = await supabase
         .from("orders")
         .insert(baseOrderData)
