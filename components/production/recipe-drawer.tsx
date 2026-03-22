@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Save, Plus, X, Trash2, ChefHat, FlaskConical, StickyNote, Package, Calculator, Check, ChevronsUpDown } from "lucide-react"
+import { Save, Plus, X, Trash2, ChefHat, FlaskConical, StickyNote, Package, Calculator, Check, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,8 +11,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, usePackaging, useRecipes } from "@/hooks/use-tenant-data"
@@ -51,8 +50,8 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   const isEditing = !!recipe
 
   const [name, setName] = useState("")
-  const [openNameCombobox, setOpenNameCombobox] = useState(false)
-  const [customNameInput, setCustomNameInput] = useState("")
+  const [recipeSearchInput, setRecipeSearchInput] = useState("")
+  const [showRecipeSearch, setShowRecipeSearch] = useState(false)
   const [category, setCategory] = useState("")
   const [newCategory, setNewCategory] = useState("")
   const [showNewCategory, setShowNewCategory] = useState(false)
@@ -70,6 +69,13 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   const [packagingWeight, setPackagingWeight] = useState("")
 
   const allCategories = [...categories.map((c: any) => c.name), ...customCategories]
+
+  // Filter existing recipes for auto-fill
+  const filteredExistingRecipes = useMemo(() => {
+    if (!recipeSearchInput.trim()) return existingRecipes
+    const search = recipeSearchInput.toLowerCase()
+    return existingRecipes.filter((r: any) => r.name.toLowerCase().includes(search))
+  }, [existingRecipes, recipeSearchInput])
 
   // Calcul automatique de la quantité totale théorique (somme des ingrédients en kg/g)
   const theoreticalTotal = useMemo(() => {
@@ -274,89 +280,84 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
                     onChange={(e) => setName(e.target.value)}
                     className="flex-1 bg-muted/50 border-0"
                   />
-                  <Popover open={openNameCombobox} onOpenChange={setOpenNameCombobox}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-lg"
-                        title="Choisir parmi les recettes existantes"
-                      >
-                        <ChevronsUpDown className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-0" align="start">
-                      <Command>
-                        <CommandInput
-                          placeholder="Chercher une recette..."
-                          value={customNameInput}
-                          onValueChange={setCustomNameInput}
-                        />
-                        <CommandList>
-                          <CommandEmpty>Aucune recette trouvee.</CommandEmpty>
-                          <CommandGroup heading="Recettes existantes">
-                            {existingRecipes.map((r: any) => (
-                              <CommandItem
-                                key={r.id}
-                                value={r.name}
-                                onSelect={(val) => {
-                                  // Auto-fill: copier le nom et pre-remplir les ingredients
-                                  setName(val)
-                                  setCustomNameInput("")
-                                  setOpenNameCombobox(false)
-                                  
-                                  // Pre-remplir la categorie
-                                  if (r.category) {
-                                    setCategory(r.category)
-                                  }
-                                  
-                                  // Pre-remplir les ingredients si disponibles
-                                  if (r.ingredients && r.ingredients.length > 0) {
-                                    const existingIngs = r.ingredients.map((ing: any) => ({
-                                      materialId: ing.raw_material_id || ing.materialId,
-                                      name: ing.name,
-                                      quantity: ing.quantity?.toString() || "0",
-                                      unit: ing.unit || "g"
-                                    }))
-                                    setIngredients(existingIngs)
-                                    toast.success("Recette pre-remplie", {
-                                      description: `${existingIngs.length} ingredients copies depuis "${val}"`
-                                    })
-                                  }
-                                  
-                                  // Pre-remplir le conditionnement si disponible
-                                  if (r.packaging && r.packaging.length > 0) {
-                                    const existingPkgs = r.packaging.map((pkg: any) => ({
-                                      packagingId: pkg.packaging_id || pkg.packagingId,
-                                      name: pkg.name,
-                                      quantity: pkg.quantity || 0,
-                                      weight: pkg.weight_grams || pkg.weight || 0,
-                                      unit: pkg.unit || "pcs"
-                                    }))
-                                    setPackagingItems(existingPkgs)
-                                  }
-                                }}
-                              >
-                                <Check className={cn("mr-2 h-4 w-4", name === r.name ? "opacity-100" : "opacity-0")} />
-                                <div className="flex-1">
-                                  <div className="font-medium">{r.name}</div>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    {r.category && <span>{r.category}</span>}
-                                    {r.ingredients?.length > 0 && (
-                                      <Badge variant="secondary" className="h-4 text-[10px]">
-                                        {r.ingredients.length} ing.
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="rounded-lg"
+                    title="Choisir parmi les recettes existantes"
+                    onClick={() => setShowRecipeSearch(!showRecipeSearch)}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
                 </div>
+                
+                {/* Inline recipe search panel */}
+                {showRecipeSearch && existingRecipes.length > 0 && (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <Input
+                      placeholder="Rechercher une recette existante..."
+                      value={recipeSearchInput}
+                      onChange={(e) => setRecipeSearchInput(e.target.value)}
+                      className="bg-background"
+                    />
+                    <ScrollArea className="h-[120px]">
+                      <div className="space-y-1">
+                        {filteredExistingRecipes.slice(0, 10).map((r: any) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => {
+                              setName(r.name)
+                              setRecipeSearchInput("")
+                              setShowRecipeSearch(false)
+                              if (r.category) setCategory(r.category)
+                              if (r.ingredients?.length > 0) {
+                                const existingIngs = r.ingredients.map((ing: any) => ({
+                                  materialId: ing.raw_material_id || ing.materialId,
+                                  name: ing.name,
+                                  quantity: ing.quantity?.toString() || "0",
+                                  unit: ing.unit || "g"
+                                }))
+                                setIngredients(existingIngs)
+                                toast.success("Recette pre-remplie", {
+                                  description: `${existingIngs.length} ingredients copies`
+                                })
+                              }
+                              if (r.packaging?.length > 0) {
+                                const existingPkgs = r.packaging.map((pkg: any) => ({
+                                  packagingId: pkg.packaging_id || pkg.packagingId,
+                                  name: pkg.name,
+                                  quantity: pkg.quantity || 0,
+                                  weight: pkg.weight_grams || pkg.weight || 0,
+                                  unit: pkg.unit || "pcs"
+                                }))
+                                setPackagingItems(existingPkgs)
+                              }
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-2 p-2 rounded-md hover:bg-muted transition-colors text-left",
+                              name === r.name && "bg-primary/10"
+                            )}
+                          >
+                            <Check className={cn("h-4 w-4 shrink-0", name === r.name ? "text-primary" : "opacity-0")} />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{r.name}</div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {r.category && <span>{r.category}</span>}
+                                {r.ingredients?.length > 0 && (
+                                  <Badge variant="secondary" className="h-4 text-[10px]">
+                                    {r.ingredients.length} ing.
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+                
                 <p className="text-[11px] text-muted-foreground">Saisir directement ou cliquer sur l'icone pour choisir parmi les recettes existantes</p>
               </div>
               <div className="space-y-2">
@@ -384,51 +385,26 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><FlaskConical className="h-3.5 w-3.5" /> Ingredients</div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="flex-1 justify-between bg-muted/50 border-0 font-normal"
-                    >
-                      {selectedMaterial 
-                        ? rawMaterials.find((m: any) => m.id === selectedMaterial)?.name || "Matiere premiere"
-                        : "Matiere premiere"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Rechercher une matiere..." />
-                      <CommandList>
-                        <CommandEmpty>Aucune matiere trouvee.</CommandEmpty>
-                        <CommandGroup heading="Matieres premieres disponibles">
-                          {availableMaterials.map((m: any) => (
-                            <CommandItem
-                              key={m.id}
-                              value={m.name}
-                              onSelect={() => {
-                                setSelectedMaterial(m.id)
-                                // Auto-focus sur le champ quantite
-                                setTimeout(() => {
-                                  document.getElementById("ingredient-qty-input")?.focus()
-                                }, 100)
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", selectedMaterial === m.id ? "opacity-100" : "opacity-0")} />
-                              <div className="flex-1">
-                                <div className="font-medium">{m.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  Unite: {m.unit} | Stock: {m.quantity || 0} {m.unit}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Select value={selectedMaterial} onValueChange={(val) => {
+                  setSelectedMaterial(val)
+                  setTimeout(() => {
+                    document.getElementById("ingredient-qty-input")?.focus()
+                  }, 100)
+                }}>
+                  <SelectTrigger className="flex-1 bg-muted/50 border-0">
+                    <SelectValue placeholder="Matiere premiere" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMaterials.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{m.name}</span>
+                          <span className="text-xs text-muted-foreground">({m.unit})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input 
                   id="ingredient-qty-input"
                   type="number" 
@@ -492,51 +468,26 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             </div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="flex-1 justify-between bg-muted/50 border-0 font-normal"
-                    >
-                      {selectedPackaging 
-                        ? packagingList.find((p: any) => p.id === selectedPackaging)?.name || "Emballage"
-                        : "Emballage"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[280px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Rechercher un emballage..." />
-                      <CommandList>
-                        <CommandEmpty>Aucun emballage trouve.</CommandEmpty>
-                        <CommandGroup heading="Emballages disponibles">
-                          {packagingList.map((pkg: any) => (
-                            <CommandItem
-                              key={pkg.id}
-                              value={pkg.name}
-                              onSelect={() => {
-                                setSelectedPackaging(pkg.id)
-                                // Auto-focus sur le champ poids
-                                setTimeout(() => {
-                                  document.getElementById("packaging-weight-input")?.focus()
-                                }, 100)
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", selectedPackaging === pkg.id ? "opacity-100" : "opacity-0")} />
-                              <div className="flex-1">
-                                <div className="font-medium">{pkg.name}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  Type: {pkg.type} | Stock: {pkg.quantity || 0}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Select value={selectedPackaging} onValueChange={(val) => {
+                  setSelectedPackaging(val)
+                  setTimeout(() => {
+                    document.getElementById("packaging-weight-input")?.focus()
+                  }, 100)
+                }}>
+                  <SelectTrigger className="flex-1 bg-muted/50 border-0">
+                    <SelectValue placeholder="Emballage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {packagingList.map((pkg: any) => (
+                      <SelectItem key={pkg.id} value={pkg.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{pkg.name}</span>
+                          <span className="text-xs text-muted-foreground">({pkg.type})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input 
                   id="packaging-weight-input"
                   type="number" 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import { Plus, Package, FlaskConical, Check, ChevronsUpDown } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Plus, Package, FlaskConical, Search, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -7,8 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
 import { useRecipes } from "@/hooks/use-tenant-data"
@@ -32,7 +31,14 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
   const [unit, setUnit] = useState("g")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
-  const [openCombobox, setOpenCombobox] = useState(false)
+  const [recipeSearch, setRecipeSearch] = useState("")
+  
+  // Filter recipes based on search
+  const filteredRecipes = useMemo(() => {
+    if (!recipeSearch.trim()) return recipes
+    const search = recipeSearch.toLowerCase()
+    return recipes.filter((r: any) => r.name.toLowerCase().includes(search))
+  }, [recipes, recipeSearch])
 
   // Si une recette est pré-sélectionnée, la charger. Réinitialiser à la fermeture.
   useEffect(() => {
@@ -114,71 +120,77 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <FlaskConical className="h-3.5 w-3.5" /> Recette
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label className="text-xs font-medium">Sélectionner une recette *</Label>
-              <div className="flex gap-2">
-                <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openCombobox}
-                      className="flex-1 justify-between bg-muted/50 border-0"
-                    >
-                      {selectedRecipe ? (
-                        <div className="flex items-center gap-2">
-                          <span>{selectedRecipe.name}</span>
-                          {selectedRecipe.category && (
-                            <Badge variant="secondary" className="text-xs ml-auto">{selectedRecipe.category}</Badge>
-                          )}
-                        </div>
-                      ) : (
-                        "Chercher une recette..."
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Chercher une recette..." />
-                      <CommandEmpty>Aucune recette trouvée.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup>
-                          {recipes.map((recipe: any) => (
-                            <CommandItem
-                              key={recipe.id}
-                              value={recipe.id}
-                              onSelect={(currentValue) => {
-                                setSelectedRecipeId(currentValue === selectedRecipeId ? "" : currentValue)
-                                setOpenCombobox(false)
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedRecipeId === recipe.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <div className="flex-1">
-                                <div className="font-medium">{recipe.name}</div>
-                                {recipe.category && (
-                                  <div className="text-xs text-muted-foreground">{recipe.category}</div>
-                                )}
+              
+              {/* Selected recipe display */}
+              {selectedRecipe && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{selectedRecipe.name}</span>
+                    {selectedRecipe.category && (
+                      <Badge variant="secondary" className="text-xs">{selectedRecipe.category}</Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedRecipeId("")}
+                    className="h-7 text-xs"
+                  >
+                    Changer
+                  </Button>
+                </div>
+              )}
+              
+              {/* Recipe search - only show when no recipe selected */}
+              {!selectedRecipe && (
+                <div className="rounded-xl border bg-card p-3 space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                    <Input
+                      placeholder="Rechercher une recette..."
+                      value={recipeSearch}
+                      onChange={(e) => setRecipeSearch(e.target.value)}
+                      className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                    />
+                  </div>
+                  
+                  {filteredRecipes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2 text-center">
+                      {recipeSearch ? "Aucune recette trouvee" : "Aucune recette disponible"}
+                    </p>
+                  ) : (
+                    <ScrollArea className="h-[160px]">
+                      <div className="space-y-1">
+                        {filteredRecipes.slice(0, 15).map((recipe: any) => (
+                          <button
+                            key={recipe.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRecipeId(recipe.id)
+                              setRecipeSearch("")
+                            }}
+                            className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/80 transition-colors text-left"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{recipe.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {recipe.category && <span>{recipe.category}</span>}
                                 {recipe.ingredients?.length > 0 && (
-                                  <div className="text-xs text-muted-foreground">
-                                    {recipe.ingredients.length} ingrédient{recipe.ingredients.length > 1 ? "s" : ""}
-                                  </div>
+                                  <span className="ml-2">{recipe.ingredients.length} ingredient(s)</span>
                                 )}
                               </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Cliquer pour chercher et sélectionner une recette existante</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
