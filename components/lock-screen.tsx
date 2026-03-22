@@ -69,7 +69,11 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           setCountdown(data.remainingSeconds || 120)
           setError("")
         } else {
-          setError(data.error || "Erreur de verification")
+          // Ensure error is always a string to avoid React #310
+          const errMsg = typeof data.error === "string" 
+            ? data.error 
+            : (data.error?.message || "Erreur de verification")
+          setError(errMsg)
         }
 
         if (typeof data.attemptsLeft === "number") {

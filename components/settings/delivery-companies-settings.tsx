@@ -138,13 +138,17 @@ export function DeliveryCompaniesSettings() {
       const result = await deleteDeliveryCompany(company.id, currentTenant.id)
       if (result.success) {
         if (result.error) {
-          toast.info(result.error)
+          // Ensure error is always a string to avoid React #310
+          const errMsg = typeof result.error === "string" ? result.error : "Erreur partielle"
+          toast.info(errMsg)
         } else {
           toast.success("Societe supprimee")
         }
         loadCompanies()
       } else {
-        toast.error(result.error || "Erreur lors de la suppression")
+        // Ensure error is always a string to avoid React #310
+        const errMsg = typeof result.error === "string" ? result.error : "Erreur lors de la suppression"
+        toast.error(errMsg)
       }
     } catch (error) {
       toast.error("Erreur lors de la suppression")
