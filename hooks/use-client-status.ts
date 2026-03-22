@@ -162,7 +162,7 @@ export function useClientStatus(): UseClientStatusReturn {
           }
         })
       } else {
-        console.log("[v0] No shipments found for phone:", cleanPhone)
+        // No existing shipments for this phone
       }
 
       // Auto-create new client with data from shipments if available
