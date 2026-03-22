@@ -130,7 +130,9 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
         })
         onOpenChange(false)
       } else {
-        toast.error(data.error || "Erreur lors de la sauvegarde")
+        // Ensure error is always a string to avoid React #310
+        const errMsg = typeof data.error === "string" ? data.error : "Erreur lors de la sauvegarde"
+        toast.error(errMsg)
       }
     } catch (err) {
       console.error("[Shop Config] Save error:", err)
