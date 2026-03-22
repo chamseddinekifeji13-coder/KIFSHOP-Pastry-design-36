@@ -23,7 +23,6 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
-  ChevronsUpDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,17 +43,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-// Popover components for product selector
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,8 +118,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   const [shippingCost, setShippingCost] = useState("")
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
-  const [selectedProduct, setSelectedProduct] = useState("")
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productSearch, setProductSearch] = useState("")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -238,22 +227,26 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     }
   }
 
-  const handleAddItem = (productId?: string) => {
-    const pid = productId || selectedProduct
-    if (!pid) return
-    const product = products.find(p => p.id === pid)
+  const handleAddItem = (productId: string) => {
+    const product = products.find(p => p.id === productId)
     if (!product) return
-    const existing = items.find(i => i.productId === pid)
+    const existing = items.find(i => i.productId === productId)
     if (existing) {
       setItems(items.map(i =>
-        i.productId === pid ? { ...i, quantity: i.quantity + 1 } : i
+        i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
       setItems([...items, { productId: product.id, name: product.name, quantity: 1, price: product.selling_price }])
     }
-    setSelectedProduct("")
-    setProductSearchOpen(false)
+    setProductSearch("")
   }
+  
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products
+    const search = productSearch.toLowerCase()
+    return products.filter(p => p.name.toLowerCase().includes(search))
+  }, [products, productSearch])
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
     setItems(prev =>
@@ -367,8 +360,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setShippingCost("")
     setDeliveryDate("")
     setItems([])
-    setSelectedProduct("")
-    setProductSearchOpen(false)
+    setProductSearch("")
     setNotes("")
     setSuccess(false)
     setSubmitting(false)
@@ -750,65 +742,60 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                       Articles
                     </div>
                     <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
+                      {/* Product search - inline without Popover */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                        <Input
+                          placeholder="Rechercher un produit..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                          disabled={loadingProducts}
+                        />
+                      </div>
+                      
                       {loadingProducts ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           Chargement...
                         </div>
-                      ) : products.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-4 text-center">Aucun produit disponible.</p>
+                      ) : filteredProducts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2 text-center">
+                          {productSearch ? "Aucun produit trouve" : "Aucun produit disponible"}
+                        </p>
                       ) : (
-                        <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={productSearchOpen}
-                              className="w-full justify-between bg-muted/50 border-0 font-normal h-10"
-                            >
-                              <span className="truncate text-muted-foreground">
-                                <Search className="h-3.5 w-3.5 inline mr-2" />
-                                Rechercher un article...
-                              </span>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder="Tapez pour chercher..." />
-                              <CommandList>
-                                <CommandEmpty>Aucun produit trouve.</CommandEmpty>
-                                <CommandGroup>
-                                  {products.map(product => (
-                                    <CommandItem
-                                      key={product.id}
-                                      value={product.name}
-                                      onSelect={() => handleAddItem(product.id)}
-                                      className="cursor-pointer"
-                                    >
-                                      <div className="flex items-center justify-between w-full gap-2">
-                                        <div className="flex flex-col min-w-0">
-                                          <span className="text-sm font-medium truncate">{product.name}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {product.selling_price.toLocaleString("fr-TN")} TND
-                                            {product.current_stock <= 0 && (
-                                              <span className="ml-1 text-destructive">(Rupture)</span>
-                                            )}
-                                          </span>
-                                        </div>
-                                        {items.some(i => i.productId === product.id) && (
-                                          <Badge className="bg-primary/10 text-primary text-xs shrink-0">
-                                            {items.find(i => i.productId === product.id)?.quantity}x
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <ScrollArea className="h-[140px]">
+                          <div className="space-y-1">
+                            {filteredProducts.slice(0, 15).map(product => {
+                              const inCart = items.find(i => i.productId === product.id)
+                              return (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => handleAddItem(product.id)}
+                                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/80 transition-colors text-left"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm truncate">{product.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {product.selling_price.toFixed(3)} TND
+                                      {product.current_stock <= 0 && (
+                                        <span className="ml-1 text-destructive">(Rupture)</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {inCart ? (
+                                    <Badge className="bg-primary/10 text-primary text-xs shrink-0 ml-2">
+                                      {inCart.quantity}x
+                                    </Badge>
+                                  ) : (
+                                    <Plus className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </ScrollArea>
                       )}
 
                       {items.length > 0 && (
