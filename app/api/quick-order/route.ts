@@ -3,21 +3,24 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { withSession, serverErrorResponse, badRequestResponse } from "@/lib/api-helpers"
 
 export async function POST(request: Request) {
-  console.log("[v0] quick-order POST called")
-  
-  // Get session with proper error handling
-  const [session, authError] = await withSession()
-  if (authError) {
-    console.log("[v0] Session auth error:", authError)
-    return authError
-  }
-  
-  console.log("[v0] Session obtained:", { tenantId: session.tenantId, userId: session.authUserId })
-
   try {
+    console.log("[v0] quick-order POST - start")
+    
+    // Get session with proper error handling
+    const [session, authError] = await withSession()
+    console.log("[v0] withSession result:", { hasSession: !!session, hasError: !!authError })
+    
+    if (authError) {
+      console.log("[v0] Session auth error - returning")
+      return authError
+    }
+    
+    console.log("[v0] Session:", { tenantId: session.tenantId, userId: session.authUserId })
+
     // Use admin client to bypass RLS - we handle authorization via session
+    console.log("[v0] Creating admin client...")
     const supabase = createAdminClient()
-    console.log("[v0] Admin client created")
+    console.log("[v0] Admin client created successfully")
     
     const body = await request.json()
     console.log("[v0] Request body parsed:", JSON.stringify(body, null, 2))
