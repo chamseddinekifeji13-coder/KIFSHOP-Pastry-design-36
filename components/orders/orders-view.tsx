@@ -37,8 +37,7 @@ import {
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
-import { QuickOrder } from "@/components/orders/quick-order"
-import { NewOrderDrawer } from "@/components/orders/new-order-drawer"
+// Note: QuickOrder and NewOrderDrawer are replaced by UnifiedOrderDialog
 import {
   createReturn, getOrderReturns, processReturn,
   fetchReturns, fetchCustomerCredits,
@@ -208,36 +207,7 @@ export function OrdersView() {
     }
   }, [searchParams])
 
-  // Toggle view mode function
-  const toggleViewMode = () => {
-    const newMode = viewMode === "fast" ? "standard" : "fast"
-    setViewMode(newMode)
-    localStorage.setItem("orders-view-mode", newMode)
-  }
-
-  // Conditional render for fast sales mode - AFTER all hooks
-  if (viewMode === "fast") {
-    return (
-      <div className="relative">
-        <div className="absolute top-0 right-0 z-10">
-          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
-            <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">Mode Standard</span>
-          </Button>
-        </div>
-        <FastSalesView />
-      </div>
-    )
-  }
-
-  const ordersByStatus = {
-    nouveau: orders.filter((o) => o.status === "nouveau"),
-    "en-preparation": orders.filter((o) => o.status === "en-preparation"),
-    pret: orders.filter((o) => o.status === "pret"),
-    "en-livraison": orders.filter((o) => o.status === "en-livraison"),
-    livre: orders.filter((o) => o.status === "livre"),
-  }
-
+  // ALL useCallback hooks MUST be before any conditional return (React rules of hooks)
   const loadHistory = useCallback(async (orderId: string) => {
     setHistoryLoading(true)
     const history = await getOrderStatusHistory(orderId)
@@ -265,6 +235,36 @@ export function OrdersView() {
     setOrderDocuments(docs)
     setDocumentsLoading(false)
   }, [])
+
+  // Toggle view mode function
+  const toggleViewMode = useCallback(() => {
+    const newMode = viewMode === "fast" ? "standard" : "fast"
+    setViewMode(newMode)
+    localStorage.setItem("orders-view-mode", newMode)
+  }, [viewMode])
+
+  // Conditional render for fast sales mode - AFTER all hooks
+  if (viewMode === "fast") {
+    return (
+      <div className="relative">
+        <div className="absolute top-0 right-0 z-10">
+          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
+            <Store className="h-4 w-4" />
+            <span className="hidden sm:inline">Mode Standard</span>
+          </Button>
+        </div>
+        <FastSalesView />
+      </div>
+    )
+  }
+
+  const ordersByStatus = {
+    nouveau: orders.filter((o) => o.status === "nouveau"),
+    "en-preparation": orders.filter((o) => o.status === "en-preparation"),
+    pret: orders.filter((o) => o.status === "pret"),
+    "en-livraison": orders.filter((o) => o.status === "en-livraison"),
+    livre: orders.filter((o) => o.status === "livre"),
+  }
 
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
@@ -2100,13 +2100,8 @@ export function OrdersView() {
         </DialogContent>
       </Dialog>
 
-  {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
-  <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
-
-  {/* Keep old components for backward compatibility with other imports */}
-  <QuickOrder open={false} onOpenChange={() => {}} onOrderCreated={() => mutate()} />
-  <NewOrderDrawer open={false} onOpenChange={() => {}} onCreated={() => mutate()} />
-
-</div>
+      {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
+      <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+    </div>
   )
 }
