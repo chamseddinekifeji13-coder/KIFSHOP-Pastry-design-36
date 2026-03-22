@@ -6,13 +6,26 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const Dialog = DialogPrimitive.Root
+// Explicit component assignments to avoid tree-shaking issues in production builds
+function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root {...props} />
+}
+Dialog.displayName = "Dialog"
 
-const DialogTrigger = DialogPrimitive.Trigger
+function DialogTrigger({ ...props }: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
+  return <DialogPrimitive.Trigger {...props} />
+}
+DialogTrigger.displayName = "DialogTrigger"
 
-const DialogPortal = DialogPrimitive.Portal
+function DialogPortal({ ...props }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
+  return <DialogPrimitive.Portal {...props} />
+}
+DialogPortal.displayName = "DialogPortal"
 
-const DialogClose = DialogPrimitive.Close
+function DialogClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) {
+  return <DialogPrimitive.Close {...props} />
+}
+DialogClose.displayName = "DialogClose"
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,

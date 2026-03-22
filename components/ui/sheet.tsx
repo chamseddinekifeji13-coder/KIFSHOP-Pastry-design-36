@@ -6,13 +6,26 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const Sheet = SheetPrimitive.Root
+// Explicit component assignments to avoid tree-shaking issues in production builds
+function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  return <SheetPrimitive.Root {...props} />
+}
+Sheet.displayName = "Sheet"
 
-const SheetTrigger = SheetPrimitive.Trigger
+function SheetTrigger({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) {
+  return <SheetPrimitive.Trigger {...props} />
+}
+SheetTrigger.displayName = "SheetTrigger"
 
-const SheetClose = SheetPrimitive.Close
+function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Close>) {
+  return <SheetPrimitive.Close {...props} />
+}
+SheetClose.displayName = "SheetClose"
 
-const SheetPortal = SheetPrimitive.Portal
+function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
+  return <SheetPrimitive.Portal {...props} />
+}
+SheetPortal.displayName = "SheetPortal"
 
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
