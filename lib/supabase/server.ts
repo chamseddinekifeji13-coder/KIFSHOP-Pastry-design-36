@@ -14,11 +14,16 @@ import { cookies } from 'next/headers'
  * NEVER expose this client to the browser.
  */
 export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!url || !serviceKey) {
+    throw new Error(`Missing Supabase admin config: URL=${!!url}, ServiceKey=${!!serviceKey}`)
+  }
+  
+  return createSupabaseClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
 }
 
 export async function createClient() {
