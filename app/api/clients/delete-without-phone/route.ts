@@ -1,32 +1,20 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
+import { withSession, serverErrorResponse } from "@/lib/api-helpers"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
+  // Get session with proper error handling
+  const [session, authError] = await withSession()
+  if (authError) return authError
+
   try {
-    const supabase = await createClient()
-
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get user's tenant
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("tenant_id")
-      .eq("id", user.id)
-      .single()
-
-    if (!profile?.tenant_id) {
-      return NextResponse.json({ error: "Tenant not found" }, { status: 400 })
-    }
+    const supabase = createAdminClient()
 
     // Delete clients without phone number and return count
     const { data, error, count } = await supabase
       .from("clients")
       .delete({ count: 'exact' })
-      .eq("tenant_id", profile.tenant_id)
+      .eq("tenant_id", session.tenantId)
       .or("phone.is.null,phone.eq.")
       .select()
 

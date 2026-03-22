@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { 
   withSessionAndBody, 
   badRequestResponse, 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // 3. Generate transaction ID
     const transactionId = `POS-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
