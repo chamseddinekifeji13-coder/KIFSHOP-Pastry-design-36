@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
-import { Plus, Minus, Trash2, Loader2, ShoppingBag, User, Truck, CreditCard, StickyNote, AlertTriangle, Search } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Plus, Minus, Trash2, Loader2, ShoppingBag, User, Truck, CreditCard, StickyNote, AlertTriangle, Search, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,7 +15,16 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
+// Popover components for client search
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -68,7 +77,8 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
   const [gouvernorat, setGouvernorat] = useState("")
   const [shippingCost, setShippingCost] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
-  const [productSearch, setProductSearch] = useState("")
+  const [selectedProduct, setSelectedProduct] = useState("")
+  const [productSearchOpen, setProductSearchOpen] = useState(false)
   const [deposit, setDeposit] = useState("")
   const [notes, setNotes] = useState("")
   const [deliveryDate, setDeliveryDate] = useState("")
@@ -162,14 +172,16 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     loadCouriers()
   }, [open, currentTenant.id, tenantLoading])
 
-  const handleAddItem = (productId: string) => {
-    const product = products.find(p => p.id === productId)
+  const handleAddItem = (productId?: string) => {
+    const pid = productId || selectedProduct
+    if (!pid) return
+    const product = products.find(p => p.id === pid)
     if (!product) return
 
-    const existingItem = items.find(i => i.productId === productId)
+    const existingItem = items.find(i => i.productId === pid)
     if (existingItem) {
       setItems(items.map(i =>
-        i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
+        i.productId === pid ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
       setItems([...items, {
@@ -179,15 +191,9 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
         price: product.selling_price,
       }])
     }
-    setProductSearch("")
+    setSelectedProduct("")
+    setProductSearchOpen(false)
   }
-  
-  // Filter products based on search
-  const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return products
-    const search = productSearch.toLowerCase()
-    return products.filter(p => p.name.toLowerCase().includes(search))
-  }, [products, productSearch])
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
     setItems(items.map(item => {
@@ -219,7 +225,7 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
     setGouvernorat("")
     setShippingCost("")
     setItems([])
-    setProductSearch("")
+    setSelectedProduct("")
     setDeposit("")
     setNotes("")
     setDeliveryDate("")
@@ -561,65 +567,74 @@ export function NewOrderDrawer({ open, onOpenChange, onCreated }: NewOrderDrawer
               Articles
             </div>
             <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
-              {/* Product search - inline without Popover */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
-                <Input
-                  placeholder="Rechercher un produit..."
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-                  disabled={loadingProducts}
-                />
-              </div>
-              
               {loadingProducts ? (
-                <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Chargement des produits...
                 </div>
-              ) : loadingError ? (
-                <p className="text-sm text-destructive py-2 text-center flex items-center justify-center gap-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  {loadingError}
-                </p>
-              ) : filteredProducts.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2 text-center">
-                  {productSearch ? "Aucun produit trouve" : "Aucun produit disponible"}
+              ) : products.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">
+                  {loadingError ? (
+                    <span className="text-destructive flex items-center justify-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      {loadingError}
+                    </span>
+                  ) : (
+                    "Aucun produit disponible. Ajoutez des produits finis dans Stocks."
+                  )}
                 </p>
               ) : (
-                <ScrollArea className="h-[160px]">
-                  <div className="space-y-1">
-                    {filteredProducts.slice(0, 20).map(product => {
-                      const inCart = items.find(i => i.productId === product.id)
-                      return (
-                        <button
-                          key={product.id}
-                          type="button"
-                          onClick={() => handleAddItem(product.id)}
-                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/80 transition-colors text-left"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{product.name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {product.selling_price.toFixed(3)} TND
-                              {product.current_stock <= 0 && (
-                                <span className="ml-1 text-destructive">(Rupture)</span>
-                              )}
-                            </div>
-                          </div>
-                          {inCart ? (
-                            <Badge className="bg-primary/10 text-primary text-xs shrink-0 ml-2">
-                              {inCart.quantity}x
-                            </Badge>
-                          ) : (
-                            <Plus className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
+                <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={productSearchOpen}
+                      className="w-full justify-between bg-muted/50 border-0 font-normal h-10"
+                    >
+                      <span className="truncate text-muted-foreground">
+                        <Search className="h-3.5 w-3.5 inline mr-2" />
+                        Rechercher un article...
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Tapez pour chercher..." />
+                      <CommandList>
+                        <CommandEmpty>Aucun produit trouve.</CommandEmpty>
+                        <CommandGroup>
+                          {products.map(product => (
+                            <CommandItem
+                              key={product.id}
+                              value={product.name}
+                              onSelect={() => handleAddItem(product.id)}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center justify-between w-full gap-2">
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-sm font-medium truncate">{product.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {product.selling_price.toLocaleString("fr-TN")} TND
+                                    {product.current_stock <= 0 && (
+                                      <span className="ml-1 text-destructive">(Rupture)</span>
+                                    )}
+                                  </span>
+                                </div>
+                                {items.some(i => i.productId === product.id) && (
+                                  <Badge className="bg-primary/10 text-primary text-xs shrink-0">
+                                    {items.find(i => i.productId === product.id)?.quantity}x
+                                  </Badge>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               )}
 
               {items.length > 0 && (
