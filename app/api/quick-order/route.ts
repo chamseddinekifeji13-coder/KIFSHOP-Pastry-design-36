@@ -3,24 +3,38 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { withSession, serverErrorResponse, badRequestResponse } from "@/lib/api-helpers"
 
 export async function POST(request: Request) {
-  console.log("[v0] quick-order POST called")
-  
   // Get session with proper error handling
   const [session, authError] = await withSession()
   if (authError) {
-    console.log("[v0] Session auth error:", authError)
     return authError
   }
   
-  console.log("[v0] Session obtained:", { tenantId: session.tenantId, userId: session.authUserId })
+  if (!session) {
+    return NextResponse.json({ error: "Session non trouvée" }, { status: 401 })
+  }
 
   try {
     // Use admin client to bypass RLS - we handle authorization via session
-    const supabase = createAdminClient()
-    console.log("[v0] Admin client created")
+    let supabase
+    try {
+      supabase = createAdminClient()
+    } catch (adminError) {
+      console.error("Failed to create admin client:", adminError)
+      return NextResponse.json(
+        { error: "Configuration serveur invalide" },
+        { status: 500 }
+      )
+    }
     
-    const body = await request.json()
-    console.log("[v0] Request body parsed:", JSON.stringify(body, null, 2))
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: "Corps de requête invalide" },
+        { status: 400 }
+      )
+    }
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
       source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
@@ -146,7 +160,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, order })
   } catch (error) {
-    console.error("[v0] Caught error in quick-order:", error)
     return serverErrorResponse(error)
   }
 }

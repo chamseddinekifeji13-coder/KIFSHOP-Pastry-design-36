@@ -5,13 +5,21 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 
 import { cn } from "@/lib/utils"
 
-// PopoverTrigger, PopoverContent, Popover exports for order dialogs
+// Explicit component assignments to avoid tree-shaking issues in production builds
+function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
+  return <PopoverPrimitive.Root {...props} />
+}
+Popover.displayName = "Popover"
 
-const Popover = PopoverPrimitive.Root
+function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
+  return <PopoverPrimitive.Trigger {...props} />
+}
+PopoverTrigger.displayName = "PopoverTrigger"
 
-const PopoverTrigger = PopoverPrimitive.Trigger
-
-const PopoverAnchor = PopoverPrimitive.Anchor
+function PopoverAnchor({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Anchor>) {
+  return <PopoverPrimitive.Anchor {...props} />
+}
+PopoverAnchor.displayName = "PopoverAnchor"
 
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
@@ -30,6 +38,6 @@ const PopoverContent = React.forwardRef<
     />
   </PopoverPrimitive.Portal>
 ))
-PopoverContent.displayName = PopoverPrimitive.Content.displayName
+PopoverContent.displayName = "PopoverContent"
 
 export { Popover, PopoverTrigger, PopoverContent, PopoverAnchor }
