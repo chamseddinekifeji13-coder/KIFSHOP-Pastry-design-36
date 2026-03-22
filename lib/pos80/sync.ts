@@ -69,7 +69,7 @@ export async function syncPOS80Transactions(
     }
 
     // Process each transaction
-    const supabase = await createAdminClient()
+    const supabase = createAdminClient()
 
     for (const transaction of transactions) {
       try {

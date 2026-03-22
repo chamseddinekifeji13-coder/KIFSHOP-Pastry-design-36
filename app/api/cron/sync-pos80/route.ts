@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 
     console.log('[v0] POS80 Cron Job Started at', new Date().toISOString())
 
-    const supabase = await createAdminClient()
+    const supabase = createAdminClient()
 
     // Get all active tenants with POS80 config
     const { data: tenants, error: tenantsError } = await supabase

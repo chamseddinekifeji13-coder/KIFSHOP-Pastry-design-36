@@ -130,7 +130,7 @@ export async function testPOS80Connection(tenantId: string): Promise<{
   const result = await client.testConnection()
 
   // Update test status in database
-  const supabase = await createAdminClient()
+  const supabase = createAdminClient()
   await supabase
     .from('pos80_config')
     .update({
@@ -174,7 +174,7 @@ export async function createPOS80ClientFromConfig(tenantId: string): Promise<POS
  * Log sync operation to database
  */
 export async function logPOS80Sync(tenantId: string, logData: any): Promise<void> {
-  const supabase = await createAdminClient()
+  const supabase = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
