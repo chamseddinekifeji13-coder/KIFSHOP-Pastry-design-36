@@ -3,21 +3,13 @@ import { createClient } from "@/lib/supabase/server"
 import { withSession, serverErrorResponse, badRequestResponse } from "@/lib/api-helpers"
 
 export async function POST(request: Request) {
-  console.log("[v0] quick-order API called")
-  
   // Get session with proper error handling
   const [session, authError] = await withSession()
-  if (authError) {
-    console.log("[v0] Auth error:", authError)
-    return authError
-  }
-  
-  console.log("[v0] Session obtained:", { tenantId: session.tenantId, userId: session.authUserId })
+  if (authError) return authError
 
   try {
     const supabase = await createClient()
     const body = await request.json()
-    console.log("[v0] Request body:", JSON.stringify(body, null, 2))
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
       source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
@@ -60,65 +52,39 @@ export async function POST(request: Request) {
     const discount = isOffer && discountPercent ? (amount * (discountPercent / 100)) : 0
     const finalTotal = isOffer ? amount - discount : amount
 
-    // Prepare base order data
-    const baseOrderData = {
+    // Build notes with all extra info
+    let fullNotes = ""
+    if (itemsDescription) fullNotes += itemsDescription
+    if (notes) fullNotes += (fullNotes ? " | " : "") + notes
+    if (isOffer) fullNotes += (fullNotes ? " | " : "") + `[OFFRE: ${offerBeneficiary || "N/A"} - ${offerReason || "N/A"} - ${discountPercent || 100}%]`
+    if (gouvernorat) fullNotes += (fullNotes ? " | " : "") + `Gouvernorat: ${gouvernorat}`
+
+    // Prepare order data - only columns that exist in the database
+    const orderData = {
       tenant_id: session.tenantId,
-      client_id: clientId,
-      customer_name: clientName || null,
+      customer_name: clientName || "Client",
       customer_address: address || null,
       customer_phone: phone,
       total: finalTotal,
+      deposit: 0,
       shipping_cost: shippingCost || 0,
       status: "nouveau",
       delivery_type: deliveryType || "pickup",
       courier: courier || null,
-      gouvernorat: gouvernorat || null,
       source: source || "phone",
       delivery_date: deliveryDate || null,
-      notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-      confirmed_by: session.activeProfileId,
-      confirmed_by_name: session.displayName,
-      truecaller_verified: truecallerVerified || false,
+      notes: fullNotes || null,
       created_by: session.authUserId,
     }
 
-    // Add offer fields if they exist in the table
-    const orderDataWithOffers = {
-      ...baseOrderData,
-      order_type: orderType || "normal",
-      offer_beneficiary: isOffer ? offerBeneficiary : null,
-      offer_reason: isOffer ? offerReason : null,
-      discount_percent: isOffer ? (discountPercent || 100) : 0,
-    }
-
-    console.log("[v0] Attempting to insert order with data:", JSON.stringify(orderDataWithOffers, null, 2))
-    
-    // Try to insert with offer fields first
-    let { data: order, error: orderError } = await supabase
+    // Insert order
+    const { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert(orderDataWithOffers)
+      .insert(orderData)
       .select()
       .single()
 
-    console.log("[v0] Insert result - order:", order, "error:", orderError)
-
-    // If it fails due to missing columns, retry without offer fields
-    if (orderError && orderError.message?.includes("column")) {
-      console.log("[v0] Retrying with base data only (column error)")
-      const { data: fallbackOrder, error: fallbackError } = await supabase
-        .from("orders")
-        .insert(baseOrderData)
-        .select()
-        .single()
-      
-      if (fallbackError) {
-        console.error("Order creation error (fallback):", fallbackError)
-        return NextResponse.json({ error: "Erreur creation commande: " + fallbackError.message }, { status: 500 })
-      }
-      order = fallbackOrder
-      orderError = null
-    } else if (orderError) {
-      console.error("Order creation error:", orderError)
+    if (orderError) {
       return NextResponse.json({ error: "Erreur creation commande: " + orderError.message }, { status: 500 })
     }
 
