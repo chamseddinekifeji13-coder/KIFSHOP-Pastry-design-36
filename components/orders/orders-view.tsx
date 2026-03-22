@@ -243,21 +243,9 @@ export function OrdersView() {
     localStorage.setItem("orders-view-mode", newMode)
   }, [viewMode])
 
-  // Conditional render for fast sales mode - AFTER all hooks
-  if (viewMode === "fast") {
-    return (
-      <div className="relative">
-        <div className="absolute top-0 right-0 z-10">
-          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
-            <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">Mode Standard</span>
-          </Button>
-        </div>
-        <FastSalesView />
-      </div>
-    )
-  }
-
+  // Fast sales mode - rendered but hidden when not active (avoids React #300 hook order issues)
+  // The early return was causing hooks to be called conditionally which violates React rules
+  
   const ordersByStatus = {
     nouveau: orders.filter((o) => o.status === "nouveau"),
     "en-preparation": orders.filter((o) => o.status === "en-preparation"),
@@ -659,16 +647,32 @@ export function OrdersView() {
     )
   }
 
+  // Render both views - fast sales mode is shown/hidden with CSS to avoid hook order issues
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t("orders.title")}</h1>
-          <p className="text-muted-foreground">
-            {t("orders.subtitle")}
-          </p>
+    <>
+      {/* Fast Sales View - always rendered to keep hooks stable, hidden when not active */}
+      <div className={viewMode === "fast" ? "block" : "hidden"}>
+        <div className="relative">
+          <div className="absolute top-0 right-0 z-10 p-4">
+            <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
+              <Store className="h-4 w-4" />
+              <span className="hidden sm:inline">Mode Standard</span>
+            </Button>
+          </div>
+          <FastSalesView />
         </div>
-        <div className="flex flex-wrap gap-2">
+      </div>
+
+      {/* Standard View - hidden when fast mode is active */}
+      <div className={viewMode === "standard" ? "block space-y-6" : "hidden"}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t("orders.title")}</h1>
+            <p className="text-muted-foreground">
+              {t("orders.subtitle")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={toggleViewMode}
@@ -2100,8 +2104,9 @@ export function OrdersView() {
         </DialogContent>
       </Dialog>
 
-      {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
-      <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
-    </div>
+        {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
+        <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+      </div>
+    </>
   )
 }
