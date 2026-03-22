@@ -46,7 +46,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import {
   Command,
   CommandEmpty,
