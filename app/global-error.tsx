@@ -1,6 +1,24 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
+
+// Helper to safely extract error message as string
+function getErrorMessage(error: unknown): string {
+  if (!error) return "Erreur inattendue"
+  if (typeof error === "string") return error
+  if (error instanceof Error) return error.message || "Erreur inattendue"
+  if (typeof error === "object" && error !== null) {
+    const e = error as Record<string, unknown>
+    if (typeof e.message === "string") return e.message
+    if (typeof e.error === "string") return e.error
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return "Erreur inattendue"
+    }
+  }
+  return String(error)
+}
 
 export default function GlobalError({
   error,
@@ -9,6 +27,9 @@ export default function GlobalError({
   error: Error & { digest?: string }
   reset: () => void
 }) {
+  // Safely extract the error message to avoid React #310
+  const errorMessage = useMemo(() => getErrorMessage(error), [error])
+
   useEffect(() => {
     console.error("[KIFSHOP] Global error:", error)
   }, [error])
@@ -21,7 +42,7 @@ export default function GlobalError({
             Erreur critique
           </h2>
           <p className="text-muted-foreground text-sm mb-4">
-            {error.message || "Une erreur inattendue est survenue"}
+            {errorMessage}
           </p>
           <button
             onClick={reset}
