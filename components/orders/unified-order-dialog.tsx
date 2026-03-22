@@ -22,7 +22,6 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
-  ChevronsUpDown,
   Pencil,
   Check,
   X,
@@ -47,17 +46,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-// Popover components for product search
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,8 +124,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const [shippingCost, setShippingCost] = useState("0")
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
-  const [selectedProduct, setSelectedProduct] = useState("")
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productSearch, setProductSearch] = useState("")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -282,22 +271,26 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   }
 
   // Add item to order
-  const handleAddItem = useCallback((productId?: string) => {
-    const pid = productId || selectedProduct
-    if (!pid) return
-    const product = products.find(p => p.id === pid)
+  const handleAddItem = useCallback((productId: string) => {
+    const product = products.find(p => p.id === productId)
     if (!product) return
-    const existing = items.find(i => i.productId === pid)
+    const existing = items.find(i => i.productId === productId)
     if (existing) {
       setItems(items.map(i =>
-        i.productId === pid ? { ...i, quantity: i.quantity + 1 } : i
+        i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
       setItems([...items, { productId: product.id, name: product.name, quantity: 1, price: product.selling_price }])
     }
-    setSelectedProduct("")
-    setProductSearchOpen(false)
-  }, [selectedProduct, products, items])
+    setProductSearch("")
+  }, [products, items])
+  
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products
+    const search = productSearch.toLowerCase()
+    return products.filter(p => p.name.toLowerCase().includes(search))
+  }, [products, productSearch])
 
   // Remove item
   const handleRemoveItem = useCallback((productId: string) => {
@@ -415,8 +408,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         setShippingCost("")
         setDeliveryDate("")
         setItems([])
-        setSelectedProduct("")
-        setProductSearchOpen(false)
+        setProductSearch("")
         setNotes("")
         setSuccess(false)
         // Reset offer fields
@@ -449,8 +441,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setShippingCost("")
     setDeliveryDate("")
     setItems([])
-    setSelectedProduct("")
-    setProductSearchOpen(false)
+    setProductSearch("")
     setNotes("")
     setSuccess(false)
     // Reset offer fields
@@ -769,49 +760,62 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                       Articles
                     </div>
 
-                    {/* Product selector */}
-                    <div className="space-y-2">
-                      <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="w-full justify-between bg-card"
-                            disabled={loadingProducts}
-                          >
-                            {selectedProduct ? products.find(p => p.id === selectedProduct)?.name : "Ajouter un article..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Chercher un produit..." />
-                            <CommandEmpty>Aucun produit trouvé</CommandEmpty>
-                            <CommandGroup>
-                              <CommandList>
-                                {products.map(product => (
-                                  <CommandItem
-                                    key={product.id}
-                                    value={product.id}
-                                    onSelect={() => {
-                                      setSelectedProduct(product.id)
-                                      setProductSearchOpen(false)
-                                      handleAddItem(product.id)
-                                    }}
-                                  >
-                                    <div className="flex-1">
-                                      <div className="font-medium text-sm">{product.name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {product.selling_price.toFixed(3)} TND • Stock: {product.current_stock}
-                                      </div>
+                    {/* Product selector - inline search without Popover */}
+                    <div className="rounded-xl border bg-card p-3 space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                        <Input
+                          placeholder="Rechercher un produit..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                          disabled={loadingProducts}
+                        />
+                      </div>
+                      
+                      {loadingProducts ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Chargement des produits...
+                        </div>
+                      ) : filteredProducts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2 text-center">
+                          {productSearch ? "Aucun produit trouve" : "Aucun produit disponible"}
+                        </p>
+                      ) : (
+                        <ScrollArea className="h-[160px]">
+                          <div className="space-y-1">
+                            {filteredProducts.slice(0, 20).map(product => {
+                              const inCart = items.find(i => i.productId === product.id)
+                              return (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => handleAddItem(product.id)}
+                                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/80 transition-colors text-left"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm truncate">{product.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {product.selling_price.toFixed(3)} TND
+                                      {product.current_stock <= 0 && (
+                                        <span className="ml-1 text-destructive">(Rupture)</span>
+                                      )}
                                     </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandList>
-                            </CommandGroup>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                                  </div>
+                                  {inCart ? (
+                                    <Badge className="bg-primary/10 text-primary text-xs shrink-0 ml-2">
+                                      {inCart.quantity}x
+                                    </Badge>
+                                  ) : (
+                                    <Plus className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
                     </div>
 
                     {/* Items list */}
