@@ -15,7 +15,7 @@
   "crons": [
     {
       "path": "/api/cron/sync-pos80",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     }
   ],
   "functions": {
