@@ -6,11 +6,21 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-const Select = SelectPrimitive.Root
+// Explicit component assignments to avoid tree-shaking issues in production builds
+function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  return <SelectPrimitive.Root {...props} />
+}
+Select.displayName = "Select"
 
-const SelectGroup = SelectPrimitive.Group
+function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {
+  return <SelectPrimitive.Group {...props} />
+}
+SelectGroup.displayName = "SelectGroup"
 
-const SelectValue = SelectPrimitive.Value
+function SelectValue({ ...props }: React.ComponentProps<typeof SelectPrimitive.Value>) {
+  return <SelectPrimitive.Value {...props} />
+}
+SelectValue.displayName = "SelectValue"
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
