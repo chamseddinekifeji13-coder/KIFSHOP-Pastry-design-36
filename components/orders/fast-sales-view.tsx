@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import {
   Phone, Search, User, Plus, Minus, Trash2,
   ShoppingBag, Truck, Store, Check, Loader2,
-  Clock, Star, AlertTriangle, Ban, Crown,
-  Zap, ArrowRight, X, MapPin, ChevronsUpDown
+  Clock, AlertTriangle, Ban, Crown,
+  Zap, X
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,19 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
