@@ -68,6 +68,8 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
   const [selectedPackaging, setSelectedPackaging] = useState("")
   const [packagingQty, setPackagingQty] = useState("")
   const [packagingWeight, setPackagingWeight] = useState("")
+  const [openMaterialPopover, setOpenMaterialPopover] = useState(false)
+  const [openPackagingPopover, setOpenPackagingPopover] = useState(false)
 
   const allCategories = [...categories.map((c: any) => c.name), ...customCategories]
 
@@ -384,11 +386,12 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><FlaskConical className="h-3.5 w-3.5" /> Ingredients</div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex gap-2">
-                <Popover>
+                <Popover open={openMaterialPopover} onOpenChange={setOpenMaterialPopover}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
+                      aria-expanded={openMaterialPopover}
                       className="flex-1 justify-between bg-muted/50 border-0 font-normal"
                     >
                       {selectedMaterial 
@@ -409,6 +412,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
                               value={m.name}
                               onSelect={() => {
                                 setSelectedMaterial(m.id)
+                                setOpenMaterialPopover(false)
                                 // Auto-focus sur le champ quantite
                                 setTimeout(() => {
                                   document.getElementById("ingredient-qty-input")?.focus()
@@ -492,11 +496,12 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
             </div>
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="flex gap-2">
-                <Popover>
+                <Popover open={openPackagingPopover} onOpenChange={setOpenPackagingPopover}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
+                      aria-expanded={openPackagingPopover}
                       className="flex-1 justify-between bg-muted/50 border-0 font-normal"
                     >
                       {selectedPackaging 
@@ -517,6 +522,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
                               value={pkg.name}
                               onSelect={() => {
                                 setSelectedPackaging(pkg.id)
+                                setOpenPackagingPopover(false)
                                 // Auto-focus sur le champ poids
                                 setTimeout(() => {
                                   document.getElementById("packaging-weight-input")?.focus()
