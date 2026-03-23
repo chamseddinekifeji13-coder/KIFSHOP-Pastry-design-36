@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ✅ Turbopack est le bundler par défaut de Next.js 16
-  // ✅ Pas besoin de webpack config - Turbopack gère tout
+  // ✅ Explicitement configurer Turbopack pour éviter les détections webpack
+  turbopack: {},
+  
   reactStrictMode: true,
   compress: true,
   productionBrowserSourceMaps: true,
