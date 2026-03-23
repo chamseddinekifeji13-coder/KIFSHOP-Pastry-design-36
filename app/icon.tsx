@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 
-export const runtime = 'edge'
+// ✅ Utiliser nodejs au lieu de edge pour éviter les problèmes @vercel/og + Turbopack
+export const runtime = 'nodejs'
 export const contentType = 'image/jpeg'
 export const size = {
   width: 192,
