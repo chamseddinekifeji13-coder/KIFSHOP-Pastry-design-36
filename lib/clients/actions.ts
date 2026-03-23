@@ -51,8 +51,8 @@ export interface AgentStats {
   returnRate: number
 }
 
-// ─── Fetch Clients ────────────────────────────────────────────
-// Filtre les clients sans nom ET sans commandes (donnees inutiles)
+// ─── Fetch Clients with Best Delivery Stats ───────────────────
+// Enriches clients with stats from best_delivery_shipments during startup phase
 
 export async function fetchClients(tenantId: string): Promise<Client[]> {
   const supabase = createClient()
@@ -64,11 +64,53 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
 
   if (error) { console.error("Error fetching clients:", error); return [] }
   
-  // Return all clients - don't filter them out
-  return (data || []).map(mapClient)
+  // Enrich each client with Best Delivery stats
+  const enrichedClients = await Promise.all(
+    (data || []).map(async (clientRow) => {
+      const client = mapClient(clientRow)
+      
+      // Fetch Best Delivery shipments for this client
+      const { data: shipments } = await supabase
+        .from("best_delivery_shipments")
+        .select("status, cod_amount")
+        .eq("tenant_id", tenantId)
+        .eq("customer_phone", client.phone)
+
+      // Calculate stats from Best Delivery
+      let bdCount = 0
+      let bdTotal = 0
+      let bdReturned = 0
+
+      if (shipments && shipments.length > 0) {
+        shipments.forEach((shipment) => {
+          const status = (shipment.status || "").toLowerCase()
+          const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
+          const isReturned = status === "returned" || status === "retour"
+          
+          if (isDelivered) {
+            bdCount++
+            bdTotal += Number(shipment.cod_amount) || 0
+          } else if (isReturned) {
+            bdReturned++
+          }
+        })
+      }
+
+      // During startup, use Best Delivery as source of truth
+      // Override client.totalOrders and client.totalSpent with Best Delivery data
+      return {
+        ...client,
+        totalOrders: bdCount,
+        totalSpent: bdTotal,
+        returnCount: bdReturned,
+      }
+    })
+  )
+  
+  return enrichedClients
 }
 
-// ─── Fetch Single Client ──────────────────────────────────────
+// ─── Fetch Single Client with Best Delivery Stats ─────────────
 
 export async function fetchClientById(clientId: string): Promise<Client | null> {
   const supabase = createClient()
@@ -79,7 +121,43 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
     .single()
 
   if (error || !data) return null
-  return mapClient(data)
+  
+  const client = mapClient(data)
+  
+  // Fetch Best Delivery shipments for this client
+  const { data: shipments } = await supabase
+    .from("best_delivery_shipments")
+    .select("status, cod_amount")
+    .eq("tenant_id", client.tenantId)
+    .eq("customer_phone", client.phone)
+
+  // Calculate stats from Best Delivery
+  let bdCount = 0
+  let bdTotal = 0
+  let bdReturned = 0
+
+  if (shipments && shipments.length > 0) {
+    shipments.forEach((shipment) => {
+      const status = (shipment.status || "").toLowerCase()
+      const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
+      const isReturned = status === "returned" || status === "retour"
+      
+      if (isDelivered) {
+        bdCount++
+        bdTotal += Number(shipment.cod_amount) || 0
+      } else if (isReturned) {
+        bdReturned++
+      }
+    })
+  }
+
+  // During startup, use Best Delivery as source of truth
+  return {
+    ...client,
+    totalOrders: bdCount,
+    totalSpent: bdTotal,
+    returnCount: bdReturned,
+  }
 }
 
 // ─── Update Client ────────────────────────────────────────────
