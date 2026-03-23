@@ -26,7 +26,7 @@ function hasConditionalUseCallback(content) {
   ]
   for (const pattern of patterns) {
     const match = content.match(pattern)
-    if (match?.index != null) {
+    if (match && match.index != null) {
       return content.slice(0, match.index).split(/\r?\n/).length
     }
   }
