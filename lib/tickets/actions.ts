@@ -49,6 +49,12 @@ export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
   account: "Compte / Acces",
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isUuid(value: string | null | undefined): value is string {
+  return typeof value === "string" && UUID_RE.test(value)
+}
+
 // ─── Helpers ───────────────────────────────────────────────
 function mapTicket(row: Record<string, unknown>): SupportTicket {
   return {
@@ -78,6 +84,7 @@ function mapMessage(row: Record<string, unknown>): TicketMessage {
 
 // ─── Fetch tickets for a tenant ────────────────────────────
 export async function fetchTickets(tenantId: string): Promise<SupportTicket[]> {
+  if (!isUuid(tenantId)) return []
   const supabase = createClient()
   const { data, error } = await supabase
     .from("support_tickets")
@@ -102,6 +109,10 @@ export async function createTicket(data: {
   priority: TicketPriority
   message: string
 }): Promise<SupportTicket | null> {
+  if (!isUuid(data.tenantId)) {
+    throw new Error("Tenant invalide. Rechargez la page puis reessayez.")
+  }
+
   const supabase = createClient()
 
   // Create the ticket
@@ -109,7 +120,7 @@ export async function createTicket(data: {
     .from("support_tickets")
     .insert({
       tenant_id: data.tenantId,
-      created_by: data.createdByUserId,
+      created_by: isUuid(data.createdByUserId) ? data.createdByUserId : null,
       created_by_name: data.createdByName,
       subject: data.subject,
       description: data.message,
@@ -139,6 +150,7 @@ export async function createTicket(data: {
 
 // ─── Fetch messages for a ticket ───────────────────────────
 export async function fetchTicketMessages(ticketId: string): Promise<TicketMessage[]> {
+  if (!isUuid(ticketId)) return []
   const supabase = createClient()
   const { data, error } = await supabase
     .from("ticket_messages")
@@ -160,6 +172,10 @@ export async function sendTicketMessage(data: {
   senderName: string
   message: string
 }): Promise<TicketMessage | null> {
+  if (!isUuid(data.ticketId)) {
+    throw new Error("Ticket invalide.")
+  }
+
   const supabase = createClient()
 
   const { data: msg, error } = await supabase
@@ -189,6 +205,7 @@ export async function sendTicketMessage(data: {
 
 // ─── Count open tickets for a tenant ───────────────────────
 export async function countOpenTickets(tenantId: string): Promise<number> {
+  if (!isUuid(tenantId)) return 0
   const supabase = createClient()
   const { count, error } = await supabase
     .from("support_tickets")
