@@ -55,6 +55,7 @@ export async function getActiveProfileCookie(): Promise<ActiveProfile | null> {
 }
 
 // Backward-compatible helper used by route handlers.
+// Safe version that always returns null on error instead of throwing
 export async function getActiveProfile(): Promise<{
   tenantId: string
   role: UserRole
@@ -64,6 +65,8 @@ export async function getActiveProfile(): Promise<{
 } | null> {
   try {
     const session = await getServerSession()
+    if (!session) return null
+    
     return {
       tenantId: session.tenantId,
       role: session.activeRole,
@@ -71,7 +74,9 @@ export async function getActiveProfile(): Promise<{
       displayName: session.displayName,
       authUserId: session.authUserId,
     }
-  } catch {
+  } catch (error) {
+    // Silently catch all errors and return null
+    // This includes: not authenticated, no tenant, database errors
     return null
   }
 }
