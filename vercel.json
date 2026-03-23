@@ -6,7 +6,7 @@
   "framework": "nextjs",
   "cleanUrls": true,
   "trailingSlash": false,
-  "regions": ["cdg"],
+  "regions": ["iad1", "fra1"],
   "git": {
     "deploymentEnabled": {
       "main": true
