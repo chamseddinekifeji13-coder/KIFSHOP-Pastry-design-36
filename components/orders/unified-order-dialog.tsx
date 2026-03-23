@@ -130,6 +130,9 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const [success, setSuccess] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
+  // Mode toggle: 'fast' for quick sale, 'full' for complete order
+  const [orderMode, setOrderMode] = useState<"fast" | "full">("fast")
+
   // Products
   const [products, setProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
@@ -416,6 +419,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         setOfferBeneficiary("")
         setOfferReason("")
         setDiscountPercent("")
+        // Reset mode to fast
+        setOrderMode("fast")
         clearClient()
         onOpenChange(false)
       }, 1500)
@@ -449,6 +454,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setOfferBeneficiary("")
     setOfferReason("")
     setDiscountPercent("")
+    // Reset mode to fast on close
+    setOrderMode("fast")
     clearClient()
     onOpenChange(false)
   }, [clearClient, onOpenChange])
@@ -510,14 +517,31 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
               <div>
                 <h2 className="text-lg font-semibold">Nouvelle Commande</h2>
                 <p className="text-sm text-primary-foreground/70">
-                  {client ? "Commande rapide par telephone" : "Rechercher ou creer un client"}
+                  {client ? (orderMode === "fast" ? "Mode vente rapide" : "Mode commande complète") : "Rechercher ou creer un client"}
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-xs text-primary-foreground/50">
-                {client ? "Client identifie" : "Etape 1: Recherche client"}
-              </span>
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={orderMode === "fast" ? "default" : "outline"}
+                  onClick={() => setOrderMode("fast")}
+                  className={orderMode === "fast" ? "bg-white text-primary hover:bg-white" : "text-primary-foreground border-primary-foreground/30"}
+                  disabled={!client}
+                >
+                  ⚡ Mode Rapide
+                </Button>
+                <Button
+                  size="sm"
+                  variant={orderMode === "full" ? "default" : "outline"}
+                  onClick={() => setOrderMode("full")}
+                  className={orderMode === "full" ? "bg-white text-primary hover:bg-white" : "text-primary-foreground border-primary-foreground/30"}
+                  disabled={!client}
+                >
+                  ⚙️ Mode Complet
+                </Button>
+              </div>
               <span className="inline-flex items-center gap-1.5 bg-white/15 text-primary-foreground text-[11px] font-medium px-2.5 py-1 rounded-full">
                 <User className="h-3 w-3" />
                 {currentUser.name}
@@ -872,7 +896,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                 )}
 
                 {/* ── SECTION: LIVRAISON ── */}
-                {client && (
+                {client && orderMode === "full" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       <Truck className="h-3.5 w-3.5" />
@@ -972,7 +996,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                 )}
 
                 {/* ── SECTION: DETAILS ── */}
-                {client && (
+                {client && orderMode === "full" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       <StickyNote className="h-3.5 w-3.5" />
@@ -1011,7 +1035,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                 )}
 
                 {/* ── SECTION: TYPE DE COMMANDE (OFFRE) ── */}
-                {client && (
+                {client && orderMode === "full" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
                       <Gift className="h-3.5 w-3.5" />
