@@ -1,5 +1,3 @@
-'use server'
-
 import { ImageResponse } from 'next/og'
 
 // ✅ Utiliser nodejs au lieu de edge pour éviter les problèmes @vercel/og + Turbopack
