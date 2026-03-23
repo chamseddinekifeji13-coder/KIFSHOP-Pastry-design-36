@@ -6,6 +6,7 @@ import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { InstallPrompt } from '@/components/pwa/install-prompt'
 import { OfflineIndicator } from '@/components/pwa/offline-indicator'
 import { AuthHashHandler } from '@/components/auth/auth-hash-handler'
+import { ErrorBoundary } from "@/components/error-boundary"
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -168,12 +169,14 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
-        <OfflineIndicator />
-        <AuthHashHandler />
-        {children}
-        <InstallPrompt />
-        <ServiceWorkerRegister />
-        <Analytics />
+        <ErrorBoundary>
+          <OfflineIndicator />
+          <AuthHashHandler />
+          {children}
+          <InstallPrompt />
+          <ServiceWorkerRegister />
+          <Analytics />
+        </ErrorBoundary>
       </body>
     </html>
   )

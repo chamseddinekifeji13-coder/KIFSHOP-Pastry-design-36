@@ -1,8 +1,16 @@
+const path = require("path")
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ Turbopack est le bundler par défaut de Next.js 16
-  // ✅ Explicitement configurer Turbopack pour éviter les détections webpack
-  turbopack: {},
+  // Next.js 16: Turbopack par defaut, root explicite pour eviter les warnings.
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+  // Mode "hybride" sur : on garde un fallback webpack sans impacter Turbopack.
+  webpack: (config, { nextRuntime }) => {
+    if (nextRuntime === "edge") return config
+    return config
+  },
   
   reactStrictMode: true,
   compress: true,
