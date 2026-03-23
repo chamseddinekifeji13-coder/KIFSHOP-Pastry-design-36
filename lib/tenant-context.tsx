@@ -345,15 +345,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const removeUser = useCallback((id: string) => {
-    // Prevent removing the currently active user
-    setCurrentUser((current) => {
-      if (id === current.id) return current
-      return current
-    })
     setUsers((prev) => {
-      // Only remove if it's not the current user (checked by comparing with prev)
-      const target = prev.find((u) => u.id === id)
-      if (!target) return prev
+      // Only remove if it's not the current user
+      if (prev.length > 0 && prev[0].id === id) {
+        // Don't remove the currently active user
+        return prev
+      }
       return prev.filter((u) => u.id !== id)
     })
   }, [])
@@ -432,13 +429,27 @@ const SSR_FALLBACK: TenantState = {
   isSuspended: false,
   isTrialExpired: false,
   trialDaysLeft: 0,
-  setCurrentTenant: () => {},
-  setCurrentUser: () => {},
-  addUser: () => {},
-  updateUser: () => {},
-  removeUser: () => {},
-  reloadUsers: async () => {},
-  signOut: async () => {},
+  setCurrentTenant: () => {
+    // Placeholder for SSR
+  },
+  setCurrentUser: () => {
+    // Placeholder for SSR
+  },
+  addUser: () => {
+    // Placeholder for SSR
+  },
+  updateUser: () => {
+    // Placeholder for SSR
+  },
+  removeUser: () => {
+    // Placeholder for SSR
+  },
+  reloadUsers: async () => {
+    // Placeholder for SSR
+  },
+  signOut: async () => {
+    // Placeholder for SSR
+  },
 }
 
 export function useTenant() {
