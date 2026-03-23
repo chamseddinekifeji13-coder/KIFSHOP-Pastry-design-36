@@ -15,9 +15,21 @@ import {
 } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { toast } from 'sonner'
-import { getPOS80Config, savePOS80Config, testPOS80Connection } from '@/lib/pos80/actions'
-import { getActiveProfile } from '@/lib/active-profile'
-import type { POS80ConfigDB } from '@/lib/pos80/actions'
+
+interface POS80ConfigDB {
+  id: number
+  tenant_id: string
+  api_url: string
+  api_key: string
+  merchant_id: string
+  terminal_id: string | null
+  auth_type: 'bearer' | 'basic' | 'api_key'
+  is_active: boolean
+  last_tested_at: string | null
+  test_status: string | null
+  test_error_message: string | null
+  created_by: string | null
+}
 
 export default function POS80ConfigPage() {
   const [profile, setProfile] = useState<any>(null)
@@ -49,10 +61,13 @@ export default function POS80ConfigPage() {
 
     async function load() {
       try {
-        const p = await getActiveProfile()
+        const sessionRes = await fetch('/api/session', { cache: 'no-store' })
+        if (!sessionRes.ok) throw new Error('Session non disponible')
+        const p = await sessionRes.json()
         if (p) {
           setProfile(p)
-          const cfg = await getPOS80Config(p.tenantId)
+          const cfgRes = await fetch(`/api/pos80/config?tenantId=${encodeURIComponent(p.tenantId)}`, { cache: 'no-store' })
+          const cfg = cfgRes.ok ? await cfgRes.json() : null
           if (cfg) {
             setConfig(cfg)
             setFormData({
@@ -103,17 +118,29 @@ export default function POS80ConfigPage() {
 
     startTransition(async () => {
       try {
-        await savePOS80Config(profile.tenantId, {
+        const res = await fetch('/api/pos80/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tenant_id: profile.tenantId,
+            api_url: formData.api_url,
+            api_key: formData.api_key,
+            merchant_id: formData.merchant_id,
+            terminal_id: formData.terminal_id || null,
+            auth_type: formData.auth_type,
+            is_active: formData.is_active,
+          }),
+        })
+        if (!res.ok) throw new Error('Echec de sauvegarde')
+        const saved = await res.json()
+        setConfig(saved)
+        setFormData({
           api_url: formData.api_url,
           api_key: formData.api_key,
           merchant_id: formData.merchant_id,
-          terminal_id: formData.terminal_id || null,
+          terminal_id: formData.terminal_id || '',
           auth_type: formData.auth_type,
           is_active: formData.is_active,
-          last_tested_at: config?.last_tested_at || null,
-          test_status: config?.test_status || null,
-          test_error_message: config?.test_error_message || null,
-          created_by: config?.created_by || null,
         })
         toast.success('Configuration sauvegardée')
         setTestResult(null)
@@ -132,7 +159,13 @@ export default function POS80ConfigPage() {
     setTestLoading(true)
     startTransition(async () => {
       try {
-        const result = await testPOS80Connection(profile.tenantId)
+        const response = await fetch('/api/pos80/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId: profile.tenantId }),
+        })
+        if (!response.ok) throw new Error('Test de connexion impossible')
+        const result = await response.json()
         setTestResult(result)
         if (result.success) {
           toast.success('Connexion réussie!')

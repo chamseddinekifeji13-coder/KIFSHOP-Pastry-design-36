@@ -15,8 +15,6 @@ import {
 } from '@/components/ui/table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { toast } from 'sonner'
-import { getActiveProfile } from '@/lib/active-profile'
-import { getPOS80SyncLogs } from '@/lib/pos80/actions'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -65,10 +63,16 @@ export default function POS80MonitoringPage() {
 
   async function loadData() {
     try {
-      const p = await getActiveProfile()
+      const sessionRes = await fetch('/api/session', { cache: 'no-store' })
+      if (!sessionRes.ok) throw new Error('Session non disponible')
+      const p = await sessionRes.json()
       if (p) {
         setProfile(p)
-        const syncLogs = await getPOS80SyncLogs(p.tenantId, 50, 30)
+        const logsRes = await fetch(
+          `/api/pos80/sync/logs?tenantId=${encodeURIComponent(p.tenantId)}&limit=50`,
+          { cache: 'no-store' }
+        )
+        const syncLogs = logsRes.ok ? await logsRes.json() : []
         setLogs(syncLogs as SyncLog[])
 
         // Calculate stats

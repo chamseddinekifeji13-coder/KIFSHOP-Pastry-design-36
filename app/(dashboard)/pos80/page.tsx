@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import Link from 'next/link'
-import { getActiveProfile } from '@/lib/active-profile'
-import { getPOS80Config, getPOS80SyncLogs } from '@/lib/pos80/actions'
 
 export default function POS80Page() {
   const [profile, setProfile] = useState<any>(null)
@@ -26,14 +24,21 @@ export default function POS80Page() {
 
     async function load() {
       try {
-        const p = await getActiveProfile()
+        const sessionRes = await fetch('/api/session', { cache: 'no-store' })
+        if (!sessionRes.ok) throw new Error('Session non disponible')
+        const p = await sessionRes.json()
         if (p) {
           setProfile(p)
-          const cfg = await getPOS80Config(p.tenantId)
+          const cfgRes = await fetch(`/api/pos80/config?tenantId=${encodeURIComponent(p.tenantId)}`, { cache: 'no-store' })
+          const cfg = cfgRes.ok ? await cfgRes.json() : null
           setConfig(cfg)
 
           if (cfg && cfg.is_active) {
-            const logs = await getPOS80SyncLogs(p.tenantId, 1, 7)
+            const logsRes = await fetch(
+              `/api/pos80/sync/logs?tenantId=${encodeURIComponent(p.tenantId)}&limit=1&days=7`,
+              { cache: 'no-store' }
+            )
+            const logs = logsRes.ok ? await logsRes.json() : []
             if (logs.length > 0) {
               setRecentSync(logs[0])
             }
