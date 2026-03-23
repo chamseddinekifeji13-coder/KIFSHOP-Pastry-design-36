@@ -596,17 +596,21 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                     </div>
                   )}
 
-                  {/* New client extra fields */}
-                  {isNewClient && client && (
+                  {/* Client name and address fields - visible for all clients */}
+                  {client && (
                     <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">Nom du client *</Label>
+                        <Label className="text-xs font-medium">
+                          Nom du client {isNewClient && <span className="text-red-600">*</span>}
+                        </Label>
                         <Input
                           placeholder="Ex: Mohamed Ben Ali"
-                          value={clientName}
+                          value={isNewClient ? clientName : (client.name || "")}
                           onChange={(e) => setClientName(e.target.value)}
-                          className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                          disabled={!isNewClient}
+                          className={`bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 ${!isNewClient ? "opacity-75 cursor-not-allowed" : ""}`}
                         />
+                        {!isNewClient && <p className="text-xs text-muted-foreground">Client existant - Affichage uniquement</p>}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Adresse</Label>
