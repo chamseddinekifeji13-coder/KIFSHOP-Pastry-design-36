@@ -80,7 +80,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.vercel.app https://*.vercel.app wss://*.vercel.app https://*.cr-relay.com https://*.blob.vercel-storage.com wss://localhost:* ws://localhost:* https://localhost:* http://localhost:* wss://127.0.0.1:* ws://127.0.0.1:* https://127.0.0.1:* http://127.0.0.1:*; frame-ancestors 'self'; object-src 'none'; base-uri 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://vercel.live; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.vercel.app https://*.vercel.app wss://*.vercel.app https://*.cr-relay.com https://*.blob.vercel-storage.com wss://localhost:* ws://localhost:* https://localhost:* http://localhost:* wss://127.0.0.1:* ws://127.0.0.1:* https://127.0.0.1:* http://127.0.0.1:* https://vercel.live; frame-ancestors 'self'; object-src 'none'; base-uri 'self';",
           },
         ],
       },

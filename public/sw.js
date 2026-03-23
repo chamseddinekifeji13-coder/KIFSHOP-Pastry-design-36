@@ -1,7 +1,7 @@
 // IMPORTANT: Increment version on each deployment to force cache invalidation
 // BUILD_ID is set at build time - change this string for each deployment
-const CACHE_VERSION = 'v9';
-const BUILD_ID = '20260315-qz-local-fix';
+const CACHE_VERSION = 'v10';
+const BUILD_ID = '20260323-cache-invalidation';
 const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION + '-' + BUILD_ID;
 const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION + '-' + BUILD_ID;
 const OFFLINE_URL = '/offline.html';
