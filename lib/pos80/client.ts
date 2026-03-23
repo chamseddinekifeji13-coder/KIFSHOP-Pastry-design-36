@@ -1,5 +1,3 @@
-'use server'
-
 /**
  * POS80 API Client
  * Handles all communication with the POS80 system

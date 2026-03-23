@@ -1,3 +1,4 @@
+import "server-only"
 import { cookies } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import type { UserRole } from "@/lib/tenant-context"
@@ -49,6 +50,28 @@ export async function getActiveProfileCookie(): Promise<ActiveProfile | null> {
     return profile
   } catch {
     jar.delete(COOKIE_NAME)
+    return null
+  }
+}
+
+// Backward-compatible helper used by route handlers.
+export async function getActiveProfile(): Promise<{
+  tenantId: string
+  role: UserRole
+  tenantUserId: string
+  displayName: string
+  authUserId: string
+} | null> {
+  try {
+    const session = await getServerSession()
+    return {
+      tenantId: session.tenantId,
+      role: session.activeRole,
+      tenantUserId: session.activeProfileId,
+      displayName: session.displayName,
+      authUserId: session.authUserId,
+    }
+  } catch {
     return null
   }
 }

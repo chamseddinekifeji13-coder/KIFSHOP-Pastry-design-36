@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getActiveProfile } from '@/lib/active-profile'
 import { syncPOS80Transactions } from '@/lib/pos80/sync'
-import { POS80Client } from '@/lib/pos80/client'
+import { POS80ApiClient } from '@/lib/pos80/client'
 
 /**
  * POST /api/pos80/sync
@@ -42,13 +42,15 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const client = new POS80Client({
+        const client = new POS80ApiClient({
           apiUrl: config.api_url,
           apiKey: config.api_key,
           merchantId: config.merchant_id,
+          terminalId: config.terminal_id || undefined,
+          authType: config.auth_type,
         })
-
-        const isValid = await client.validateConnection()
+        const testResult = await client.testConnection()
+        const isValid = testResult.success
         
         // Update last_tested_at
         if (isValid) {
