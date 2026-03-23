@@ -17,6 +17,14 @@ async function requireSuperAdmin() {
   return { supabase, user }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function ensureUuid(value: string, fieldName: string) {
+  if (!UUID_RE.test(value)) {
+    throw new Error(`${fieldName} invalide`)
+  }
+}
+
 // ─── Types ────────────────────────────────────────────────────
 export interface TenantOverview {
   id: string
@@ -385,6 +393,7 @@ export async function getAllTickets(): Promise<AdminTicketOverview[]> {
 }
 
 export async function getTicketMessages(ticketId: string): Promise<AdminTicketMessage[]> {
+  ensureUuid(ticketId, "ticketId")
   const { supabase } = await requireSuperAdmin()
 
   const { data, error } = await supabase
@@ -406,6 +415,7 @@ export async function getTicketMessages(ticketId: string): Promise<AdminTicketMe
 }
 
 export async function replyToTicket(ticketId: string, message: string): Promise<{ success: boolean }> {
+  ensureUuid(ticketId, "ticketId")
   const { supabase } = await requireSuperAdmin()
 
   const { error: msgError } = await supabase.from("ticket_messages").insert({
@@ -427,6 +437,7 @@ export async function replyToTicket(ticketId: string, message: string): Promise<
 }
 
 export async function updateTicketStatus(ticketId: string, status: string): Promise<{ success: boolean }> {
+  ensureUuid(ticketId, "ticketId")
   const { supabase } = await requireSuperAdmin()
 
   const { error } = await supabase
@@ -957,6 +968,9 @@ export async function adminCorrectStock(
   newQuantity: number,
   reason: string
 ): Promise<{ success: boolean }> {
+  ensureUuid(ticketId, "ticketId")
+  ensureUuid(tenantId, "tenantId")
+  ensureUuid(itemId, "itemId")
   await requireSuperAdmin()
   const adminClient = createAdminClient()
 
@@ -1013,6 +1027,9 @@ export async function adminCorrectPrice(
   priceField: "selling" | "cost" | "unit",
   reason: string
 ): Promise<{ success: boolean }> {
+  ensureUuid(ticketId, "ticketId")
+  ensureUuid(tenantId, "tenantId")
+  ensureUuid(itemId, "itemId")
   await requireSuperAdmin()
   const adminClient = createAdminClient()
 
@@ -1067,6 +1084,8 @@ export async function adminCorrectOrder(
   updates: { total?: number; status?: string; paymentStatus?: string },
   reason: string
 ): Promise<{ success: boolean }> {
+  ensureUuid(ticketId, "ticketId")
+  ensureUuid(orderId, "orderId")
   await requireSuperAdmin()
   const adminClient = createAdminClient()
 

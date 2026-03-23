@@ -97,6 +97,10 @@ function CreateTicketDialog({ onCreated }: { onCreated: () => void }) {
 
   async function handleSubmit() {
     if (!subject.trim() || !message.trim()) return
+    if (!currentTenant?.id || currentTenant.id === "__fallback__") {
+      console.error("Tenant non disponible pour creer un ticket")
+      return
+    }
     setSubmitting(true)
     try {
       await createTicket({
