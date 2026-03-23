@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 
-// ✅ Utiliser nodejs au lieu de edge pour éviter les problèmes @vercel/og + Turbopack
+// ✅ Metadata route - generates apple icon dynamically
 export const runtime = 'nodejs'
 export const contentType = 'image/jpeg'
 export const size = {
@@ -10,7 +10,7 @@ export const size = {
 export const alt = 'KIFSHOP Pastry'
 export const revalidate = 86400 // 24 hours
 
-export default function AppleIcon() {
+export default async function AppleIcon() {
   return new ImageResponse(
     (
       <div
