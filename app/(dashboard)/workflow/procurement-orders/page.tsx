@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTenant } from "@/hooks/use-tenant";
+import { useTenant } from "@/lib/tenant-context";
 import { useBonApprovisionnement } from "@/hooks/use-workflow-data";
 import { BonApproView } from "@/components/workflow/bon-appro-view";
 import {
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
 
 export default function ProcurementOrdersPage() {
-  const { tenant } = useTenant();
+  const { currentTenant: tenant } = useTenant();
   const { orders, isLoading, error } = useBonApprovisionnement(tenant?.id || null);
   const [generatedOrderCount, setGeneratedOrderCount] = useState(0);
 

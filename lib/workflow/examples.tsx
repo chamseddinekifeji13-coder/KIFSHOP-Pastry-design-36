@@ -3,14 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useStockAlerts, useBonApprovisionnement } from '@/hooks/use-workflow-data';
 import { useStockAlertsWorkflow } from '@/hooks/use-stock-alerts-workflow';
-import { useTenant } from '@/hooks/use-tenant';
+import { useTenant } from '@/lib/tenant-context';
 import { StockAlertsList } from '@/components/workflow/stock-alerts-list';
 import { BonApproView } from '@/components/workflow/bon-appro-view';
 import { WorkflowTraceability } from '@/components/workflow/workflow-traceability';
 
 // Example 1: Simple integration with status summary
 export function WorkflowDashboard() {
-  const { tenant } = useTenant();
+  const { currentTenant: tenant } = useTenant();
   const { alerts } = useStockAlerts(tenant?.id || null);
   const { orders } = useBonApprovisionnement(tenant?.id || null);
 
@@ -36,8 +36,7 @@ export function WorkflowDashboard() {
 
 // Example 2: Convert alerts with custom logic
 export function QuickConvertAlerts() {
-  const { tenant } = useTenant();
-  const { user } = useAuth(); // Your auth hook
+  const { currentTenant: tenant } = useTenant();
   const { alerts } = useStockAlerts(tenant?.id || null);
   const { convertAlertsToAppro, isLoading } = useStockAlertsWorkflow();
 

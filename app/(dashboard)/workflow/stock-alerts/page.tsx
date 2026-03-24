@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTenant } from "@/hooks/use-tenant";
+import { useTenant } from "@/lib/tenant-context";
 import { useStockAlerts } from "@/hooks/use-workflow-data";
 import { StockAlertsList } from "@/components/workflow/stock-alerts-list";
 import { BonApproView } from "@/components/workflow/bon-appro-view";
@@ -18,7 +18,7 @@ import { AlertCircle } from "lucide-react";
 
 export default function StockAlertsPage() {
   const router = useRouter();
-  const { tenant } = useTenant();
+  const { currentTenant: tenant } = useTenant();
   const { alerts, isLoading, error } = useStockAlerts(tenant?.id || null);
   const [convertedApproId, setConvertedApproId] = useState<string | null>(null);
 
