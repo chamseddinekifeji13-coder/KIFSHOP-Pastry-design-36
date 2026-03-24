@@ -12,6 +12,7 @@ import { useTenant } from "@/lib/tenant-context"
 import { createRawMaterial } from "@/lib/stocks/actions"
 import { useStorageLocations } from "@/hooks/use-tenant-data"
 import { BarcodeInput } from "@/components/ui/barcode-input"
+import { useSWRConfig } from "swr"
 
 const UNITS = [
   { value: "kg", label: "Kilogrammes (kg)" },
@@ -31,6 +32,7 @@ interface NewRawMaterialDrawerProps {
 
 export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMaterialDrawerProps) {
   const { currentTenant } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const { data: storageLocations } = useStorageLocations()
   const [saving, setSaving] = useState(false)
   
@@ -99,6 +101,14 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
       })
       if (result) {
         toast.success("Matière première ajoutée", { description: name.trim() })
+        
+        // Revalidate SWR cache for dashboard
+        globalMutate((key) => typeof key === "string" && (
+          key.includes("raw_materials") || 
+          key.includes("critical_stock") ||
+          key.includes(currentTenant.id)
+        ), undefined, { revalidate: true })
+        
         resetForm()
         onOpenChange(false)
         onSuccess?.()
