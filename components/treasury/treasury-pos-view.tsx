@@ -858,9 +858,9 @@ export function TreasuryPosView() {
         </div>
 
         {/* Cart section */}
-        <div className="w-[380px] bg-[#0f0f0f] border-l border-[#2a2a2a] flex flex-col">
+        <div className="w-[380px] bg-[#0f0f0f] border-l border-[#2a2a2a] flex flex-col h-full max-h-full overflow-hidden">
           {/* Cart header */}
-          <div className="p-4 border-b border-[#2a2a2a]">
+          <div className="p-4 border-b border-[#2a2a2a] shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-amber-500" />
@@ -883,8 +883,8 @@ export function TreasuryPosView() {
             </div>
           </div>
 
-          {/* Cart items */}
-          <ScrollArea className="flex-1 p-4">
+          {/* Cart items - scrollable area */}
+          <ScrollArea className="flex-1 min-h-0 p-4">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500">
                 <ShoppingBag className="h-16 w-16 mb-3 opacity-30 text-amber-500" />
@@ -958,8 +958,8 @@ export function TreasuryPosView() {
             )}
           </ScrollArea>
 
-          {/* Cart footer */}
-          <div className="border-t border-[#2a2a2a] p-4 bg-[#0a0a0a]">
+          {/* Cart footer - fixed at bottom */}
+          <div className="border-t border-[#2a2a2a] p-4 bg-[#0a0a0a] shrink-0">
             {/* Totals */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-gray-400">
