@@ -4,9 +4,6 @@
 -- =============================================
 
 -- Obtenir d'abord le tenant_id actuel (le premier tenant actif)
-WITH tenant_ids AS (
-  SELECT DISTINCT tenant_id FROM tenant_users LIMIT 1
-)
 INSERT INTO public.finished_products (
   tenant_id, name, description, category_id, unit, 
   current_stock, min_stock, selling_price, cost_price, 
@@ -79,8 +76,7 @@ FROM (
     ('PATE PISTACHE PREMIUM 300G', 'Pâte - Pistache premium 300g', 0, 4, 80000, 48000, 8000, 12000, '300g'),
     ('PATE AMANDE COMPLETE 350G', 'Pâte - Amande complète 350g', 0, 4, 55000, 32000, 5000, 8500, '350g')
 ) AS data(name, description, current_stock, min_stock, selling_price, cost_price, packaging_cost, ingredient_cost, weight)
-CROSS JOIN tenant_ids t
-ON CONFLICT (tenant_id, name) DO NOTHING;
+CROSS JOIN (SELECT DISTINCT tenant_id FROM tenant_users LIMIT 1) t;
 
 -- Vérifier que les produits ont été insérés
 SELECT COUNT(*) as inserted_products FROM public.finished_products;
