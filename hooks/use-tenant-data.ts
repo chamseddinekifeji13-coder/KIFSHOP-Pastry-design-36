@@ -71,7 +71,7 @@ export function useStockMovements(limit = 50) {
 }
 
 export function useTransactions() {
-  return useTenantQuery("transactions", fetchTransactions)
+  return useTenantQuery("transactions", fetchTransactions, { refreshInterval: 10000 })  // Rafraichit toutes les 10s pour le dashboard
 }
 
 export function useSuppliers() {
@@ -95,7 +95,7 @@ export function useInventorySessions() {
 }
 
 export function useOrders() {
-  return useTenantQuery("orders", fetchOrders)
+  return useTenantQuery("orders", fetchOrders, { refreshInterval: 10000 })  // Rafraichit toutes les 10s pour le dashboard
 }
 
 export function useProspects() {

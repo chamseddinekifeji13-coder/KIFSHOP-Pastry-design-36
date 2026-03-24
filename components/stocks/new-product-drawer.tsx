@@ -294,6 +294,14 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       })
       mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+      
+      // Revalidate SWR cache for dashboard
+      mutate((key: string) => typeof key === "string" && (
+        key.includes("finished_products") || 
+        key.includes("critical_stock") ||
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+      
       resetForm()
       onOpenChange(false)
     } catch (err: unknown) {

@@ -62,6 +62,7 @@ import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
 import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
 
 interface Product {
   id: string
@@ -92,6 +93,7 @@ const gouvernorats = [
 
 export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const {
     client,
     isLoading: clientLoading,
@@ -348,6 +350,14 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
 
       setSuccess(true)
       toast.success("Commande enregistree !")
+      
+      // Revalidate SWR cache to sync dashboard
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("orders") || 
+        key.includes("transactions") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+      
       onOrderCreated?.()
       setTimeout(() => handleClose(), 1500)
     } catch (err) {

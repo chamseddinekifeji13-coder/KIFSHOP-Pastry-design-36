@@ -28,7 +28,19 @@ export function DashboardView() {
     setIsRefreshing(true)
     const tenantId = currentTenant.id
     
-    // Invalider tous les caches lies au tenant
+    // Invalider les caches critiques du dashboard avec revalidation forcee
+    const keysToRefresh = [
+      `transactions-${tenantId}`,
+      `orders-${tenantId}`,
+      `raw-materials-${tenantId}`,
+      `notifications-${tenantId}`,
+      `critical-stock-${tenantId}`,
+    ]
+    
+    // Revalider chaque cle specifiquement pour une mise a jour immediate
+    await Promise.all(keysToRefresh.map(key => mutate(key)))
+    
+    // Aussi invalider tous les autres caches lies au tenant
     await mutate(
       (key) => typeof key === "string" && key.includes(tenantId),
       undefined,
@@ -36,7 +48,7 @@ export function DashboardView() {
     )
     
     // Petit delai pour montrer le feedback visuel
-    setTimeout(() => setIsRefreshing(false), 500)
+    setTimeout(() => setIsRefreshing(false), 600)
   }, [currentTenant.id, mutate])
 
   // Contenu réutilisable extrait pour éviter la duplication
