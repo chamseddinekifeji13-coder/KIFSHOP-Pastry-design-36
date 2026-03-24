@@ -602,6 +602,15 @@ export function TreasuryPosView() {
       // Success sound
       soundManager.playSuccess()
 
+      // Revalidate SWR cache to sync dashboard
+      await refreshTransactions()
+      // Also invalidate orders and dashboard-related caches
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("transactions") || 
+        key.includes("orders") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+
       // Success
       toast.success("Vente enregistree!")
       clearCart()
