@@ -218,15 +218,8 @@ export function TreasuryPosView() {
 
   // Get categories from products
   const categories = products
-  ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
-  : []
-
-  // Debug log
-  if (products?.length === 0) {
-    console.log("[v0] Products array is empty - fetchFinishedProducts returned nothing")
-  } else if (products) {
-    console.log("[v0] Products loaded:", products.length, "items", products.slice(0, 3).map((p: any) => ({ id: p.id, name: p.name, stock: p.currentStock })))
-  }
+    ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
+    : []
 
   // Filter products by search and category
   const filteredProducts = (products as any[] || []).filter(p => {
