@@ -1,16 +1,15 @@
 import { useCallback, useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
-import { useTenant } from "@/hooks/use-tenant";
+import { useTenant } from "@/lib/tenant-context";
 
 export function useStockAlertsWorkflow() {
-  const { user } = useAuth();
-  const { tenant } = useTenant();
+  const { authUser } = useTenant();
+  const { currentTenant } = useTenant();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const convertAlertsToAppro = useCallback(
     async (alertIds: string[], priority: string = "normal") => {
-      if (!user || !tenant) {
+      if (!authUser || !currentTenant) {
         setError("User and tenant information is required");
         return null;
       }
@@ -27,8 +26,8 @@ export function useStockAlertsWorkflow() {
           body: JSON.stringify({
             alertIds,
             priority,
-            userId: user.id,
-            tenantId: tenant.id,
+            userId: authUser.id,
+            tenantId: currentTenant.id,
           }),
         });
 
@@ -48,12 +47,12 @@ export function useStockAlertsWorkflow() {
         setIsLoading(false);
       }
     },
-    [user, tenant]
+    [authUser, currentTenant]
   );
 
   const generatePurchaseOrders = useCallback(
     async (approId: string) => {
-      if (!user) {
+      if (!authUser) {
         setError("User information is required");
         return null;
       }
@@ -69,7 +68,7 @@ export function useStockAlertsWorkflow() {
           },
           body: JSON.stringify({
             approId,
-            userId: user.id,
+            userId: authUser.id,
           }),
         });
 
@@ -89,7 +88,7 @@ export function useStockAlertsWorkflow() {
         setIsLoading(false);
       }
     },
-    [user]
+    [authUser]
   );
 
   return {

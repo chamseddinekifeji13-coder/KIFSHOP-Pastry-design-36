@@ -1,6 +1,6 @@
 "use client";
 
-import { useTenant } from "@/hooks/use-tenant";
+import { useTenant } from "@/lib/tenant-context";
 import { WorkflowTraceability } from "@/components/workflow/workflow-traceability";
 import {
   Card,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 
 export default function WorkflowTraceabilityPage() {
-  const { tenant } = useTenant();
+  const { currentTenant: tenant } = useTenant();
 
   if (!tenant) {
     return (

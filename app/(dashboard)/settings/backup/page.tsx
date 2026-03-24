@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { useTenant } from "@/lib/tenant/client"
+import { useTenant } from "@/lib/tenant-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,7 +53,7 @@ interface DeletedRecord {
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function BackupPage() {
-  const { tenant } = useTenant()
+  const { currentTenant: tenant } = useTenant()
   const [selectedTables, setSelectedTables] = useState<string[]>(
     BACKUP_TABLES.filter((t) => t.critical).map((t) => t.id)
   )
