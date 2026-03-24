@@ -5,7 +5,7 @@ import {
   Phone, Search, User, Plus, Minus, Trash2,
   ShoppingBag, Truck, Store, Check, Loader2,
   Clock, AlertTriangle, Ban, Crown,
-  Zap, X
+  Zap, X, Pencil
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -63,6 +63,7 @@ export function FastSalesView() {
   // State
   const [phone, setPhone] = useState("")
   const [clientName, setClientName] = useState("")
+  const [editingName, setEditingName] = useState(false)
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
   const [gouvernorat, setGouvernorat] = useState("")
@@ -147,7 +148,10 @@ export function FastSalesView() {
       const result = await lookupClient(cleanPhone, currentTenant.id)
       if (result?.name) {
         setClientName(result.name)
+      } else {
+        setClientName("")
       }
+      setEditingName(false)
     } catch {
       toast.error("Erreur lors de la recherche du client")
     }
@@ -207,8 +211,11 @@ export function FastSalesView() {
 
     setSubmitting(true)
     try {
-      // Update client name if new
-      if (isNewClient && clientName.trim()) {
+      // Update client name if new OR if name was edited
+      const shouldUpdateName = (isNewClient && clientName.trim()) || 
+        (editingName && clientName.trim() && clientName.trim() !== client.name)
+      
+      if (shouldUpdateName) {
         const supabase = createSupabaseClient()
         await supabase
           .from("clients")
@@ -259,6 +266,7 @@ export function FastSalesView() {
   const handleReset = () => {
     setPhone("")
     setClientName("")
+    setEditingName(false)
     setDeliveryType("pickup")
     setCourier("")
     setGouvernorat("")
@@ -360,13 +368,52 @@ export function FastSalesView() {
                     </Badge>
                   </div>
 
-                  {isNewClient && (
-                    <Input
-                      placeholder="Nom du client"
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      className="h-12 text-lg touch-target mt-2"
-                    />
+                  {/* Nom du client - visible si nouveau OU sans nom OU en mode edition */}
+                  {(isNewClient || !client.name || editingName) ? (
+                    <div className="mt-2 space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        Nom du client {isNewClient && <span className="text-destructive">*</span>}
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Ex: Mohamed Ben Ali"
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          className="h-12 text-lg touch-target flex-1"
+                          autoFocus={editingName}
+                        />
+                        {editingName && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-12 w-12 shrink-0"
+                            onClick={() => {
+                              setEditingName(false)
+                              setClientName(client.name || "")
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {isNewClient && (
+                        <p className="text-xs text-muted-foreground">Nouveau client - le nom sera enregistre</p>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-1 h-8 text-xs text-muted-foreground hover:text-foreground -ml-1"
+                      onClick={() => {
+                        setClientName(client.name || "")
+                        setEditingName(true)
+                      }}
+                    >
+                      <Pencil className="h-3 w-3 mr-1.5" />
+                      Modifier le nom
+                    </Button>
                   )}
 
                   {isBlocked && (

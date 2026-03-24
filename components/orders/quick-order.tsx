@@ -23,6 +23,8 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
+  Pencil,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -109,6 +111,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   // New client fields
   const [clientName, setClientName] = useState("")
   const [clientAddress, setClientAddress] = useState("")
+  const [editingName, setEditingName] = useState(false)
 
   // Order fields
   const [source, setSource] = useState<string>("phone")
@@ -213,7 +216,10 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       const result = await lookupClient(cleanPhone, currentTenant.id)
       if (result && result.name) {
         setClientName(result.name)
+      } else {
+        setClientName("")
       }
+      setEditingName(false)
     } catch (err) {
       console.error("Erreur recherche client:", err)
       toast.error("Erreur lors de la recherche du client")
@@ -295,8 +301,11 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
 
     setSubmitting(true)
     try {
-      // Update client name if new
-      if (isNewClient && clientName.trim()) {
+      // Update client name if new OR if editing an existing client's name
+      const shouldUpdateName = (isNewClient && clientName.trim()) ||
+        (editingName && clientName.trim() && clientName.trim() !== client.name)
+
+      if (shouldUpdateName) {
         const supabase = createSupabaseClient()
         const { error: updateError } = await supabase
           .from("clients")
@@ -353,6 +362,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setTruecallerVerified(false)
     setClientName("")
     setClientAddress("")
+    setEditingName(false)
     setSource("phone")
     setDeliveryType("pickup")
     setCourier("")
@@ -600,17 +610,54 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                   {client && (
                     <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">
-                          Nom du client {isNewClient && <span className="text-red-600">*</span>}
+                        <Label className="text-xs font-medium flex items-center justify-between">
+                          <span>
+                            Nom du client
+                            {isNewClient && <span className="text-red-600 ml-0.5">*</span>}
+                            {!isNewClient && !client.name && <span className="text-red-600 ml-0.5">*</span>}
+                          </span>
+                          {!isNewClient && client.name && !editingName && (
+                            <button
+                              type="button"
+                              onClick={() => { setClientName(client.name || ""); setEditingName(true) }}
+                              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-normal transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Modifier
+                            </button>
+                          )}
                         </Label>
-                        <Input
-                          placeholder="Ex: Mohamed Ben Ali"
-                          value={isNewClient ? clientName : (client.name || "")}
-                          onChange={(e) => setClientName(e.target.value)}
-                          disabled={!isNewClient}
-                          className={`bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 ${!isNewClient ? "opacity-75 cursor-not-allowed" : ""}`}
-                        />
-                        {!isNewClient && <p className="text-xs text-muted-foreground">Client existant - Affichage uniquement</p>}
+                        {(isNewClient || !client.name || editingName) ? (
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Ex: Mohamed Ben Ali"
+                              value={clientName}
+                              onChange={(e) => setClientName(e.target.value)}
+                              autoFocus={editingName}
+                              className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 flex-1"
+                            />
+                            {editingName && (
+                              <button
+                                type="button"
+                                onClick={() => { setEditingName(false); setClientName(client.name || "") }}
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors shrink-0"
+                                title="Annuler"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-2 rounded-lg bg-muted/50 text-sm text-foreground">
+                            {client.name}
+                          </div>
+                        )}
+                        {isNewClient && (
+                          <p className="text-xs text-muted-foreground">Nouveau client — le nom sera enregistre</p>
+                        )}
+                        {!isNewClient && !client.name && (
+                          <p className="text-xs text-amber-600">Ce client n&apos;a pas encore de nom — ajoutez-en un</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Adresse</Label>
