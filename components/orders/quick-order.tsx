@@ -24,6 +24,7 @@ import {
   Trash2,
   ShieldCheck,
   Pencil,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -639,9 +640,10 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                               <button
                                 type="button"
                                 onClick={() => { setEditingName(false); setClientName(client.name || "") }}
-                                className="text-muted-foreground hover:text-foreground p-2 transition-colors"
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors shrink-0"
+                                title="Annuler"
                               >
-                                <span className="text-xs">Annuler</span>
+                                <X className="h-4 w-4" />
                               </button>
                             )}
                           </div>
