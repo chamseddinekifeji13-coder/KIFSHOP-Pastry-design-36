@@ -132,7 +132,7 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
   const supabase = createClient()
   const { data, error } = await supabase
     .from("raw_materials")
-    .select("*")
+    .select("id, tenant_id, name, unit, current_stock, min_stock, price_per_unit, supplier_id, storage_location_id, created_at")
     .eq("tenant_id", tenantId)
     .order("name")
 
@@ -140,7 +140,7 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
   return (data || []).map((r) => ({
     id: r.id, tenantId: r.tenant_id, name: r.name, unit: r.unit,
     currentStock: Number(r.current_stock), minStock: Number(r.min_stock),
-    pricePerUnit: Number(r.price_per_unit), supplier: r.supplier,
+    pricePerUnit: Number(r.price_per_unit), supplier: null,
     storageLocationId: r.storage_location_id || null,
     createdAt: r.created_at,
   }))
@@ -183,15 +183,14 @@ export async function createRawMaterial(tenantId: string, data: {
   const { data: row, error } = await supabase.from("raw_materials").insert({
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
-    price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
-    barcode: data.barcode || null,
+    price_per_unit: data.pricePerUnit,
     storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, name: row.name, unit: row.unit,
     currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
-    pricePerUnit: Number(row.price_per_unit), supplier: row.supplier,
+    pricePerUnit: Number(row.price_per_unit), supplier: null,
     storageLocationId: row.storage_location_id || null, createdAt: row.created_at }
 }
 
@@ -218,8 +217,6 @@ export async function updateRawMaterial(id: string, data: Partial<{
   if (data.currentStock !== undefined) updates.current_stock = data.currentStock
   if (data.minStock !== undefined) updates.min_stock = data.minStock
   if (data.pricePerUnit !== undefined) updates.price_per_unit = data.pricePerUnit
-  if (data.supplier !== undefined) updates.supplier = data.supplier
-  if (data.barcode !== undefined) updates.barcode = data.barcode
   if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId
   const { error } = await supabase.from("raw_materials").update(updates).eq("id", id)
   if (error) { console.error("Error updating raw material:", error.message); return false }
