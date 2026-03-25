@@ -118,8 +118,6 @@ export async function POST(request: Request) {
       source: source || "phone",
       delivery_date: deliveryDate || null,
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-      confirmed_by_name: session.displayName,
-      truecaller_verified: truecallerVerified || false,
     }
 
     // Add offer fields if they exist in the table
