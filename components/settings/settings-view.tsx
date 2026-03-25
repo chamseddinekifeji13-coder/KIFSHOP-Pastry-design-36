@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2 } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2, UploadCloud } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,13 @@ import {
 } from "@/lib/orders/invoice-actions"
 import { toast } from "sonner"
 import { useI18n, type Locale } from "@/lib/i18n/context"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export function SettingsView() {
   const { locale, setLocale } = useI18n()
@@ -32,6 +39,10 @@ export function SettingsView() {
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [usersOpen, setUsersOpen] = useState(false)
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
+  const [restoreFile, setRestoreFile] = useState<File | null>(null)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [restoreProgress, setRestoreProgress] = useState(0)
 
   // Update check
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date" | "forcing">("idle")
@@ -175,6 +186,73 @@ export function SettingsView() {
     setInvoiceSaving(false)
   }
 
+  // Restore backup
+  const handleRestoreBackup = async () => {
+    if (!restoreFile) {
+      toast.error("Veuillez sélectionner un fichier JSON")
+      return
+    }
+
+    setIsRestoring(true)
+    setRestoreProgress(10)
+
+    try {
+      const fileContent = await restoreFile.text()
+      let backupData
+
+      try {
+        backupData = JSON.parse(fileContent)
+      } catch (e) {
+        toast.error("Format JSON invalide")
+        setIsRestoring(false)
+        return
+      }
+
+      setRestoreProgress(30)
+
+      const response = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          backup: backupData,
+          options: { mode: 'merge' }
+        }),
+      })
+
+      setRestoreProgress(70)
+
+      if (!response.ok) {
+        let errorMessage = 'Erreur lors de la restauration'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          errorMessage = `Erreur HTTP ${response.status}`
+        }
+        throw new Error(errorMessage)
+      }
+
+      const result = await response.json()
+
+      if (!result.success && result.error) {
+        throw new Error(result.error)
+      }
+
+      setRestoreProgress(100)
+      toast.success("✅ Restauration réussie! Vos données ont été restaurées.")
+      setRestoreFile(null)
+      setRestoreDialogOpen(false)
+      setTimeout(() => window.location.reload(), 2000)
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de la restauration')
+    } finally {
+      setIsRestoring(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -287,6 +365,31 @@ export function SettingsView() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Restore Backup - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <UploadCloud className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Restaurer les données</CardTitle>
+              </div>
+              <CardDescription>Importez une sauvegarde JSON pour restaurer vos données</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Cliquez sur le bouton ci-dessous pour restaurer vos articles, clients et fournisseurs à partir d'un fichier de sauvegarde.
+              </p>
+              <Button
+                onClick={() => setRestoreDialogOpen(true)}
+                className="w-full"
+              >
+                <UploadCloud className="h-4 w-4 mr-2" />
+                Restaurer une sauvegarde
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Delivery Companies - Owner & Gerant */}
         {(currentRole === "owner" || currentRole === "gerant") && (
@@ -675,6 +778,84 @@ export function SettingsView() {
       <ShopConfigDrawer open={shopConfigOpen} onOpenChange={setShopConfigOpen} />
       <CategoriesDrawer open={categoriesOpen} onOpenChange={setCategoriesOpen} />
       <UsersDrawer open={usersOpen} onOpenChange={setUsersOpen} />
+
+      {/* Restore Backup Dialog */}
+      <Dialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restaurer une sauvegarde</DialogTitle>
+            <DialogDescription>
+              Sélectionnez un fichier JSON de sauvegarde pour restaurer vos données
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* File input area */}
+            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition cursor-pointer"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = e.dataTransfer.files?.[0]
+                if (file?.name.endsWith('.json')) {
+                  setRestoreFile(file)
+                }
+              }}
+            >
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="restore-file-input"
+                disabled={isRestoring}
+              />
+              <label htmlFor="restore-file-input" className="cursor-pointer block">
+                <UploadCloud className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <div className="text-sm font-medium">
+                  {restoreFile ? restoreFile.name : 'Déposez votre fichier JSON ici'}
+                </div>
+                <p className="text-xs text-muted-foreground">ou cliquez pour sélectionner</p>
+              </label>
+            </div>
+
+            {/* Progress bar */}
+            {isRestoring && (
+              <div className="space-y-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${restoreProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  Restauration: {restoreProgress}%
+                </p>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleRestoreBackup}
+                disabled={!restoreFile || isRestoring}
+                className="flex-1"
+              >
+                {isRestoring ? 'Restauration en cours...' : 'Restaurer'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setRestoreFile(null)
+                  setRestoreDialogOpen(false)
+                }}
+                variant="outline"
+                disabled={isRestoring}
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
