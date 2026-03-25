@@ -44,9 +44,9 @@ export async function POST(request: Request) {
 
     // For offers, amount can be 0 if discount is 100%
     const isOfferType = orderType === "offre_client" || orderType === "offre_personnel"
-    if (!clientId || !phone || typeof amount !== "number" || (!isOfferType && amount <= 0)) {
+    if (!phone || typeof amount !== "number" || (!isOfferType && amount <= 0)) {
       return NextResponse.json(
-        { error: "Donnees invalides: clientId, phone et amount requis" },
+        { error: "Donnees invalides: phone et amount requis" },
         { status: 400 }
       )
     }
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
       customer_phone: phone,
       total: finalTotal,
       shipping_cost: shippingCost || 0,
-      status: "novo",
+      status: "nouveau",
       delivery_type: deliveryType || "pickup",
       courier: courier || null,
       gouvernorat: gouvernorat || null,
