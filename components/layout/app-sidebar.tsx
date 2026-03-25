@@ -21,6 +21,9 @@ import {
   Megaphone,
   CreditCard,
   Zap,
+  AlertTriangle,
+  FileText,
+  Eye,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -80,6 +83,15 @@ const navigation = [
       { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
       { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },
+    ],
+  },
+  {
+    titleKey: "nav.workflow",
+    fallback: "Workflow",
+    items: [
+      { titleKey: "nav.stock_alerts", fallback: "Alertes Stock", href: "/workflow/stock-alerts", icon: AlertTriangle },
+      { titleKey: "nav.procurement_orders", fallback: "Bons d'Appro", href: "/workflow/procurement-orders", icon: FileText },
+      { titleKey: "nav.traceability", fallback: "Traçabilité", href: "/workflow/traceability", icon: Eye },
     ],
   },
   {
