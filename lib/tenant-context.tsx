@@ -28,11 +28,11 @@ export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier"
 
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
-  owner: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/pos80", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
-  gerant: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/pos80", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
+  owner: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/workflow", "/tresorerie", "/pos80", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
+  gerant: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/workflow", "/tresorerie", "/pos80", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
   vendeur: ["/commandes", "/clients", "/canaux", "/prospects", "/support"],
-  magasinier: ["/stocks", "/inventaire", "/support"],
-  achat: ["/approvisionnement", "/support"],
+  magasinier: ["/stocks", "/inventaire", "/workflow", "/support"],
+  achat: ["/approvisionnement", "/workflow", "/support"],
   caissier: ["/tresorerie", "/pos80", "/support"],
   patissier: ["/production", "/support"],
 }
