@@ -137,8 +137,8 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
       orders.push({
         id: o.id,
         tenantId: o.tenant_id,
-        customerName: o.client_name || o.customer_name || "",
-        customerPhone: o.phone || o.customer_phone || "",
+        customerName: o.customer_name || "",
+        customerPhone: o.customer_phone || "",
         customerAddress: o.customer_address || undefined,
         items: items.map((item: any) => ({
           id: item.id || "",
@@ -236,13 +236,6 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       payment_status: paymentStatus,
       delivery_date: data.deliveryDate || null,
       notes: data.notes || null,
-      // Offer fields
-      order_type: data.orderType || "normal",
-      offer_beneficiary: data.offerBeneficiary || null,
-      offer_reason: data.offerReason || null,
-      discount_percent: data.discountPercent || 0,
-      discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
-      // Creator reference - required by foreign key constraint
       created_by: user.id,
     })
     .select()
@@ -270,16 +263,21 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     console.error("Error creating order items:", itemsError.message)
   }
 
-  // Record initial status history (use active profile name if available)
-  await supabase.from("order_status_history").insert({
-    order_id: order.id,
-    tenant_id: data.tenantId,
-    from_status: null,
-    to_status: "nouveau",
-    changed_by: user.id,
-    changed_by_name: creatorName,
-    note: "Commande creee",
-  })
+  // Record initial status history (use active profile name if available) - handle gracefully if table doesn't exist
+  try {
+    await supabase.from("order_status_history").insert({
+      order_id: order.id,
+      tenant_id: data.tenantId,
+      from_status: null,
+      to_status: "nouveau",
+      changed_by: user.id,
+      changed_by_name: creatorName,
+      note: "Commande creee",
+    })
+  } catch (histError: any) {
+    console.debug("Could not record status history:", histError.message)
+    // Don't fail order creation if status history table doesn't exist
+  }
 
   return {
     id: order.id,
