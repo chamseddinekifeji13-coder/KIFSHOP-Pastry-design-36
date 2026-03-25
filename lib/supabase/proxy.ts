@@ -2,7 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  // Create ONE response object only - never create multiple
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -14,7 +13,6 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // Set cookies ONLY on the response, never modify request
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options)
           })
@@ -23,10 +21,12 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
+  let user = null
   try {
-    await supabase.auth.getUser()
+    const { data } = await supabase.auth.getUser()
+    user = data?.user
   } catch (error) {
-    console.error('[Auth Error]', error)
+    console.error('[Supabase Auth Error]', error)
   }
 
   const pathname = request.nextUrl.pathname
@@ -38,23 +38,12 @@ export async function updateSession(request: NextRequest) {
   const isStorefrontRoute = pathname.startsWith('/store')
   const isPublicRoute = isAuthRoute || isApiRoute || isRootPage || isDownloadPage || isStorefrontRoute
 
-  // Get user
-  let user = null
-  try {
-    const { data } = await supabase.auth.getUser()
-    user = data?.user
-  } catch {
-    // Not authenticated
-  }
-
-  // Redirect unauthenticated users to login
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
-  // Protect super-admin routes
   if (user && isSuperAdminRoute) {
     const isSuperAdmin = user.user_metadata?.is_super_admin === true
     if (!isSuperAdmin) {
@@ -64,7 +53,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect super admins from dashboard
   if (user && pathname.startsWith('/dashboard')) {
     const isSuperAdmin = user.user_metadata?.is_super_admin === true
     if (isSuperAdmin) {
@@ -74,7 +62,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect logged-in users away from auth pages
   const isResetPasswordRoute = pathname === '/auth/reset-password'
   if (user && isAuthRoute && !isResetPasswordRoute) {
     const url = request.nextUrl.clone()
