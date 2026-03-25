@@ -147,7 +147,7 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
 }
 
 export async function createRawMaterial(tenantId: string, data: {
-  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; barcode?: string; storageLocationId?: string
+  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; storageLocationId?: string
 }): Promise<RawMaterial | null> {
   // Validate required fields - prevent null/empty names
   const trimmedName = data.name?.trim()
@@ -184,7 +184,6 @@ export async function createRawMaterial(tenantId: string, data: {
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
-    barcode: data.barcode || null,
     storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
@@ -196,7 +195,7 @@ export async function createRawMaterial(tenantId: string, data: {
 }
 
 export async function updateRawMaterial(id: string, data: Partial<{
-  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; barcode: string; storageLocationId: string | null
+  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; storageLocationId: string | null
 }>): Promise<boolean> {
   // Validate name if provided - prevent null/empty names
   if (data.name !== undefined) {
@@ -219,7 +218,6 @@ export async function updateRawMaterial(id: string, data: Partial<{
   if (data.minStock !== undefined) updates.min_stock = data.minStock
   if (data.pricePerUnit !== undefined) updates.price_per_unit = data.pricePerUnit
   if (data.supplier !== undefined) updates.supplier = data.supplier
-  if (data.barcode !== undefined) updates.barcode = data.barcode
   if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId
   const { error } = await supabase.from("raw_materials").update(updates).eq("id", id)
   if (error) { console.error("Error updating raw material:", error.message); return false }
