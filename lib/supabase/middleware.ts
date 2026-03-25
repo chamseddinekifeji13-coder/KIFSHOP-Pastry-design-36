@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  // Create initial response - DO NOT modify this, only use it for redirects
+  // Start with a response that passes through the request
   let response = NextResponse.next({ request })
 
   try {
@@ -15,8 +15,8 @@ export async function updateSession(request: NextRequest) {
             return request.cookies.getAll()
           },
           setAll(cookiesToSet) {
+            // Only set cookies on the response, never on request
             cookiesToSet.forEach(({ name, value, options }) => {
-              request.cookies.set(name, value)
               response.cookies.set(name, value, options)
             })
           },
@@ -24,13 +24,13 @@ export async function updateSession(request: NextRequest) {
       },
     )
 
-    // Get user without throwing errors
+    // Get user without throwing
     let user = null
     try {
       const { data } = await supabase.auth.getUser()
       user = data?.user
-    } catch (error) {
-      console.error('[Auth Error]', error)
+    } catch {
+      // User not authenticated, continue
     }
 
     const pathname = request.nextUrl.pathname
@@ -42,45 +42,62 @@ export async function updateSession(request: NextRequest) {
     const isStorefrontRoute = pathname.startsWith('/store')
     const isPublicRoute = isAuthRoute || isApiRoute || isRootPage || isDownloadPage || isStorefrontRoute
 
-    // Redirect unauthenticated users to login (except public routes)
+    // Redirect unauthenticated users to login
     if (!user && !isPublicRoute) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/auth/login'
-      return NextResponse.redirect(url)
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/auth/login'
+      const loginResponse = NextResponse.redirect(loginUrl)
+      // Ensure cookies are set on redirect response too
+      response.cookies.getAll().forEach(({ name, value, options }) => {
+        loginResponse.cookies.set(name, value, options)
+      })
+      return loginResponse
     }
 
     // Protect super-admin routes
     if (user && isSuperAdminRoute) {
       const isSuperAdmin = user.user_metadata?.is_super_admin === true
       if (!isSuperAdmin) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/dashboard'
-        return NextResponse.redirect(url)
+        const dashboardUrl = request.nextUrl.clone()
+        dashboardUrl.pathname = '/dashboard'
+        const dashboardResponse = NextResponse.redirect(dashboardUrl)
+        response.cookies.getAll().forEach(({ name, value, options }) => {
+          dashboardResponse.cookies.set(name, value, options)
+        })
+        return dashboardResponse
       }
     }
 
-    // Redirect super admins away from tenant dashboard to super-admin panel
+    // Redirect super admins from dashboard to super-admin
     if (user && pathname.startsWith('/dashboard')) {
       const isSuperAdmin = user.user_metadata?.is_super_admin === true
       if (isSuperAdmin) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/super-admin'
-        return NextResponse.redirect(url)
+        const adminUrl = request.nextUrl.clone()
+        adminUrl.pathname = '/super-admin'
+        const adminResponse = NextResponse.redirect(adminUrl)
+        response.cookies.getAll().forEach(({ name, value, options }) => {
+          adminResponse.cookies.set(name, value, options)
+        })
+        return adminResponse
       }
     }
 
-    // Redirect logged-in users away from auth pages (except reset-password)
+    // Redirect authenticated users away from auth pages
     const isResetPasswordRoute = pathname === '/auth/reset-password'
     if (user && isAuthRoute && !isResetPasswordRoute) {
-      const url = request.nextUrl.clone()
+      const redirectUrl = request.nextUrl.clone()
       const isSuperAdmin = user.user_metadata?.is_super_admin === true
-      url.pathname = isSuperAdmin ? '/super-admin' : '/dashboard'
-      return NextResponse.redirect(url)
+      redirectUrl.pathname = isSuperAdmin ? '/super-admin' : '/dashboard'
+      const redirectResponse = NextResponse.redirect(redirectUrl)
+      response.cookies.getAll().forEach(({ name, value, options }) => {
+        redirectResponse.cookies.set(name, value, options)
+      })
+      return redirectResponse
     }
 
     return response
   } catch (error) {
-    console.error('[Middleware Fatal Error]', error)
+    console.error('[Middleware Error]', error)
     return response
   }
 }
