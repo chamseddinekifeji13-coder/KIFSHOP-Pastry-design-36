@@ -7,18 +7,8 @@ import { cn } from "@/lib/utils"
 
 // Explicit component assignments to avoid tree-shaking issues in production builds
 const Popover = PopoverPrimitive.Root
-
-const PopoverTrigger = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Trigger>
->((props, ref) => <PopoverPrimitive.Trigger {...props} ref={ref} />)
-PopoverTrigger.displayName = "PopoverTrigger"
-
-const PopoverAnchor = React.forwardRef<
-  React.ElementRef<typeof PopoverPrimitive.Anchor>,
-  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Anchor>
->((props, ref) => <PopoverPrimitive.Anchor {...props} ref={ref} />)
-PopoverAnchor.displayName = "PopoverAnchor"
+const PopoverTrigger = PopoverPrimitive.Trigger
+const PopoverAnchor = PopoverPrimitive.Anchor
 
 const PopoverContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,
