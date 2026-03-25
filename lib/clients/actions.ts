@@ -283,10 +283,10 @@ export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
     .eq("tenant_id", tenantId)
     .in("role", ["vendeur", "gerant", "owner"])
 
-  // 2. Fetch orders with confirmed_by
+  // 2. Fetch orders with created_by instead of confirmed_by (which doesn't exist)
   let query = supabase
     .from("orders")
-    .select("confirmed_by, confirmed_by_name, total, status, created_at")
+    .select("created_by, total, status, created_at")
     .eq("tenant_id", tenantId)
   
   // Filter orders created after reset date if set
@@ -331,8 +331,8 @@ export async function fetchAgentStats(tenantId: string): Promise<AgentStats[]> {
 
   // Count orders per agent
   for (const o of orders || []) {
-    if (o.confirmed_by && agentMap.has(o.confirmed_by)) {
-      const agent = agentMap.get(o.confirmed_by)!
+    if (o.created_by && agentMap.has(o.created_by)) {
+      const agent = agentMap.get(o.created_by)!
       agent.totalConfirmed++
       // Only count revenue for delivered orders
       if (o.status === "delivered" || o.status === "livre") {
