@@ -60,13 +60,24 @@ export default function RestoreBackupPage() {
       setProgress(80);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Erreur lors de la restauration');
+        let errorMessage = 'Erreur lors de la restauration';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          errorMessage = `Erreur HTTP ${response.status}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
+      
+      if (!result.success && result.error) {
+        throw new Error(result.error);
+      }
+
       setProgress(100);
-      setMessage(`✅ Restauration réussie! ${result.message || 'Vos 709 articles ont été restaurés'}`);
+      setMessage(`✅ Restauration réussie! ${result.message || 'Vos articles ont été restaurés'}`);
       setFile(null);
       
       // Reload page after 3 seconds
