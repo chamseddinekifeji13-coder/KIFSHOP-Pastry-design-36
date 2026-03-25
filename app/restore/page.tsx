@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,31 +30,49 @@ export default function RestorePage() {
 
     try {
       setIsRestoring(true);
-      setProgress(0);
+      setProgress(10);
 
-      const formData = new FormData();
-      formData.append('file', file);
+      // Lire le fichier JSON
+      const fileContent = await file.text();
+      let backupData;
 
-      const response = await fetch('/api/restore', {
+      try {
+        backupData = JSON.parse(fileContent);
+      } catch (e) {
+        toast.error('Format JSON invalide');
+        setIsRestoring(false);
+        return;
+      }
+
+      setProgress(30);
+
+      const response = await fetch('/api/backup/restore', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          backup: backupData,
+          options: { mode: 'merge' }
+        }),
       });
+
+      setProgress(70);
 
       if (!response.ok) {
         throw new Error('Erreur lors de la restauration');
       }
 
       const data = await response.json();
-      
       setProgress(100);
+      
       toast.success(`✅ ${data.message || 'Restauration réussie!'}`);
       setFile(null);
       
-      // Actualiser la page après 2 secondes
       setTimeout(() => window.location.reload(), 2000);
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error('Erreur lors de la restauration du fichier');
+      toast.error('Erreur lors de la restauration');
     } finally {
       setIsRestoring(false);
     }
@@ -61,7 +81,7 @@ export default function RestorePage() {
   const handleDragDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile) {
+    if (droppedFile && droppedFile.name.endsWith('.json')) {
       setFile(droppedFile);
       toast.success(`Fichier déposé: ${droppedFile.name}`);
     }
@@ -71,14 +91,13 @@ export default function RestorePage() {
     <div className="container mx-auto py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Restaurer vos données</CardTitle>
+          <CardTitle>Restaurer vos 709 articles</CardTitle>
           <CardDescription>
-            Importez votre fichier de sauvegarde (backup JSON) pour restaurer tous vos 709 articles
+            Importez votre fichier backup JSON pour restaurer tous vos produits, fournisseurs et clients
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Zone de glisser-déposer */}
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDragDrop}
@@ -94,30 +113,26 @@ export default function RestorePage() {
               />
               <label htmlFor="file-input" className="cursor-pointer block">
                 <div className="text-lg font-semibold mb-2">
-                  {file ? '📁 ' + file.name : '📤 Déposez votre fichier ici'}
+                  {file ? '✓ ' + file.name : 'Déposez votre fichier backup ici'}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  ou cliquez pour sélectionner un fichier JSON
+                  ou cliquez pour sélectionner
                 </p>
               </label>
             </div>
 
-            {/* Barre de progression */}
             {isRestoring && (
               <div className="space-y-2">
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all"
                     style={{ width: `${progress}%` }}
-                  ></div>
+                  />
                 </div>
-                <p className="text-sm text-center text-muted-foreground">
-                  Restauration en cours... {progress}%
-                </p>
+                <p className="text-sm text-center">Restauration: {progress}%</p>
               </div>
             )}
 
-            {/* Boutons */}
             <div className="flex gap-4">
               <Button
                 onClick={handleRestore}
@@ -125,27 +140,15 @@ export default function RestorePage() {
                 size="lg"
                 className="flex-1"
               >
-                {isRestoring ? 'Restauration...' : '✅ Restaurer'}
+                {isRestoring ? 'Restauration...' : 'Restaurer'}
               </Button>
               <Button
                 onClick={() => setFile(null)}
                 variant="outline"
                 disabled={isRestoring}
-                size="lg"
               >
                 Annuler
               </Button>
-            </div>
-
-            {/* Instructions */}
-            <div className="bg-blue-50 p-4 rounded-lg text-sm space-y-2">
-              <p className="font-semibold">Instructions :</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Sélectionnez votre fichier de sauvegarde (backup_*.json)</li>
-                <li>Cliquez sur "Restaurer"</li>
-                <li>Attendez 2-5 minutes (ne fermez pas la page)</li>
-                <li>✅ Vos 709 articles seront restaurés!</li>
-              </ul>
             </div>
           </div>
         </CardContent>
