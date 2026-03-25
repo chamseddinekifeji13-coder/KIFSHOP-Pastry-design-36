@@ -755,9 +755,9 @@ export async function createPackaging(tenantId: string, data: {
   
   const supabase = createClient()
   
-  // Check for exact and similar duplicates by name (remove type filter as type column may not exist)
+  // Check for exact and similar duplicates by name
   const { data: allPackaging } = await supabase
-    .from("packaging").select("id, name, type").eq("tenant_id", tenantId)
+    .from("packaging").select("id, name").eq("tenant_id", tenantId)
   
   if (allPackaging && allPackaging.length > 0) {
     const inputNormalized = normalizeString(data.name)
@@ -776,7 +776,7 @@ export async function createPackaging(tenantId: string, data: {
   }
   
   const { data: row, error } = await supabase.from("packaging").insert({
-    tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
+    tenant_id: tenantId, name: data.name, category: data.type || null, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.price, description: data.description || null,
     storage_location_id: data.storageLocationId || null,
@@ -798,8 +798,8 @@ export async function createPackaging(tenantId: string, data: {
   return {
     id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type || 'autre',
     description: row.description, unit: row.unit,
-    currentStock: Number(row.current_stock || 0), minStock: Number(row.min_stock || 0),
-    price: Number(row.price_per_unit || row.price || 0), createdAt: row.created_at,
+    currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
+    price: Number(row.price_per_unit), createdAt: row.created_at,
   }
 }
 
@@ -816,7 +816,7 @@ export async function updatePackaging(id: string, data: Partial<{
   const supabase = createClient()
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (data.name !== undefined) updates.name = data.name
-  if (data.type !== undefined) updates.type = data.type
+  if (data.type !== undefined) updates.category = data.type
   if (data.unit !== undefined) updates.unit = data.unit
   if (data.price !== undefined) updates.price_per_unit = data.price
   if (data.minStock !== undefined) updates.min_stock = data.minStock
