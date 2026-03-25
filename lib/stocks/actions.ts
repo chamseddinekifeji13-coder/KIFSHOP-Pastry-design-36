@@ -377,7 +377,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
   const supabase = createClient()
   const { data, error } = await supabase
     .from("finished_products")
-    .select("*, categories(name)")
+    .select("*")
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching finished products:", error.message); return [] }
@@ -385,7 +385,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
     const costPrice = Number(p.cost_price)
     return {
       id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, 
-      category: p.categories?.name || null, name: p.name,
+      category: null, name: p.name,
       description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
       costPrice, packagingCost: 0, ingredientCost: costPrice,
