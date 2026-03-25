@@ -236,13 +236,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       payment_status: paymentStatus,
       delivery_date: data.deliveryDate || null,
       notes: data.notes || null,
-      confirmed_by_name: creatorName,
-      // Offer fields
-      order_type: data.orderType || "normal",
-      offer_beneficiary: data.offerBeneficiary || null,
-      offer_reason: data.offerReason || null,
-      discount_percent: data.discountPercent || 0,
-      discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
+      created_by: user.id,
     })
     .select()
     .single()
