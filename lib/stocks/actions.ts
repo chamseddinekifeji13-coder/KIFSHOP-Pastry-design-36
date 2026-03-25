@@ -377,22 +377,18 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
   const supabase = createClient()
   const { data, error } = await supabase
     .from("finished_products")
-    .select("*, finished_product_packaging(quantity, packaging:packaging(price)), categories(name)")
+    .select("*, categories(name)")
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching finished products:", error.message); return [] }
   return (data || []).map((p: any) => {
-    const packagingCost = (p.finished_product_packaging || []).reduce(
-      (sum: number, fpp: any) => sum + (Number(fpp.quantity) * Number(fpp.packaging?.price || 0)), 0
-    )
     const costPrice = Number(p.cost_price)
-    const ingredientCost = Math.max(0, costPrice - packagingCost)
     return {
       id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, 
       category: p.categories?.name || null, name: p.name,
       description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
-      costPrice, packagingCost, ingredientCost,
+      costPrice, packagingCost: 0, ingredientCost: costPrice,
       imageUrl: p.image_url, weight: p.weight,
       isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
     }
