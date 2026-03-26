@@ -388,7 +388,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
       costPrice, packagingCost: 0, ingredientCost: costPrice,
       imageUrl: p.image_url, weight: p.weight,
-      isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
+      isPublished: p.is_published, minOrder: 1, tags: p.tags || [], createdAt: p.created_at,
     }
   })
 }
@@ -440,7 +440,7 @@ export async function createFinishedProduct(tenantId: string, data: {
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
     costPrice: Number(row.cost_price), imageUrl: row.image_url, weight: row.weight,
-    isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at }
+    isPublished: row.is_published, minOrder: 1, tags: row.tags || [], createdAt: row.created_at }
 }
 
 export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
@@ -463,7 +463,7 @@ export async function updateProductImage(productId: string, imageUrl: string): P
 
 export async function updateFinishedProduct(productId: string, data: {
   name?: string; description?: string; sellingPrice?: number; unit?: string;
-  weight?: string; isPublished?: boolean; minOrder?: number; tags?: string[];
+  weight?: string; isPublished?: boolean; tags?: string[];
   imageUrl?: string; currentStock?: number; minStock?: number; categoryId?: string | null;
 }): Promise<boolean> {
   const supabase = createClient()
@@ -479,7 +479,6 @@ export async function updateFinishedProduct(productId: string, data: {
   if (data.unit !== undefined) update.unit = data.unit
   if (data.weight !== undefined) update.weight = data.weight
   if (data.isPublished !== undefined) update.is_published = data.isPublished
-  if (data.minOrder !== undefined) update.min_order = data.minOrder
   if (data.tags !== undefined) update.tags = data.tags
   if (data.imageUrl !== undefined) update.image_url = data.imageUrl
   if (data.currentStock !== undefined) update.current_stock = data.currentStock
