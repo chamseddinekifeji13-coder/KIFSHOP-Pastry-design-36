@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { showError, showSuccess, showWarning } from "@/lib/error-messages"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -224,7 +225,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       setEditingName(false)
     } catch (err) {
       console.error("Erreur recherche client:", err)
-      toast.error("Erreur lors de la recherche du client")
+      showError(err, "Recherche client")
     }
   }, [phone, currentTenant.id, lookupClient])
 
@@ -285,19 +286,19 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   const handleSubmit = async () => {
     if (!client || isBlocked || hasExcessiveReturns || submitting) return
     if (items.length === 0) {
-      toast.error("Veuillez ajouter au moins un article")
+      showWarning("Panier vide", "Veuillez ajouter au moins un article a la commande.")
       return
     }
     if (total <= 0) {
-      toast.error("Le total de la commande doit être supérieur à 0")
+      showWarning("Total invalide", "Le total de la commande doit etre superieur a 0.")
       return
     }
     if (isNewClient && !clientName.trim()) {
-      toast.error("Veuillez entrer le nom du client")
+      showWarning("Nom requis", "Veuillez saisir le nom du client pour continuer.")
       return
     }
     if (deliveryType === "delivery" && !clientAddress.trim()) {
-      toast.error("Veuillez entrer l'adresse de livraison")
+      showWarning("Adresse requise", "Veuillez saisir l'adresse de livraison.")
       return
     }
 
@@ -361,7 +362,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       onOrderCreated?.()
       setTimeout(() => handleClose(), 1500)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur creation commande")
+      showError(err, "Creation commande")
     } finally {
       setSubmitting(false)
     }
