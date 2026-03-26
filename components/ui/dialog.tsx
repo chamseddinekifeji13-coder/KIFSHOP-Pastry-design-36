@@ -48,27 +48,6 @@ const DialogContent = React.forwardRef<
     showCloseButton?: boolean
   }
 >(({ className, children, showCloseButton = true, ...props }, ref) => {
-  // Check if children contains a Title element (direct or wrapped)
-  const childrenArray = React.Children.toArray(children)
-  const hasTitle = childrenArray.some(child => {
-    if (!React.isValidElement(child)) return false
-    // Check for DialogPrimitive.Title directly
-    if (child.type === DialogPrimitive.Title) return true
-    // Check if it's our DialogTitle wrapper
-    if ((child.type as any)?.displayName === 'DialogTitle') return true
-    // Check in DialogHeader
-    if ((child.type as any)?.displayName === 'DialogHeader') {
-      const header = child as React.ReactElement
-      return React.Children.toArray(header.props?.children).some(
-        h => React.isValidElement(h) && (
-          h.type === DialogPrimitive.Title || 
-          (h.type as any)?.displayName === 'DialogTitle'
-        )
-      )
-    }
-    return false
-  })
-
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -80,9 +59,8 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {!hasTitle && (
-          <DialogPrimitive.Title className="sr-only">Dialog</DialogPrimitive.Title>
-        )}
+        {/* Always include a hidden title for accessibility - components can override with visible DialogTitle */}
+        <DialogPrimitive.Title className="sr-only absolute pointer-events-none">Dialog</DialogPrimitive.Title>
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">

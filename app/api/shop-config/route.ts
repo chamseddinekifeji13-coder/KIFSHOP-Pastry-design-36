@@ -8,9 +8,13 @@ export async function GET(request: NextRequest) {
     let tenantId: string | null = null
     
     // First try to get from active profile (if user is fully authenticated)
-    const profile = await getActiveProfile()
-    if (profile) {
-      tenantId = profile.tenantId
+    try {
+      const profile = await getActiveProfile()
+      if (profile) {
+        tenantId = profile.tenantId
+      }
+    } catch (e) {
+      console.warn('[v0] getActiveProfile error (expected if not authenticated):', e)
     }
     
     // Fallback: try to get from X-Tenant-Id header (sent by client-side component)
@@ -25,6 +29,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    console.log('[v0] Shop Config GET - tenantId:', tenantId)
+
     const supabase = createAdminClient()
 
     const { data: tenant, error } = await supabase
@@ -33,16 +39,27 @@ export async function GET(request: NextRequest) {
       .eq('id', tenantId)
       .single()
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('[v0] Shop Config GET error:', {
+    if (error) {
+      console.error('[v0] Shop Config GET Supabase error:', {
         code: error.code,
         message: error.message,
         details: error.details,
         tenantId
       })
+      
+      // PGRST116 = "not found", which is okay - just return 404
+      if (error.code === 'PGRST116') {
+        return NextResponse.json(
+          { 
+            error: 'Tenant non trouvé',
+            details: `No tenant found for id: ${tenantId}`
+          },
+          { status: 404 }
+        )
+      }
+      
       return NextResponse.json(
         { 
-          success: false,
           error: 'Erreur lors de la recuperation de la configuration',
           details: error.message
         },
@@ -53,7 +70,6 @@ export async function GET(request: NextRequest) {
     if (!tenant) {
       return NextResponse.json(
         { 
-          success: false,
           error: 'Erreur lors de la recuperation de la configuration',
           details: 'Tenant non trouve'
         },
@@ -74,7 +90,10 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('[v0] Shop Config GET exception:', error)
+    console.error('[v0] Shop Config GET exception:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch config' },
       { status: 500 }
@@ -95,7 +114,13 @@ interface ShopConfigBody {
 // PUT: Update shop configuration
 export async function PUT(request: NextRequest) {
   try {
-    const profile = await getActiveProfile()
+    let profile = null
+    try {
+      profile = await getActiveProfile()
+    } catch (e) {
+      console.warn('[v0] getActiveProfile error in PUT:', e)
+    }
+    
     if (!profile) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -132,6 +157,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    console.log('[v0] Shop Config PUT - updating tenantId:', profile.tenantId)
+
     const supabase = createAdminClient()
 
     // Update tenant configuration
@@ -151,7 +178,7 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('[v0] Shop Config PUT error:', {
+      console.error('[v0] Shop Config PUT Supabase error:', {
         code: error.code,
         message: error.message,
         details: error.details,
@@ -187,7 +214,10 @@ export async function PUT(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('[v0] Shop Config PUT exception:', error)
+    console.error('[v0] Shop Config PUT exception:', {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    })
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to save config' },
       { status: 500 }
