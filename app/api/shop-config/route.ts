@@ -12,7 +12,7 @@ export async function GET() {
 
     const { data: tenant, error } = await supabase
       .from('tenants')
-      .select('id, name, primary_color, address, phone, email, tax_id, logo_url')
+      .select('id, name, primary_color, address, phone, email, fiscal_id, logo_url')
       .eq('id', session.tenantId)
       .single()
 
@@ -32,7 +32,7 @@ export async function GET() {
         address: tenant.address || '',
         phone: tenant.phone || '',
         email: tenant.email || '',
-        taxId: tenant.tax_id || '',
+        taxId: tenant.fiscal_id || '',
         logoUrl: tenant.logo_url || '',
       }
     })
@@ -88,11 +88,11 @@ export async function PUT(request: Request) {
         address: address?.trim() || null,
         phone: phone?.trim() || null,
         email: email?.trim() || null,
-        tax_id: taxId?.trim() || null,
+        fiscal_id: taxId?.trim() || null,
         logo_url: logoUrl || null,
       })
       .eq('id', session.tenantId)
-      .select('id, name, primary_color, address, phone, email, tax_id, logo_url')
+      .select('id, name, primary_color, address, phone, email, fiscal_id, logo_url')
       .single()
 
     if (updateError) {
@@ -123,7 +123,7 @@ export async function PUT(request: Request) {
         address: tenant.address || '',
         phone: tenant.phone || '',
         email: tenant.email || '',
-        taxId: tenant.tax_id || '',
+        taxId: tenant.fiscal_id || '',
         logoUrl: tenant.logo_url || '',
       }
     })
