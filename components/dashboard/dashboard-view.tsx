@@ -7,6 +7,7 @@ import { RevenueChart } from "./revenue-chart"
 import { AlertsPanel } from "./alerts-panel"
 import { OnlineSalesWidget } from "./online-sales-widget"
 import { BestDeliveryReport } from "./best-delivery-report"
+import { SyncStatusIndicator } from "./sync-status-indicator"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -54,6 +55,7 @@ export function DashboardView() {
   // Contenu réutilisable extrait pour éviter la duplication
   const OverviewContent = () => (
     <>
+      <SyncStatusIndicator />
       <KPICards />
       <div className="grid gap-6 lg:grid-cols-3">
         <RevenueChart />
