@@ -5,7 +5,13 @@ import { getServerSession } from '@/lib/active-profile'
 export async function POST(request: NextRequest) {
   try {
     // ✅ Verify authentication
-    const session = await getServerSession()
+    let session
+    try {
+      session = await getServerSession()
+    } catch (err) {
+      console.error('Auth error:', err)
+      return NextResponse.json({ error: 'Non authentifie' }, { status: 401 })
+    }
     
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -40,6 +46,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error('Upload error:', error)
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Erreur lors du telechargement'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
