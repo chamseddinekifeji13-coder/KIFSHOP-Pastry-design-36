@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 import { useTenant } from "@/lib/tenant-context"
-import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
+import { useFinishedProducts, useTransactions, useCategories } from "@/hooks/use-tenant-data"
 import { cn } from "@/lib/utils"
 import { PaymentNumpad } from "./payment-numpad"
 import { SalesHistoryPanel } from "./sales-history-panel"
@@ -145,6 +145,7 @@ export function TreasuryPosView() {
   const { currentTenant, currentUser } = useTenant()
   const { data: products, isLoading: productsLoading, mutate: refreshProducts } = useFinishedProducts()
   const { data: transactions, mutate: refreshTransactions } = useTransactions()
+  const { data: categoriesData } = useCategories()
   const { mutate: globalMutate } = useSWRConfig()
   const soundManager = useSoundManager()
 
@@ -216,16 +217,23 @@ export function TreasuryPosView() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Get categories from products
+  // Build a map of categoryId -> categoryName for fast lookups
+  const categoryMap = new Map<string, string>(
+    (categoriesData as any[] || []).map((c: any) => [c.id, c.name])
+  )
+
+  // Get unique category names from products (resolved from categoryMap)
   const categories = products
-    ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
+    ? [...new Set((products as any[])
+        .map(p => categoryMap.get(p.categoryId) || null)
+        .filter(Boolean) as string[])]
     : []
 
   // Filter products by search and category
   const filteredProducts = (products as any[] || []).filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    const productCategory = p.category || p.categoryId || "Autre"
-    const matchesCategory = !selectedCategory || productCategory === selectedCategory
+    const productCategoryName = categoryMap.get(p.categoryId) || null
+    const matchesCategory = !selectedCategory || productCategoryName === selectedCategory
     return matchesSearch && matchesCategory
   })
 
