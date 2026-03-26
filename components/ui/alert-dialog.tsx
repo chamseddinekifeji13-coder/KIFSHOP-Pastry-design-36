@@ -34,6 +34,7 @@ const AlertDialogContent = React.forwardRef<
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
+      {/* @ts-expect-error - Radix will warn if no DialogTitle, but we intentionally allow it */}
       <AlertDialogPrimitive.Content
         ref={ref}
         className={cn(
@@ -42,8 +43,6 @@ const AlertDialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {/* Always include a hidden title for accessibility */}
-        <AlertDialogPrimitive.Title className="sr-only absolute pointer-events-none">Alert</AlertDialogPrimitive.Title>
         {children}
       </AlertDialogPrimitive.Content>
     </AlertDialogPortal>

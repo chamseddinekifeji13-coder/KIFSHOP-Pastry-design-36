@@ -31,7 +31,16 @@ export async function GET(request: NextRequest) {
 
     console.log('[v0] Shop Config GET - tenantId:', tenantId)
 
-    const supabase = createAdminClient()
+    let supabase
+    try {
+      supabase = createAdminClient()
+    } catch (err) {
+      console.error('[v0] Failed to create admin client:', err instanceof Error ? err.message : String(err))
+      return NextResponse.json(
+        { error: 'Server configuration error: Supabase credentials missing' },
+        { status: 500 }
+      )
+    }
 
     const { data: tenant, error } = await supabase
       .from('tenants')
@@ -159,7 +168,16 @@ export async function PUT(request: NextRequest) {
 
     console.log('[v0] Shop Config PUT - updating tenantId:', profile.tenantId)
 
-    const supabase = createAdminClient()
+    let supabase
+    try {
+      supabase = createAdminClient()
+    } catch (err) {
+      console.error('[v0] Failed to create admin client in PUT:', err instanceof Error ? err.message : String(err))
+      return NextResponse.json(
+        { error: 'Server configuration error: Supabase credentials missing' },
+        { status: 500 }
+      )
+    }
 
     // Update tenant configuration
     const { data: tenant, error } = await supabase
