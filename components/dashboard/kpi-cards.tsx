@@ -6,11 +6,18 @@ import { Card, CardContent } from "@/components/ui/card"
 import { useTransactions, useRawMaterials, useOrders } from "@/hooks/use-tenant-data"
 
 export function KPICards() {
-  const { data: transactions, isLoading: txLoading } = useTransactions()
-  const { data: rawMaterials, isLoading: rmLoading } = useRawMaterials()
-  const { data: orders, isLoading: ordLoading } = useOrders()
+  const { data: transactions, isLoading: txLoading, error: txError } = useTransactions()
+  const { data: rawMaterials, isLoading: rmLoading, error: rmError } = useRawMaterials()
+  const { data: orders, isLoading: ordLoading, error: ordError } = useOrders()
 
   const isLoading = txLoading || rmLoading || ordLoading
+
+  // Debug logging pour vérifier la synchronisation des données
+  console.log("[v0] KPI Data Status:", {
+    transactions: { count: transactions?.length ?? 0, loading: txLoading, error: txError?.message },
+    rawMaterials: { count: rawMaterials?.length ?? 0, loading: rmLoading, error: rmError?.message },
+    orders: { count: orders?.length ?? 0, loading: ordLoading, error: ordError?.message }
+  })
 
   // Date locale correcte (pas UTC)
   const today = new Date().toLocaleDateString("fr-CA")
