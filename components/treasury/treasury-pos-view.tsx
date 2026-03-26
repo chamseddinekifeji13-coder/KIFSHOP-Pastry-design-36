@@ -394,6 +394,8 @@ export function TreasuryPosView() {
             
             const receiptData = {
               storeName: currentTenant?.name || "KIFSHOP PASTRY",
+              storeAddress: currentTenant?.address || undefined,
+              storePhone: currentTenant?.phone || undefined,
               cashierName: currentUser?.name || "Caissier",
               items: (data.items || cart).map((item: any) => ({
                 name: item.name,
@@ -432,6 +434,8 @@ export function TreasuryPosView() {
       try {
         const receiptData = {
           storeName: currentTenant?.name || "KIFSHOP",
+          storeAddress: currentTenant?.address || undefined,
+          storePhone: currentTenant?.phone || undefined,
           cashierName: currentUser?.name || "Caissier",
           items: (data.items || cart).map((item: any) => ({
             name: item.name,
@@ -473,6 +477,9 @@ export function TreasuryPosView() {
               action: "print_receipt",
               printerIp,
               printerPort: parseInt(printerPort),
+              storeName: currentTenant?.name || "KIFSHOP",
+              storeAddress: currentTenant?.address || undefined,
+              storePhone: currentTenant?.phone || undefined,
               items: (data.items || cart).map((item: any) => ({
                 name: item.name,
                 qty: item.quantity,
