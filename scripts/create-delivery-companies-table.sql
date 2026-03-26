@@ -20,11 +20,10 @@ CREATE INDEX IF NOT EXISTS idx_delivery_companies_tenant_id
 -- Enable RLS
 ALTER TABLE delivery_companies ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policy for tenants to access only their delivery companies
-CREATE POLICY delivery_companies_tenant_isolation 
+-- Create RLS policy for authenticated users
+CREATE POLICY delivery_companies_authenticated 
   ON delivery_companies
   FOR ALL
-  USING (tenant_id = (SELECT id FROM tenant_users WHERE user_id = auth.uid() LIMIT 1));
-
--- Grant permissions to authenticated users
-GRANT SELECT, INSERT, UPDATE, DELETE ON delivery_companies TO authenticated;
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
