@@ -104,7 +104,16 @@ interface ShopConfigBody {
 // PUT: Update shop configuration
 export async function PUT(request: NextRequest) {
   try {
-    const profile = await getActiveProfile()
+    let profile = null
+    try {
+      profile = await getActiveProfile()
+    } catch (error) {
+      console.error('[v0] getActiveProfile failed in PUT:', error instanceof Error ? error.message : String(error))
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
     
     if (!profile) {
       return NextResponse.json(
