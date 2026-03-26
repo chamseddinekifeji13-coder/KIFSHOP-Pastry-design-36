@@ -31,6 +31,18 @@ const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
+  const [showTitle, setShowTitle] = React.useState(true)
+  
+  React.useEffect(() => {
+    const childArray = React.Children.toArray(children)
+    const hasTitle = childArray.some(
+      child => React.isValidElement(child) && 
+      (child.type === AlertDialogPrimitive.Title || 
+       (child.type as any)?.displayName === 'AlertDialogTitle')
+    )
+    setShowTitle(!hasTitle)
+  }, [children])
+
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -42,8 +54,11 @@ const AlertDialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {/* Radix requires AlertDialogTitle for accessibility - hide it if not provided */}
-        <AlertDialogPrimitive.Title className="sr-only">Alert</AlertDialogPrimitive.Title>
+        {showTitle && (
+          <AlertDialogPrimitive.Title style={{ display: 'none' }}>
+            Alert
+          </AlertDialogPrimitive.Title>
+        )}
         {children}
       </AlertDialogPrimitive.Content>
     </AlertDialogPortal>
