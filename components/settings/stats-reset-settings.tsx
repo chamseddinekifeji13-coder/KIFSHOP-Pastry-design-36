@@ -17,10 +17,16 @@ export function StatsResetSettings() {
 
   // Check if stats have been reset
   useEffect(() => {
-    checkResetDate()
-  }, [])
+    if (currentTenant?.id) {
+      checkResetDate()
+    }
+  }, [currentTenant?.id])
 
   const checkResetDate = async () => {
+    if (!currentTenant?.id) {
+      setChecking(false)
+      return
+    }
     try {
       const date = await getStatsResetDate(currentTenant.id)
       setResetDate(date)
