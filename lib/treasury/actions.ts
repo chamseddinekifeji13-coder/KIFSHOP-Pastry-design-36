@@ -45,11 +45,11 @@ export async function createTransaction(tenantId: string, data: {
   const supabase = createClient()
   
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    
     // Normalize type to match database constraints
     const normalizedType = data.type === "income" || data.type === "entree" ? "income" : "expense"
     
+    // Do NOT use created_by column - it has a FK constraint that causes errors
+    // Use created_by_name and created_by_id instead (TEXT columns, no FK)
     const { data: row, error } = await supabase.from("transactions").insert({
       tenant_id: tenantId,
       type: normalizedType,
@@ -59,7 +59,7 @@ export async function createTransaction(tenantId: string, data: {
       reference: data.reference || null,
       description: data.description || null,
       order_id: data.orderId || null,
-      created_by: user?.id || null, // Allow NULL for system transactions
+      // Removed: created_by - causes FK constraint violation
     }).select().single()
     
     if (error) {
@@ -82,7 +82,7 @@ export async function createTransaction(tenantId: string, data: {
       reference: row.reference,
       description: row.description,
       orderId: row.order_id,
-      createdBy: row.created_by,
+      createdBy: row.created_by_name || row.created_by,
       createdAt: row.created_at
     }
   } catch (err: any) {
