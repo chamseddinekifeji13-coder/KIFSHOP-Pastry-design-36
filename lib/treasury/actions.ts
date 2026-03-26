@@ -40,18 +40,53 @@ export async function fetchTransactions(tenantId: string): Promise<Transaction[]
 
 export async function createTransaction(tenantId: string, data: {
   type: "income" | "expense"; amount: number; category: string;
-  paymentMethod?: string; reference?: string; description?: string
+  paymentMethod?: string; reference?: string; description?: string; orderId?: string
 }): Promise<Transaction | null> {
   const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
-  const { data: row, error } = await supabase.from("transactions").insert({
-    tenant_id: tenantId, type: data.type, amount: data.amount, category: data.category,
-    payment_method: data.paymentMethod || "cash", reference: data.reference || null,
-    description: data.description || null, created_by: user?.id || null,
-  }).select().single()
-  if (error || !row) { console.error("Error creating transaction:", error?.message); return null }
-  return { id: row.id, tenantId: row.tenant_id, type: normalizeTransactionType(row.type), amount: Number(row.amount),
-    category: row.category, paymentMethod: row.payment_method, reference: row.reference,
-    description: row.description, orderId: row.order_id, createdBy: row.created_by, createdAt: row.created_at }
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // Normalize type to match database constraints
+    const normalizedType = data.type === "income" || data.type === "entree" ? "income" : "expense"
+    
+    const { data: row, error } = await supabase.from("transactions").insert({
+      tenant_id: tenantId,
+      type: normalizedType,
+      amount: data.amount,
+      category: data.category,
+      payment_method: data.paymentMethod || "cash",
+      reference: data.reference || null,
+      description: data.description || null,
+      order_id: data.orderId || null,
+      created_by: user?.id || null, // Allow NULL for system transactions
+    }).select().single()
+    
+    if (error) {
+      console.error("[v0] Error creating transaction:", error.message, error.details)
+      throw error
+    }
+    
+    if (!row) {
+      console.error("[v0] No data returned from transaction insert")
+      return null
+    }
+    
+    return {
+      id: row.id,
+      tenantId: row.tenant_id,
+      type: normalizeTransactionType(row.type),
+      amount: Number(row.amount),
+      category: row.category,
+      paymentMethod: row.payment_method,
+      reference: row.reference,
+      description: row.description,
+      orderId: row.order_id,
+      createdBy: row.created_by,
+      createdAt: row.created_at
+    }
+  } catch (err: any) {
+    console.error("[v0] Exception in createTransaction:", err.message)
+    throw err
+  }
 }
