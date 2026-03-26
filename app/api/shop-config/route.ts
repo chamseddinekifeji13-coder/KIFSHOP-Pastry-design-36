@@ -12,7 +12,7 @@ export async function GET() {
 
     const { data: tenant, error } = await supabase
       .from('tenants')
-      .select('id, name, primary_color, address, phone, email, tax_id')
+      .select('id, name, primary_color, address, phone, email, tax_id, logo_url')
       .eq('id', session.tenantId)
       .single()
 
@@ -33,6 +33,7 @@ export async function GET() {
         phone: tenant.phone || '',
         email: tenant.email || '',
         taxId: tenant.tax_id || '',
+        logoUrl: tenant.logo_url || '',
       }
     })
   } catch (error) {
@@ -47,6 +48,7 @@ interface ShopConfigBody {
   phone?: string
   email?: string
   taxId?: string
+  logoUrl?: string
 }
 
 // PUT: Update shop configuration
@@ -55,7 +57,7 @@ export async function PUT(request: Request) {
   if (error) return error
 
   const { session, body } = data
-  const { name, primaryColor, address, phone, email, taxId } = body
+  const { name, primaryColor, address, phone, email, taxId, logoUrl } = body
 
   // Validate required fields
   if (!name || name.trim().length === 0) {
@@ -87,9 +89,10 @@ export async function PUT(request: Request) {
         phone: phone?.trim() || null,
         email: email?.trim() || null,
         tax_id: taxId?.trim() || null,
+        logo_url: logoUrl || null,
       })
       .eq('id', session.tenantId)
-      .select('id, name, primary_color, address, phone, email, tax_id')
+      .select('id, name, primary_color, address, phone, email, tax_id, logo_url')
       .single()
 
     if (updateError) {
@@ -121,6 +124,7 @@ export async function PUT(request: Request) {
         phone: tenant.phone || '',
         email: tenant.email || '',
         taxId: tenant.tax_id || '',
+        logoUrl: tenant.logo_url || '',
       }
     })
   } catch (error) {

@@ -77,6 +77,7 @@ export interface Tenant {
   id: string
   name: string
   logo: string
+  logoUrl?: string
   primaryColor: string
   subscription: TenantSubscription
 }

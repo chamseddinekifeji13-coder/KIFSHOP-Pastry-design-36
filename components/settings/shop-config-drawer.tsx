@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
 import { useTenant } from "@/lib/tenant-context"
 import { toast } from "sonner"
-import { Store, Building, Phone, Mail, Palette, Save, Loader2, AlertCircle } from "lucide-react"
+import { Store, Building, Phone, Mail, Palette, Save, Loader2, AlertCircle, Camera, X } from "lucide-react"
 
 interface ShopConfigDrawerProps {
   open: boolean
@@ -22,6 +23,7 @@ interface ShopConfig {
   phone: string
   email: string
   taxId: string
+  logoUrl: string
 }
 
 const colorOptions = [
@@ -35,6 +37,7 @@ const colorOptions = [
 
 export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) {
   const { currentTenant, setCurrentTenant } = useTenant()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState<ShopConfig>({
     name: currentTenant.name,
@@ -43,10 +46,12 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
     email: "",
     taxId: "",
     primaryColor: currentTenant.primaryColor,
+    logoUrl: "",
   })
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadConfig = useCallback(async () => {
@@ -70,6 +75,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
           phone: data.config.phone || "",
           email: data.config.email || "",
           taxId: data.config.taxId || "",
+          logoUrl: data.config.logoUrl || "",
         })
       } else {
         setFormData({
@@ -79,6 +85,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
           phone: "",
           email: "",
           taxId: "",
+          logoUrl: "",
         })
       }
     } catch (err) {
@@ -91,6 +98,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
         phone: "",
         email: "",
         taxId: "",
+        logoUrl: "",
       })
     } finally {
       setIsLoading(false)
@@ -100,6 +108,41 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
   useEffect(() => {
     loadConfig()
   }, [loadConfig])
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"]
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Format non supporte", { description: "Utilisez JPG, PNG ou WebP" })
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux", { description: "Maximum 2 Mo pour le logo" })
+      return
+    }
+
+    setIsUploadingLogo(true)
+    try {
+      const formDataUpload = new FormData()
+      formDataUpload.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body: formDataUpload })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erreur lors de l'upload")
+      setFormData(prev => ({ ...prev, logoUrl: data.url }))
+      toast.success("Logo telecharge")
+    } catch (err: any) {
+      toast.error("Erreur lors de l'upload", { description: err.message })
+    } finally {
+      setIsUploadingLogo(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  const removeLogo = () => {
+    setFormData(prev => ({ ...prev, logoUrl: "" }))
+  }
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -124,6 +167,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
           name: data.config.name,
           primaryColor: data.config.primaryColor,
           logo: data.config.name.charAt(0).toUpperCase(),
+          logoUrl: data.config.logoUrl || "",
         })
         toast.success("Configuration mise a jour", {
           description: "Les modifications ont ete enregistrees avec succes.",
@@ -285,15 +329,59 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
             </div>
           </div>
           <div className="flex items-center gap-3 mt-4 p-3 rounded-xl bg-white/10 backdrop-blur-sm">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl font-bold text-white shrink-0"
-              style={{ backgroundColor: formData.primaryColor }}
-            >
-              {currentTenant.logo}
+            <div className="relative">
+              {formData.logoUrl ? (
+                <div className="relative h-14 w-14 rounded-xl overflow-hidden shrink-0">
+                  <Image
+                    src={formData.logoUrl}
+                    alt="Logo"
+                    fill
+                    className="object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeLogo}
+                    className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl font-bold text-white shrink-0"
+                  style={{ backgroundColor: formData.primaryColor }}
+                >
+                  {currentTenant.logo}
+                </div>
+              )}
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-medium text-primary-foreground">{formData.name}</p>
-              <p className="text-xs text-primary-foreground/60">Logo actuel</p>
+              <p className="text-xs text-primary-foreground/60 mb-1">
+                {formData.logoUrl ? "Logo personnalise" : "Logo par defaut"}
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingLogo}
+                className="h-7 text-xs px-2 bg-white/20 hover:bg-white/30 text-white border-0"
+              >
+                {isUploadingLogo ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Camera className="h-3 w-3 mr-1" />
+                )}
+                {isUploadingLogo ? "Upload..." : "Changer le logo"}
+              </Button>
             </div>
           </div>
         </div>
