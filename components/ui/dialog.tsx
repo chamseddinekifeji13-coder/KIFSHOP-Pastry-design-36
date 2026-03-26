@@ -48,21 +48,26 @@ const DialogContent = React.forwardRef<
     showCloseButton?: boolean
   }
 >(({ className, children, showCloseButton = true, ...props }, ref) => {
-  // Check if children contains a DialogTitle or DialogPrimitive.Title
+  // Check if children contains a Title element (direct or wrapped)
   const childrenArray = React.Children.toArray(children)
-  const hasDialogTitle = childrenArray.some(
-    child => {
-      if (!React.isValidElement(child)) return false
-      // Check if it's DialogPrimitive.Title or wrapped in DialogHeader with DialogTitle
-      if (child.type === DialogPrimitive.Title) return true
-      // Check in DialogHeader children
-      if ((child as any).type && (child as any).type.displayName === 'DialogHeader') {
-        const headerChildren = React.Children.toArray((child as any).props?.children)
-        return headerChildren.some(h => React.isValidElement(h) && h.type === DialogPrimitive.Title)
-      }
-      return false
+  const hasTitle = childrenArray.some(child => {
+    if (!React.isValidElement(child)) return false
+    // Check for DialogPrimitive.Title directly
+    if (child.type === DialogPrimitive.Title) return true
+    // Check if it's our DialogTitle wrapper
+    if ((child.type as any)?.displayName === 'DialogTitle') return true
+    // Check in DialogHeader
+    if ((child.type as any)?.displayName === 'DialogHeader') {
+      const header = child as React.ReactElement
+      return React.Children.toArray(header.props?.children).some(
+        h => React.isValidElement(h) && (
+          h.type === DialogPrimitive.Title || 
+          (h.type as any)?.displayName === 'DialogTitle'
+        )
+      )
     }
-  )
+    return false
+  })
 
   return (
     <DialogPortal>
@@ -75,7 +80,7 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {!hasDialogTitle && (
+        {!hasTitle && (
           <DialogPrimitive.Title className="sr-only">Dialog</DialogPrimitive.Title>
         )}
         {children}

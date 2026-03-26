@@ -3,12 +3,24 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getActiveProfile } from '@/lib/active-profile'
 
 // GET: Fetch current shop configuration
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    let tenantId: string | null = null
+    
+    // First try to get from active profile (if user is fully authenticated)
     const profile = await getActiveProfile()
-    if (!profile) {
+    if (profile) {
+      tenantId = profile.tenantId
+    }
+    
+    // Fallback: try to get from X-Tenant-Id header (sent by client-side component)
+    if (!tenantId) {
+      tenantId = request.headers.get('X-Tenant-Id')
+    }
+    
+    if (!tenantId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized: No tenant information' },
         { status: 401 }
       )
     }
@@ -18,14 +30,15 @@ export async function GET() {
     const { data: tenant, error } = await supabase
       .from('tenants')
       .select('id, name, primary_color, address, phone, email, fiscal_id, logo_url')
-      .eq('id', profile.tenantId)
+      .eq('id', tenantId)
       .single()
 
     if (error && error.code !== 'PGRST116') {
       console.error('[v0] Shop Config GET error:', {
         code: error.code,
         message: error.message,
-        details: error.details
+        details: error.details,
+        tenantId
       })
       return NextResponse.json(
         { 

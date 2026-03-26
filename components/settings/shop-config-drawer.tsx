@@ -64,7 +64,12 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
     setLoadError(null)
 
     try {
-      const res = await fetch("/api/shop-config", { cache: "no-store" })
+      const res = await fetch("/api/shop-config", { 
+        cache: "no-store",
+        headers: {
+          "X-Tenant-Id": currentTenant.id
+        }
+      })
       const data = await res.json()
 
       console.log('[v0] Shop config load response:', { 

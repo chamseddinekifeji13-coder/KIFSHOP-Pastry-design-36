@@ -31,21 +31,26 @@ const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  // Check if children contains an AlertDialogTitle
+  // Check if children contains a Title element (direct or wrapped)
   const childrenArray = React.Children.toArray(children)
-  const hasAlertDialogTitle = childrenArray.some(
-    child => {
-      if (!React.isValidElement(child)) return false
-      // Check if it's AlertDialogPrimitive.Title
-      if (child.type === AlertDialogPrimitive.Title) return true
-      // Check in AlertDialogHeader children
-      if ((child as any).type && (child as any).type.displayName === 'AlertDialogHeader') {
-        const headerChildren = React.Children.toArray((child as any).props?.children)
-        return headerChildren.some(h => React.isValidElement(h) && h.type === AlertDialogPrimitive.Title)
-      }
-      return false
+  const hasTitle = childrenArray.some(child => {
+    if (!React.isValidElement(child)) return false
+    // Check for AlertDialogPrimitive.Title directly
+    if (child.type === AlertDialogPrimitive.Title) return true
+    // Check if it's our AlertDialogTitle wrapper
+    if ((child.type as any)?.displayName === 'AlertDialogTitle') return true
+    // Check in AlertDialogHeader
+    if ((child.type as any)?.displayName === 'AlertDialogHeader') {
+      const header = child as React.ReactElement
+      return React.Children.toArray(header.props?.children).some(
+        h => React.isValidElement(h) && (
+          h.type === AlertDialogPrimitive.Title || 
+          (h.type as any)?.displayName === 'AlertDialogTitle'
+        )
+      )
     }
-  )
+    return false
+  })
 
   return (
     <AlertDialogPortal>
@@ -58,7 +63,7 @@ const AlertDialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {!hasAlertDialogTitle && (
+        {!hasTitle && (
           <AlertDialogPrimitive.Title className="sr-only">Alert</AlertDialogPrimitive.Title>
         )}
         {children}

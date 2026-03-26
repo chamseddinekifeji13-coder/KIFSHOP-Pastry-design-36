@@ -48,21 +48,26 @@ const SheetContent = React.forwardRef<
     side?: 'top' | 'right' | 'bottom' | 'left'
   }
 >(({ className, children, side = 'right', ...props }, ref) => {
-  // Check if children contains a SheetPrimitive.Title
+  // Check if children contains a Title element (direct or wrapped)
   const childrenArray = React.Children.toArray(children)
-  const hasSheetTitle = childrenArray.some(
-    child => {
-      if (!React.isValidElement(child)) return false
-      // Check if it's SheetPrimitive.Title (which is DialogPrimitive.Title)
-      if (child.type === SheetPrimitive.Title) return true
-      // Check in SheetHeader children
-      if ((child as any).type && (child as any).type.displayName === 'SheetHeader') {
-        const headerChildren = React.Children.toArray((child as any).props?.children)
-        return headerChildren.some(h => React.isValidElement(h) && h.type === SheetPrimitive.Title)
-      }
-      return false
+  const hasTitle = childrenArray.some(child => {
+    if (!React.isValidElement(child)) return false
+    // Check for SheetPrimitive.Title directly (which is DialogPrimitive.Title)
+    if (child.type === SheetPrimitive.Title) return true
+    // Check if it's our SheetTitle wrapper
+    if ((child.type as any)?.displayName === 'SheetTitle') return true
+    // Check in SheetHeader
+    if ((child.type as any)?.displayName === 'SheetHeader') {
+      const header = child as React.ReactElement
+      return React.Children.toArray(header.props?.children).some(
+        h => React.isValidElement(h) && (
+          h.type === SheetPrimitive.Title || 
+          (h.type as any)?.displayName === 'SheetTitle'
+        )
+      )
     }
-  )
+    return false
+  })
 
   return (
     <SheetPortal>
@@ -83,7 +88,7 @@ const SheetContent = React.forwardRef<
         )}
         {...props}
       >
-        {!hasSheetTitle && (
+        {!hasTitle && (
           <SheetPrimitive.Title className="sr-only">Sheet</SheetPrimitive.Title>
         )}
         {children}
