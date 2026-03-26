@@ -9,10 +9,10 @@ const nextConfig = {
   
   reactStrictMode: true,
   compress: true,
-  productionBrowserSourceMaps: true,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  productionBrowserSourceMaps: false, // Disable source maps in production for security
+  // typescript: {
+  //   ignoreBuildErrors: true, // REMOVED: All TypeScript errors must be fixed
+  // },
   images: {
     remotePatterns: [
       {
