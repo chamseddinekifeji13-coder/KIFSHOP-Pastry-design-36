@@ -150,7 +150,9 @@ export class ThermalPrinter {
             if (ep.direction === "out" && ep.type === "bulk") {
               this.endpoint = ep.endpointNumber
               await this.device.claimInterface(iface.interfaceNumber)
-              console.log("[v0] Printer connected:", this.device.productName)
+              if (process.env.NODE_ENV === 'development') {
+                console.log("[v0] Printer connected:", this.device.productName)
+              }
               return true
             }
           }

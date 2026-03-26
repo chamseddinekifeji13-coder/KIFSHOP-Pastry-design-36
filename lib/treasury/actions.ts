@@ -85,7 +85,7 @@ export async function createTransaction(tenantId: string, data: {
       createdBy: row.created_by_name || row.created_by,
       createdAt: row.created_at
     }
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("[v0] Exception in createTransaction:", err.message)
     throw err
   }

@@ -45,7 +45,7 @@ export async function notifyStockCritical(
       })
 
     // TODO: Envoyer une notification push/email ici
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error creating stock alert notification:", err.message)
   }
 }
@@ -79,7 +79,7 @@ export async function notifyBonApprovCreated(
         action_url: `/approvisionnement?tab=draft&id=${bonId}`,
         status: "unread",
       })
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error creating bon created notification:", err.message)
   }
 }
@@ -109,7 +109,7 @@ export async function notifyBonApprovValidated(
     }))
 
     await supabase.from("workflow_notifications").insert(notifications)
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error creating bon validated notification:", err.message)
   }
 }
@@ -141,7 +141,7 @@ export async function notifyPurchaseOrdersCreated(
         action_url: `/achats/commandes?bon=${bonId}`,
         status: "unread",
       })
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error creating purchase order notification:", err.message)
   }
 }
@@ -170,7 +170,7 @@ export async function fetchUnreadNotifications(
       return []
     }
 
-    return (data || []).map((n: any) => ({
+    return (data || []).map((n: unknown) => ({
       id: n.id,
       userId: n.user_id,
       tenantId: n.tenant_id,
@@ -185,7 +185,7 @@ export async function fetchUnreadNotifications(
       createdAt: n.created_at,
       readAt: n.read_at,
     }))
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error in fetchUnreadNotifications:", err.message)
     return []
   }
@@ -212,7 +212,7 @@ export async function markNotificationAsRead(notificationId: string): Promise<bo
     }
 
     return true
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error in markNotificationAsRead:", err.message)
     return false
   }
@@ -238,7 +238,7 @@ export async function archiveNotification(notificationId: string): Promise<boole
     }
 
     return true
-  } catch (err: any) {
+  } catch (err: Error) {
     console.error("Error in archiveNotification:", err.message)
     return false
   }
