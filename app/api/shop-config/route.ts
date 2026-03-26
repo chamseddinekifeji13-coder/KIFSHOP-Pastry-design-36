@@ -4,12 +4,15 @@ import { getActiveProfile } from '@/lib/active-profile'
 
 // GET: Fetch current shop configuration
 export async function GET(request: NextRequest) {
+  console.log('[v0] Shop Config GET - Starting')
   try {
     let tenantId: string | null = null
     
     // First try to get from active profile (if user is fully authenticated)
     try {
+      console.log('[v0] Attempting getActiveProfile()...')
       const profile = await getActiveProfile()
+      console.log('[v0] getActiveProfile() result:', profile ? `{tenantId: ${profile.tenantId}}` : 'null')
       if (profile) {
         tenantId = profile.tenantId
       }
@@ -19,19 +22,26 @@ export async function GET(request: NextRequest) {
     
     // Fallback: try to get from X-Tenant-Id header (sent by client-side component)
     if (!tenantId) {
-      tenantId = request.headers.get('X-Tenant-Id')
+      const headerTenantId = request.headers.get('X-Tenant-Id')
+      console.log('[v0] Fallback to header X-Tenant-Id:', headerTenantId || 'NOT SET')
+      tenantId = headerTenantId
     }
     
     if (!tenantId) {
+      console.log('[v0] No tenantId found - returning 401')
       return NextResponse.json(
         { error: 'Unauthorized: No tenant information' },
         { status: 401 }
       )
     }
 
+    console.log('[v0] Using tenantId:', tenantId)
+
     let supabase
     try {
+      console.log('[v0] Creating admin client...')
       supabase = createAdminClient()
+      console.log('[v0] Admin client created successfully')
     } catch (error) {
       console.error('[v0] createAdminClient failed:', error instanceof Error ? error.message : String(error))
       return NextResponse.json(
@@ -41,18 +51,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Query just the tenants table with minimal fields
+    console.log('[v0] Querying tenants table...')
     const { data: tenant, error } = await supabase
       .from('tenants')
       .select('*')
       .eq('id', tenantId)
       .single()
 
+    console.log('[v0] Query result:', { hasData: !!tenant, hasError: !!error, errorCode: error?.code })
+
     if (error) {
-      console.error('[v0] Shop Config GET error:', {
+      console.error('[v0] Supabase error:', {
         code: error.code,
         message: error.message,
         details: error.details,
-        tenantId
       })
       return NextResponse.json(
         { 
@@ -64,12 +76,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (!tenant) {
+      console.log('[v0] No tenant found')
       return NextResponse.json(
         { error: 'Tenant not found' },
         { status: 404 }
       )
     }
 
+    console.log('[v0] Returning tenant config successfully')
     return NextResponse.json({
       success: true,
       config: {
@@ -83,7 +97,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('[v0] Shop Config GET exception:', error)
+    console.error('[v0] Shop Config GET unhandled exception:', error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack : '')
     return NextResponse.json(
       { error: 'Failed to fetch config' },
       { status: 500 }
