@@ -31,27 +31,6 @@ const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  // Check if children contains a Title element (direct or wrapped)
-  const childrenArray = React.Children.toArray(children)
-  const hasTitle = childrenArray.some(child => {
-    if (!React.isValidElement(child)) return false
-    // Check for AlertDialogPrimitive.Title directly
-    if (child.type === AlertDialogPrimitive.Title) return true
-    // Check if it's our AlertDialogTitle wrapper
-    if ((child.type as any)?.displayName === 'AlertDialogTitle') return true
-    // Check in AlertDialogHeader
-    if ((child.type as any)?.displayName === 'AlertDialogHeader') {
-      const header = child as React.ReactElement
-      return React.Children.toArray(header.props?.children).some(
-        h => React.isValidElement(h) && (
-          h.type === AlertDialogPrimitive.Title || 
-          (h.type as any)?.displayName === 'AlertDialogTitle'
-        )
-      )
-    }
-    return false
-  })
-
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -63,9 +42,8 @@ const AlertDialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {!hasTitle && (
-          <AlertDialogPrimitive.Title className="sr-only">Alert</AlertDialogPrimitive.Title>
-        )}
+        {/* Always include a hidden title for accessibility */}
+        <AlertDialogPrimitive.Title className="sr-only absolute pointer-events-none">Alert</AlertDialogPrimitive.Title>
         {children}
       </AlertDialogPrimitive.Content>
     </AlertDialogPortal>

@@ -48,27 +48,6 @@ const SheetContent = React.forwardRef<
     side?: 'top' | 'right' | 'bottom' | 'left'
   }
 >(({ className, children, side = 'right', ...props }, ref) => {
-  // Check if children contains a Title element (direct or wrapped)
-  const childrenArray = React.Children.toArray(children)
-  const hasTitle = childrenArray.some(child => {
-    if (!React.isValidElement(child)) return false
-    // Check for SheetPrimitive.Title directly (which is DialogPrimitive.Title)
-    if (child.type === SheetPrimitive.Title) return true
-    // Check if it's our SheetTitle wrapper
-    if ((child.type as any)?.displayName === 'SheetTitle') return true
-    // Check in SheetHeader
-    if ((child.type as any)?.displayName === 'SheetHeader') {
-      const header = child as React.ReactElement
-      return React.Children.toArray(header.props?.children).some(
-        h => React.isValidElement(h) && (
-          h.type === SheetPrimitive.Title || 
-          (h.type as any)?.displayName === 'SheetTitle'
-        )
-      )
-    }
-    return false
-  })
-
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -88,9 +67,8 @@ const SheetContent = React.forwardRef<
         )}
         {...props}
       >
-        {!hasTitle && (
-          <SheetPrimitive.Title className="sr-only">Sheet</SheetPrimitive.Title>
-        )}
+        {/* Always include a hidden title for accessibility */}
+        <SheetPrimitive.Title className="sr-only absolute pointer-events-none">Sheet</SheetPrimitive.Title>
         {children}
         <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />
