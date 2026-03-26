@@ -74,9 +74,15 @@ export async function withSession(): Promise<
 > {
   try {
     const session = await getServerSession()
+    console.log('[v0] withSession - Successfully retrieved session:', {
+      tenantId: session.tenantId,
+      authUserId: session.authUserId,
+      role: session.activeRole
+    })
     return [session, null]
   } catch (error) {
     const message = error instanceof Error ? error.message : "Non authentifie"
+    console.error('[v0] withSession - Error:', message)
     
     // Determine appropriate status code based on error message
     if (message.includes("Non authentifie")) {

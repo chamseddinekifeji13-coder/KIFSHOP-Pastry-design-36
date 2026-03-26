@@ -67,17 +67,20 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       const res = await fetch("/api/shop-config", { cache: "no-store" })
       const data = await res.json()
 
-      if (data.success && data.config) {
-        setFormData({
-          name: data.config.name || currentTenant.name,
-          primaryColor: data.config.primaryColor || currentTenant.primaryColor,
-          address: data.config.address || "",
-          phone: data.config.phone || "",
-          email: data.config.email || "",
-          taxId: data.config.taxId || "",
-          logoUrl: data.config.logoUrl || "",
+      console.log('[v0] Shop config load response:', { 
+        status: res.status, 
+        success: data.success,
+        error: data.error,
+        config: data.config ? 'present' : 'missing'
+      })
+
+      // Check HTTP status first
+      if (!res.ok) {
+        console.error('[v0] Shop config API error:', {
+          status: res.status,
+          error: data.error || 'Unknown error'
         })
-      } else {
+        setLoadError(data.error || `Erreur ${res.status}: Impossible de charger la configuration`)
         setFormData({
           name: currentTenant.name,
           primaryColor: currentTenant.primaryColor,
@@ -87,9 +90,32 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
           taxId: "",
           logoUrl: "",
         })
+      } else if (data.success && data.config) {
+        setFormData({
+          name: data.config.name || currentTenant.name,
+          primaryColor: data.config.primaryColor || currentTenant.primaryColor,
+          address: data.config.address || "",
+          phone: data.config.phone || "",
+          email: data.config.email || "",
+          taxId: data.config.taxId || "",
+          logoUrl: data.config.logoUrl || "",
+        })
+        setLoadError(null)
+      } else {
+        // Server returned 200 but no success flag
+        setFormData({
+          name: currentTenant.name,
+          primaryColor: currentTenant.primaryColor,
+          address: "",
+          phone: "",
+          email: "",
+          taxId: "",
+          logoUrl: "",
+        })
+        setLoadError(null)
       }
     } catch (err) {
-      console.error("[Shop Config] Load error:", err)
+      console.error("[v0] Shop Config Load exception:", err)
       setLoadError("Impossible de charger la configuration")
       setFormData({
         name: currentTenant.name,
@@ -153,6 +179,14 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
     setIsSubmitting(true)
 
     try {
+      console.log('[v0] Shop config submit - Sending data:', {
+        name: formData.name,
+        primaryColor: formData.primaryColor,
+        addressLength: formData.address?.length || 0,
+        hasEmail: !!formData.email,
+        hasPhone: !!formData.phone
+      })
+
       const res = await fetch("/api/shop-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -160,9 +194,25 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       })
 
       const data = await res.json()
-      console.log('[v0] Shop config save response:', { status: res.status, data })
+      console.log('[v0] Shop config save response:', { 
+        status: res.status, 
+        success: data.success,
+        error: data.error,
+        details: data.details
+      })
 
-      if (data.success) {
+      // Check HTTP status first
+      if (!res.ok) {
+        const errMsg = data.details || data.error || `Erreur ${res.status}`
+        console.error('[v0] Shop config API error:', {
+          status: res.status,
+          error: errMsg
+        })
+        toast.error("Erreur lors de la sauvegarde", { 
+          description: errMsg,
+          duration: 5000
+        })
+      } else if (data.success) {
         setCurrentTenant({
           ...currentTenant,
           name: data.config.name,
@@ -175,16 +225,21 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
         })
         onOpenChange(false)
       } else {
-        // Display detailed error from server
+        // Server returned 200 but no success flag
         const errMsg = data.details || data.error || "Erreur lors de la sauvegarde"
-        console.error('[v0] Shop config error:', errMsg)
+        console.error('[v0] Shop config unexpected response:', {
+          data
+        })
         toast.error("Erreur lors de la sauvegarde", { 
           description: errMsg,
           duration: 5000
         })
       }
     } catch (err: any) {
-      console.error("[v0] Shop Config Save error:", err)
+      console.error("[v0] Shop Config Save exception:", {
+        message: err.message,
+        stack: err.stack
+      })
       toast.error("Erreur de connexion", { 
         description: err.message || "Veuillez reessayer."
       })
