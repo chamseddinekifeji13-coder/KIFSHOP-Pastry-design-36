@@ -96,19 +96,17 @@ export async function PUT(request: Request) {
       .single()
 
     if (updateError) {
-      console.error('[Shop Config] Update error:', updateError)
-      
-      // Check for RLS policy error
-      if (updateError.code === 'PGRST301' || updateError.message?.includes('policy')) {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Permission refusee. Seul le proprietaire peut modifier la configuration.' 
-        }, { status: 403 })
-      }
-
+      console.error('[v0] Shop Config Update error details:', {
+        message: updateError.message,
+        code: updateError.code,
+        details: updateError.details,
+        hint: updateError.hint,
+        fullError: JSON.stringify(updateError)
+      })
       return NextResponse.json({ 
         success: false, 
-        error: 'Erreur lors de la sauvegarde de la configuration' 
+        error: 'Erreur lors de la mise a jour de la configuration',
+        details: updateError.message
       }, { status: 500 })
     }
 

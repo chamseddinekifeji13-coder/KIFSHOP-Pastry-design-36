@@ -160,6 +160,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       })
 
       const data = await res.json()
+      console.log('[v0] Shop config save response:', { status: res.status, data })
 
       if (data.success) {
         setCurrentTenant({
@@ -174,13 +175,19 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
         })
         onOpenChange(false)
       } else {
-        // Ensure error is always a string to avoid React #310
-        const errMsg = typeof data.error === "string" ? data.error : "Erreur lors de la sauvegarde"
-        toast.error(errMsg)
+        // Display detailed error from server
+        const errMsg = data.details || data.error || "Erreur lors de la sauvegarde"
+        console.error('[v0] Shop config error:', errMsg)
+        toast.error("Erreur lors de la sauvegarde", { 
+          description: errMsg,
+          duration: 5000
+        })
       }
-    } catch (err) {
-      console.error("[Shop Config] Save error:", err)
-      toast.error("Erreur de connexion. Veuillez reessayer.")
+    } catch (err: any) {
+      console.error("[v0] Shop Config Save error:", err)
+      toast.error("Erreur de connexion", { 
+        description: err.message || "Veuillez reessayer."
+      })
     } finally {
       setIsSubmitting(false)
     }
