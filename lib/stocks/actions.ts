@@ -445,11 +445,19 @@ export async function createFinishedProduct(tenantId: string, data: {
 
 export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
   const supabase = createClient()
+  
+  // Verify user is authenticated
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+  
   const { error } = await supabase
     .from("finished_products")
     .update({ image_url: imageUrl })
     .eq("id", productId)
-  if (error) { console.error("Error updating product image:", error.message); return false }
+  if (error) { 
+    console.error("Error updating product image:", error.message)
+    throw new Error(error.message)
+  }
   return true
 }
 
@@ -459,6 +467,11 @@ export async function updateFinishedProduct(productId: string, data: {
   imageUrl?: string; currentStock?: number; minStock?: number; categoryId?: string | null;
 }): Promise<boolean> {
   const supabase = createClient()
+  
+  // Verify user is authenticated
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+  
   const update: Record<string, any> = {}
   if (data.name !== undefined) update.name = data.name
   if (data.description !== undefined) update.description = data.description
@@ -474,7 +487,10 @@ export async function updateFinishedProduct(productId: string, data: {
   if (data.categoryId !== undefined) update.category_id = data.categoryId
 
   const { error } = await supabase.from("finished_products").update(update).eq("id", productId)
-  if (error) { console.error("Error updating finished product:", error.message); return false }
+  if (error) { 
+    console.error("Error updating finished product:", error.message)
+    throw new Error(error.message)
+  }
   return true
 }
 
