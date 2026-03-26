@@ -25,8 +25,15 @@ export async function fetchDeliveryCompanies(tenantId: string): Promise<Delivery
     .eq("tenant_id", tenantId)
     .order("name", { ascending: true })
 
+  // If table doesn't exist (error code PGRST116) or other DB error, return empty array
+  // This gracefully handles the case where the delivery_companies table hasn't been created yet
   if (error) {
-    console.error("Error fetching delivery companies:", error.message)
+    console.error("[v0] Error fetching delivery companies:", {
+      code: error.code,
+      message: error.message,
+      details: error.details
+    })
+    // Return empty array instead of throwing - allows UI to render without companies
     return []
   }
 
