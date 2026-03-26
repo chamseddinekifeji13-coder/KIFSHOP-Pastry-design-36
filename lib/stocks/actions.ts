@@ -463,7 +463,7 @@ export async function updateProductImage(productId: string, imageUrl: string): P
 
 export async function updateFinishedProduct(productId: string, data: {
   name?: string; description?: string; sellingPrice?: number; unit?: string;
-  weight?: string; isPublished?: boolean; minOrder?: number; tags?: string[];
+  weight?: string; isPublished?: boolean; tags?: string[];
   imageUrl?: string; currentStock?: number; minStock?: number; categoryId?: string | null;
 }): Promise<boolean> {
   const supabase = createClient()
@@ -479,7 +479,6 @@ export async function updateFinishedProduct(productId: string, data: {
   if (data.unit !== undefined) update.unit = data.unit
   if (data.weight !== undefined) update.weight = data.weight
   if (data.isPublished !== undefined) update.is_published = data.isPublished
-  if (data.minOrder !== undefined) update.min_order = data.minOrder
   if (data.tags !== undefined) update.tags = data.tags
   if (data.imageUrl !== undefined) update.image_url = data.imageUrl
   if (data.currentStock !== undefined) update.current_stock = data.currentStock

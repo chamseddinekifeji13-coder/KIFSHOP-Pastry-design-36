@@ -131,7 +131,6 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
         sellingPrice: parseFloat(sellingPrice) || 0,
         currentStock: parseFloat(currentStock) || 0,
         minStock: parseFloat(minStock) || 0,
-        minOrder: parseFloat(minOrder) || 1,
         weight: weight.trim() || undefined,
         description: description.trim() || undefined,
         isPublished,
