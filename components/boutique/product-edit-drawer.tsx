@@ -89,11 +89,14 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
       formData.append("file", file)
       const res = await fetch("/api/upload", { method: "POST", body: formData })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Upload failed")
+      if (!res.ok) {
+        throw new Error(data.error || "Erreur lors de l'upload")
+      }
       setImageUrl(data.url)
       toast.success("Photo ajoutee")
     } catch (err: any) {
-      toast.error("Erreur lors de l'upload", { description: err.message })
+      console.error("[v0] Upload error:", err)
+      toast.error("Erreur lors de l'upload", { description: err.message || "Veuillez reessayer" })
     } finally {
       setUploading(false)
       // Reset input so same file can be re-selected
