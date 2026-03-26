@@ -29,7 +29,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = createAdminClient()
+    let supabase
+    try {
+      supabase = createAdminClient()
+    } catch (error) {
+      console.error('[v0] createAdminClient failed:', error instanceof Error ? error.message : String(error))
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
 
     // Query just the tenants table with minimal fields
     const { data: tenant, error } = await supabase
@@ -133,7 +142,16 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const supabase = createAdminClient()
+    let supabase
+    try {
+      supabase = createAdminClient()
+    } catch (error) {
+      console.error('[v0] createAdminClient failed in PUT:', error instanceof Error ? error.message : String(error))
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
 
     // Update tenant configuration
     const { data: tenant, error } = await supabase

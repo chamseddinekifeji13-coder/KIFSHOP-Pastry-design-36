@@ -48,6 +48,18 @@ const SheetContent = React.forwardRef<
     side?: 'top' | 'right' | 'bottom' | 'left'
   }
 >(({ className, children, side = 'right', ...props }, ref) => {
+  const [showTitle, setShowTitle] = React.useState(true)
+  
+  React.useEffect(() => {
+    const childArray = React.Children.toArray(children)
+    const hasTitle = childArray.some(
+      child => React.isValidElement(child) && 
+      (child.type === SheetPrimitive.Title || 
+       (child.type as any)?.displayName === 'SheetTitle')
+    )
+    setShowTitle(!hasTitle)
+  }, [children])
+
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -67,8 +79,11 @@ const SheetContent = React.forwardRef<
         )}
         {...props}
       >
-        {/* Radix requires SheetTitle for accessibility - hide it if not provided */}
-        <SheetPrimitive.Title className="sr-only">Sheet</SheetPrimitive.Title>
+        {showTitle && (
+          <SheetPrimitive.Title style={{ display: 'none' }}>
+            Sheet
+          </SheetPrimitive.Title>
+        )}
         {children}
         <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />

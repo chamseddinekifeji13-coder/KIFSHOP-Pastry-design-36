@@ -48,6 +48,20 @@ const DialogContent = React.forwardRef<
     showCloseButton?: boolean
   }
 >(({ className, children, showCloseButton = true, ...props }, ref) => {
+  const [showTitle, setShowTitle] = React.useState(true)
+  
+  // Check if children contain a DialogTitle
+  React.useEffect(() => {
+    const childArray = React.Children.toArray(children)
+    const hasTitle = childArray.some(
+      child => React.isValidElement(child) && 
+      (child.type === DialogPrimitive.Title || 
+       (child.type as any)?.displayName === 'DialogTitle' ||
+       (child.props?.children as any)?.type === DialogPrimitive.Title)
+    )
+    setShowTitle(!hasTitle)
+  }, [children])
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -59,8 +73,12 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {/* Radix requires DialogTitle for accessibility - hide it if not provided by children */}
-        <DialogPrimitive.Title className="sr-only">Dialog</DialogPrimitive.Title>
+        {/* Only render hidden title if children don't provide one - satisfies Radix accessibility requirement */}
+        {showTitle && (
+          <DialogPrimitive.Title style={{ display: 'none' }}>
+            Dialog
+          </DialogPrimitive.Title>
+        )}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
