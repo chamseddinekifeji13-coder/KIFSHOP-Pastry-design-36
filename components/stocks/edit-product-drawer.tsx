@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { showError, showWarning, showSuccess } from "@/lib/error-messages"
 import { useTenant } from "@/lib/tenant-context"
 import { useCategories } from "@/hooks/use-tenant-data"
 import type { FinishedProduct, Category } from "@/lib/stocks/actions"
@@ -76,11 +77,11 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      toast.error("Sélectionnez une image valide")
+      showWarning("Format invalide", "Veuillez selectionner une image (JPG, PNG, etc.)")
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("L'image ne doit pas dépasser 5 Mo")
+      showWarning("Fichier trop volumineux", "L'image ne doit pas depasser 5 Mo.")
       return
     }
     setImageFile(file)
@@ -103,9 +104,9 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
       const data = await res.json()
       setImageUrl(data.url)
       setImageFile(null)
-      toast.success("Image uploadée avec succès")
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'upload de l'image")
+      showSuccess("Image telechargee", "L'image du produit a ete mise a jour.")
+    } catch (err) {
+      showError(err, "Telechargement image")
     } finally {
       setUploadingImage(false)
     }
@@ -114,11 +115,11 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
   const handleSave = async () => {
     if (!product) return
     if (!name.trim()) {
-      toast.error("Le nom du produit est requis")
+      showWarning("Nom requis", "Veuillez saisir le nom du produit.")
       return
     }
     if (!unit) {
-      toast.error("Veuillez sélectionner l'unité de mesure")
+      showWarning("Unite requise", "Veuillez selectionner l'unite de mesure.")
       return
     }
 
@@ -137,14 +138,14 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
         imageUrl: imageUrl || undefined,
       })
 
-      if (!success) throw new Error("Erreur lors de la modification")
+      if (!success) throw new Error("Echec de la modification")
 
-      toast.success("Produit modifié avec succès")
+      showSuccess("Produit modifie", "Les modifications ont ete enregistrees.")
       mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
       onOpenChange(false)
       onSave?.()
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la modification")
+    } catch (err) {
+      showError(err, "Modification produit")
     } finally {
       setSaving(false)
     }
