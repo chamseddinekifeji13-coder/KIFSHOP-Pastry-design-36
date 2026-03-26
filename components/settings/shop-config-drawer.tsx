@@ -153,6 +153,14 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
     setIsSubmitting(true)
 
     try {
+      console.log('[v0] Shop config submit - Sending data:', {
+        name: formData.name,
+        primaryColor: formData.primaryColor,
+        addressLength: formData.address?.length || 0,
+        hasEmail: !!formData.email,
+        hasPhone: !!formData.phone
+      })
+
       const res = await fetch("/api/shop-config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -160,7 +168,12 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       })
 
       const data = await res.json()
-      console.log('[v0] Shop config save response:', { status: res.status, data })
+      console.log('[v0] Shop config save response:', { 
+        status: res.status, 
+        success: data.success,
+        error: data.error,
+        details: data.details
+      })
 
       if (data.success) {
         setCurrentTenant({
@@ -177,14 +190,21 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       } else {
         // Display detailed error from server
         const errMsg = data.details || data.error || "Erreur lors de la sauvegarde"
-        console.error('[v0] Shop config error:', errMsg)
+        console.error('[v0] Shop config error details:', {
+          error: data.error,
+          details: data.details,
+          code: data.code
+        })
         toast.error("Erreur lors de la sauvegarde", { 
           description: errMsg,
           duration: 5000
         })
       }
     } catch (err: any) {
-      console.error("[v0] Shop Config Save error:", err)
+      console.error("[v0] Shop Config Save exception:", {
+        message: err.message,
+        stack: err.stack
+      })
       toast.error("Erreur de connexion", { 
         description: err.message || "Veuillez reessayer."
       })

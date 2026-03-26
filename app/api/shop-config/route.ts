@@ -8,6 +8,11 @@ export async function GET() {
   if (authError) return authError
 
   try {
+    console.log('[v0] Shop Config GET - Session:', {
+      tenantId: session.tenantId,
+      authUserId: session.authUserId
+    })
+
     const supabase = createAdminClient()
 
     const { data: tenant, error } = await supabase
@@ -17,11 +22,27 @@ export async function GET() {
       .single()
 
     if (error) {
-      console.error('[Shop Config] Fetch error:', error)
+      console.error('[v0] Shop Config GET error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+        status: error.status
+      })
       return NextResponse.json({ 
         success: false, 
-        error: 'Erreur lors de la recuperation de la configuration' 
+        error: 'Erreur lors de la recuperation de la configuration',
+        details: error.message
       }, { status: 500 })
+    }
+
+    if (!tenant) {
+      console.error('[v0] Shop Config GET - No tenant found for id:', session.tenantId)
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Erreur lors de la recuperation de la configuration',
+        details: 'Tenant non trouvé'
+      }, { status: 404 })
     }
 
     return NextResponse.json({
@@ -37,6 +58,7 @@ export async function GET() {
       }
     })
   } catch (error) {
+    console.error('[v0] Shop Config GET exception:', error)
     return serverErrorResponse(error)
   }
 }
@@ -76,7 +98,27 @@ export async function PUT(request: Request) {
     }
   }
 
+  console.log('[v0] Shop Config Update - Session:', {
+    tenantId: session.tenantId,
+    authUserId: session.authUserId,
+    role: session.activeRole
+  })
+
   try {
+    // Verify admin client configuration
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    console.log('[v0] Supabase Config Check:', {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!serviceRoleKey,
+      url: supabaseUrl?.substring(0, 30) + '...'
+    })
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error(`Supabase config missing: URL=${!!supabaseUrl}, ServiceKey=${!!serviceRoleKey}`)
+    }
+
     const supabase = createAdminClient()
 
     // Update tenant configuration
@@ -101,16 +143,30 @@ export async function PUT(request: Request) {
         code: updateError.code,
         details: updateError.details,
         hint: updateError.hint,
-        fullError: JSON.stringify(updateError)
+        status: updateError.status,
+        fullError: JSON.stringify(updateError, null, 2)
       })
+      
+      // Return more informative error
+      const errorMsg = updateError.hint || updateError.message || 'Erreur lors de la mise a jour'
       return NextResponse.json({ 
         success: false, 
         error: 'Erreur lors de la mise a jour de la configuration',
-        details: updateError.message
+        details: errorMsg,
+        code: updateError.code
       }, { status: 500 })
     }
 
-    console.log('[Shop Config] Configuration updated successfully for tenant:', session.tenantId)
+    if (!tenant) {
+      console.error('[v0] Shop Config Update - No tenant returned from database')
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Erreur lors de la mise a jour de la configuration',
+        details: 'Aucun enregistrement retourné du serveur'
+      }, { status: 500 })
+    }
+
+    console.log('[v0] Shop Config Configuration updated successfully for tenant:', session.tenantId)
 
     return NextResponse.json({
       success: true,
@@ -126,6 +182,7 @@ export async function PUT(request: Request) {
       }
     })
   } catch (error) {
+    console.error('[v0] Shop Config PUT exception:', error)
     return serverErrorResponse(error)
   }
 }
