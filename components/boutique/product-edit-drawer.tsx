@@ -116,24 +116,32 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
 
     if (product) {
       setSaving(true)
-      const success = await updateFinishedProduct(product.id, {
-        name: name.trim(),
-        description: description.trim() || undefined,
-        sellingPrice: Number(price),
-        unit,
-        weight: weight.trim() || undefined,
-        isPublished,
-        minOrder: Number(minOrder) || 1,
-        tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
-        imageUrl: imageUrl || undefined,
-      })
-      setSaving(false)
-      if (success) {
-        toast.success("Produit mis a jour", { description: name })
-        mutate()
-        onOpenChange(false)
-      } else {
-        toast.error("Erreur lors de la mise a jour")
+      try {
+        const success = await updateFinishedProduct(product.id, {
+          name: name.trim(),
+          description: description.trim() || undefined,
+          sellingPrice: Number(price),
+          unit,
+          weight: weight.trim() || undefined,
+          isPublished,
+          minOrder: Number(minOrder) || 1,
+          tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+          imageUrl: imageUrl || undefined,
+        })
+        if (success) {
+          toast.success("Produit mis a jour", { description: name })
+          mutate()
+          onOpenChange(false)
+        } else {
+          toast.error("Erreur lors de la mise a jour")
+        }
+      } catch (err: any) {
+        console.error("[v0] Error updating product:", err)
+        toast.error("Erreur lors de la mise a jour", { 
+          description: err.message || "Veuillez reessayer" 
+        })
+      } finally {
+        setSaving(false)
       }
     } else {
       toast.success("Produit ajoute", { description: name })
