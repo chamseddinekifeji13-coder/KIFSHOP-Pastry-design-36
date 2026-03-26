@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createServerClient } from '@/lib/supabase/server'
 import { withSession, withSessionAndBody, badRequestResponse, serverErrorResponse } from '@/lib/api-helpers'
 
 // GET: Fetch current shop configuration
@@ -8,7 +8,7 @@ export async function GET() {
   if (authError) return authError
 
   try {
-    const supabase = createAdminClient()
+    const supabase = createServerClient()
 
     const { data: tenant, error } = await supabase
       .from('tenants')
@@ -77,7 +77,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const supabase = createAdminClient()
+    const supabase = createServerClient()
 
     // Update tenant configuration
     const { data: tenant, error: updateError } = await supabase
