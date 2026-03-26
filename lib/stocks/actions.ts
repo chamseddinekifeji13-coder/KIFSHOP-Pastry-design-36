@@ -388,7 +388,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
       costPrice, packagingCost: 0, ingredientCost: costPrice,
       imageUrl: p.image_url, weight: p.weight,
-      isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
+      isPublished: p.is_published, minOrder: 1, tags: p.tags || [], createdAt: p.created_at,
     }
   })
 }
@@ -440,7 +440,7 @@ export async function createFinishedProduct(tenantId: string, data: {
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
     costPrice: Number(row.cost_price), imageUrl: row.image_url, weight: row.weight,
-    isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at }
+    isPublished: row.is_published, minOrder: 1, tags: row.tags || [], createdAt: row.created_at }
 }
 
 export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
