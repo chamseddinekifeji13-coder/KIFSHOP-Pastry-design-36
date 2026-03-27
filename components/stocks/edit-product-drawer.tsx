@@ -266,10 +266,10 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
               </Select>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <div className="space-y-0.5">
-                <Label className="text-xs font-medium">Vendu au poids (kg)</Label>
-                <p className="text-[10px] text-muted-foreground">Le prix est par kg, la quantité sera saisie en poids</p>
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Vendu au poids (kg)</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400">{soldByWeight ? "- Prix par kg" : ""}</span>
               </div>
               <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
             </div>
