@@ -35,9 +35,9 @@ export function RevenueReportsView() {
     const data = revenueData.data || []
     if (data.length === 0) return null
 
-    const total = data.reduce((sum, d: any) => sum + (d.total_collections || d.total_sales || 0), 0)
-    const avgTransaction = total / data.reduce((sum, d: any) => sum + d.transactions_count, 0)
-    const totalExpenses = data.reduce((sum, d: any) => sum + d.total_expenses, 0)
+    const total = data.reduce((sum: number, d: any) => sum + (d.total_collections || d.total_sales || 0), 0)
+    const avgTransaction = total / data.reduce((sum: number, d: any) => sum + d.transactions_count, 0)
+    const totalExpenses = data.reduce((sum: number, d: any) => sum + d.total_expenses, 0)
 
     return {
       totalRevenue: total,
