@@ -269,6 +269,7 @@ export function OrdersView() {
     pret: orders.filter((o) => o.status === "pret"),
     "en-livraison": orders.filter((o) => o.status === "en-livraison"),
     livre: orders.filter((o) => o.status === "livre"),
+    annule: orders.filter((o) => o.status === "annule"),
   }
 
   const handleOrderClick = (order: Order) => {
