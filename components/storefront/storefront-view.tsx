@@ -223,13 +223,17 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
               {catalog.filter(p => p.category === category).map(product => (
                 <Card key={product.id} className="overflow-hidden">
                   <div className="relative aspect-[4/3] bg-muted">
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                      crossOrigin="anonymous"
-                    />
+                    {product.image ? (
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Pas d&apos;image</div>
+                    )}
                     {product.tags.includes("populaire") && (
                       <Badge className="absolute top-2 left-2 bg-secondary text-secondary-foreground">Populaire</Badge>
                     )}
