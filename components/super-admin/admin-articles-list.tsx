@@ -479,7 +479,7 @@ export function AdminArticlesList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Vous allez supprimer {"\""}{deletingArticle?.name}{"\""} ({TYPE_LABELS[deletingArticle?.type || ""]})
+              Vous allez supprimer {"\""}{deletingArticle?.name}{"\""} ({deletingArticle?.type ? TYPE_LABELS[deletingArticle.type] : "Article"})
               de la patisserie {"\""}{deletingArticle?.tenant_name}{"\""}.
               Cette action supprimera aussi tous les mouvements de stock et les liens de recettes associes.
               Cette action est irreversible.
