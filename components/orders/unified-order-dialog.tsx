@@ -209,7 +209,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         try {
           const defaultCompany = await fetchDefaultDeliveryCompany(currentTenant.id)
           if (defaultCompany) {
-            setCourier(defaultCompany.id)
+            // Use name instead of id - the Select component uses company names as values
+            setCourier(defaultCompany.name)
             setShippingCost(defaultCompany.shippingCost.toString())
           }
         } catch (err) {
