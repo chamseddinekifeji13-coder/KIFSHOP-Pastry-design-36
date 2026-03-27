@@ -923,7 +923,6 @@ export async function parseCSVContent(content: string): Promise<{
     "date livraison": "deliveryDate",
     "date_livraison": "deliveryDate",
     "etat": "status",
-    "état": "status",
     // Standard columns
     "numero_commande": "orderNumber",
     "n_commande": "orderNumber",
