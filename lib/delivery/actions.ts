@@ -922,7 +922,6 @@ export async function parseCSVContent(content: string): Promise<{
     "date_d_enlevement": "pickupDate",
     "date livraison": "deliveryDate",
     "date_livraison": "deliveryDate",
-    "etat": "status",
     // Standard columns
     "numero_commande": "orderNumber",
     "n_commande": "orderNumber",
@@ -934,7 +933,6 @@ export async function parseCSVContent(content: string): Promise<{
     "numero_suivi": "trackingNumber",
     "n_suivi": "trackingNumber",
     "tracking_number": "trackingNumber",
-    "client": "customerName",
     "nom_client": "customerName",
     "customer_name": "customerName",
     "telephone": "customerPhone",
