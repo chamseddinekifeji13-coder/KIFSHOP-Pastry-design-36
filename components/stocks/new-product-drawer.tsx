@@ -465,7 +465,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                 {imageUrl && (
                   <div className="text-xs text-green-600 flex items-center gap-1.5 bg-green-50 px-2 py-1.5 rounded-lg">
                     <Check className="h-3.5 w-3.5" />
-                    Image uploadee avec succes
+                    Image uploadée avec succès
                   </div>
                 )}
               </div>
@@ -486,7 +486,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-2">
                   <p className="text-xs text-amber-800">
-                    Definissez les ingredients necessaires pour produire une quantite donnee du produit fini.
+                    Définissez les ingrédients nécessaires pour produire une quantité donnée du produit fini.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -494,19 +494,19 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                     <Label htmlFor="yield-qty" className="text-xs font-medium">Rendement de la recette</Label>
                     <Input id="yield-qty" type="number" min="1" step="1" placeholder="1" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
                       className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
-                    <p className="text-[10px] text-muted-foreground">Combien d&apos;unites cette recette produit</p>
+                    <p className="text-[10px] text-muted-foreground">Combien d&apos;unités cette recette produit</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unite de rendement</Label>
+                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unité de rendement</Label>
                     <Select value={yieldUnit} onValueChange={setYieldUnit}>
                       <SelectTrigger id="yield-unit" className="bg-muted/50 border-0"><SelectValue placeholder={unit || "Choisir"} /></SelectTrigger>
                       <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
                     </Select>
-                    <p className="text-[10px] text-muted-foreground">Par defaut: unite du produit</p>
+                    <p className="text-[10px] text-muted-foreground">Par défaut : unité du produit</p>
                   </div>
                 </div>
                 <div className="border-t pt-4 space-y-2">
-                  <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingredient</Label>
+                  <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingrédient</Label>
                   <div className="flex gap-2">
                     <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
                       <SelectTrigger id="material" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matière première" /></SelectTrigger>
@@ -599,7 +599,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  Aucun emballage associe. Le cout d&apos;emballage ne sera pas inclus dans le prix de revient.
+                  Aucun emballage associé. Le coût d&apos;emballage ne sera pas inclus dans le prix de revient.
                 </div>
               )}
             </div>
@@ -610,7 +610,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>Annuler</Button>
           <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" onClick={handleSubmit} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? "Creation..." : "Creer le produit"}
+            {saving ? "Création..." : "Créer le produit"}
           </Button>
         </div>
       </DialogContent>
