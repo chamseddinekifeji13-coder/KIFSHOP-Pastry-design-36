@@ -31,6 +31,7 @@ interface RecipeDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   recipe?: any | null
+  onSuccess?: () => void
 }
 
 interface PackagingItem {
@@ -41,7 +42,7 @@ interface PackagingItem {
   unit: string
 }
 
-export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) {
+export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
@@ -239,8 +240,9 @@ export function RecipeDrawer({ open, onOpenChange, recipe }: RecipeDrawerProps) 
       toast.success(isEditing ? "Recette modifiee" : "Recette creee", {
         description: `"${name}" - ${ingredients.length} ingredients, ${totalYield} unites`,
       })
-      mutate((key: string) => typeof key === "string" && key.includes("recipes"))
-      resetForm(); onOpenChange(false)
+mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+  onSuccess?.()
+  resetForm(); onOpenChange(false)
     } catch (error) { 
       console.error("Error saving recipe:", error)
       toast.error("Erreur lors de la sauvegarde") 
