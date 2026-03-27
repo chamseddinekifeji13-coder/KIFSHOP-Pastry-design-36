@@ -37,9 +37,10 @@ interface PackagingLine {
 interface NewProductDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) {
+export function NewProductDrawer({ open, onOpenChange, onSuccess }: NewProductDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
@@ -306,6 +307,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
       ), undefined, { revalidate: true })
       
       resetForm()
+      onSuccess?.()
       onOpenChange(false)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ""
