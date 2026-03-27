@@ -41,6 +41,16 @@ interface ApprovManagerDashboardProps {
   tenantId: string
 }
 
+function getPriorityColor(priority: string): "default" | "secondary" | "destructive" | "outline" {
+  switch (priority) {
+    case 'urgent': return 'destructive'
+    case 'high': return 'default'
+    case 'normal': return 'secondary'
+    case 'low': return 'outline'
+    default: return 'secondary'
+  }
+}
+
 export function ApprovManagerDashboard({ tenantId }: ApprovManagerDashboardProps) {
   const [validatingId, setValidatingId] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
