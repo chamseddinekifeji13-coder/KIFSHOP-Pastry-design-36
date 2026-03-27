@@ -652,7 +652,7 @@ export async function createDeliveryNote(tenantId: string, data: {
     supplierName: row.supplier_name, deliveryDate: row.delivery_date,
     status: row.status, notes: row.notes, validatedBy: row.validated_by,
     validatedAt: row.validated_at, createdBy: row.created_by,
-    items: data.items.map((i, idx) => ({ id: `new-${idx}`, deliveryNoteId: row.id, ...i, remark: i.remark || null })),
+    items: data.items.map((i, idx) => ({ id: `new-${idx}`, deliveryNoteId: row.id, ...i, remark: i.remark || null, rawMaterialId: i.rawMaterialId ?? null, packagingId: i.packagingId ?? null, consumableId: i.consumableId ?? null })),
     createdAt: row.created_at,
   }
 }
