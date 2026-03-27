@@ -103,6 +103,7 @@ export interface FinishedProduct {
   tags: string[]
   storageLocationId: string | null
   createdAt: string
+  soldByWeight?: boolean
 }
 
 export interface Category {
@@ -395,7 +396,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
 
 export async function createFinishedProduct(tenantId: string, data: {
   name: string; categoryId?: string; unit: string; currentStock: number; minStock: number;
-  sellingPrice: number; costPrice: number; description?: string; weight?: string
+  sellingPrice: number; costPrice: number; description?: string; weight?: string; imageUrl?: string; soldByWeight?: boolean
 }): Promise<FinishedProduct | null> {
   // Validate required fields - prevent null/empty names
   const trimmedName = data.name?.trim()
@@ -432,7 +433,8 @@ export async function createFinishedProduct(tenantId: string, data: {
     tenant_id: tenantId, name: data.name, category_id: data.categoryId || null,
     unit: data.unit, current_stock: data.currentStock, min_stock: data.minStock,
     selling_price: data.sellingPrice, cost_price: data.costPrice,
-    description: data.description || null, weight: data.weight || null,
+    description: data.description || null, weight: data.weight || null, image_url: data.imageUrl || null,
+    sold_by_weight: data.soldByWeight || false,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
@@ -465,6 +467,7 @@ export async function updateFinishedProduct(productId: string, data: {
   name?: string; description?: string; sellingPrice?: number; unit?: string;
   weight?: string; isPublished?: boolean; tags?: string[];
   imageUrl?: string; currentStock?: number; minStock?: number; categoryId?: string | null;
+  soldByWeight?: boolean
 }): Promise<boolean> {
   const supabase = createClient()
   
@@ -484,6 +487,7 @@ export async function updateFinishedProduct(productId: string, data: {
   if (data.currentStock !== undefined) update.current_stock = data.currentStock
   if (data.minStock !== undefined) update.min_stock = data.minStock
   if (data.categoryId !== undefined) update.category_id = data.categoryId
+  if (data.soldByWeight !== undefined) update.sold_by_weight = data.soldByWeight
 
   const { error } = await supabase.from("finished_products").update(update).eq("id", productId)
   if (error) { 

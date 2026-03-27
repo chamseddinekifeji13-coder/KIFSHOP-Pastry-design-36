@@ -68,10 +68,10 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const [selectedMaterial, setSelectedMaterial] = useState("")
   const [ingredientQty, setIngredientQty] = useState("")
 
-  // Packaging state
   const [packagingLines, setPackagingLines] = useState<PackagingLine[]>([])
   const [selectedPackaging, setSelectedPackaging] = useState("")
   const [packagingQty, setPackagingQty] = useState("1")
+  const [soldByWeight, setSoldByWeight] = useState(false)
 
   const allCategories = [...categories.map((c: Category) => c.name), ...customCategories]
   const units = ["plateau", "pièce", "pcs", "boîte", "coffret", "pot", "kg", "g"]
@@ -152,9 +152,6 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setPrice("")
     setInitialQty("")
     setDescription("")
-    setImageUrl("")
-    setImageFile(null)
-    setImagePreview("")
     setHasRecipe(true)
     setYieldQty("1")
     setYieldUnit("")
@@ -164,6 +161,11 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setPackagingLines([])
     setSelectedPackaging("")
     setPackagingQty("1")
+    setSoldByWeight(false)
+    setImageFile(null)
+    setImagePreview("")
+    setImageUrl("")
+    setUploadingImage(false)
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,6 +264,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
         minStock: 0,
         description: description.trim() || undefined,
         imageUrl: imageUrl || undefined,
+        soldByWeight,
       })
 
       if (hasRecipe && product) {
@@ -472,12 +475,21 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
             </div>
             {hasRecipe ? (
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="yield-qty" className="text-xs font-medium">Rendement</Label>
-                    <Input id="yield-qty" type="number" placeholder="Ex: 20" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
-                      className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="unit" className="text-xs font-medium">Unité *</Label>
+                  <Select value={unit} onValueChange={(v: string) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
+                    <SelectTrigger id="unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
+                    <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between h-full">
+                    <Label className="text-xs font-medium">Vendu au poids</Label>
+                    <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
                   </div>
+                </div>
+              </div>
                   <div className="space-y-2">
                     <Label htmlFor="yield-unit" className="text-xs font-medium">Unité rendement</Label>
                     <Select value={yieldUnit} onValueChange={setYieldUnit}>

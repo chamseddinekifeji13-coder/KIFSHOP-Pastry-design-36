@@ -53,6 +53,7 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
   const [imagePreview, setImagePreview] = useState("")
   const [uploadingImage, setUploadingImage] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [soldByWeight, setSoldByWeight] = useState(false)
 
   // Sync form state when product changes
   useEffect(() => {
@@ -69,6 +70,7 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
       setIsPublished(product.isPublished ?? true)
       setImageUrl(product.imageUrl || "")
       setImagePreview(product.imageUrl || "")
+      setSoldByWeight(product.soldByWeight ?? false)
       setImageFile(null)
     }
   }, [product, open])
@@ -136,6 +138,7 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
         description: description.trim() || undefined,
         isPublished,
         imageUrl: imageUrl || undefined,
+        soldByWeight,
       })
 
       if (!success) throw new Error("Echec de la modification")
@@ -251,18 +254,25 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="edit-category" className="text-xs font-medium">Catégorie</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger id="edit-category" className="bg-muted/50 border-0">
+                <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
                     <SelectValue placeholder="Choisir" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((c: Category) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    {UNITS.map((u) => (
+                      <SelectItem key={u} value={u}>{u}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between h-full">
+                  <Label className="text-xs font-medium">Vendu au poids</Label>
+                  <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
+                </div>
+              </div>
+            </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
                 <Select value={unit} onValueChange={setUnit}>
