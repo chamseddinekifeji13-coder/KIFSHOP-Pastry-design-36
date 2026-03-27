@@ -210,18 +210,10 @@ export function DeliveryCompaniesSettings() {
             </div>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => openDialog()}>
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingCompany ? "Modifier" : "Ajouter"} une societe</DialogTitle>
-                <DialogDescription>
-                  {editingCompany ? "Modifiez les informations de la societe" : "Ajoutez une nouvelle societe de livraison"}
-                </DialogDescription>
+                <DialogTitle>{editingCompany ? "Modifier une societe" : "Ajouter une societe"}</DialogTitle>
+                <DialogDescription>Modifiez les informations de la societe</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
