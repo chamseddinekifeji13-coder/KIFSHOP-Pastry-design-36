@@ -1232,7 +1232,7 @@ export async function parseXMLContent(content: string): Promise<{
           customerAddress: customerAddress || "",
           price,
           fees,
-          status,
+          status: status as DeliveryStatus,
           deliveryDate,
           notes,
           orderNumber,
