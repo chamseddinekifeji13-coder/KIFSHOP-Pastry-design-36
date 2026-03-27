@@ -1229,7 +1229,7 @@ export async function parseXMLContent(content: string): Promise<{
           trackingNumber,
           customerName,
           customerPhone,
-          customerAddress,
+          customerAddress: customerAddress || "",
           price,
           fees,
           status,
