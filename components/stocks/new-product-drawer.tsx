@@ -393,7 +393,8 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                 </div>
               </div>
               {/* Switch Vendu au poids */}
-              <div id="sold-by-weight-switch" className="flex items-center justify-between p-4 rounded-xl bg-amber-100 border-2 border-amber-300 shadow-sm">
+              {console.log("[v0] Rendering soldByWeight switch, value:", soldByWeight)}
+              <div id="sold-by-weight-switch" className="flex items-center justify-between p-4 rounded-xl bg-amber-100 border-2 border-amber-300 shadow-sm" style={{ border: '3px solid red' }}>
                 <div className="flex items-center gap-3">
                   <Scale className="h-5 w-5 text-amber-700" />
                   <div>
