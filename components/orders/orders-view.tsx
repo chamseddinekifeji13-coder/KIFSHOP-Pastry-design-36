@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import {
@@ -37,6 +37,7 @@ import {
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
+import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
 // Note: QuickOrder and NewOrderDrawer are replaced by UnifiedOrderDialog
 import {
   createReturn, getOrderReturns, processReturn,
@@ -201,11 +202,27 @@ export function OrdersView() {
     { revalidateOnFocus: false }
   )
 
+  // SWR for delivery companies (for name mapping)
+  const { data: deliveryCompanies = [] } = useSWR(
+    isDemoTenant ? null : ["deliveryCompanies", currentTenant.id],
+    () => fetchActiveDeliveryCompanies(currentTenant.id),
+    { revalidateOnFocus: false }
+  )
+
   useEffect(() => {
     if (searchParams.get("action") === "new") {
       setNewOrderOpen(true)
     }
   }, [searchParams])
+
+  // Create a mapping from delivery company UUID to name for display
+  const courierNameMap = useMemo(() => {
+    const map: Record<string, string> = { ...courierNames }
+    deliveryCompanies.forEach(company => {
+      map[company.id] = company.name
+    })
+    return map
+  }, [deliveryCompanies])
 
   // ALL useCallback hooks MUST be before any conditional return (React rules of hooks)
   const loadHistory = useCallback(async (orderId: string) => {
@@ -1277,7 +1294,7 @@ export function OrdersView() {
                       )}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Transporteur</span>
-                        <span className="font-medium">{selectedOrder.courier ? courierNames[selectedOrder.courier] || selectedOrder.courier : "-"}</span>
+                        <span className="font-medium">{selectedOrder.courier ? courierNameMap[selectedOrder.courier] || selectedOrder.courier : "-"}</span>
                       </div>
                       {selectedOrder.shippingCost > 0 && (
                         <div className="flex items-center justify-between text-sm">

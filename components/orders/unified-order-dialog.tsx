@@ -61,7 +61,7 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
-import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
+import { fetchActiveDeliveryCompanies, fetchDefaultDeliveryCompany } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
 
 interface Product {
@@ -201,6 +201,24 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     
     return () => { cancelled = true }
   }, [open, currentTenant.id, tenantLoading])
+
+  // Auto-fill default delivery company and shipping cost when couriers are loaded
+  useEffect(() => {
+    if (couriers.length > 0 && !courier && open) {
+      const autoFillDefaults = async () => {
+        try {
+          const defaultCompany = await fetchDefaultDeliveryCompany(currentTenant.id)
+          if (defaultCompany) {
+            setCourier(defaultCompany.id)
+            setShippingCost(defaultCompany.shippingCost.toString())
+          }
+        } catch (err) {
+          console.error("Error fetching default delivery company:", err)
+        }
+      }
+      autoFillDefaults()
+    }
+  }, [couriers, open, courier, currentTenant.id])
 
   // Validation téléphone Tunisien (8 chiffres)
   const isValidPhone = useMemo(
