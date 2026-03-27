@@ -392,9 +392,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                 </div>
               </div>
-              {/* SWITCH VENDU AU POIDS - DEBUG */}
-              {console.log("[v0] Rendering soldByWeight switch, value:", soldByWeight)}
-              <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-500" style={{ minHeight: '60px' }}>
+              <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Vendu au poids (kg)</span>
                   <span className="text-xs text-amber-600 dark:text-amber-400">{soldByWeight ? "- Prix par kg" : ""}</span>
