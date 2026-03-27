@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package, Image as ImageIcon, Loader2 } from "lucide-react"
+import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package, Image as ImageIcon, Loader2, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -463,9 +463,9 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                   </Button>
                 )}
                 {imageUrl && (
-                  <div className="text-xs text-green-600 flex items-center gap-1">
-                    <Plus className="h-3 w-3" />
-                    Image uploadée avec succès
+                  <div className="text-xs text-green-600 flex items-center gap-1.5 bg-green-50 px-2 py-1.5 rounded-lg">
+                    <Check className="h-3.5 w-3.5" />
+                    Image uploadee avec succes
                   </div>
                 )}
               </div>
@@ -484,31 +484,29 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
             </div>
             {hasRecipe ? (
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="unit" className="text-xs font-medium">Unité *</Label>
-                  <Select value={unit} onValueChange={(v: string) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
-                    <SelectTrigger id="unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                    <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
-                  </Select>
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-2">
+                  <p className="text-xs text-amber-800">
+                    Definissez les ingredients necessaires pour produire une quantite donnee du produit fini.
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between h-full">
-                    <Label className="text-xs font-medium">Vendu au poids</Label>
-                    <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
-                  </div>
-                </div>
-              </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unité rendement</Label>
+                    <Label htmlFor="yield-qty" className="text-xs font-medium">Rendement de la recette</Label>
+                    <Input id="yield-qty" type="number" min="1" step="1" placeholder="1" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
+                      className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
+                    <p className="text-[10px] text-muted-foreground">Combien d&apos;unites cette recette produit</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unite de rendement</Label>
                     <Select value={yieldUnit} onValueChange={setYieldUnit}>
-                      <SelectTrigger id="yield-unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
+                      <SelectTrigger id="yield-unit" className="bg-muted/50 border-0"><SelectValue placeholder={unit || "Choisir"} /></SelectTrigger>
                       <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
                     </Select>
+                    <p className="text-[10px] text-muted-foreground">Par defaut: unite du produit</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingrédient</Label>
+                <div className="border-t pt-4 space-y-2">
+                  <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingredient</Label>
                   <div className="flex gap-2">
                     <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
                       <SelectTrigger id="material" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matière première" /></SelectTrigger>
