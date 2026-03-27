@@ -45,6 +45,7 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
   const [imageUrl, setImageUrl] = useState("")
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [soldByWeight, setSoldByWeight] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { mutate } = useFinishedProducts()
 
@@ -62,9 +63,11 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
       setIsPublished(product.isPublished ?? false)
       setTags(product.tags?.join(", ") || "")
       setImageUrl(product.imageUrl || product.image || "")
+      setSoldByWeight((product as any).soldByWeight ?? false)
     } else {
       setName(""); setDescription(""); setPrice(""); setUnit("piece"); setMinOrder("1")
       setWeight(""); setCategory(""); setIsPublished(false); setTags(""); setImageUrl("")
+      setSoldByWeight(false)
     }
   }, [product, open])
 
@@ -127,6 +130,7 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
           minOrder: Number(minOrder) || 1,
           tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
           imageUrl: imageUrl || undefined,
+          soldByWeight,
         })
         if (success) {
           toast.success("Produit mis a jour", { description: name })
@@ -293,6 +297,13 @@ export function ProductEditDrawer({ product, open, onOpenChange }: ProductEditDr
                   <Input placeholder="Ex: 500g" value={weight} onChange={(e) => setWeight(e.target.value)}
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                 </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Vendu au poids (kg)</span>
+                  <span className="text-xs text-amber-600 dark:text-amber-400">{soldByWeight ? "- Prix par kg" : ""}</span>
+                </div>
+                <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
               </div>
             </div>
           </div>
