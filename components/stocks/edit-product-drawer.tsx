@@ -252,40 +252,26 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
-                    <SelectValue placeholder="Choisir" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between h-full">
-                  <Label className="text-xs font-medium">Vendu au poids</Label>
-                  <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
-                </div>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
+                  <SelectValue placeholder="Choisir" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
-                    <SelectValue placeholder="Choisir" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-medium">Vendu au poids (kg)</Label>
+                <p className="text-[10px] text-muted-foreground">Le prix est par kg, la quantité sera saisie en poids</p>
               </div>
+              <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
