@@ -274,6 +274,7 @@ export async function createShipment(data: CreateShipmentData): Promise<Delivery
     shipmentId: shipment.shipment_id,
     status: shipment.status as DeliveryStatus,
     notes: shipment.notes,
+    codAmount: shipment.cod_amount || 0,
     exportedAt: shipment.exported_at,
     responseData: shipment.response_data,
     errorMessage: shipment.error_message,
