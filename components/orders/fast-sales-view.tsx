@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { WeightInputDialog } from "./weight-input-dialog"
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
@@ -31,6 +32,7 @@ interface Product {
   name: string
   selling_price: number
   current_stock: number
+  sold_by_weight?: boolean
 }
 
 interface OrderItem {
@@ -76,6 +78,8 @@ export function FastSalesView() {
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [lastOrderId, setLastOrderId] = useState<string | null>(null)
+  const [weightDialogOpen, setWeightDialogOpen] = useState(false)
+  const [selectedProductForWeight, setSelectedProductForWeight] = useState<Product | null>(null)
 
   // Data
   const [products, setProducts] = useState<Product[]>([])
@@ -95,7 +99,7 @@ export function FastSalesView() {
         const supabase = createSupabaseClient()
         const { data } = await supabase
           .from("finished_products")
-          .select("id, name, selling_price, current_stock")
+          .select("id, name, selling_price, current_stock, sold_by_weight")
           .eq("tenant_id", currentTenant.id)
           .order("name")
 
@@ -104,6 +108,7 @@ export function FastSalesView() {
             ...p,
             selling_price: Number(p.selling_price),
             current_stock: Number(p.current_stock),
+            sold_by_weight: p.sold_by_weight || false,
           })))
         }
 
@@ -161,20 +166,53 @@ export function FastSalesView() {
 
   // Add product to cart
   const handleAddProduct = (product: Product) => {
-    const existing = items.find(i => i.productId === product.id)
-    if (existing) {
-      setItems(items.map(i =>
-        i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i
-      ))
+    if (product.sold_by_weight) {
+      // If sold by weight, show weight dialog
+      setSelectedProductForWeight(product)
+      setWeightDialogOpen(true)
     } else {
-      setItems([...items, {
-        productId: product.id,
-        name: product.name,
-        quantity: 1,
-        price: product.selling_price
-      }])
+      // If sold by unit, add normally
+      const existing = items.find(i => i.productId === product.id)
+      if (existing) {
+        setItems(items.map(i =>
+          i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i
+        ))
+      } else {
+        setItems([...items, {
+          productId: product.id,
+          name: product.name,
+          quantity: 1,
+          price: product.selling_price
+        }])
+      }
     }
     setProductFilter("")
+  }
+
+  // Handle weight input confirmation
+  const handleWeightConfirm = (weightInKg: number, totalPrice: number) => {
+    if (!selectedProductForWeight) return
+
+    const existing = items.find(i => i.productId === selectedProductForWeight.id)
+    if (existing) {
+      // Update quantity (store weight) and price
+      setItems(items.map(i =>
+        i.productId === selectedProductForWeight.id
+          ? { ...i, quantity: i.quantity + weightInKg, price: totalPrice }
+          : i
+      ))
+    } else {
+      // Add new item with weight as quantity
+      setItems([...items, {
+        productId: selectedProductForWeight.id,
+        name: `${selectedProductForWeight.name} (${weightInKg.toFixed(3)} kg)`,
+        quantity: weightInKg,
+        price: totalPrice
+      }])
+    }
+
+    setSelectedProductForWeight(null)
+    setWeightDialogOpen(false)
   }
 
   // Update quantity
@@ -696,5 +734,16 @@ export function FastSalesView() {
         </div>
       </div>
     </div>
+
+    {/* Weight input dialog for products sold by weight */}
+    {selectedProductForWeight && (
+      <WeightInputDialog
+        open={weightDialogOpen}
+        onOpenChange={setWeightDialogOpen}
+        productName={selectedProductForWeight.name}
+        pricePerKg={selectedProductForWeight.selling_price}
+        onConfirm={handleWeightConfirm}
+      />
+    )}
   )
 }
