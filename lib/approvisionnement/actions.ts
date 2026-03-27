@@ -371,7 +371,7 @@ export async function createPurchaseInvoice(tenantId: string, data: {
     totalTva: Number(row.total_tva), totalTtc: Number(row.total_ttc),
     notes: row.notes, validatedBy: row.validated_by,
     validatedAt: row.validated_at, createdBy: row.created_by,
-    items: items.map((i, idx) => ({ id: `new-${idx}`, invoiceId: row.id, ...i })),
+    items: items.map((i, idx) => ({ id: `new-${idx}`, invoiceId: row.id, ...i, rawMaterialId: i.rawMaterialId ?? null, packagingId: i.packagingId ?? null, consumableId: i.consumableId ?? null })),
     createdAt: row.created_at,
   }
 }
