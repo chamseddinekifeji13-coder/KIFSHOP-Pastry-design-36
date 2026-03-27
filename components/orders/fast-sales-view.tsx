@@ -733,7 +733,6 @@ export function FastSalesView() {
           </Card>
         </div>
       </div>
-    </div>
 
       {/* Weight input dialog for products sold by weight */}
       {selectedProductForWeight && (
