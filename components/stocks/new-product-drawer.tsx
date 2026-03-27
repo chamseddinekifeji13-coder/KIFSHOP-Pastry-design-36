@@ -392,12 +392,16 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                 </div>
               </div>
-              {/* Switch Vendu au poids - SIMPLIFIÉ */}
-              <div className="p-4 bg-red-600 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <span className="text-white font-bold text-lg">VENDU AU POIDS TEST</span>
-                  <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
+              {/* Switch Vendu au poids */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <div className="flex items-center gap-3">
+                  <Scale className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <Label className="text-sm font-medium text-amber-900">Vendu au poids (kg)</Label>
+                    <p className="text-xs text-amber-700">Activer si le prix est calculé par kilogramme</p>
+                  </div>
                 </div>
+                <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-xs font-medium">Description (optionnel)</Label>
