@@ -297,13 +297,17 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
                     {cart.map(item => (
                       <div key={item.product.id} className="flex gap-3 rounded-lg border p-3">
                         <div className="relative h-16 w-16 rounded bg-muted overflow-hidden shrink-0">
-                          <Image
-                            src={item.product.image}
-                            alt={item.product.name}
-                            fill
-                            className="object-cover"
-                            crossOrigin="anonymous"
-                          />
+                          {item.product.image ? (
+                            <Image
+                              src={item.product.image}
+                              alt={item.product.name}
+                              fill
+                              className="object-cover"
+                              crossOrigin="anonymous"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground text-xs">N/A</div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product.name}</p>
