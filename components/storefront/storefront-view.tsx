@@ -43,6 +43,7 @@ import { toast, Toaster } from "sonner"
 interface CatalogProduct {
   id: string; name: string; category: string; price: number
   image?: string; isPublished?: boolean; description?: string
+  minOrder: number; unit: string; weight?: string; tags: string[]
 }
 
 interface CartItem {
@@ -56,8 +57,9 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
     () => fetchFinishedProducts(tenantId)
   )
   const catalog: CatalogProduct[] = products.map((p: any) => ({
-    id: p.id, name: p.name, category: p.category || "Sans catégorie", price: p.price || 0,
-    image: "", isPublished: true, description: "",
+    id: p.id, name: p.name, category: p.category || "Sans catégorie", price: p.price || p.selling_price || 0,
+    image: p.image_url || "", isPublished: p.is_published ?? true, description: p.description || "",
+    minOrder: p.min_order || 1, unit: p.unit || "pièce", weight: p.weight || "", tags: p.tags || []
   }))
   const info = { name: "KIFSHOP Pastry", logo: "K", color: "#4A7C59", phone: "+216 25 12 22 12", whatsapp: "+21625122212" }
 
