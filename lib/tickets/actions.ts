@@ -21,7 +21,7 @@ export interface SupportTicket {
 export interface TicketMessage {
   id: string
   ticketId: string
-  senderType: "user" | "admin"
+  senderType: "user" | "admin" | "system"
   senderName: string
   message: string
   createdAt: string
@@ -75,7 +75,7 @@ function mapMessage(row: Record<string, unknown>): TicketMessage {
   return {
     id: row.id as string,
     ticketId: row.ticket_id as string,
-    senderType: row.sender_type as "user" | "admin",
+    senderType: row.sender_type as "user" | "admin" | "system",
     senderName: row.sender_name as string,
     message: row.message as string,
     createdAt: row.created_at as string,
