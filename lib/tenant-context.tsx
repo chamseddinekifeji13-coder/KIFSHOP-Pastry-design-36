@@ -80,6 +80,8 @@ export interface Tenant {
   logoUrl?: string
   primaryColor: string
   subscription: TenantSubscription
+  address?: string
+  phone?: string
 }
 
 export interface TenantState {
