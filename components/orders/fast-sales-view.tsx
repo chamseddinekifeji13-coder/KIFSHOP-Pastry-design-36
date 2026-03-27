@@ -735,15 +735,16 @@ export function FastSalesView() {
       </div>
     </div>
 
-    {/* Weight input dialog for products sold by weight */}
-    {selectedProductForWeight && (
-      <WeightInputDialog
-        open={weightDialogOpen}
-        onOpenChange={setWeightDialogOpen}
-        productName={selectedProductForWeight.name}
-        pricePerKg={selectedProductForWeight.selling_price}
-        onConfirm={handleWeightConfirm}
-      />
-    )}
+      {/* Weight input dialog for products sold by weight */}
+      {selectedProductForWeight && (
+        <WeightInputDialog
+          open={weightDialogOpen}
+          onOpenChange={setWeightDialogOpen}
+          productName={selectedProductForWeight.name}
+          pricePerKg={selectedProductForWeight.selling_price}
+          onConfirm={handleWeightConfirm}
+        />
+      )}
+    </div>
   )
 }
