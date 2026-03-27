@@ -1216,7 +1216,7 @@ export async function parseXMLContent(content: string): Promise<{
         const fees = feesStr ? parseFloat(feesStr) : undefined
 
         // Parse delivery date
-        let deliveryDate: Date | undefined
+        let deliveryDate: string | undefined
         if (deliveryDateStr) {
           deliveryDate = parseAndValidateDate(deliveryDateStr)
           if (!deliveryDate) {
