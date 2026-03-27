@@ -55,6 +55,19 @@ interface PurchaseOrderManagementProps {
   tenantId: string
 }
 
+function getStatusBadge(status: PurchaseOrder['status']) {
+  const config: Record<PurchaseOrder['status'], { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+    draft: { label: 'Brouillon', variant: 'outline' },
+    sent: { label: 'Envoyée', variant: 'default' },
+    confirmed: { label: 'Confirmée', variant: 'secondary' },
+    partial_received: { label: 'Partiellement reçue', variant: 'secondary' },
+    received: { label: 'Reçue', variant: 'default' },
+    cancelled: { label: 'Annulée', variant: 'destructive' },
+  }
+  const { label, variant } = config[status] || { label: status, variant: 'outline' as const }
+  return <Badge variant={variant}>{label}</Badge>
+}
+
 export function PurchaseOrderManagement({ tenantId }: PurchaseOrderManagementProps) {
   const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -368,7 +381,7 @@ function PurchaseOrderCard({ order, onUpdate }: PurchaseOrderCardProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold">{order.reference}</h3>
-              {order.getStatusBadge?.(order.status)}
+              {getStatusBadge(order.status)}
             </div>
             <p className="text-sm text-gray-600">{order.supplierName}</p>
           </div>
