@@ -1042,41 +1042,10 @@ export async function parseCSVContent(content: string): Promise<{
     
     // Convert scientific notation to regular number if needed
     if (trackingNumber && trackingNumber.includes("E")) {
-    try {
-      // Validate required fields
-      if (!row.customerName || row.customerName.trim() === "") {
-        result.errors.push({ row: i + 2, error: "Nom client manquant ou vide" })
-        result.failed++
-        continue
-      }
-
-      if (!row.customerPhone || row.customerPhone.trim() === "") {
-        result.errors.push({ row: i + 2, error: "Telephone client manquant" })
-        result.failed++
-        continue
-      }
-
-      // Check if any date is invalid
-      if (row.deliveryDate && isNaN(new Date(row.deliveryDate).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date livraison invalide: "${row.deliveryDate}"` })
-        result.failed++
-        continue
-      }
-
-      if (row.dateAdded && isNaN(new Date(row.dateAdded).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date ajoutee invalide: "${row.dateAdded}"` })
-        result.failed++
-        continue
-      }
-
-      if (row.pickupDate && isNaN(new Date(row.pickupDate).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date retrait invalide: "${row.pickupDate}"` })
-        result.failed++
-        continue
-      }
-        const num = parseFloat(trackingNumber)
+      try {
+        const num = parseFloat(trackingNumber.replace(",", "."))
         trackingNumber = Math.floor(num).toString()
-      } catch (e) {
+      } catch {
         // Keep as is if conversion fails
       }
     }
