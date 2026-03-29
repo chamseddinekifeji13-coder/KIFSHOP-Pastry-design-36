@@ -45,10 +45,16 @@ export async function GET(request: Request) {
     
     console.log('[v0] Revenue API - tenantId:', session.tenantId)
     console.log('[v0] Revenue API - startDate:', startDate)
+    console.log('[v0] Revenue API - type param:', type)
     console.log('[v0] Revenue API - transactions count:', transactions?.length || 0)
     console.log('[v0] Revenue API - transactions error:', transError)
     if (transactions?.length) {
-      console.log('[v0] Revenue API - sample transactions:', transactions.slice(0, 3))
+      console.log('[v0] Revenue API - sample transactions:', JSON.stringify(transactions.slice(0, 3), null, 2))
+      // Log types and categories for debugging
+      const types = [...new Set(transactions.map(t => t.type))]
+      const categories = [...new Set(transactions.map(t => t.category))]
+      console.log('[v0] Revenue API - unique types:', types)
+      console.log('[v0] Revenue API - unique categories:', categories)
     }
 
     // Fetch order collections  
