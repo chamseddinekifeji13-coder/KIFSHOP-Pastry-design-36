@@ -3,19 +3,18 @@
 
 'use client'
 
-import { memo, Suspense, type ReactNode } from 'react'
+import { memo, Suspense, lazy, type ReactNode, type ComponentType } from 'react'
 
-// Lazy load heavy components
 export const createLazyComponent = <P extends object>(
-  importFunc: () => Promise<{ default: React.ComponentType<P> }>,
+  importFunc: () => Promise<{ default: ComponentType<P> }>,
   displayName: string
 ) => {
-  const Component = memo(async (props: P) => {
-    const { default: LazyComponent } = await importFunc()
-    return <LazyComponent {...props} />
-  })
+  const LazyComponent = lazy(importFunc)
   
+  // Create a wrapper component with displayName
+  const Component = (props: P) => <LazyComponent {...props} />
   Component.displayName = displayName
+  
   return Component
 }
 
