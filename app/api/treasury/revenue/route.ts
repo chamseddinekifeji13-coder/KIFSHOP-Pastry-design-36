@@ -36,26 +36,12 @@ export async function GET(request: Request) {
       startDate = '2020-01-01' // All years
     }
 
-    // Fetch ALL transactions for this tenant (no date filter initially to debug)
-    const { data: transactions, error: transError } = await supabase
+    // Fetch transactions for this tenant
+    const { data: transactions } = await supabase
       .from('transactions')
       .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
-    
-    // If no transactions found with session.tenantId, try to get any transactions to verify data exists
-    let debugInfo = {
-      tenantId: session.tenantId,
-      startDate,
-      type,
-      transactionsFound: transactions?.length || 0,
-      transError: transError?.message || null
-    }
-    
-    // Filter by date after fetching (to debug date issues)
-    const filteredTransactions = (transactions || []).filter(t => {
-      const txDate = new Date(t.created_at).toISOString().split('T')[0]
-      return txDate >= startDate
-    })
+      .gte('created_at', startDate)
 
     // Fetch order collections  
     const { data: collections } = await supabase
@@ -112,8 +98,8 @@ export async function GET(request: Request) {
       return aggregateMap.get(key)!
     }
 
-    // Process filtered transactions - check both type AND category for proper classification
-    for (const t of filteredTransactions) {
+    // Process transactions - check type for proper classification
+    for (const t of transactions || []) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
       entry.transactions_count++
@@ -169,7 +155,6 @@ export async function GET(request: Request) {
       success: true,
       type,
       data,
-      debug: debugInfo,
       generatedAt: new Date().toISOString(),
     })
   } catch (error) {
