@@ -28,15 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-interface PriceHistoryEntry {
-  id: string; date: string; supplierId: string; supplierName: string
-  rawMaterial: string; price: number; unit: string; quantity: number
-}
-
-interface BestPriceByProduct {
-  rawMaterial: string; bestPrice: number; bestSupplier: string
-  unit: string; avgPrice: number; priceCount: number
-}
+import type { PriceHistoryEntry, BestPriceByProduct } from "@/lib/approvisionnement/actions"
 
 interface BestPricesViewProps {
   bestPrices: BestPriceByProduct[]
@@ -65,15 +57,16 @@ function PriceRow({
   const supplierPrices = new Map<string, { name: string; bestPrice: number; lastPrice: number; count: number }>()
   history.forEach((entry) => {
     const existing = supplierPrices.get(entry.supplierId)
+    const price = entry.unitPrice
     if (!existing) {
       supplierPrices.set(entry.supplierId, {
         name: entry.supplierName,
-        bestPrice: entry.unitPrice,
-        lastPrice: entry.unitPrice,
+        bestPrice: price,
+        lastPrice: price,
         count: 1,
       })
     } else {
-      existing.bestPrice = Math.min(existing.bestPrice, entry.unitPrice)
+      existing.bestPrice = Math.min(existing.bestPrice, price)
       existing.count++
     }
   })

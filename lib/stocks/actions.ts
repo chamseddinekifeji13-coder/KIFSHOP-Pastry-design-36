@@ -103,6 +103,7 @@ export interface FinishedProduct {
   tags: string[]
   storageLocationId: string | null
   createdAt: string
+  soldByWeight?: boolean
 }
 
 export interface Category {
@@ -132,7 +133,7 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
   const supabase = createClient()
   const { data, error } = await supabase
     .from("raw_materials")
-    .select("*")
+    .select("id, tenant_id, name, unit, current_stock, min_stock, price_per_unit, supplier_id, storage_location_id, created_at")
     .eq("tenant_id", tenantId)
     .order("name")
 
@@ -140,14 +141,14 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
   return (data || []).map((r) => ({
     id: r.id, tenantId: r.tenant_id, name: r.name, unit: r.unit,
     currentStock: Number(r.current_stock), minStock: Number(r.min_stock),
-    pricePerUnit: Number(r.price_per_unit), supplier: r.supplier,
+    pricePerUnit: Number(r.price_per_unit), supplier: null,
     storageLocationId: r.storage_location_id || null,
     createdAt: r.created_at,
   }))
 }
 
 export async function createRawMaterial(tenantId: string, data: {
-  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; barcode?: string; storageLocationId?: string
+  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier?: string; storageLocationId?: string
 }): Promise<RawMaterial | null> {
   // Validate required fields - prevent null/empty names
   const trimmedName = data.name?.trim()
@@ -184,19 +185,18 @@ export async function createRawMaterial(tenantId: string, data: {
     tenant_id: tenantId, name: data.name, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
     price_per_unit: data.pricePerUnit, supplier: data.supplier || null,
-    barcode: data.barcode || null,
     storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
   return { id: row.id, tenantId: row.tenant_id, name: row.name, unit: row.unit,
     currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
-    pricePerUnit: Number(row.price_per_unit), supplier: row.supplier,
+    pricePerUnit: Number(row.price_per_unit), supplier: null,
     storageLocationId: row.storage_location_id || null, createdAt: row.created_at }
 }
 
 export async function updateRawMaterial(id: string, data: Partial<{
-  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; barcode: string; storageLocationId: string | null
+  name: string; unit: string; currentStock: number; minStock: number; pricePerUnit: number; supplier: string; storageLocationId: string | null
 }>): Promise<boolean> {
   // Validate name if provided - prevent null/empty names
   if (data.name !== undefined) {
@@ -219,7 +219,6 @@ export async function updateRawMaterial(id: string, data: Partial<{
   if (data.minStock !== undefined) updates.min_stock = data.minStock
   if (data.pricePerUnit !== undefined) updates.price_per_unit = data.pricePerUnit
   if (data.supplier !== undefined) updates.supplier = data.supplier
-  if (data.barcode !== undefined) updates.barcode = data.barcode
   if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId
   const { error } = await supabase.from("raw_materials").update(updates).eq("id", id)
   if (error) { console.error("Error updating raw material:", error.message); return false }
@@ -377,31 +376,27 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
   const supabase = createClient()
   const { data, error } = await supabase
     .from("finished_products")
-    .select("*, finished_product_packaging(quantity, packaging:packaging(price)), categories(name)")
+    .select("*")
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching finished products:", error.message); return [] }
   return (data || []).map((p: any) => {
-    const packagingCost = (p.finished_product_packaging || []).reduce(
-      (sum: number, fpp: any) => sum + (Number(fpp.quantity) * Number(fpp.packaging?.price || 0)), 0
-    )
     const costPrice = Number(p.cost_price)
-    const ingredientCost = Math.max(0, costPrice - packagingCost)
     return {
       id: p.id, tenantId: p.tenant_id, categoryId: p.category_id, 
-      category: p.categories?.name || null, name: p.name,
+      category: null, name: p.name,
       description: p.description, unit: p.unit, currentStock: Number(p.current_stock),
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
-      costPrice, packagingCost, ingredientCost,
+      costPrice, packagingCost: 0, ingredientCost: costPrice,
       imageUrl: p.image_url, weight: p.weight,
-      isPublished: p.is_published, minOrder: p.min_order, tags: p.tags || [], createdAt: p.created_at,
+      isPublished: p.is_published, minOrder: 1, tags: p.tags || [], createdAt: p.created_at,
     }
   })
 }
 
 export async function createFinishedProduct(tenantId: string, data: {
   name: string; categoryId?: string; unit: string; currentStock: number; minStock: number;
-  sellingPrice: number; costPrice: number; description?: string; weight?: string
+  sellingPrice: number; costPrice: number; description?: string; weight?: string; imageUrl?: string; soldByWeight?: boolean
 }): Promise<FinishedProduct | null> {
   // Validate required fields - prevent null/empty names
   const trimmedName = data.name?.trim()
@@ -438,7 +433,8 @@ export async function createFinishedProduct(tenantId: string, data: {
     tenant_id: tenantId, name: data.name, category_id: data.categoryId || null,
     unit: data.unit, current_stock: data.currentStock, min_stock: data.minStock,
     selling_price: data.sellingPrice, cost_price: data.costPrice,
-    description: data.description || null, weight: data.weight || null,
+    description: data.description || null, weight: data.weight || null, image_url: data.imageUrl || null,
+    sold_by_weight: data.soldByWeight || false,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
@@ -446,25 +442,39 @@ export async function createFinishedProduct(tenantId: string, data: {
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
     costPrice: Number(row.cost_price), imageUrl: row.image_url, weight: row.weight,
-    isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at }
+    isPublished: row.is_published, minOrder: 1, tags: row.tags || [], createdAt: row.created_at }
 }
 
 export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
   const supabase = createClient()
+  
+  // Verify user is authenticated
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+  
   const { error } = await supabase
     .from("finished_products")
     .update({ image_url: imageUrl })
     .eq("id", productId)
-  if (error) { console.error("Error updating product image:", error.message); return false }
+  if (error) { 
+    console.error("Error updating product image:", error.message)
+    throw new Error(error.message)
+  }
   return true
 }
 
 export async function updateFinishedProduct(productId: string, data: {
   name?: string; description?: string; sellingPrice?: number; unit?: string;
-  weight?: string; isPublished?: boolean; minOrder?: number; tags?: string[];
+  weight?: string; isPublished?: boolean; tags?: string[]; minOrder?: number;
   imageUrl?: string; currentStock?: number; minStock?: number; categoryId?: string | null;
+  soldByWeight?: boolean
 }): Promise<boolean> {
   const supabase = createClient()
+  
+  // Verify user is authenticated
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+  
   const update: Record<string, any> = {}
   if (data.name !== undefined) update.name = data.name
   if (data.description !== undefined) update.description = data.description
@@ -472,15 +482,19 @@ export async function updateFinishedProduct(productId: string, data: {
   if (data.unit !== undefined) update.unit = data.unit
   if (data.weight !== undefined) update.weight = data.weight
   if (data.isPublished !== undefined) update.is_published = data.isPublished
-  if (data.minOrder !== undefined) update.min_order = data.minOrder
   if (data.tags !== undefined) update.tags = data.tags
+  if (data.minOrder !== undefined) update.min_order = data.minOrder
   if (data.imageUrl !== undefined) update.image_url = data.imageUrl
   if (data.currentStock !== undefined) update.current_stock = data.currentStock
   if (data.minStock !== undefined) update.min_stock = data.minStock
   if (data.categoryId !== undefined) update.category_id = data.categoryId
+  if (data.soldByWeight !== undefined) update.sold_by_weight = data.soldByWeight
 
   const { error } = await supabase.from("finished_products").update(update).eq("id", productId)
-  if (error) { console.error("Error updating finished product:", error.message); return false }
+  if (error) { 
+    console.error("Error updating finished product:", error.message)
+    throw new Error(error.message)
+  }
   return true
 }
 
@@ -503,7 +517,7 @@ export async function fetchProductPackaging(productId: string): Promise<ProductP
   const supabase = createClient()
   const { data, error } = await supabase
     .from("finished_product_packaging")
-    .select("id, quantity, packaging_id, packaging:packaging(id, name, type, price, unit)")
+    .select("id, quantity, packaging_id, packaging:packaging(id, name, type, price_per_unit, unit)")
     .eq("finished_product_id", productId)
   if (error) { console.error("Error fetching product packaging:", error.message); return [] }
   return (data || []).map((row: any) => ({
@@ -512,7 +526,7 @@ export async function fetchProductPackaging(productId: string): Promise<ProductP
     packagingName: row.packaging?.name || "",
     packagingType: row.packaging?.type || "",
     quantity: Number(row.quantity),
-    unitPrice: Number(row.packaging?.price || 0),
+    unitPrice: Number(row.packaging?.price_per_unit || 0),
     unit: row.packaging?.unit || "unite",
   }))
 }
@@ -544,10 +558,10 @@ export async function recalculateProductCost(productId: string): Promise<number>
   // Get packaging cost
   const { data: pkgData } = await supabase
     .from("finished_product_packaging")
-    .select("quantity, packaging:packaging(price)")
+    .select("quantity, packaging:packaging(price_per_unit)")
     .eq("finished_product_id", productId)
   const packagingCost = (pkgData || []).reduce((sum: number, row: any) => {
-    return sum + (Number(row.quantity) * Number(row.packaging?.price || 0))
+    return sum + (Number(row.quantity) * Number(row.packaging?.price_per_unit || 0))
   }, 0)
 
   // Get recipe ingredients cost (MP)
@@ -576,7 +590,7 @@ export async function recalculateProductCost(productId: string): Promise<number>
   return totalCost
 }
 
-// ─── Recipes ──���──────────────���────────────────────────────────
+// ─── Recipes ──���──────────────���──��─────────────────────────────
 
 export interface RecipeIngredient {
   rawMaterialId: string
@@ -740,10 +754,10 @@ export async function fetchPackaging(tenantId: string): Promise<Packaging[]> {
     .order("name")
   if (error) { console.error("Error fetching packaging:", error.message); return [] }
   return (data || []).map((p) => ({
-    id: p.id, tenantId: p.tenant_id, name: p.name, type: p.type,
+    id: p.id, tenantId: p.tenant_id, name: p.name, type: p.type || 'autre',
     description: p.description, unit: p.unit,
-    currentStock: Number(p.current_stock), minStock: Number(p.min_stock),
-    price: Number(p.price), createdAt: p.created_at,
+    currentStock: Number(p.current_stock || 0), minStock: Number(p.min_stock || 0),
+    price: Number(p.price_per_unit || p.price || 0), createdAt: p.created_at,
   }))
 }
 
@@ -762,10 +776,9 @@ export async function createPackaging(tenantId: string, data: {
   
   const supabase = createClient()
   
-  // Check for exact and similar duplicates by name + type
+  // Check for exact and similar duplicates by name
   const { data: allPackaging } = await supabase
-    .from("packaging").select("id, name, type").eq("tenant_id", tenantId)
-    .eq("type", data.type)
+    .from("packaging").select("id, name").eq("tenant_id", tenantId)
   
   if (allPackaging && allPackaging.length > 0) {
     const inputNormalized = normalizeString(data.name)
@@ -784,9 +797,9 @@ export async function createPackaging(tenantId: string, data: {
   }
   
   const { data: row, error } = await supabase.from("packaging").insert({
-    tenant_id: tenantId, name: data.name, type: data.type, unit: data.unit,
+    tenant_id: tenantId, name: data.name, category: data.type || null, unit: data.unit,
     current_stock: data.currentStock, min_stock: data.minStock,
-    price: data.price, description: data.description || null,
+    price_per_unit: data.price, description: data.description || null,
     storage_location_id: data.storageLocationId || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
@@ -804,10 +817,10 @@ export async function createPackaging(tenantId: string, data: {
   }
 
   return {
-    id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type,
+    id: row.id, tenantId: row.tenant_id, name: row.name, type: row.type || 'autre',
     description: row.description, unit: row.unit,
     currentStock: Number(row.current_stock), minStock: Number(row.min_stock),
-    price: Number(row.price), createdAt: row.created_at,
+    price: Number(row.price_per_unit), createdAt: row.created_at,
   }
 }
 
@@ -824,9 +837,9 @@ export async function updatePackaging(id: string, data: Partial<{
   const supabase = createClient()
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (data.name !== undefined) updates.name = data.name
-  if (data.type !== undefined) updates.type = data.type
+  if (data.type !== undefined) updates.category = data.type
   if (data.unit !== undefined) updates.unit = data.unit
-  if (data.price !== undefined) updates.price = data.price
+  if (data.price !== undefined) updates.price_per_unit = data.price
   if (data.minStock !== undefined) updates.min_stock = data.minStock
   if (data.description !== undefined) updates.description = data.description
   if (data.storageLocationId !== undefined) updates.storage_location_id = data.storageLocationId

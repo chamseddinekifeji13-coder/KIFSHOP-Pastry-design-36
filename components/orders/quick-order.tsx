@@ -23,9 +23,12 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
+  Pencil,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { showError, showSuccess, showWarning } from "@/lib/error-messages"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -58,8 +61,9 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
-import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
+import { fetchActiveDeliveryCompanies, fetchDefaultDeliveryCompany } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
 
 interface Product {
   id: string
@@ -90,6 +94,7 @@ const gouvernorats = [
 
 export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const {
     client,
     isLoading: clientLoading,
@@ -109,6 +114,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   // New client fields
   const [clientName, setClientName] = useState("")
   const [clientAddress, setClientAddress] = useState("")
+  const [editingName, setEditingName] = useState(false)
 
   // Order fields
   const [source, setSource] = useState<string>("phone")
@@ -204,6 +210,25 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     }
   }, [open, currentTenant.id, tenantLoading])
 
+  // Auto-fill default delivery company and shipping cost when couriers are loaded
+  useEffect(() => {
+    if (couriers.length > 0 && !courier && open) {
+      const autoFillDefaults = async () => {
+        try {
+          const defaultCompany = await fetchDefaultDeliveryCompany(currentTenant.id)
+          if (defaultCompany) {
+            // Use name - the Select component uses company names as values
+            setCourier(defaultCompany.name)
+            setShippingCost(defaultCompany.shippingCost.toString())
+          }
+        } catch (err) {
+          console.error("Error fetching default delivery company:", err)
+        }
+      }
+      autoFillDefaults()
+    }
+  }, [couriers, open, courier, currentTenant.id])
+
   const handlePhoneLookup = useCallback(async () => {
     const cleanPhone = phone.replace(/\s/g, "").trim()
     if (cleanPhone.length < 4) return
@@ -213,10 +238,13 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       const result = await lookupClient(cleanPhone, currentTenant.id)
       if (result && result.name) {
         setClientName(result.name)
+      } else {
+        setClientName("")
       }
+      setEditingName(false)
     } catch (err) {
       console.error("Erreur recherche client:", err)
-      toast.error("Erreur lors de la recherche du client")
+      showError(err, "Recherche client")
     }
   }, [phone, currentTenant.id, lookupClient])
 
@@ -277,26 +305,29 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   const handleSubmit = async () => {
     if (!client || isBlocked || hasExcessiveReturns || submitting) return
     if (items.length === 0) {
-      toast.error("Veuillez ajouter au moins un article")
+      showWarning("Panier vide", "Veuillez ajouter au moins un article a la commande.")
       return
     }
     if (total <= 0) {
-      toast.error("Le total de la commande doit être supérieur à 0")
+      showWarning("Total invalide", "Le total de la commande doit etre superieur a 0.")
       return
     }
     if (isNewClient && !clientName.trim()) {
-      toast.error("Veuillez entrer le nom du client")
+      showWarning("Nom requis", "Veuillez saisir le nom du client pour continuer.")
       return
     }
     if (deliveryType === "delivery" && !clientAddress.trim()) {
-      toast.error("Veuillez entrer l'adresse de livraison")
+      showWarning("Adresse requise", "Veuillez saisir l'adresse de livraison.")
       return
     }
 
     setSubmitting(true)
     try {
-      // Update client name if new
-      if (isNewClient && clientName.trim()) {
+      // Update client name if new OR if editing an existing client's name
+      const shouldUpdateName = (isNewClient && clientName.trim()) ||
+        (editingName && clientName.trim() && clientName.trim() !== client.name)
+
+      if (shouldUpdateName) {
         const supabase = createSupabaseClient()
         const { error: updateError } = await supabase
           .from("clients")
@@ -339,10 +370,18 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
 
       setSuccess(true)
       toast.success("Commande enregistree !")
+      
+      // Revalidate SWR cache to sync dashboard
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("orders") || 
+        key.includes("transactions") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+      
       onOrderCreated?.()
       setTimeout(() => handleClose(), 1500)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur creation commande")
+      showError(err, "Creation commande")
     } finally {
       setSubmitting(false)
     }
@@ -353,6 +392,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setTruecallerVerified(false)
     setClientName("")
     setClientAddress("")
+    setEditingName(false)
     setSource("phone")
     setDeliveryType("pickup")
     setCourier("")
@@ -596,17 +636,58 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                     </div>
                   )}
 
-                  {/* New client extra fields */}
-                  {isNewClient && client && (
+                  {/* Client name and address fields - visible for all clients */}
+                  {client && (
                     <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">Nom du client *</Label>
-                        <Input
-                          placeholder="Ex: Mohamed Ben Ali"
-                          value={clientName}
-                          onChange={(e) => setClientName(e.target.value)}
-                          className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-                        />
+                        <Label className="text-xs font-medium flex items-center justify-between">
+                          <span>
+                            Nom du client
+                            {isNewClient && <span className="text-red-600 ml-0.5">*</span>}
+                            {!isNewClient && !client.name && <span className="text-red-600 ml-0.5">*</span>}
+                          </span>
+                          {!isNewClient && client.name && !editingName && (
+                            <button
+                              type="button"
+                              onClick={() => { setClientName(client.name || ""); setEditingName(true) }}
+                              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-normal transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Modifier
+                            </button>
+                          )}
+                        </Label>
+                        {(isNewClient || !client.name || editingName) ? (
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Ex: Mohamed Ben Ali"
+                              value={clientName}
+                              onChange={(e) => setClientName(e.target.value)}
+                              autoFocus={editingName}
+                              className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 flex-1"
+                            />
+                            {editingName && (
+                              <button
+                                type="button"
+                                onClick={() => { setEditingName(false); setClientName(client.name || "") }}
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors shrink-0"
+                                title="Annuler"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-2 rounded-lg bg-muted/50 text-sm text-foreground">
+                            {client.name}
+                          </div>
+                        )}
+                        {isNewClient && (
+                          <p className="text-xs text-muted-foreground">Nouveau client — le nom sera enregistre</p>
+                        )}
+                        {!isNewClient && !client.name && (
+                          <p className="text-xs text-amber-600">Ce client n&apos;a pas encore de nom — ajoutez-en un</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Adresse</Label>

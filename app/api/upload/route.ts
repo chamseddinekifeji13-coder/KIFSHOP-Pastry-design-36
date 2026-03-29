@@ -1,11 +1,14 @@
 import { put } from '@vercel/blob'
 import { type NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/active-profile'
+import { getActiveProfile } from '@/lib/active-profile'
 
 export async function POST(request: NextRequest) {
   try {
-    // ✅ Verify authentication
-    const session = await getServerSession()
+    // ✅ Verify authentication - use getActiveProfile which returns null on error
+    const profile = await getActiveProfile()
+    if (!profile || !profile.tenantId) {
+      return NextResponse.json({ error: 'Non authentifie. Veuillez vous reconnecter.' }, { status: 401 })
+    }
     
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -21,15 +24,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
       return NextResponse.json({ error: 'Le fichier ne doit pas depasser 5 Mo' }, { status: 400 })
     }
 
     // ✅ Upload to Vercel Blob with tenant isolation
     const blob = await put(
-      `${session.tenantId}/product-images/${Date.now()}-${file.name}`,
+      `${profile.tenantId}/product-images/${Date.now()}-${file.name}`,
       file,
-      { access: 'private' }  // Changed from 'public' to 'private' for security
+      { access: 'public' }
     )
 
     return NextResponse.json({
@@ -39,7 +43,7 @@ export async function POST(request: NextRequest) {
       type: file.type,
     })
   } catch (error) {
-    console.error('Upload error:', error)
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Erreur lors du telechargement'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

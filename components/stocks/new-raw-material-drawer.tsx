@@ -11,7 +11,7 @@ import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createRawMaterial } from "@/lib/stocks/actions"
 import { useStorageLocations } from "@/hooks/use-tenant-data"
-import { BarcodeInput } from "@/components/ui/barcode-input"
+import { useSWRConfig } from "swr"
 
 const UNITS = [
   { value: "kg", label: "Kilogrammes (kg)" },
@@ -31,6 +31,7 @@ interface NewRawMaterialDrawerProps {
 
 export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMaterialDrawerProps) {
   const { currentTenant } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const { data: storageLocations } = useStorageLocations()
   const [saving, setSaving] = useState(false)
   
@@ -41,7 +42,6 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   const [minStock, setMinStock] = useState("5")
   const [pricePerUnit, setPricePerUnit] = useState("")
   const [supplier, setSupplier] = useState("")
-  const [barcode, setBarcode] = useState("")
   const [storageLocationId, setStorageLocationId] = useState("")
 
   const activeLocations = (storageLocations || []).filter(l => l.isActive)
@@ -53,7 +53,6 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
     setMinStock("5")
     setPricePerUnit("")
     setSupplier("")
-    setBarcode("")
     setStorageLocationId("")
   }
 
@@ -94,11 +93,18 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         minStock: validateNumber(minStock, 5),
         pricePerUnit: validateNumber(pricePerUnit),
         supplier: supplier.trim() || undefined,
-        barcode: barcode.trim() || undefined,
         storageLocationId: storageLocationId || undefined,
       })
       if (result) {
         toast.success("Matière première ajoutée", { description: name.trim() })
+        
+        // Revalidate SWR cache for dashboard
+        globalMutate((key) => typeof key === "string" && (
+          key.includes("raw_materials") || 
+          key.includes("critical_stock") ||
+          key.includes(currentTenant.id)
+        ), undefined, { revalidate: true })
+        
         resetForm()
         onOpenChange(false)
         onSuccess?.()
@@ -170,11 +176,7 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="barcode" className="text-xs text-muted-foreground">Code-barres</Label>
-                <BarcodeInput id="barcode" value={barcode} onChange={setBarcode} />
-              </div>
+            <div className="grid grid-cols-1 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="location" className="text-xs text-muted-foreground flex items-center gap-1">
                   <MapPin className="h-3 w-3" aria-hidden="true" /> Emplacement *

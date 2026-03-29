@@ -11,16 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { collectOrderPayment } from '@/lib/treasury/cash-actions'
-import { DollarSign, CheckCircle, Loader2 } from 'lucide-react'
+import { DollarSign, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import { useClientOrders } from '@/hooks/use-tenant-data'
+import { useToast } from '@/hooks/use-toast'
 
 export function QuickOrderCollection() {
   const { data: orders, isLoading, mutate } = useClientOrders()
+  const { toast } = useToast()
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [notes, setNotes] = useState('')
   const [isCollecting, setIsCollecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Filter orders that are delivered but not yet collected
   const deliveredOrders = orders?.filter((o: any) => 
@@ -32,12 +35,14 @@ export function QuickOrderCollection() {
     setAmount(order.total?.toString() || '0')
     setPaymentMethod('cash')
     setNotes('')
+    setError(null)
   }
 
   const handleCollect = async () => {
     if (!selectedOrder) return
     
     try {
+      setError(null)
       setIsCollecting(true)
       await collectOrderPayment(
         selectedOrder.id,
@@ -45,11 +50,21 @@ export function QuickOrderCollection() {
         paymentMethod,
         notes
       )
+      toast({
+        title: "Encaissement réussi",
+        description: `Paiement de ${amount} TND enregistré`
+      })
       setSelectedOrder(null)
       mutate()
-    } catch (error) {
-      console.error('Collection failed:', error)
-      alert('Erreur lors de l\'encaissement. Verifiez que la caisse est ouverte.')
+    } catch (err: any) {
+      const errorMessage = err.message || 'Erreur lors de l\'encaissement'
+      console.error('[v0] Collection failed:', err)
+      setError(errorMessage)
+      toast({
+        title: "Erreur lors de l'encaissement",
+        description: errorMessage,
+        variant: "destructive"
+      })
     } finally {
       setIsCollecting(false)
     }
@@ -129,6 +144,16 @@ export function QuickOrderCollection() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex gap-2">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-800">Erreur</p>
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            )}
+            
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600">Client</p>
               <p className="font-semibold">{selectedOrder?.customer_name || selectedOrder?.customerName}</p>

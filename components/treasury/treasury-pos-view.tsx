@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 import { useTenant } from "@/lib/tenant-context"
-import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
+import { useFinishedProducts, useTransactions, useCategories } from "@/hooks/use-tenant-data"
 import { cn } from "@/lib/utils"
 import { PaymentNumpad } from "./payment-numpad"
 import { SalesHistoryPanel } from "./sales-history-panel"
@@ -145,6 +145,7 @@ export function TreasuryPosView() {
   const { currentTenant, currentUser } = useTenant()
   const { data: products, isLoading: productsLoading, mutate: refreshProducts } = useFinishedProducts()
   const { data: transactions, mutate: refreshTransactions } = useTransactions()
+  const { data: categoriesData } = useCategories()
   const { mutate: globalMutate } = useSWRConfig()
   const soundManager = useSoundManager()
 
@@ -216,16 +217,23 @@ export function TreasuryPosView() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Get categories from products
+  // Build a map of categoryId -> categoryName for fast lookups
+  const categoryMap = new Map<string, string>(
+    (categoriesData as any[] || []).map((c: any) => [c.id, c.name])
+  )
+
+  // Get unique category names from products (resolved from categoryMap)
   const categories = products
-    ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
+    ? [...new Set((products as any[])
+        .map(p => categoryMap.get(p.categoryId) || null)
+        .filter(Boolean) as string[])]
     : []
 
   // Filter products by search and category
   const filteredProducts = (products as any[] || []).filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    const productCategory = p.category || p.categoryId || "Autre"
-    const matchesCategory = !selectedCategory || productCategory === selectedCategory
+    const productCategoryName = categoryMap.get(p.categoryId) || null
+    const matchesCategory = !selectedCategory || productCategoryName === selectedCategory
     return matchesSearch && matchesCategory
   })
 
@@ -386,6 +394,8 @@ export function TreasuryPosView() {
             
             const receiptData = {
               storeName: currentTenant?.name || "KIFSHOP PASTRY",
+              storeAddress: currentTenant?.address || undefined,
+              storePhone: currentTenant?.phone || undefined,
               cashierName: currentUser?.name || "Caissier",
               items: (data.items || cart).map((item: any) => ({
                 name: item.name,
@@ -424,6 +434,8 @@ export function TreasuryPosView() {
       try {
         const receiptData = {
           storeName: currentTenant?.name || "KIFSHOP",
+          storeAddress: currentTenant?.address || undefined,
+          storePhone: currentTenant?.phone || undefined,
           cashierName: currentUser?.name || "Caissier",
           items: (data.items || cart).map((item: any) => ({
             name: item.name,
@@ -465,6 +477,9 @@ export function TreasuryPosView() {
               action: "print_receipt",
               printerIp,
               printerPort: parseInt(printerPort),
+              storeName: currentTenant?.name || "KIFSHOP",
+              storeAddress: currentTenant?.address || undefined,
+              storePhone: currentTenant?.phone || undefined,
               items: (data.items || cart).map((item: any) => ({
                 name: item.name,
                 qty: item.quantity,
@@ -601,6 +616,15 @@ export function TreasuryPosView() {
 
       // Success sound
       soundManager.playSuccess()
+
+      // Revalidate SWR cache to sync dashboard
+      await refreshTransactions()
+      // Also invalidate orders and dashboard-related caches
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("transactions") || 
+        key.includes("orders") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
 
       // Success
       toast.success("Vente enregistree!")
@@ -849,9 +873,9 @@ export function TreasuryPosView() {
         </div>
 
         {/* Cart section */}
-        <div className="w-[380px] bg-[#0f0f0f] border-l border-[#2a2a2a] flex flex-col">
+        <div className="w-[380px] bg-[#0f0f0f] border-l border-[#2a2a2a] flex flex-col h-full max-h-full overflow-hidden">
           {/* Cart header */}
-          <div className="p-4 border-b border-[#2a2a2a]">
+          <div className="p-4 border-b border-[#2a2a2a] shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-amber-500" />
@@ -874,8 +898,8 @@ export function TreasuryPosView() {
             </div>
           </div>
 
-          {/* Cart items */}
-          <ScrollArea className="flex-1 p-4">
+          {/* Cart items - scrollable area */}
+          <ScrollArea className="flex-1 min-h-0 p-4">
             {cart.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-gray-500">
                 <ShoppingBag className="h-16 w-16 mb-3 opacity-30 text-amber-500" />
@@ -949,8 +973,8 @@ export function TreasuryPosView() {
             )}
           </ScrollArea>
 
-          {/* Cart footer */}
-          <div className="border-t border-[#2a2a2a] p-4 bg-[#0a0a0a]">
+          {/* Cart footer - fixed at bottom */}
+          <div className="border-t border-[#2a2a2a] p-4 bg-[#0a0a0a] shrink-0">
             {/* Totals */}
             <div className="space-y-2 mb-4">
               <div className="flex justify-between text-gray-400">

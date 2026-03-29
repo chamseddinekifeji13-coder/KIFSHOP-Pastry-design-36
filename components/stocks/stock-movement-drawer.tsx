@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { createStockMovement, fetchItemStockByLocation, type ItemLocationStock } from "@/lib/stocks/actions"
+import { useSWRConfig } from "swr"
 
 interface ItemOption {
   id: string
@@ -43,6 +44,7 @@ interface StockMovementDrawerProps {
 
 export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementDrawerProps) {
   const { currentTenant } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const { data: locations = [] } = useStorageLocations()
   const { data: rawMaterials = [], mutate: mutateRaw } = useRawMaterials()
   const { data: finishedProducts = [], mutate: mutateFinished } = useFinishedProducts()
@@ -193,6 +195,15 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
         mutateFinished()
         mutatePkg()
         mutateMovements()
+        
+        // Revalidate SWR cache for dashboard
+        globalMutate((key) => typeof key === "string" && (
+          key.includes("raw_materials") || 
+          key.includes("finished_products") || 
+          key.includes("critical_stock") ||
+          key.includes(currentTenant.id)
+        ), undefined, { revalidate: true })
+        
         resetForm()
         onOpenChange(false)
       } else {

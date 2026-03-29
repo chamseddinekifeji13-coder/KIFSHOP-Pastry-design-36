@@ -121,10 +121,12 @@ const isFailedStatus = (status: string) => {
 export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryStats {
   const total = shipments.length
   
-  // Debug: log all statuses
-  const allStatuses = shipments.map(s => s.status).filter(Boolean)
-  console.log("[v0] All statuses in shipments:", allStatuses)
-  console.log("[v0] Total shipments:", total)
+  // Debug: log all statuses (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    const allStatuses = shipments.map(s => s.status).filter(Boolean)
+    console.log("[v0] All statuses in shipments:", allStatuses)
+    console.log("[v0] Total shipments:", total)
+  }
   
   const pending = shipments.filter((s) => isPendingStatus(s.status)).length
   const sent = shipments.filter((s) => s.status === "sent").length
@@ -133,7 +135,9 @@ export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryS
   const failed = shipments.filter((s) => isFailedStatus(s.status)).length
   const returned = shipments.filter((s) => isReturnedStatus(s.status)).length
 
-  console.log("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
+  if (process.env.NODE_ENV === 'development') {
+    console.log("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
+  }
 
   const completed = delivered + failed + returned
   const deliveryRate = completed > 0 ? (delivered / completed) * 100 : 0
@@ -270,6 +274,7 @@ export async function createShipment(data: CreateShipmentData): Promise<Delivery
     shipmentId: shipment.shipment_id,
     status: shipment.status as DeliveryStatus,
     notes: shipment.notes,
+    codAmount: shipment.cod_amount || 0,
     exportedAt: shipment.exported_at,
     responseData: shipment.response_data,
     errorMessage: shipment.error_message,
@@ -846,7 +851,9 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
   
   // If it's just a number or single character, it's invalid
   if (/^\d+$/.test(dateStr) && dateStr.length <= 2) {
-    console.log("[v0] Skipping invalid date:", dateStr)
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[v0] Skipping invalid date:", dateStr)
+    }
     return undefined
   }
 
@@ -856,14 +863,18 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
     
     // Check if it's a valid date
     if (isNaN(date.getTime())) {
-      console.log("[v0] Invalid date format:", dateStr)
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[v0] Invalid date format:", dateStr)
+      }
       return undefined
     }
 
     // Return ISO string for database storage
     return date.toISOString()
   } catch (e) {
-    console.log("[v0] Error parsing date:", dateStr, e)
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[v0] Error parsing date:", dateStr, e)
+    }
     return undefined
   }
 }
@@ -911,8 +922,6 @@ export async function parseCSVContent(content: string): Promise<{
     "date_d_enlevement": "pickupDate",
     "date livraison": "deliveryDate",
     "date_livraison": "deliveryDate",
-    "etat": "status",
-    "état": "status",
     // Standard columns
     "numero_commande": "orderNumber",
     "n_commande": "orderNumber",
@@ -924,7 +933,6 @@ export async function parseCSVContent(content: string): Promise<{
     "numero_suivi": "trackingNumber",
     "n_suivi": "trackingNumber",
     "tracking_number": "trackingNumber",
-    "client": "customerName",
     "nom_client": "customerName",
     "customer_name": "customerName",
     "telephone": "customerPhone",
@@ -1034,41 +1042,10 @@ export async function parseCSVContent(content: string): Promise<{
     
     // Convert scientific notation to regular number if needed
     if (trackingNumber && trackingNumber.includes("E")) {
-    try {
-      // Validate required fields
-      if (!row.customerName || row.customerName.trim() === "") {
-        result.errors.push({ row: i + 2, error: "Nom client manquant ou vide" })
-        result.failed++
-        continue
-      }
-
-      if (!row.customerPhone || row.customerPhone.trim() === "") {
-        result.errors.push({ row: i + 2, error: "Telephone client manquant" })
-        result.failed++
-        continue
-      }
-
-      // Check if any date is invalid
-      if (row.deliveryDate && isNaN(new Date(row.deliveryDate).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date livraison invalide: "${row.deliveryDate}"` })
-        result.failed++
-        continue
-      }
-
-      if (row.dateAdded && isNaN(new Date(row.dateAdded).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date ajoutee invalide: "${row.dateAdded}"` })
-        result.failed++
-        continue
-      }
-
-      if (row.pickupDate && isNaN(new Date(row.pickupDate).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date retrait invalide: "${row.pickupDate}"` })
-        result.failed++
-        continue
-      }
-        const num = parseFloat(trackingNumber)
+      try {
+        const num = parseFloat(trackingNumber.replace(",", "."))
         trackingNumber = Math.floor(num).toString()
-      } catch (e) {
+      } catch {
         // Keep as is if conversion fails
       }
     }
@@ -1252,10 +1229,10 @@ export async function parseXMLContent(content: string): Promise<{
           trackingNumber,
           customerName,
           customerPhone,
-          customerAddress,
+          customerAddress: customerAddress || "",
           price,
           fees,
-          status,
+          status: status as DeliveryStatus,
           deliveryDate,
           notes,
           orderNumber,

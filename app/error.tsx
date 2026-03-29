@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button"
 function getErrorMessage(error: unknown): string {
   if (!error) return "Erreur inattendue"
   if (typeof error === "string") return error
-  if (error instanceof Error) return error.message || "Erreur inattendue"
+  if (error instanceof Error) {
+    const errMsg = (error as Error).message
+    return errMsg || "Erreur inattendue"
+  }
   if (typeof error === "object" && error !== null) {
     const e = error as Record<string, unknown>
     if (typeof e.message === "string") return e.message

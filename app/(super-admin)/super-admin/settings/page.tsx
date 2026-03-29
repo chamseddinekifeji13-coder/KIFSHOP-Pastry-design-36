@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { FixTransactionsPanel } from "@/components/admin/fix-transactions-panel"
 import {
   getPlatformSettings,
   updatePlatformSettings,
@@ -109,6 +110,9 @@ export default function SettingsPage() {
           Configurez la periode d{"'"}essai et les packs d{"'"}abonnement
         </p>
       </div>
+
+      {/* Database Fixes */}
+      <FixTransactionsPanel />
 
       {/* Trial Period Settings */}
       <Card>

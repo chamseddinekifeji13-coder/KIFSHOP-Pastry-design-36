@@ -43,6 +43,7 @@ import { toast, Toaster } from "sonner"
 interface CatalogProduct {
   id: string; name: string; category: string; price: number
   image?: string; isPublished?: boolean; description?: string
+  minOrder: number; unit: string; weight?: string; tags: string[]
 }
 
 interface CartItem {
@@ -56,8 +57,9 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
     () => fetchFinishedProducts(tenantId)
   )
   const catalog: CatalogProduct[] = products.map((p: any) => ({
-    id: p.id, name: p.name, category: p.category || "Sans catégorie", price: p.price || 0,
-    image: "", isPublished: true, description: "",
+    id: p.id, name: p.name, category: p.category || "Sans catégorie", price: p.price || p.selling_price || 0,
+    image: p.image_url || "", isPublished: p.is_published ?? true, description: p.description || "",
+    minOrder: p.min_order || 1, unit: p.unit || "pièce", weight: p.weight || "", tags: p.tags || []
   }))
   const info = { name: "KIFSHOP Pastry", logo: "K", color: "#4A7C59", phone: "+216 25 12 22 12", whatsapp: "+21625122212" }
 
@@ -221,13 +223,17 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
               {catalog.filter(p => p.category === category).map(product => (
                 <Card key={product.id} className="overflow-hidden">
                   <div className="relative aspect-[4/3] bg-muted">
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                      crossOrigin="anonymous"
-                    />
+                    {product.image ? (
+                      <Image
+                        src={product.image}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">Pas d&apos;image</div>
+                    )}
                     {product.tags.includes("populaire") && (
                       <Badge className="absolute top-2 left-2 bg-secondary text-secondary-foreground">Populaire</Badge>
                     )}
@@ -291,13 +297,17 @@ export function StorefrontView({ tenantId }: { tenantId: string }) {
                     {cart.map(item => (
                       <div key={item.product.id} className="flex gap-3 rounded-lg border p-3">
                         <div className="relative h-16 w-16 rounded bg-muted overflow-hidden shrink-0">
-                          <Image
-                            src={item.product.image}
-                            alt={item.product.name}
-                            fill
-                            className="object-cover"
-                            crossOrigin="anonymous"
-                          />
+                          {item.product.image ? (
+                            <Image
+                              src={item.product.image}
+                              alt={item.product.name}
+                              fill
+                              className="object-cover"
+                              crossOrigin="anonymous"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground text-xs">N/A</div>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{item.product.name}</p>

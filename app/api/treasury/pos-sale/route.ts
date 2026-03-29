@@ -56,18 +56,20 @@ export async function POST(request: Request) {
       insertData.created_by = session.activeProfileId
     }
     
-    // 6. Insert transaction
+    // 6. Insert transaction - WITHOUT created_by to avoid FK constraint error
+    // The created_by column has a foreign key constraint that causes issues
+    // We use created_by_name (TEXT) instead to store who made the sale
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "income",  // "sale" -> "income" to match expected DB schema
+        type: "income",
         amount: total,
-        category: "vente_pos",  // Add category for POS sales
+        category: "vente_pos",
         description: fullDescription,
         payment_method: paymentMethod === "card" ? "card" : "cash",
-        created_by: session.activeProfileId
-        // Note: created_by_name was removed as it's not a DB column
+        created_by_name: session.displayName || "Caissier",
+        created_by_id: session.activeProfileId || null,
       })
       .select()
 

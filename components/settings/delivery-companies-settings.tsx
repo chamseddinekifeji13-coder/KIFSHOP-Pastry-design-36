@@ -18,6 +18,7 @@ import {
   updateDeliveryCompany,
   deleteDeliveryCompany,
   toggleDeliveryCompanyStatus,
+  setDefaultDeliveryCompany,
   type DeliveryCompany,
 } from "@/lib/delivery-companies/actions"
 
@@ -36,6 +37,8 @@ export function DeliveryCompaniesSettings() {
   const [formEmail, setFormEmail] = useState("")
   const [formWebsite, setFormWebsite] = useState("")
   const [formNotes, setFormNotes] = useState("")
+  const [formIsDefault, setFormIsDefault] = useState(false)
+  const [formDefaultShippingCost, setFormDefaultShippingCost] = useState("")
 
   useEffect(() => {
     if (currentTenant?.id) {
@@ -62,6 +65,8 @@ export function DeliveryCompaniesSettings() {
     setFormEmail("")
     setFormWebsite("")
     setFormNotes("")
+    setFormIsDefault(false)
+    setFormDefaultShippingCost("")
     setEditingCompany(null)
   }
 
@@ -73,6 +78,8 @@ export function DeliveryCompaniesSettings() {
       setFormEmail(company.email || "")
       setFormWebsite(company.website || "")
       setFormNotes(company.notes || "")
+      setFormIsDefault(company.isDefault || false)
+      setFormDefaultShippingCost(company.defaultShippingCost?.toString() || "")
     } else {
       resetForm()
     }
@@ -97,6 +104,11 @@ export function DeliveryCompaniesSettings() {
           notes: formNotes || null,
         })
         if (success) {
+          // If marked as default, set it as default
+          if (formIsDefault) {
+            const shippingCost = parseFloat(formDefaultShippingCost) || 0
+            await setDefaultDeliveryCompany(editingCompany.id, currentTenant.id, shippingCost)
+          }
           toast.success("Societe mise a jour")
           setDialogOpen(false)
           resetForm()
@@ -114,6 +126,11 @@ export function DeliveryCompaniesSettings() {
           notes: formNotes || null,
         })
         if (result) {
+          // If marked as default, set it as default
+          if (formIsDefault) {
+            const shippingCost = parseFloat(formDefaultShippingCost) || 0
+            await setDefaultDeliveryCompany(result.id, currentTenant.id, shippingCost)
+          }
           toast.success("Societe ajoutee")
           setDialogOpen(false)
           resetForm()
@@ -199,12 +216,10 @@ export function DeliveryCompaniesSettings() {
                 Ajouter
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingCompany ? "Modifier" : "Ajouter"} une societe</DialogTitle>
-                <DialogDescription>
-                  {editingCompany ? "Modifiez les informations de la societe" : "Ajoutez une nouvelle societe de livraison"}
-                </DialogDescription>
+                <DialogTitle>{editingCompany ? "Modifier une societe" : "Ajouter une societe"}</DialogTitle>
+                <DialogDescription>Modifiez les informations de la societe</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
@@ -255,6 +270,29 @@ export function DeliveryCompaniesSettings() {
                     placeholder="Ex: Livraison express disponible"
                   />
                 </div>
+                <div className="border-t pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="is-default">Definir comme transporteur par defaut</Label>
+                    <Switch
+                      id="is-default"
+                      checked={formIsDefault}
+                      onCheckedChange={setFormIsDefault}
+                    />
+                  </div>
+                  {formIsDefault && (
+                    <div className="grid gap-2">
+                      <Label htmlFor="shipping-cost">Prix de livraison par defaut (TND)</Label>
+                      <Input
+                        id="shipping-cost"
+                        type="number"
+                        step="0.001"
+                        value={formDefaultShippingCost}
+                        onChange={(e) => setFormDefaultShippingCost(e.target.value)}
+                        placeholder="Ex: 9.000"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>
@@ -282,6 +320,7 @@ export function DeliveryCompaniesSettings() {
               <TableRow>
                 <TableHead>Nom</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Par defaut</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -314,6 +353,15 @@ export function DeliveryCompaniesSettings() {
                         <span className="text-muted-foreground/50">-</span>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {company.isDefault ? (
+                      <Badge className="bg-green-100 text-green-800">
+                        Par defaut - {company.defaultShippingCost || 0} TND
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

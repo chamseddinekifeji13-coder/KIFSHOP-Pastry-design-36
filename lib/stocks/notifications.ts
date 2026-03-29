@@ -97,6 +97,12 @@ export function filterEssentialAlerts(alerts: StockAlert[]): StockAlert[] {
   )
 }
 
+// ─── Fetch and return critical stock alerts ────────────────
+export async function fetchCriticalStockAlerts(tenantId: string): Promise<StockAlert[]> {
+  const items = await getCriticalStock(tenantId)
+  return buildStockAlerts(items)
+}
+
 // ─── Create notification for critical stock ────────────────
 // Call this after detecting new critical items to push a notification
 export async function notifyCriticalStock(

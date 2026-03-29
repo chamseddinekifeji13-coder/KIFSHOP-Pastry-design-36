@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { showError, showWarning, showSuccess } from "@/lib/error-messages"
 import { useTenant } from "@/lib/tenant-context"
 import { useCategories } from "@/hooks/use-tenant-data"
 import type { FinishedProduct, Category } from "@/lib/stocks/actions"
@@ -52,6 +53,7 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
   const [imagePreview, setImagePreview] = useState("")
   const [uploadingImage, setUploadingImage] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [soldByWeight, setSoldByWeight] = useState(false)
 
   // Sync form state when product changes
   useEffect(() => {
@@ -68,6 +70,7 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
       setIsPublished(product.isPublished ?? true)
       setImageUrl(product.imageUrl || "")
       setImagePreview(product.imageUrl || "")
+      setSoldByWeight(product.soldByWeight ?? false)
       setImageFile(null)
     }
   }, [product, open])
@@ -76,11 +79,11 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith("image/")) {
-      toast.error("Sélectionnez une image valide")
+      showWarning("Format invalide", "Veuillez selectionner une image (JPG, PNG, etc.)")
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("L'image ne doit pas dépasser 5 Mo")
+      showWarning("Fichier trop volumineux", "L'image ne doit pas depasser 5 Mo.")
       return
     }
     setImageFile(file)
@@ -103,9 +106,9 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
       const data = await res.json()
       setImageUrl(data.url)
       setImageFile(null)
-      toast.success("Image uploadée avec succès")
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'upload de l'image")
+      showSuccess("Image telechargee", "L'image du produit a ete mise a jour.")
+    } catch (err) {
+      showError(err, "Telechargement image")
     } finally {
       setUploadingImage(false)
     }
@@ -114,11 +117,11 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
   const handleSave = async () => {
     if (!product) return
     if (!name.trim()) {
-      toast.error("Le nom du produit est requis")
+      showWarning("Nom requis", "Veuillez saisir le nom du produit.")
       return
     }
     if (!unit) {
-      toast.error("Veuillez sélectionner l'unité de mesure")
+      showWarning("Unite requise", "Veuillez selectionner l'unite de mesure.")
       return
     }
 
@@ -131,21 +134,21 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
         sellingPrice: parseFloat(sellingPrice) || 0,
         currentStock: parseFloat(currentStock) || 0,
         minStock: parseFloat(minStock) || 0,
-        minOrder: parseFloat(minOrder) || 1,
         weight: weight.trim() || undefined,
         description: description.trim() || undefined,
         isPublished,
         imageUrl: imageUrl || undefined,
+        soldByWeight,
       })
 
-      if (!success) throw new Error("Erreur lors de la modification")
+      if (!success) throw new Error("Echec de la modification")
 
-      toast.success("Produit modifié avec succès")
+      showSuccess("Produit modifie", "Les modifications ont ete enregistrees.")
       mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
       onOpenChange(false)
       onSave?.()
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de la modification")
+    } catch (err) {
+      showError(err, "Modification produit")
     } finally {
       setSaving(false)
     }
@@ -249,33 +252,26 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="edit-category" className="text-xs font-medium">Catégorie</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger id="edit-category" className="bg-muted/50 border-0">
-                    <SelectValue placeholder="Choisir" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c: Category) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2">
+              <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
+              <Select value={unit} onValueChange={setUnit}>
+                <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
+                  <SelectValue placeholder="Choisir" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>{u}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Vendu au poids (kg)</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400">{soldByWeight ? "- Prix par kg" : ""}</span>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
-                    <SelectValue placeholder="Choisir" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

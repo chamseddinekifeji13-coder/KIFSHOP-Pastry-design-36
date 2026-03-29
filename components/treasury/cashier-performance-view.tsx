@@ -25,7 +25,7 @@ export function CashierPerformanceView() {
   }, [cashierStats])
 
   const totalCollected = useMemo(() => {
-    return stats.reduce((sum, s: any) => sum + (s.totalAmount || 0), 0)
+    return stats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0)
   }, [stats])
 
   return (
