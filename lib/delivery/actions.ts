@@ -1339,7 +1339,8 @@ export async function importDeliveryReport(
       // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
       if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
         // Only match if exact same delivery date (same day)
-        const deliveryDateStr = row.deliveryDate.toISOString().split('T')[0]
+        // row.deliveryDate is already a string, so just split it
+        const deliveryDateStr = row.deliveryDate.includes('T') ? row.deliveryDate.split('T')[0] : row.deliveryDate
         const nextDay = new Date(row.deliveryDate)
         nextDay.setDate(nextDay.getDate() + 1)
         
