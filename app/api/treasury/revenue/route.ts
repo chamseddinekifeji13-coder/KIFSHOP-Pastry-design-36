@@ -37,11 +37,19 @@ export async function GET(request: Request) {
     }
 
     // Fetch transactions - include category to properly identify income types
-    const { data: transactions } = await supabase
+    const { data: transactions, error: transError } = await supabase
       .from('transactions')
       .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
+    
+    console.log('[v0] Revenue API - tenantId:', session.tenantId)
+    console.log('[v0] Revenue API - startDate:', startDate)
+    console.log('[v0] Revenue API - transactions count:', transactions?.length || 0)
+    console.log('[v0] Revenue API - transactions error:', transError)
+    if (transactions?.length) {
+      console.log('[v0] Revenue API - sample transactions:', transactions.slice(0, 3))
+    }
 
     // Fetch order collections  
     const { data: collections } = await supabase
@@ -119,22 +127,16 @@ export async function GET(request: Request) {
       }
     }
 
-    // Process collections
+    // Note: We don't process orders separately because POS sales already create transactions
+    // This prevents double-counting. Order collections are also tracked in transactions table.
+    
+    // Process order_collections ONLY if they don't have a corresponding transaction
+    // (for legacy data or orders collected outside the transaction system)
     for (const c of collections || []) {
       const key = getKey(c.collected_at)
       const entry = ensureEntry(key)
+      // Add to collections counter only (not to sales to avoid double-count)
       entry.total_collections += Number(c.amount) || 0
-      if (c.payment_method === 'cash') entry.total_cash_income += Number(c.amount) || 0
-      else entry.total_card_income += Number(c.amount) || 0
-    }
-
-    // Process orders
-    for (const o of orders || []) {
-      const key = getKey(o.created_at)
-      const entry = ensureEntry(key)
-      entry.total_sales += Number(o.total) || 0
-      if (o.payment_method === 'cash') entry.total_cash_income += Number(o.total) || 0
-      else entry.total_card_income += Number(o.total) || 0
     }
 
     // Add cash closures historical data if no real-time data

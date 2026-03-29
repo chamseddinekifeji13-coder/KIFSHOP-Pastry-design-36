@@ -30,10 +30,20 @@ export function RevenueReportsView() {
     (url: string) => fetch(url).then(res => res.json())
   )
   
+  // Debug logging
+  console.log('[v0] RevenueReportsView - revenueData:', revenueData)
+  console.log('[v0] RevenueReportsView - error:', revenueError)
+  console.log('[v0] RevenueReportsView - isLoading:', isLoading)
+  
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
-    const total = data.reduce((sum: number, d: any) => sum + (d.total_collections || d.total_sales || 0), 0)
+    // Sum both total_sales AND total_collections (they track different things)
+    // total_sales = income from transactions (POS sales, etc.)
+    // total_collections = income from order collections
+    const totalSales = data.reduce((sum: number, d: any) => sum + (d.total_sales || 0), 0)
+    const totalCollections = data.reduce((sum: number, d: any) => sum + (d.total_collections || 0), 0)
+    const total = totalSales + totalCollections
     const transactionsCount = data.reduce((sum: number, d: any) => sum + (d.transactions_count || 0), 0)
     const avgTransaction = transactionsCount > 0 ? total / transactionsCount : 0
     const totalExpenses = data.reduce((sum: number, d: any) => sum + (d.total_expenses || 0), 0)
