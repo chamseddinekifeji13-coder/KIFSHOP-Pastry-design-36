@@ -90,6 +90,7 @@ export function OnboardingModal() {
   return (
     <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
       <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+        <DialogTitle className="sr-only">Parcours d&apos;onboarding KIFSHOP</DialogTitle>
         {/* Progress bar */}
         <div className="h-1 bg-muted">
           <div 

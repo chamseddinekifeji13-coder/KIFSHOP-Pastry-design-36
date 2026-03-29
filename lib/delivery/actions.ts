@@ -1339,10 +1339,12 @@ export async function importDeliveryReport(
       // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
       if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
         // Only match if exact same delivery date (same day)
-        const deliveryDateStr = row.deliveryDate.toISOString().split('T')[0]
+        // deliveryDate is an ISO string from parseAndValidateDate(), not a Date
+        const deliveryDateStr = row.deliveryDate.split("T")[0]
         const nextDay = new Date(row.deliveryDate)
         nextDay.setDate(nextDay.getDate() + 1)
-        
+        const nextDayStr = nextDay.toISOString().split("T")[0]
+
         const { data } = await supabase
           .from("best_delivery_shipments")
           .select("id")
@@ -1350,7 +1352,7 @@ export async function importDeliveryReport(
           .ilike("customer_name", row.customerName)
           .eq("customer_phone", row.customerPhone)
           .gte("exported_at", deliveryDateStr)
-          .lt("exported_at", nextDay.toISOString().split('T')[0])
+          .lt("exported_at", nextDayStr)
           .single()
         existingShipment = data
       }
