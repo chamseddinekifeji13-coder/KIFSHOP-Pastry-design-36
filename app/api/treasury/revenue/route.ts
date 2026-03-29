@@ -36,10 +36,10 @@ export async function GET(request: Request) {
       startDate = '2020-01-01' // All years
     }
 
-    // Fetch transactions
+    // Fetch transactions - include category to properly identify income types
     const { data: transactions } = await supabase
       .from('transactions')
-      .select('amount, type, payment_method, created_at')
+      .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
 
@@ -98,17 +98,23 @@ export async function GET(request: Request) {
       return aggregateMap.get(key)!
     }
 
-    // Process transactions
+    // Process transactions - check both type AND category for proper classification
     for (const t of transactions || []) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
       entry.transactions_count++
       
-      if (t.type === 'income' || t.type === 'entree') {
+      // Types considered as income: income, entree
+      // Categories considered as income: vente_pos, vente_comptoir, pos_sale, collection, Commande client
+      const incomeTypes = ['income', 'entree']
+      const incomeCategories = ['vente_pos', 'vente_comptoir', 'pos_sale', 'collection', 'Commande client', 'Vente comptoir']
+      const isIncome = incomeTypes.includes(t.type) || incomeCategories.includes(t.category)
+      
+      if (isIncome) {
         entry.total_sales += Number(t.amount) || 0
         if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
         else entry.total_card_income += Number(t.amount) || 0
-      } else {
+      } else if (t.type === 'expense' || t.type === 'sortie') {
         entry.total_expenses += Number(t.amount) || 0
       }
     }
