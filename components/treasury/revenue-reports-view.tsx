@@ -5,7 +5,8 @@ import useSWR from 'swr'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { Calendar, TrendingUp, DollarSign, Users } from 'lucide-react'
+import { TrendingUp, DollarSign, Users, Printer } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface DailyClosure {
   closure_date: string
@@ -29,11 +30,6 @@ export function RevenueReportsView() {
     (url: string) => fetch(url).then(res => res.json())
   )
   
-  // Debug logging
-  console.log("[v0] Revenue data:", revenueData)
-  console.log("[v0] Revenue error:", revenueError)
-  console.log("[v0] Stats:", stats)
-
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
@@ -51,10 +47,30 @@ export function RevenueReportsView() {
     }
   }, [revenueData])
 
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const reportTypeLabel = reportType === 'daily' ? 'Quotidien' : reportType === 'monthly' ? 'Mensuel' : 'Annuel'
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:p-4" id="revenue-report">
+      {/* Print Header - Only visible when printing */}
+      <div className="hidden print:block print:mb-6">
+        <h1 className="text-2xl font-bold text-center">Rapport Financier - {reportTypeLabel}</h1>
+        <p className="text-center text-gray-600">Généré le {new Date().toLocaleDateString('fr-FR')}</p>
+      </div>
+
+      {/* Print Button */}
+      <div className="flex justify-end print:hidden">
+        <Button onClick={handlePrint} variant="outline" className="gap-2">
+          <Printer className="w-4 h-4" />
+          Imprimer le rapport
+        </Button>
+      </div>
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
