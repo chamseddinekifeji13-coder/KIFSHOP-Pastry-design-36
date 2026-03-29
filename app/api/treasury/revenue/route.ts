@@ -8,106 +8,151 @@ export async function GET(request: Request) {
   if (authError) return authError
 
   try {
-
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'daily'
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
 
     const supabase = await createClient()
-    let query = supabase
+    
+    // Get data from multiple sources for real-time stats
+    // 1. Transactions (income/expense)
+    // 2. Order collections
+    // 3. Orders with status completed/delivered
+    
+    let data: any[] = []
+
+    // Calculate date range
+    const now = new Date()
+    let startDate: string
+    
+    if (type === 'daily') {
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      startDate = thirtyDaysAgo.toISOString().split('T')[0]
+    } else if (type === 'monthly') {
+      const oneYearAgo = new Date()
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+      startDate = oneYearAgo.toISOString().split('T')[0]
+    } else {
+      startDate = '2020-01-01' // All years
+    }
+
+    // Fetch transactions
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('amount, type, payment_method, created_at')
+      .eq('tenant_id', session.tenantId)
+      .gte('created_at', startDate)
+
+    // Fetch order collections  
+    const { data: collections } = await supabase
+      .from('order_collections')
+      .select('amount, payment_method, collected_at')
+      .eq('tenant_id', session.tenantId)
+      .gte('collected_at', startDate)
+
+    // Fetch completed orders
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('total, status, created_at, payment_method')
+      .eq('tenant_id', session.tenantId)
+      .in('status', ['completed', 'delivered', 'paid'])
+      .gte('created_at', startDate)
+
+    // Also get cash_closures for historical data
+    const { data: closures } = await supabase
       .from('cash_closures')
       .select('*')
       .eq('tenant_id', session.tenantId)
+      .gte('closure_date', startDate)
 
-    let data = []
+    // Aggregate data by period
+    const aggregateMap = new Map<string, any>()
 
-    switch (type) {
-      case 'daily':
-        // Last 30 days
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        query = query.gte('closure_date', thirtyDaysAgo.toISOString().split('T')[0])
-        const { data: dailyData } = await query.order('closure_date', { ascending: true })
-        data = dailyData || []
-        break
-
-      case 'monthly':
-        // Last 12 months
-        const oneYearAgo = new Date()
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-        const { data: allClosures } = await query.gte('closure_date', oneYearAgo.toISOString().split('T')[0])
-
-        // Group by month
-        const monthlyMap = new Map<string, any>()
-        for (const closure of allClosures || []) {
-          const date = new Date(closure.closure_date)
-          const monthKey = date.toISOString().slice(0, 7) // YYYY-MM
-          
-          if (!monthlyMap.has(monthKey)) {
-            monthlyMap.set(monthKey, {
-              month: new Date(monthKey + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-              total_sales: 0,
-              total_collections: 0,
-              total_cash_income: 0,
-              total_card_income: 0,
-              total_expenses: 0,
-              transactions_count: 0,
-              collections_count: 0,
-            })
-          }
-
-          const monthData = monthlyMap.get(monthKey)!
-          monthData.total_sales += closure.total_sales || 0
-          monthData.total_collections += closure.total_collections || 0
-          monthData.total_cash_income += closure.total_cash_income || 0
-          monthData.total_card_income += closure.total_card_income || 0
-          monthData.total_expenses += closure.total_expenses || 0
-          monthData.transactions_count += closure.transactions_count || 0
-          monthData.collections_count += closure.collections_count || 0
-        }
-
-        data = Array.from(monthlyMap.values())
-        break
-
-      case 'annual':
-        // All years
-        const { data: allData } = await query
-        
-        // Group by year
-        const yearlyMap = new Map<string, any>()
-        for (const closure of allData || []) {
-          const year = new Date(closure.closure_date).getFullYear().toString()
-          
-          if (!yearlyMap.has(year)) {
-            yearlyMap.set(year, {
-              year,
-              total_sales: 0,
-              total_collections: 0,
-              total_cash_income: 0,
-              total_card_income: 0,
-              total_expenses: 0,
-              transactions_count: 0,
-              collections_count: 0,
-            })
-          }
-
-          const yearData = yearlyMap.get(year)!
-          yearData.total_sales += closure.total_sales || 0
-          yearData.total_collections += closure.total_collections || 0
-          yearData.total_cash_income += closure.total_cash_income || 0
-          yearData.total_card_income += closure.total_card_income || 0
-          yearData.total_expenses += closure.total_expenses || 0
-          yearData.transactions_count += closure.transactions_count || 0
-          yearData.collections_count += closure.collections_count || 0
-        }
-
-        data = Array.from(yearlyMap.values()).sort((a, b) => b.year.localeCompare(a.year))
-        break
-
-      default:
-        return NextResponse.json({ error: 'Invalid report type' }, { status: 400 })
+    const getKey = (dateStr: string): string => {
+      const date = new Date(dateStr)
+      if (type === 'daily') return date.toISOString().split('T')[0]
+      if (type === 'monthly') return date.toISOString().slice(0, 7)
+      return date.getFullYear().toString()
     }
+
+    const getLabel = (key: string): string => {
+      if (type === 'daily') return key
+      if (type === 'monthly') {
+        return new Date(key + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+      }
+      return key
+    }
+
+    const ensureEntry = (key: string) => {
+      if (!aggregateMap.has(key)) {
+        aggregateMap.set(key, {
+          [type === 'daily' ? 'closure_date' : type === 'monthly' ? 'month' : 'year']: type === 'daily' ? key : getLabel(key),
+          total_sales: 0,
+          total_collections: 0,
+          total_cash_income: 0,
+          total_card_income: 0,
+          total_expenses: 0,
+          transactions_count: 0,
+        })
+      }
+      return aggregateMap.get(key)!
+    }
+
+    // Process transactions
+    for (const t of transactions || []) {
+      const key = getKey(t.created_at)
+      const entry = ensureEntry(key)
+      entry.transactions_count++
+      
+      if (t.type === 'income' || t.type === 'entree') {
+        entry.total_sales += Number(t.amount) || 0
+        if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
+        else entry.total_card_income += Number(t.amount) || 0
+      } else {
+        entry.total_expenses += Number(t.amount) || 0
+      }
+    }
+
+    // Process collections
+    for (const c of collections || []) {
+      const key = getKey(c.collected_at)
+      const entry = ensureEntry(key)
+      entry.total_collections += Number(c.amount) || 0
+      if (c.payment_method === 'cash') entry.total_cash_income += Number(c.amount) || 0
+      else entry.total_card_income += Number(c.amount) || 0
+    }
+
+    // Process orders
+    for (const o of orders || []) {
+      const key = getKey(o.created_at)
+      const entry = ensureEntry(key)
+      entry.total_sales += Number(o.total) || 0
+      if (o.payment_method === 'cash') entry.total_cash_income += Number(o.total) || 0
+      else entry.total_card_income += Number(o.total) || 0
+    }
+
+    // Add cash closures historical data if no real-time data
+    for (const closure of closures || []) {
+      const key = getKey(closure.closure_date)
+      if (!aggregateMap.has(key)) {
+        aggregateMap.set(key, {
+          [type === 'daily' ? 'closure_date' : type === 'monthly' ? 'month' : 'year']: type === 'daily' ? key : getLabel(key),
+          total_sales: closure.total_sales || 0,
+          total_collections: closure.total_collections || 0,
+          total_cash_income: closure.total_cash_income || 0,
+          total_card_income: closure.total_card_income || 0,
+          total_expenses: closure.total_expenses || 0,
+          transactions_count: closure.transactions_count || 0,
+        })
+      }
+    }
+
+    // Convert to sorted array
+    data = Array.from(aggregateMap.values()).sort((a, b) => {
+      const keyA = type === 'daily' ? a.closure_date : type === 'monthly' ? a.month : a.year
+      const keyB = type === 'daily' ? b.closure_date : type === 'monthly' ? b.month : b.year
+      return keyA.localeCompare(keyB)
+    })
 
     return NextResponse.json({
       success: true,

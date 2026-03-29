@@ -30,6 +30,14 @@ export async function GET(request: Request) {
       )
     }
 
+    // Also fetch order collections
+    const { data: orderCollections } = await supabase
+      .from('order_collections')
+      .select('collected_by, collected_by_name, amount')
+      .eq('tenant_id', session.tenantId)
+      .gte('collected_at', startDate ? `${startDate}T00:00:00` : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .lte('collected_at', endDate ? `${endDate}T23:59:59` : new Date().toISOString())
+
     // Group and aggregate by cashier
     const cashierMap = new Map<string, any>()
 
@@ -51,9 +59,10 @@ export async function GET(request: Request) {
       const cashier = cashierMap.get(cashierId)!
       cashier.totalTransactions++
 
-      if (transaction.type === 'collection') {
+      // Count income transactions (sales, collections, etc.)
+      if (transaction.type === 'collection' || transaction.type === 'income' || transaction.type === 'entree') {
         cashier.totalCollections++
-        cashier.totalAmount += transaction.amount || 0
+        cashier.totalAmount += Number(transaction.amount) || 0
       }
 
       // Track by transaction type
@@ -63,6 +72,29 @@ export async function GET(request: Request) {
       // Track by payment method
       cashier.paymentMethods[transaction.payment_method || 'cash'] =
         (cashier.paymentMethods[transaction.payment_method || 'cash'] || 0) + 1
+    }
+
+    // Process order collections
+    for (const collection of orderCollections || []) {
+      const cashierId = collection.collected_by
+      if (!cashierId) continue
+      
+      if (!cashierMap.has(cashierId)) {
+        cashierMap.set(cashierId, {
+          cashierId,
+          cashierName: collection.collected_by_name || 'Inconnu',
+          totalTransactions: 0,
+          totalCollections: 0,
+          totalAmount: 0,
+          transactionsByType: {},
+          paymentMethods: {},
+        })
+      }
+
+      const cashier = cashierMap.get(cashierId)!
+      cashier.totalTransactions++
+      cashier.totalCollections++
+      cashier.totalAmount += Number(collection.amount) || 0
     }
 
     const data = Array.from(cashierMap.values()).sort((a, b) => b.totalAmount - a.totalAmount)
