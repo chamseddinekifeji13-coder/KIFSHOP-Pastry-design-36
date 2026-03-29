@@ -30,11 +30,6 @@ export function RevenueReportsView() {
     (url: string) => fetch(url).then(res => res.json())
   )
   
-  // Debug logging
-  console.log('[v0] RevenueReportsView - revenueData:', revenueData)
-  console.log('[v0] RevenueReportsView - error:', revenueError)
-  console.log('[v0] RevenueReportsView - isLoading:', isLoading)
-  
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
@@ -78,19 +73,6 @@ export function RevenueReportsView() {
           Imprimer le rapport
         </Button>
       </div>
-
-      {/* Debug Info - Remove after fixing */}
-      {revenueData?.debug && (
-        <Card className="p-4 bg-yellow-50 border-yellow-200 print:hidden">
-          <p className="text-sm font-medium text-yellow-800">Debug Info:</p>
-          <pre className="text-xs text-yellow-700 mt-2 overflow-auto">
-            {JSON.stringify(revenueData.debug, null, 2)}
-          </pre>
-          <p className="text-xs text-yellow-600 mt-2">
-            Data items: {revenueData?.data?.length || 0}
-          </p>
-        </Card>
-      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-4">
