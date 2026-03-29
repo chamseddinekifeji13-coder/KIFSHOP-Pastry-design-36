@@ -14,7 +14,6 @@ import { CashSessionManagement } from "./cash-session-management"
 import { QuickOrderCollection } from "./quick-order-collection"
 import { RevenueReportsView } from "./revenue-reports-view"
 import { CashierPerformanceView } from "./cashier-performance-view"
-import { DataSyncDiagnostic } from "./data-sync-diagnostic"
 import { useI18n } from "@/lib/i18n/context"
 import { PinProtected } from "@/components/ui/pin-protected"
 
@@ -23,16 +22,6 @@ export function TreasuryDesktopView() {
   const { data: transactions, isLoading, error, mutate } = useTransactions()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
-
-  // Debug logs
-  if (typeof window !== "undefined") {
-    console.log("[v0] Treasury Data:", {
-      transactionsCount: transactions?.length || 0,
-      isLoading,
-      error,
-      transactions: transactions?.slice(0, 3) // First 3 for debugging
-    })
-  }
 
   const allTransactions = transactions || []
   const totalInflow = allTransactions.filter(t => t.type === "entree").reduce((sum, t) => sum + t.amount, 0)
@@ -54,9 +43,6 @@ export function TreasuryDesktopView() {
 
   return (
     <div className="space-y-6 pt-10">
-      {/* DEBUG DIAGNOSTIC - Remove after fixing sync issues */}
-      <DataSyncDiagnostic />
-      
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("treasury.title")}</h1>

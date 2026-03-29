@@ -24,10 +24,8 @@ export const SWR_CONFIG = {
   // === Gestion des erreurs ===
   errorRetryCount: 3,              // 3 tentatives en cas d'erreur (vs 2 avant)
   errorRetryInterval: 1000,        // 1s entre les tentatives
-  errorRetryIntervalMultiplier: 1.5, // Multiplier les delais en cas d'erreur successive
   
   // === Timeouts ===
-  dedupingInterval: 1000,
   focusThrottleInterval: 5000,     // Max 1 refresh par 5s au focus
   
   // === Logging (development only) ===
