@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withSession, serverErrorResponse } from '@/lib/api-helpers'
 
+// Treasury Revenue API - Aggregates data from transactions, orders, and collections
 export async function GET(request: Request) {
   // Get session with proper error handling
   const [session, authError] = await withSession()
