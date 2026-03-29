@@ -20,43 +20,50 @@ export async function GET(request: Request) {
     
     let data: any[] = []
 
-    // Calculate date range
-    const now = new Date()
+    // Calculate date range - use full ISO format for proper comparison
     let startDate: string
     
     if (type === 'daily') {
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      startDate = thirtyDaysAgo.toISOString().split('T')[0]
+      thirtyDaysAgo.setHours(0, 0, 0, 0)
+      startDate = thirtyDaysAgo.toISOString()
     } else if (type === 'monthly') {
       const oneYearAgo = new Date()
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-      startDate = oneYearAgo.toISOString().split('T')[0]
+      oneYearAgo.setHours(0, 0, 0, 0)
+      startDate = oneYearAgo.toISOString()
     } else {
-      startDate = '2020-01-01' // All years
+      startDate = '2020-01-01T00:00:00.000Z' // All years
     }
 
     // Fetch transactions
-    const { data: transactions } = await supabase
+    const { data: transactions, error: txError } = await supabase
       .from('transactions')
       .select('amount, type, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
+    
+    console.log("[v0] Revenue API - transactions found:", transactions?.length || 0, "startDate:", startDate, "error:", txError?.message)
 
     // Fetch order collections  
-    const { data: collections } = await supabase
+    const { data: collections, error: colError } = await supabase
       .from('order_collections')
       .select('amount, payment_method, collected_at')
       .eq('tenant_id', session.tenantId)
       .gte('collected_at', startDate)
+    
+    console.log("[v0] Revenue API - collections found:", collections?.length || 0)
 
     // Fetch completed orders
-    const { data: orders } = await supabase
+    const { data: orders, error: ordError } = await supabase
       .from('orders')
       .select('total, status, created_at, payment_method')
       .eq('tenant_id', session.tenantId)
       .in('status', ['completed', 'delivered', 'paid'])
       .gte('created_at', startDate)
+    
+    console.log("[v0] Revenue API - orders found:", orders?.length || 0)
 
     // Also get cash_closures for historical data
     const { data: closures } = await supabase
@@ -99,15 +106,24 @@ export async function GET(request: Request) {
     }
 
     // Process transactions
+    // DB stores "income"/"expense" for type
     for (const t of transactions || []) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
       entry.transactions_count++
       
-      if (t.type === 'income' || t.type === 'entree') {
+      // Income types: "income", "entree" 
+      // Expense types: "expense", "sortie"
+      const isIncome = t.type === 'income' || t.type === 'entree'
+      
+      if (isIncome) {
         entry.total_sales += Number(t.amount) || 0
-        if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
-        else entry.total_card_income += Number(t.amount) || 0
+        entry.total_collections += Number(t.amount) || 0
+        if (t.payment_method === 'cash' || t.payment_method === 'especes') {
+          entry.total_cash_income += Number(t.amount) || 0
+        } else {
+          entry.total_card_income += Number(t.amount) || 0
+        }
       } else {
         entry.total_expenses += Number(t.amount) || 0
       }
@@ -153,6 +169,8 @@ export async function GET(request: Request) {
       const keyB = type === 'daily' ? b.closure_date : type === 'monthly' ? b.month : b.year
       return keyA.localeCompare(keyB)
     })
+
+    console.log("[v0] Revenue API - final data count:", data.length, "sample:", data[0])
 
     return NextResponse.json({
       success: true,
