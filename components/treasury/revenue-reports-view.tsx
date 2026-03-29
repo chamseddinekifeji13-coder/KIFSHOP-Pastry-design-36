@@ -30,14 +30,12 @@ export function RevenueReportsView() {
   )
 
   const stats = useMemo(() => {
-    if (!revenueData) return null
-
-    const data = revenueData.data || []
-    if (data.length === 0) return null
-
+    const data = revenueData?.data || []
+    
     const total = data.reduce((sum: number, d: any) => sum + (d.total_collections || d.total_sales || 0), 0)
-    const avgTransaction = total / data.reduce((sum: number, d: any) => sum + d.transactions_count, 0)
-    const totalExpenses = data.reduce((sum: number, d: any) => sum + d.total_expenses, 0)
+    const transactionsCount = data.reduce((sum: number, d: any) => sum + (d.transactions_count || 0), 0)
+    const avgTransaction = transactionsCount > 0 ? total / transactionsCount : 0
+    const totalExpenses = data.reduce((sum: number, d: any) => sum + (d.total_expenses || 0), 0)
 
     return {
       totalRevenue: total,
