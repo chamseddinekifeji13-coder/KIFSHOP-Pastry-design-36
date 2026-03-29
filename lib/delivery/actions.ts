@@ -1254,6 +1254,7 @@ export async function importDeliveryReport(
   syncClients: boolean = false
 ): Promise<ImportResult> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const result: ImportResult = {
     total: rows.length,
@@ -1434,7 +1435,7 @@ export async function importDeliveryReport(
               payment_status: row.status === "delivered" ? "paid" : "unpaid",
               notes: row.notes ? `[Best Delivery] ${row.notes}` : "[Best Delivery Import]",
               delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
-              created_by: user.id,
+              created_by: user?.id ?? null,
             })
             .select("id")
             .single()
