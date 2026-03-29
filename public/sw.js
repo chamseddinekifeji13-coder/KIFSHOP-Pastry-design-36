@@ -1,7 +1,7 @@
 // IMPORTANT: Increment version on each deployment to force cache invalidation
 // BUILD_ID is set at build time - change this string for each deployment
-const CACHE_VERSION = 'v10';
-const BUILD_ID = '20260323-cache-invalidation';
+const CACHE_VERSION = 'v11';
+const BUILD_ID = '20260329-sync-fix';
 const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION + '-' + BUILD_ID;
 const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION + '-' + BUILD_ID;
 const OFFLINE_URL = '/offline.html';
@@ -24,6 +24,12 @@ const APP_SHELL_ROUTES = [
   '/commandes',
   '/approvisionnement',
   '/tresorerie',
+];
+
+// API routes that should NOT be cached (always fetch fresh for sync)
+const DYNAMIC_API_ROUTES = [
+  '/api/treasury/',
+  '/api/pos80/sync',
 ];
 
 // ── Install ──
@@ -65,10 +71,13 @@ function isAppPage(url) {
   return APP_SHELL_ROUTES.some((r) => url.pathname === r || url.pathname.startsWith(r + '/'));
 }
 
+function isDynamicAPI(url) {
+  return DYNAMIC_API_ROUTES.some((r) => url.pathname.startsWith(r));
+}
+
 function shouldSkip(url) {
   // Skip API routes, Supabase calls, and auth callback (not the login page)
   return (
-    url.pathname.startsWith('/api/') ||
     url.pathname === '/auth/callback' ||
     url.hostname.includes('supabase') ||
     url.hostname.includes('googleapis') ||
@@ -82,6 +91,31 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   if (shouldSkip(url)) return;
+
+  // Strategy 0: Dynamic API routes MUST be network-first (for real-time sync)
+  if (isDynamicAPI(url)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((c) => c.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(async () => {
+          // Fall back to cache for offline, but prioritize network
+          const cached = await caches.match(event.request);
+          return cached || new Response('API endpoint offline', { status: 503 });
+        })
+    );
+    return;
+  }
+
+  // Skip API routes that aren't treasury/sync (let them fail fast)
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
 
   // Strategy 1: Network-first for JS/CSS (to get latest deployed code), cache-first for fonts/images
   if (isStaticAsset(url)) {
@@ -169,3 +203,4 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
