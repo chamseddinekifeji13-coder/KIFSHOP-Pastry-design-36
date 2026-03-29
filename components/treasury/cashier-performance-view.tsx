@@ -14,9 +14,18 @@ export function CashierPerformanceView() {
   )
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
 
-  const { data: cashierStats } = useSWR(
+  // SWR config pour synchronisation en temps reel
+  // Rafraichit tous les 5 secondes + revalidation au focus/reconnexion
+  const { data: cashierStats, mutate } = useSWR(
     `/api/treasury/cashier-stats?startDate=${startDate}&endDate=${endDate}`,
-    (url: string) => fetch(url).then(res => res.json())
+    (url: string) => fetch(url).then(res => res.json()),
+    {
+      refreshInterval: 5000,  // Rafraichir toutes les 5s
+      revalidateOnFocus: true,  // Rafraichir quand l'utilisateur revient sur l'onglet
+      revalidateOnReconnect: true,  // Rafraichir apres reconnexion
+      dedupingInterval: 500,  // Deduplique rapidement
+      keepPreviousData: true,  // Garde les donnees pendant la revalidation
+    }
   )
 
   const stats = useMemo(() => {
@@ -28,6 +37,14 @@ export function CashierPerformanceView() {
     return stats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0)
   }, [stats])
 
+  // Rafraichir manuellement quand les dates changent
+  const handleDateChange = (newStartDate: string, newEndDate: string) => {
+    setStartDate(newStartDate)
+    setEndDate(newEndDate)
+    // Forcer un rafraichissement immediat
+    setTimeout(() => mutate(), 0)
+  }
+
   return (
     <div className="space-y-6">
       <Card className="p-4">
@@ -37,7 +54,7 @@ export function CashierPerformanceView() {
             <Input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => handleDateChange(e.target.value, endDate)}
             />
           </div>
           <div>
@@ -45,7 +62,7 @@ export function CashierPerformanceView() {
             <Input
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => handleDateChange(startDate, e.target.value)}
             />
           </div>
         </div>

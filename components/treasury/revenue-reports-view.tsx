@@ -24,10 +24,17 @@ interface DailyClosure {
 export function RevenueReportsView() {
   const [reportType, setReportType] = useState<'daily' | 'monthly' | 'annual'>('daily')
   
-  // Fetch revenue data
-  const { data: revenueData, error: revenueError, isLoading } = useSWR(
+  // Fetch revenue data with real-time synchronization
+  const { data: revenueData, error: revenueError, isLoading, mutate } = useSWR(
     `/api/treasury/revenue?type=${reportType}`,
-    (url: string) => fetch(url).then(res => res.json())
+    (url: string) => fetch(url).then(res => res.json()),
+    {
+      refreshInterval: 5000,  // Refresh every 5 seconds for real-time sync
+      revalidateOnFocus: true,  // Refresh when user returns to tab
+      revalidateOnReconnect: true,  // Refresh after reconnection
+      dedupingInterval: 500,  // Quick deduplication
+      keepPreviousData: true,  // Keep data while revalidating
+    }
   )
   
   const stats = useMemo(() => {

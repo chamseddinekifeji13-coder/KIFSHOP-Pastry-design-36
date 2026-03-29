@@ -13,15 +13,10 @@ import { SubscriptionBanner } from "./subscription-banner"
 import { SuspensionOverlay } from "./suspension-overlay"
 import { LockScreen } from "@/components/lock-screen"
 import { ChangePinDialog } from "@/components/change-pin-dialog"
+import { SWR_CONFIG } from "@/lib/swr-config"
 
-// Configuration SWR globale pour optimiser le cache
-const swrConfig = {
-  revalidateOnFocus: false,
-  revalidateOnReconnect: false,
-  dedupingInterval: 10000,
-  keepPreviousData: true,
-  errorRetryCount: 2,
-}
+// Configuration SWR globale pour synchronisation des donnees
+const swrConfig = SWR_CONFIG
 
 interface AppShellProps {
   children: React.ReactNode
