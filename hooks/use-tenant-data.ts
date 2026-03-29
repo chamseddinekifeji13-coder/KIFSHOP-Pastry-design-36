@@ -28,10 +28,21 @@ function useTenantQuery<T>(key: string, fetcher: (tenantId: string) => Promise<T
   const tenantId = currentTenant.id
   const isFallback = tenantId === "__fallback__"
 
+  // Debug logging
+  if (typeof window !== "undefined") {
+    console.log("[v0] useTenantQuery:", { key, tenantId, isFallback, tenantLoading, swrKeyActive: !tenantLoading && !isFallback })
+  }
+
   return useSWR(
     !tenantLoading && !isFallback ? `${key}-${tenantId}` : null,
     () => fetcher(tenantId),
-    { ...DEFAULT_SWR_CONFIG, ...options }
+    { 
+      ...DEFAULT_SWR_CONFIG, 
+      ...options,
+      onError: (error) => {
+        console.error(`[v0] SWR error for ${key}:`, error)
+      }
+    }
   )
 }
 
