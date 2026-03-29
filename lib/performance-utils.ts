@@ -8,13 +8,13 @@ import { memo, Suspense, lazy, type ReactNode, type ComponentType } from 'react'
 // Lazy load heavy components using React.lazy
 export const createLazyComponent = <P extends object>(
   importFunc: () => Promise<{ default: ComponentType<P> }>,
-  componentName: string
+  displayName: string
 ) => {
   const LazyComp = lazy(importFunc)
   
   // Create a wrapper component with displayName
   const Component = (props: P) => <LazyComp {...props} />
-  Component.displayName = componentName
+  Component.displayName = displayName
   
   return Component
 }
