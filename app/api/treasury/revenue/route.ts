@@ -38,32 +38,27 @@ export async function GET(request: Request) {
     }
 
     // Fetch transactions
-    const { data: transactions, error: txError } = await supabase
+    const { data: transactions } = await supabase
       .from('transactions')
       .select('amount, type, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
     
-    console.log("[v0] Revenue API - transactions found:", transactions?.length || 0, "startDate:", startDate, "error:", txError?.message)
 
     // Fetch order collections  
-    const { data: collections, error: colError } = await supabase
+    const { data: collections } = await supabase
       .from('order_collections')
       .select('amount, payment_method, collected_at')
       .eq('tenant_id', session.tenantId)
       .gte('collected_at', startDate)
-    
-    console.log("[v0] Revenue API - collections found:", collections?.length || 0)
 
     // Fetch completed orders
-    const { data: orders, error: ordError } = await supabase
+    const { data: orders } = await supabase
       .from('orders')
       .select('total, status, created_at, payment_method')
       .eq('tenant_id', session.tenantId)
       .in('status', ['completed', 'delivered', 'paid'])
       .gte('created_at', startDate)
-    
-    console.log("[v0] Revenue API - orders found:", orders?.length || 0)
 
     // Also get cash_closures for historical data
     const { data: closures } = await supabase
@@ -169,8 +164,6 @@ export async function GET(request: Request) {
       const keyB = type === 'daily' ? b.closure_date : type === 'monthly' ? b.month : b.year
       return keyA.localeCompare(keyB)
     })
-
-    console.log("[v0] Revenue API - final data count:", data.length, "sample:", data[0])
 
     return NextResponse.json({
       success: true,
