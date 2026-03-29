@@ -24,10 +24,15 @@ export function RevenueReportsView() {
   const [reportType, setReportType] = useState<'daily' | 'monthly' | 'annual'>('daily')
   
   // Fetch revenue data
-  const { data: revenueData } = useSWR(
+  const { data: revenueData, error: revenueError, isLoading } = useSWR(
     `/api/treasury/revenue?type=${reportType}`,
     (url: string) => fetch(url).then(res => res.json())
   )
+  
+  // Debug logging
+  console.log("[v0] Revenue data:", revenueData)
+  console.log("[v0] Revenue error:", revenueError)
+  console.log("[v0] Stats:", stats)
 
   const stats = useMemo(() => {
     const data = revenueData?.data || []

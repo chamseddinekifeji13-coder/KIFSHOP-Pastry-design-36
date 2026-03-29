@@ -14,10 +14,10 @@ export async function GET(request: Request) {
 
     const supabase = await createClient()
 
-    // Fetch all transactions for the period with cashier info
+    // Fetch all transactions for the period with cashier info - include category for proper classification
     const { data: transactions, error } = await supabase
       .from('transactions')
-      .select('created_by, created_by_name, amount, type, payment_method')
+      .select('created_by, created_by_name, amount, type, category, payment_method')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate ? `${startDate}T00:00:00` : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .lte('created_at', endDate ? `${endDate}T23:59:59` : new Date().toISOString())
@@ -59,8 +59,12 @@ export async function GET(request: Request) {
       const cashier = cashierMap.get(cashierId)!
       cashier.totalTransactions++
 
-      // Count income transactions (sales, collections, etc.)
-      if (transaction.type === 'collection' || transaction.type === 'income' || transaction.type === 'entree') {
+      // Count income transactions - check both type AND category
+      const incomeTypes = ['income', 'entree']
+      const incomeCategories = ['vente_pos', 'vente_comptoir', 'pos_sale', 'collection', 'Commande client', 'Vente comptoir']
+      const isIncome = incomeTypes.includes(transaction.type) || incomeCategories.includes(transaction.category)
+      
+      if (isIncome) {
         cashier.totalCollections++
         cashier.totalAmount += Number(transaction.amount) || 0
       }
