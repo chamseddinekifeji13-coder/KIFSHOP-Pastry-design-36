@@ -1432,7 +1432,7 @@ export async function importDeliveryReport(
               payment_status: row.status === "delivered" ? "paid" : "unpaid",
               notes: row.notes ? `[Best Delivery] ${row.notes}` : "[Best Delivery Import]",
               delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
-              created_by: user.id,
+              created_by: null, // Auto-imported from Best Delivery
             })
             .select("id")
             .single()
