@@ -1,3 +1,5 @@
+ "use client"
+
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,10 +19,15 @@ export function StatsResetSettings() {
 
   // Check if stats have been reset
   useEffect(() => {
-    checkResetDate()
-  }, [])
+    if (currentTenant?.id) {
+      checkResetDate()
+      return
+    }
+    setChecking(false)
+  }, [currentTenant?.id])
 
   const checkResetDate = async () => {
+    if (!currentTenant?.id) return
     try {
       const date = await getStatsResetDate(currentTenant.id)
       setResetDate(date)
