@@ -36,26 +36,26 @@ export async function GET(request: Request) {
       startDate = '2020-01-01' // All years
     }
 
-    // Fetch transactions - include category to properly identify income types
+    // Fetch ALL transactions for this tenant (no date filter initially to debug)
     const { data: transactions, error: transError } = await supabase
       .from('transactions')
       .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
-      .gte('created_at', startDate)
     
-    console.log('[v0] Revenue API - tenantId:', session.tenantId)
-    console.log('[v0] Revenue API - startDate:', startDate)
-    console.log('[v0] Revenue API - type param:', type)
-    console.log('[v0] Revenue API - transactions count:', transactions?.length || 0)
-    console.log('[v0] Revenue API - transactions error:', transError)
-    if (transactions?.length) {
-      console.log('[v0] Revenue API - sample transactions:', JSON.stringify(transactions.slice(0, 3), null, 2))
-      // Log types and categories for debugging
-      const types = [...new Set(transactions.map(t => t.type))]
-      const categories = [...new Set(transactions.map(t => t.category))]
-      console.log('[v0] Revenue API - unique types:', types)
-      console.log('[v0] Revenue API - unique categories:', categories)
+    // If no transactions found with session.tenantId, try to get any transactions to verify data exists
+    let debugInfo = {
+      tenantId: session.tenantId,
+      startDate,
+      type,
+      transactionsFound: transactions?.length || 0,
+      transError: transError?.message || null
     }
+    
+    // Filter by date after fetching (to debug date issues)
+    const filteredTransactions = (transactions || []).filter(t => {
+      const txDate = new Date(t.created_at).toISOString().split('T')[0]
+      return txDate >= startDate
+    })
 
     // Fetch order collections  
     const { data: collections } = await supabase
@@ -112,17 +112,14 @@ export async function GET(request: Request) {
       return aggregateMap.get(key)!
     }
 
-    // Process transactions - check both type AND category for proper classification
-    for (const t of transactions || []) {
+    // Process filtered transactions - check both type AND category for proper classification
+    for (const t of filteredTransactions) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
       entry.transactions_count++
       
-      // Types considered as income: income, entree
-      // Categories considered as income: vente_pos, vente_comptoir, pos_sale, collection, Commande client
-      const incomeTypes = ['income', 'entree']
-      const incomeCategories = ['vente_pos', 'vente_comptoir', 'pos_sale', 'collection', 'Commande client', 'Vente comptoir']
-      const isIncome = incomeTypes.includes(t.type) || incomeCategories.includes(t.category)
+      // Check if income transaction
+      const isIncome = t.type === 'income' || t.type === 'entree'
       
       if (isIncome) {
         entry.total_sales += Number(t.amount) || 0
@@ -172,6 +169,7 @@ export async function GET(request: Request) {
       success: true,
       type,
       data,
+      debug: debugInfo,
       generatedAt: new Date().toISOString(),
     })
   } catch (error) {
