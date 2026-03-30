@@ -2,7 +2,7 @@ import useSWR from "swr"
 import { useTenant } from "@/lib/tenant-context"
 import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging, fetchConsumables, fetchStorageLocations } from "@/lib/stocks/actions"
 import { fetchProspects, fetchDueReminders } from "@/lib/prospects/actions"
-import { fetchTransactions } from "@/lib/treasury/actions"
+import { fetchTransactions, fetchRevenueReport } from "@/lib/treasury/actions"
 import { fetchSuppliers, fetchPurchaseOrders, fetchSupplierPriceHistory, fetchPurchaseInvoices, fetchDeliveryNotes } from "@/lib/approvisionnement/actions"
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
@@ -77,6 +77,22 @@ export function useTransactions() {
     refreshInterval: 5000,          // 5s pour une synchronisation rapide
     dedupingInterval: 500,          // Deduplique toutes les 500ms pour eviter les appels redondants
   })
+}
+
+export function useRevenueReport(reportType: 'daily' | 'monthly' | 'annual' = 'daily') {
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const tenantId = currentTenant.id
+  const isFallback = tenantId === "__fallback__"
+
+  return useSWR(
+    !tenantLoading && !isFallback ? `revenue-report-${reportType}-${tenantId}` : null,
+    () => fetchRevenueReport(tenantId, reportType),
+    {
+      ...DEFAULT_SWR_CONFIG,
+      refreshInterval: 5000,
+      dedupingInterval: 500,
+    }
+  )
 }
 
 export function useSuppliers() {

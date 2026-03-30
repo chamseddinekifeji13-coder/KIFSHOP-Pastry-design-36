@@ -43,6 +43,101 @@ export async function fetchTransactions(tenantId: string): Promise<Transaction[]
   }))
 }
 
+// ─── Revenue Report Data ─────────────────────────────────────
+// Uses the same Supabase browser client as fetchTransactions
+// to avoid auth issues with API routes
+export interface RevenueEntry {
+  period: string
+  label: string
+  total_sales: number
+  total_collections: number
+  total_cash_income: number
+  total_card_income: number
+  total_expenses: number
+  transactions_count: number
+}
+
+export async function fetchRevenueReport(
+  tenantId: string,
+  reportType: 'daily' | 'monthly' | 'annual' = 'daily'
+): Promise<RevenueEntry[]> {
+  const supabase = createClient()
+
+  // Calculate date range
+  let startDate: string
+  if (reportType === 'daily') {
+    const d = new Date(); d.setDate(d.getDate() - 30)
+    startDate = d.toISOString().split('T')[0]
+  } else if (reportType === 'monthly') {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 1)
+    startDate = d.toISOString().split('T')[0]
+  } else {
+    startDate = '2020-01-01'
+  }
+
+  // Fetch transactions
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('amount, type, category, payment_method, created_at')
+    .eq('tenant_id', tenantId)
+    .gte('created_at', startDate)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching revenue data:', error.message)
+    return []
+  }
+
+  // Aggregate by period
+  const aggregateMap = new Map<string, RevenueEntry>()
+
+  const getKey = (dateStr: string): string => {
+    const date = new Date(dateStr)
+    if (reportType === 'daily') {
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      return `${y}-${m}-${d}`
+    }
+    if (reportType === 'monthly') return date.toISOString().slice(0, 7)
+    return date.getFullYear().toString()
+  }
+
+  const getLabel = (key: string): string => {
+    if (reportType === 'daily') return key
+    if (reportType === 'monthly') {
+      return new Date(key + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    }
+    return key
+  }
+
+  for (const t of transactions || []) {
+    const key = getKey(t.created_at)
+    if (!aggregateMap.has(key)) {
+      aggregateMap.set(key, {
+        period: key,
+        label: getLabel(key),
+        total_sales: 0, total_collections: 0,
+        total_cash_income: 0, total_card_income: 0,
+        total_expenses: 0, transactions_count: 0,
+      })
+    }
+    const entry = aggregateMap.get(key)!
+    entry.transactions_count++
+
+    if (t.type === 'income' || t.type === 'entree') {
+      entry.total_sales += Number(t.amount) || 0
+      if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
+      else entry.total_card_income += Number(t.amount) || 0
+    } else if (t.type === 'expense' || t.type === 'sortie') {
+      entry.total_expenses += Number(t.amount) || 0
+    }
+  }
+
+  // Sort by period ascending
+  return Array.from(aggregateMap.values()).sort((a, b) => a.period.localeCompare(b.period))
+}
+
 export async function createTransaction(tenantId: string, data: {
   type: "income" | "expense"; amount: number; category: string;
   paymentMethod?: string; reference?: string; description?: string; orderId?: string
