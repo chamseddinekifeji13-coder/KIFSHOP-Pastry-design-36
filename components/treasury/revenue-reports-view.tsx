@@ -4,16 +4,23 @@ import { useMemo, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { TrendingUp, DollarSign, Users, Printer } from 'lucide-react'
+import { TrendingUp, DollarSign, Users, Printer, RefreshCw, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRevenueReport } from '@/hooks/use-tenant-data'
 
 export function RevenueReportsView() {
   const [reportType, setReportType] = useState<'daily' | 'monthly' | 'annual'>('daily')
+  const [isRefreshing, setIsRefreshing] = useState(false)
   
   // Use the same SWR+Supabase client pattern as Vue d'ensemble (useTransactions)
   // This avoids the auth issue with the API route /api/treasury/revenue
   const { data: revenueData, error: revenueError, isLoading, mutate } = useRevenueReport(reportType)
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await mutate()
+    setIsRefreshing(false)
+  }
   
   // Transform data for charts (add closure_date/month/year keys for XAxis)
   const chartData = useMemo(() => {
@@ -58,7 +65,7 @@ export function RevenueReportsView() {
         <p className="text-center text-gray-600">Généré le {new Date().toLocaleDateString('fr-FR')}</p>
       </div>
 
-      {/* Print Button & Last Updated */}
+      {/* Refresh & Print Buttons */}
       <div className="flex justify-between items-center print:hidden">
         <div className="text-sm text-muted-foreground">
           {revenueData && revenueData.length > 0 && (
@@ -66,13 +73,28 @@ export function RevenueReportsView() {
               {revenueData.length} période{revenueData.length > 1 ? 's' : ''} chargée{revenueData.length > 1 ? 's' : ''}
             </span>
           )}
-          {isLoading && <span className="ml-2 text-amber-600">Actualisation...</span>}
+          {isLoading && !isRefreshing && <span className="ml-2 text-amber-600">Actualisation...</span>}
           {revenueError && <span className="ml-2 text-red-600">Erreur de chargement</span>}
         </div>
-        <Button onClick={handlePrint} variant="outline" className="gap-2">
-          <Printer className="w-4 h-4" />
-          Imprimer le rapport
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoading}
+            className="gap-2"
+          >
+            {isRefreshing || isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Actualiser
+          </Button>
+          <Button onClick={handlePrint} variant="outline" className="gap-2">
+            <Printer className="w-4 h-4" />
+            Imprimer le rapport
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}

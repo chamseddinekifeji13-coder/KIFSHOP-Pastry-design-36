@@ -1,60 +1,44 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import useSWR from 'swr'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Calendar, RefreshCw, Loader2 } from 'lucide-react'
+import { useCashierStats } from '@/hooks/use-tenant-data'
 
 export function CashierPerformanceView() {
   const [startDate, setStartDate] = useState(
     new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // SWR config pour synchronisation en temps reel
-  // Rafraichit tous les 5 secondes + revalidation au focus/reconnexion
-  const { data: cashierStats, mutate } = useSWR(
-    `/api/treasury/cashier-stats?startDate=${startDate}&endDate=${endDate}`,
-    (url: string) => fetch(url).then(res => res.json()),
-    {
-      refreshInterval: 5000,  // Rafraichir toutes les 5s
-      revalidateOnFocus: true,  // Rafraichir quand l'utilisateur revient sur l'onglet
-      revalidateOnReconnect: true,  // Rafraichir apres reconnexion
-      dedupingInterval: 500,  // Deduplique rapidement
-      keepPreviousData: true,  // Garde les donnees pendant la revalidation
-    }
-  )
-
-  const stats = useMemo(() => {
-    if (!cashierStats?.data) return []
-    return cashierStats.data
-  }, [cashierStats])
+  // Use the same Supabase browser client pattern as useTransactions
+  const { data: stats, error, isLoading, mutate } = useCashierStats(startDate, endDate)
 
   const totalCollected = useMemo(() => {
-    return stats.reduce((sum: number, s: any) => sum + (s.totalAmount || 0), 0)
+    return (stats || []).reduce((sum, s) => sum + (s.totalAmount || 0), 0)
   }, [stats])
 
-  // Rafraichir manuellement quand les dates changent
-  const handleDateChange = (newStartDate: string, newEndDate: string) => {
-    setStartDate(newStartDate)
-    setEndDate(newEndDate)
-    // Forcer un rafraichissement immediat
-    setTimeout(() => mutate(), 0)
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await mutate()
+    setIsRefreshing(false)
   }
 
   return (
     <div className="space-y-6">
       <Card className="p-4">
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-end">
           <div>
             <label className="text-sm text-gray-600">Date début</label>
             <Input
               type="date"
               value={startDate}
-              onChange={(e) => handleDateChange(e.target.value, endDate)}
+              onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
           <div>
@@ -62,10 +46,26 @@ export function CashierPerformanceView() {
             <Input
               type="date"
               value={endDate}
-              onChange={(e) => handleDateChange(startDate, e.target.value)}
+              onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoading}
+            className="gap-2 h-10"
+          >
+            {isRefreshing || isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Actualiser
+          </Button>
         </div>
+        {error && (
+          <p className="text-sm text-red-600 mt-2">Erreur de chargement des données</p>
+        )}
       </Card>
 
       <Card className="p-6">
@@ -87,14 +87,21 @@ export function CashierPerformanceView() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {stats.length === 0 ? (
+              {isLoading && !stats ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    Chargement...
+                  </TableCell>
+                </TableRow>
+              ) : !stats || stats.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                     Aucune donnée pour cette période
                   </TableCell>
                 </TableRow>
               ) : (
-                stats.map((stat: any) => (
+                stats.map((stat) => (
                   <TableRow key={stat.cashierId}>
                     <TableCell className="font-medium">{stat.cashierName}</TableCell>
                     <TableCell className="text-right">{stat.totalTransactions}</TableCell>
