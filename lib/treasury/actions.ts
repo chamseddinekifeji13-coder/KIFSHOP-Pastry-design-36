@@ -138,6 +138,69 @@ export async function fetchRevenueReport(
   return Array.from(aggregateMap.values()).sort((a, b) => a.period.localeCompare(b.period))
 }
 
+// ─── Cashier Stats ────────────────────────────────────────────
+// Uses the same Supabase browser client to avoid auth issues
+export interface CashierStat {
+  cashierId: string
+  cashierName: string
+  totalTransactions: number
+  totalCollections: number
+  totalAmount: number
+}
+
+export async function fetchCashierStats(
+  tenantId: string,
+  startDate?: string,
+  endDate?: string
+): Promise<CashierStat[]> {
+  const supabase = createClient()
+
+  const start = startDate
+    ? `${startDate}T00:00:00`
+    : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const end = endDate
+    ? `${endDate}T23:59:59`
+    : new Date().toISOString()
+
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('created_by, created_by_name, amount, type, category, payment_method')
+    .eq('tenant_id', tenantId)
+    .gte('created_at', start)
+    .lte('created_at', end)
+
+  if (error) {
+    console.error('Error fetching cashier stats:', error.message)
+    return []
+  }
+
+  // Group by cashier
+  const cashierMap = new Map<string, CashierStat>()
+
+  for (const t of transactions || []) {
+    const cashierId = t.created_by || 'unknown'
+    if (!cashierMap.has(cashierId)) {
+      cashierMap.set(cashierId, {
+        cashierId,
+        cashierName: t.created_by_name || 'Inconnu',
+        totalTransactions: 0,
+        totalCollections: 0,
+        totalAmount: 0,
+      })
+    }
+    const cashier = cashierMap.get(cashierId)!
+    cashier.totalTransactions++
+
+    // Count income
+    if (t.type === 'income' || t.type === 'entree') {
+      cashier.totalCollections++
+      cashier.totalAmount += Number(t.amount) || 0
+    }
+  }
+
+  return Array.from(cashierMap.values()).sort((a, b) => b.totalAmount - a.totalAmount)
+}
+
 export async function createTransaction(tenantId: string, data: {
   type: "income" | "expense"; amount: number; category: string;
   paymentMethod?: string; reference?: string; description?: string; orderId?: string
