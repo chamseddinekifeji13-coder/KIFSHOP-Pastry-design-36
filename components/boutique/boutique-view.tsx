@@ -44,7 +44,7 @@ export function BoutiqueView() {
         ...product,
         isPublished: !product.isPublished
       }
-      await updateFinishedProduct(product.id, currentTenant.id, updatedProduct)
+      await updateFinishedProduct(product.id, { isPublished: !product.isPublished })
       mutate()
       toast.success(updatedProduct.isPublished ? "Produit publie" : "Produit masque", {
         description: product.name,
