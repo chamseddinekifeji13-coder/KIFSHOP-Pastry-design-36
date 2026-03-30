@@ -119,14 +119,15 @@ export async function GET(request: Request) {
     // Note: We don't process orders separately because POS sales already create transactions
     // This prevents double-counting. Order collections are also tracked in transactions table.
     
-    // Process order_collections ONLY if they don't have a corresponding transaction
-    // (for legacy data or orders collected outside the transaction system)
-    for (const c of collections || []) {
-      const key = getKey(c.collected_at)
-      const entry = ensureEntry(key)
-      // Add to collections counter only (not to sales to avoid double-count)
-      entry.total_collections += Number(c.amount) || 0
-    }
+    // IMPORTANT: order_collections are ALREADY reflected in transactions via POS
+    // DO NOT add them again to avoid double-counting
+    // Collections counter is kept at 0 - all income is tracked via transactions.total_sales
+    // Legacy collections (before POS system) would need manual migration to transactions table
+    // for (const c of collections || []) {
+    //   const key = getKey(c.collected_at)
+    //   const entry = ensureEntry(key)
+    //   entry.total_collections += Number(c.amount) || 0
+    // }
 
     // Add cash closures historical data if no real-time data
     for (const closure of closures || []) {
