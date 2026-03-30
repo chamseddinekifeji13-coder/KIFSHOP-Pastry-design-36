@@ -231,7 +231,6 @@ export function ProductionView() {
                       </div>
                     )}
                     <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="outline" className="flex-1">Ajouter emballage</Button>
                       <Button size="sm" variant="outline" className="flex-1">Details</Button>
                     </div>
                   </CardContent>

@@ -567,68 +567,6 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
-        {/* Printer Settings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Printer className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Impression</CardTitle>
-            </div>
-            <CardDescription>Configuration des tickets et factures</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Impression automatique</p>
-                <p className="text-xs text-muted-foreground">Imprimer le ticket après chaque vente</p>
-              </div>
-              <Switch defaultChecked disabled={currentRole !== "owner" && currentRole !== "gerant"} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Inclure le logo</p>
-                <p className="text-xs text-muted-foreground">Afficher le logo sur les tickets</p>
-              </div>
-              <Switch defaultChecked disabled={currentRole !== "owner" && currentRole !== "gerant"} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notifications */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Notifications</CardTitle>
-            </div>
-            <CardDescription>Alertes et rappels</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Alertes stock critique</p>
-                <p className="text-xs text-muted-foreground">Notification quand le stock est bas</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Nouvelles commandes</p>
-                <p className="text-xs text-muted-foreground">Notification pour chaque commande</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Rapport quotidien</p>
-                <p className="text-xs text-muted-foreground">Résumé des ventes par email</p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
-
-
         {/* Language Settings */}
         <Card>
           <CardHeader>
