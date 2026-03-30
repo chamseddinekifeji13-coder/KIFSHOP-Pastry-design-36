@@ -390,6 +390,7 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
       costPrice, packagingCost: 0, ingredientCost: costPrice,
       imageUrl: p.image_url, weight: p.weight,
       isPublished: p.is_published, minOrder: 1, tags: p.tags || [], createdAt: p.created_at,
+      soldByWeight: p.sold_by_weight || false,
     }
   })
 }
