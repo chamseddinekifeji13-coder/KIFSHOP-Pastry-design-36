@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
     const {
       clientId, phone, clientName, amount, itemsDescription, notes,
-      source, deliveryType, courier, gouvernorat, shippingCost, deliveryDate, address, truecallerVerified,
+      source, deliveryType, courier, gouvernorat, delegation, shippingCost, deliveryDate, address, truecallerVerified,
       // Offer fields
       orderType, offerBeneficiary, offerReason, discountPercent,
     } = body
@@ -115,6 +115,7 @@ export async function POST(request: Request) {
       delivery_type: deliveryType || "pickup",
       courier: courier || null,
       gouvernorat: gouvernorat || null,
+      delegation: delegation || null,
       source: source || "phone",
       delivery_date: deliveryDate || null,
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),

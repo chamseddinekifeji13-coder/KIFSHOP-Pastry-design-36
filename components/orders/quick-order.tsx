@@ -64,6 +64,10 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/client"
 import { fetchActiveDeliveryCompanies, fetchDefaultDeliveryCompany } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
+import { tunisiaLocations, gouvernorats, getDelegations } from "@/lib/tunisia-locations"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { ChevronDown } from "lucide-react"
 
 interface Product {
   id: string
@@ -85,12 +89,7 @@ interface QuickOrderProps {
   onOrderCreated?: () => void
 }
 
-const gouvernorats = [
-  "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
-  "Jendouba", "Kairouan", "Kasserine", "Kebili", "Le Kef", "Mahdia",
-  "La Manouba", "Medenine", "Monastir", "Nabeul", "Sfax", "Sidi Bouzid",
-  "Siliana", "Sousse", "Tataouine", "Tozeur", "Tunis", "Zaghouan",
-]
+
 
 export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
@@ -121,7 +120,12 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
   const [gouvernorat, setGouvernorat] = useState("")
+  const [delegation, setDelegation] = useState("")
   const [shippingCost, setShippingCost] = useState("")
+  
+  // Combobox open states
+  const [gouvernoratOpen, setGouvernoratOpen] = useState(false)
+  const [delegationOpen, setDelegationOpen] = useState(false)
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
   const [productSearch, setProductSearch] = useState("")
@@ -356,6 +360,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
           deliveryType,
           courier: deliveryType === "delivery" ? courier : undefined,
           gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
+          delegation: deliveryType === "delivery" ? delegation : undefined,
           shippingCost: shipping,
           deliveryDate: deliveryDate || undefined,
           address: deliveryType === "delivery" ? clientAddress.trim() : undefined,
@@ -397,6 +402,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setDeliveryType("pickup")
     setCourier("")
     setGouvernorat("")
+    setDelegation("")
     setShippingCost("")
     setDeliveryDate("")
     setItems([])
@@ -752,18 +758,86 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                       </div>
                       {deliveryType === "delivery" && (
                         <>
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">Gouvernorat</Label>
-                            <Select value={gouvernorat} onValueChange={setGouvernorat}>
-                              <SelectTrigger className="bg-muted/50 border-0">
-                                <SelectValue placeholder="Choisir le gouvernorat" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {gouvernorats.map(g => (
-                                  <SelectItem key={g} value={g}>{g}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          {/* Gouvernorat et Delegation */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Gouvernorat</Label>
+                              <Popover open={gouvernoratOpen} onOpenChange={setGouvernoratOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={gouvernoratOpen}
+                                    className="w-full justify-between bg-muted/50 border-0 font-normal"
+                                  >
+                                    {gouvernorat || "Choisir..."}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Rechercher..." />
+                                    <CommandList>
+                                      <CommandEmpty>Aucun resultat</CommandEmpty>
+                                      <CommandGroup>
+                                        {gouvernorats.map((g) => (
+                                          <CommandItem
+                                            key={g}
+                                            value={g}
+                                            onSelect={() => {
+                                              setGouvernorat(g)
+                                              setDelegation("") // Reset delegation when gouvernorat changes
+                                              setGouvernoratOpen(false)
+                                            }}
+                                          >
+                                            {g}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Delegation</Label>
+                              <Popover open={delegationOpen} onOpenChange={setDelegationOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={delegationOpen}
+                                    className="w-full justify-between bg-muted/50 border-0 font-normal"
+                                    disabled={!gouvernorat}
+                                  >
+                                    {delegation || (gouvernorat ? "Choisir..." : "Gouvernorat d'abord")}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Rechercher..." />
+                                    <CommandList>
+                                      <CommandEmpty>Aucun resultat</CommandEmpty>
+                                      <CommandGroup>
+                                        {getDelegations(gouvernorat).map((d) => (
+                                          <CommandItem
+                                            key={d}
+                                            value={d}
+                                            onSelect={() => {
+                                              setDelegation(d)
+                                              setDelegationOpen(false)
+                                            }}
+                                          >
+                                            {d}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium">
@@ -779,7 +853,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-2">
-                              <Label className="text-xs font-medium">Transporteur</Label>
+                              <Label className="text-xs font-medium">Livreur</Label>
                               <Select value={courier} onValueChange={setCourier}>
                                 <SelectTrigger className="bg-muted/50 border-0">
                                   <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Choisir"} />
@@ -787,7 +861,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                                 <SelectContent>
                                   {couriers.length === 0 && !loadingCouriers && (
                                     <SelectItem value="__none" disabled>
-                                      Aucun transporteur configure
+                                      Aucun livreur configure
                                     </SelectItem>
                                   )}
                                   {couriers.map(c => (
@@ -799,7 +873,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                               </Select>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-xs font-medium">Frais (TND)</Label>
+                              <Label className="text-xs font-medium">Frais livraison (TND)</Label>
                               <Input
                                 type="number"
                                 placeholder="0"

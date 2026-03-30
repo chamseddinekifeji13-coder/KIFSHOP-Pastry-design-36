@@ -1288,9 +1288,17 @@ export function OrdersView() {
                     <h4 className="text-sm font-medium">Livraison</h4>
                     <div className="rounded-lg border p-3 space-y-2">
                       {selectedOrder.gouvernorat && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Gouvernorat</span>
-                          <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Gouvernorat</span>
+                            <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                          </div>
+                          {selectedOrder.delegation && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Delegation</span>
+                              <span className="font-medium">{selectedOrder.delegation}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       <div className="flex items-center justify-between text-sm">
