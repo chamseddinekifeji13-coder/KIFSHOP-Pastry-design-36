@@ -42,12 +42,13 @@ export async function GET(request: Request) {
     const cashierMap = new Map<string, any>()
 
     for (const transaction of transactions || []) {
-      const cashierId = transaction.created_by
+      // Use created_by_name as the cashier identifier since created_by may not exist
+      const cashierKey = transaction.created_by_name || 'Inconnu'
       
-      if (!cashierMap.has(cashierId)) {
-        cashierMap.set(cashierId, {
-          cashierId,
-          cashierName: transaction.created_by_name || 'Inconnu',
+      if (!cashierMap.has(cashierKey)) {
+        cashierMap.set(cashierKey, {
+          cashierId: cashierKey,
+          cashierName: cashierKey,
           totalTransactions: 0,
           totalCollections: 0,
           totalAmount: 0,
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
         })
       }
 
-      const cashier = cashierMap.get(cashierId)!
+      const cashier = cashierMap.get(cashierKey)!
       cashier.totalTransactions++
 
       // Count income transactions - check both type AND category
@@ -80,13 +81,13 @@ export async function GET(request: Request) {
 
     // Process order collections
     for (const collection of orderCollections || []) {
-      const cashierId = collection.collected_by
-      if (!cashierId) continue
+      const cashierKey = collection.collected_by_name || 'Inconnu'
+      if (!cashierKey) continue
       
-      if (!cashierMap.has(cashierId)) {
-        cashierMap.set(cashierId, {
-          cashierId,
-          cashierName: collection.collected_by_name || 'Inconnu',
+      if (!cashierMap.has(cashierKey)) {
+        cashierMap.set(cashierKey, {
+          cashierId: cashierKey,
+          cashierName: cashierKey,
           totalTransactions: 0,
           totalCollections: 0,
           totalAmount: 0,
@@ -95,7 +96,7 @@ export async function GET(request: Request) {
         })
       }
 
-      const cashier = cashierMap.get(cashierId)!
+      const cashier = cashierMap.get(cashierKey)!
       cashier.totalTransactions++
       cashier.totalCollections++
       cashier.totalAmount += Number(collection.amount) || 0
