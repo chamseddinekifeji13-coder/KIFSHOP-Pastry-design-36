@@ -178,15 +178,18 @@ export async function fetchCashierStats(
   const cashierMap = new Map<string, CashierStat>()
 
   for (const t of transactions || []) {
-    const cashierId = t.created_by || 'unknown'
+    const cashierId = t.created_by || t.created_by_name || 'unknown'
+    const cashierName = t.created_by_name || 'Inconnu'
     if (!cashierMap.has(cashierId)) {
       cashierMap.set(cashierId, {
         cashierId,
-        cashierName: t.created_by_name || 'Inconnu',
+        cashierName,
         totalTransactions: 0,
         totalCollections: 0,
         totalAmount: 0,
       })
+    } else if (t.created_by_name && cashierMap.get(cashierId)!.cashierName === 'Inconnu') {
+      cashierMap.get(cashierId)!.cashierName = t.created_by_name
     }
     const cashier = cashierMap.get(cashierId)!
     cashier.totalTransactions++
@@ -388,11 +391,15 @@ export async function createTransaction(tenantId: string, data: {
   paymentMethod?: string; reference?: string; description?: string; orderId?: string
 }): Promise<Transaction | null> {
   const supabase = createClient()
-  
+
   try {
     // Normalize type to match database constraints
     const normalizedType = data.type === "income" || data.type === "entree" ? "income" : "expense"
-    
+
+    // Get current user for created_by_name / created_by_id
+    const { data: { user } } = await supabase.auth.getUser()
+    const userName = user?.user_metadata?.display_name || user?.user_metadata?.name || user?.email || 'Caissier'
+
     // Do NOT use created_by column - it has a FK constraint that causes errors
     // Use created_by_name and created_by_id instead (TEXT columns, no FK)
     const { data: row, error } = await supabase.from("transactions").insert({
@@ -404,7 +411,8 @@ export async function createTransaction(tenantId: string, data: {
       reference: data.reference || null,
       description: data.description || null,
       order_id: data.orderId || null,
-      // Removed: created_by - causes FK constraint violation
+      created_by_name: userName,
+      created_by_id: user?.id || null,
     }).select().single()
     
     if (error) {
