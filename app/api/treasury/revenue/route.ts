@@ -37,11 +37,18 @@ export async function GET(request: Request) {
     }
 
     // Fetch transactions for this tenant
-    const { data: transactions } = await supabase
+    console.log('[v0] Revenue API - Fetching transactions for tenant:', session.tenantId, 'since:', startDate)
+    
+    const { data: transactions, error: txError } = await supabase
       .from('transactions')
       .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
+    
+    console.log('[v0] Revenue API - Transactions fetched:', transactions?.length || 0, 'error:', txError?.message || 'none')
+    if (transactions?.length) {
+      console.log('[v0] Revenue API - Sample transaction:', JSON.stringify(transactions[0]))
+    }
 
     // Fetch order collections  
     const { data: collections } = await supabase
@@ -99,6 +106,10 @@ export async function GET(request: Request) {
     }
 
     // Process transactions - check type for proper classification
+    let incomeCount = 0
+    let expenseCount = 0
+    let totalIncome = 0
+    
     for (const t of transactions || []) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
@@ -108,13 +119,18 @@ export async function GET(request: Request) {
       const isIncome = t.type === 'income' || t.type === 'entree'
       
       if (isIncome) {
+        incomeCount++
+        totalIncome += Number(t.amount) || 0
         entry.total_sales += Number(t.amount) || 0
         if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
         else entry.total_card_income += Number(t.amount) || 0
       } else if (t.type === 'expense' || t.type === 'sortie') {
+        expenseCount++
         entry.total_expenses += Number(t.amount) || 0
       }
     }
+    
+    console.log('[v0] Revenue API - Processed:', incomeCount, 'income transactions totaling', totalIncome, 'and', expenseCount, 'expenses')
 
     // Note: We don't process orders separately because POS sales already create transactions
     // This prevents double-counting. Order collections are also tracked in transactions table.
@@ -151,6 +167,12 @@ export async function GET(request: Request) {
       const keyB = type === 'daily' ? b.closure_date : type === 'monthly' ? b.month : b.year
       return keyA.localeCompare(keyB)
     })
+
+    console.log('[v0] Revenue API - Final data count:', data.length, 'entries')
+    if (data.length > 0) {
+      const totalSales = data.reduce((sum, d) => sum + (d.total_sales || 0), 0)
+      console.log('[v0] Revenue API - Total sales across all periods:', totalSales)
+    }
 
     return NextResponse.json({
       success: true,

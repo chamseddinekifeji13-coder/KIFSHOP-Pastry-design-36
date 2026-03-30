@@ -37,6 +37,17 @@ export function RevenueReportsView() {
     }
   )
   
+  // Debug: log what we receive from the API
+  if (typeof window !== 'undefined' && revenueData) {
+    console.log('[v0] RevenueReportsView - API Response:', {
+      success: revenueData.success,
+      type: revenueData.type,
+      dataCount: revenueData.data?.length || 0,
+      firstItem: revenueData.data?.[0],
+      generatedAt: revenueData.generatedAt
+    })
+  }
+  
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
