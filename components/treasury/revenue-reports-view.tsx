@@ -37,22 +37,9 @@ export function RevenueReportsView() {
     }
   )
   
-  // Debug: log what we receive from the API
-  if (typeof window !== 'undefined' && revenueData) {
-    console.log('[v0] RevenueReportsView - API Response:', {
-      success: revenueData.success,
-      type: revenueData.type,
-      dataCount: revenueData.data?.length || 0,
-      firstItem: revenueData.data?.[0],
-      generatedAt: revenueData.generatedAt
-    })
-  }
-  
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
-    // total_sales = all income from transactions (POS sales, order collections, etc.)
-    // Note: order_collections are already included in transactions, so we only count total_sales
     const totalSales = data.reduce((sum: number, d: any) => sum + (d.total_sales || 0), 0)
     const transactionsCount = data.reduce((sum: number, d: any) => sum + (d.transactions_count || 0), 0)
     const avgTransaction = transactionsCount > 0 ? totalSales / transactionsCount : 0
