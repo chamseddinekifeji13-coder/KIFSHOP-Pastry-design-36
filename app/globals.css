@@ -227,3 +227,69 @@
 .animate-drawer-open {
   animation: drawer-open 0.3s ease-out;
 }
+
+/* Print Styles for Reports */
+@media print {
+  /* Hide non-essential elements */
+  header,
+  nav,
+  aside,
+  footer,
+  .sidebar,
+  .no-print,
+  button:not(.print-visible),
+  [data-sidebar],
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Reset page */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  /* Full width content */
+  main,
+  .main-content,
+  #revenue-report {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+  }
+
+  /* Cards styling for print */
+  .card,
+  [class*="Card"] {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Charts - ensure they print properly */
+  .recharts-wrapper {
+    width: 100% !important;
+    height: 250px !important;
+  }
+
+  /* Grid adjustments */
+  .grid {
+    display: grid !important;
+  }
+
+  /* Page settings */
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+
+  /* Ensure colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

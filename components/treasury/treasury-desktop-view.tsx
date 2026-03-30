@@ -19,7 +19,7 @@ import { PinProtected } from "@/components/ui/pin-protected"
 
 export function TreasuryDesktopView() {
   const { t } = useI18n()
-  const { data: transactions, isLoading, mutate } = useTransactions()
+  const { data: transactions, isLoading, error, mutate } = useTransactions()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
 

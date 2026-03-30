@@ -3,19 +3,19 @@
 
 'use client'
 
-import { memo, Suspense, type ReactNode } from 'react'
+import { memo, Suspense, lazy, type ReactNode, type ComponentType } from 'react'
 
-// Lazy load heavy components
+// Lazy load heavy components using React.lazy
 export const createLazyComponent = <P extends object>(
-  importFunc: () => Promise<{ default: React.ComponentType<P> }>,
-  displayName: string
+  importFunc: () => Promise<{ default: ComponentType<P> }>,
+  name: string
 ) => {
-  const Component = memo(async (props: P) => {
-    const { default: LazyComponent } = await importFunc()
-    return <LazyComponent {...props} />
-  })
+  const LazyComp = lazy(importFunc)
   
-  Component.displayName = displayName
+  // Create a wrapper component with displayName
+  const Component = (props: P) => <LazyComp {...props} />
+  Component.displayName = name
+  
   return Component
 }
 
@@ -105,6 +105,5 @@ export const optimizeImageUrl = (
 
 // Batch updates to reduce re-renders
 export function batch(callback: () => void) {
-  // Use React's batch API
   callback()
 }

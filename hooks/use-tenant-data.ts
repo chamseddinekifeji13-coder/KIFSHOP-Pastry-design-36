@@ -71,7 +71,12 @@ export function useStockMovements(limit = 50) {
 }
 
 export function useTransactions() {
-  return useTenantQuery("transactions", fetchTransactions, { refreshInterval: 10000 })  // Rafraichit toutes les 10s pour le dashboard
+  // Rafraichit chaque 5 secondes pour maintenir la synchronisation en temps reel
+  // Combine avec revalidateOnFocus et revalidateOnReconnect du app-shell pour une synchronisation correcte
+  return useTenantQuery("transactions", fetchTransactions, { 
+    refreshInterval: 5000,          // 5s pour une synchronisation rapide
+    dedupingInterval: 500,          // Deduplique toutes les 500ms pour eviter les appels redondants
+  })
 }
 
 export function useSuppliers() {

@@ -23,13 +23,18 @@ function normalizeTransactionType(dbType: string): "entree" | "sortie" {
 
 export async function fetchTransactions(tenantId: string): Promise<Transaction[]> {
   const supabase = createClient()
+  
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
-  if (error) { console.error("Error fetching transactions:", error.message); return [] }
+  if (error) { 
+    console.error("Error fetching transactions:", error.message)
+    return [] 
+  }
+  
   return (data || []).map((t) => ({
     id: t.id, tenantId: t.tenant_id, type: normalizeTransactionType(t.type),
     amount: Number(t.amount), category: t.category, paymentMethod: t.payment_method,
