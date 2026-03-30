@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { openCashSession, closeCashSession, getActiveCashSession } from '@/lib/treasury/cash-actions'
 import { Clock, X, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function CashSessionManagement() {
   const [activeSession, setActiveSession] = useState<any>(null)
@@ -18,6 +19,21 @@ export function CashSessionManagement() {
   const [differenceReason, setDifferenceReason] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  // Load active session on component mount
+  useEffect(() => {
+    const loadActiveSession = async () => {
+      try {
+        const session = await getActiveCashSession()
+        if (session) {
+          setActiveSession(session)
+        }
+      } catch (error) {
+        console.error('Failed to load active session:', error)
+      }
+    }
+    loadActiveSession()
+  }, [])
+
   const handleOpenSession = async () => {
     try {
       setIsLoading(true)
@@ -25,8 +41,10 @@ export function CashSessionManagement() {
       setActiveSession(session)
       setOpeningBalance('')
       setIsOpen(false)
+      toast.success('Session de caisse ouverte')
     } catch (error) {
       console.error('Failed to open session:', error)
+      toast.error('Erreur lors de l\'ouverture de la session')
     } finally {
       setIsLoading(false)
     }
@@ -43,8 +61,10 @@ export function CashSessionManagement() {
       setActiveSession(null)
       setClosingBalance('')
       setDifferenceReason('')
+      toast.success('Session de caisse fermée')
     } catch (error) {
       console.error('Failed to close session:', error)
+      toast.error('Erreur lors de la fermeture de la session')
     } finally {
       setIsLoading(false)
     }
