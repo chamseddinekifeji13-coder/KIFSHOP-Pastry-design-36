@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { useTenant } from "@/lib/tenant-context"
 import { toast } from "sonner"
 import { Store, Building, Phone, Mail, Palette, Save, Loader2, AlertCircle, Camera, X } from "lucide-react"
@@ -72,19 +73,8 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       })
       const data = await res.json()
 
-      console.log('[v0] Shop config load response:', { 
-        status: res.status, 
-        success: data.success,
-        error: data.error,
-        config: data.config ? 'present' : 'missing'
-      })
-
       // Check HTTP status first
       if (!res.ok) {
-        console.error('[v0] Shop config API error:', {
-          status: res.status,
-          error: data.error || 'Unknown error'
-        })
         setLoadError(data.error || `Erreur ${res.status}: Impossible de charger la configuration`)
         setFormData({
           name: currentTenant.name,
@@ -119,8 +109,7 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
         })
         setLoadError(null)
       }
-    } catch (err) {
-      console.error("[v0] Shop Config Load exception:", err)
+    } catch {
       setLoadError("Impossible de charger la configuration")
       setFormData({
         name: currentTenant.name,
@@ -184,36 +173,21 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
     setIsSubmitting(true)
 
     try {
-      console.log('[v0] Shop config submit - Sending data:', {
-        name: formData.name,
-        primaryColor: formData.primaryColor,
-        addressLength: formData.address?.length || 0,
-        hasEmail: !!formData.email,
-        hasPhone: !!formData.phone
-      })
-
       const res = await fetch("/api/shop-config", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Tenant-Id": currentTenant.id
+        },
         body: JSON.stringify(formData),
       })
 
       const data = await res.json()
-      console.log('[v0] Shop config save response:', { 
-        status: res.status, 
-        success: data.success,
-        error: data.error,
-        details: data.details
-      })
 
       // Check HTTP status first
       if (!res.ok) {
         const errMsg = data.details || data.error || `Erreur ${res.status}`
-        console.error('[v0] Shop config API error:', {
-          status: res.status,
-          error: errMsg
-        })
-        toast.error("Erreur lors de la sauvegarde", { 
+        toast.error("Erreur lors de la sauvegarde de la configuration", { 
           description: errMsg,
           duration: 5000
         })
@@ -232,19 +206,12 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
       } else {
         // Server returned 200 but no success flag
         const errMsg = data.details || data.error || "Erreur lors de la sauvegarde"
-        console.error('[v0] Shop config unexpected response:', {
-          data
-        })
         toast.error("Erreur lors de la sauvegarde", { 
           description: errMsg,
           duration: 5000
         })
       }
     } catch (err: any) {
-      console.error("[v0] Shop Config Save exception:", {
-        message: err.message,
-        stack: err.stack
-      })
       toast.error("Erreur de connexion", { 
         description: err.message || "Veuillez reessayer."
       })
@@ -384,6 +351,9 @@ export function ShopConfigDrawer({ open, onOpenChange }: ShopConfigDrawerProps) 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        <VisuallyHidden>
+          <SheetTitle>Modifier la boutique</SheetTitle>
+        </VisuallyHidden>
         {/* Header Banner */}
         <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
           <div className="flex items-center gap-3 mb-3">
