@@ -212,6 +212,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
       const recipeData = {
         name: name.trim(), 
         category,
+        notes: notes.trim(),
         yieldQuantity: totalYield,
         yieldUnit: "unites",
         theoreticalQuantity: theoreticalTotal,
