@@ -36,12 +36,13 @@ export async function GET(request: Request) {
       startDate = '2020-01-01' // All years
     }
 
-    // Fetch transactions for this tenant
+    // Fetch transactions for this tenant - include all sources of income
     const { data: transactions } = await supabase
       .from('transactions')
       .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
+      .order('created_at', { ascending: false })
 
     // Fetch order collections  
     const { data: collections } = await supabase
@@ -70,7 +71,13 @@ export async function GET(request: Request) {
 
     const getKey = (dateStr: string): string => {
       const date = new Date(dateStr)
-      if (type === 'daily') return date.toISOString().split('T')[0]
+      if (type === 'daily') {
+        // Return YYYY-MM-DD format for daily reports
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
       if (type === 'monthly') return date.toISOString().slice(0, 7)
       return date.getFullYear().toString()
     }
@@ -98,16 +105,13 @@ export async function GET(request: Request) {
       return aggregateMap.get(key)!
     }
 
-    // Process transactions - check type for proper classification
+    // Process transactions
     for (const t of transactions || []) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
       entry.transactions_count++
       
-      // Check if income transaction
-      const isIncome = t.type === 'income' || t.type === 'entree'
-      
-      if (isIncome) {
+      if (t.type === 'income' || t.type === 'entree') {
         entry.total_sales += Number(t.amount) || 0
         if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
         else entry.total_card_income += Number(t.amount) || 0

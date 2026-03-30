@@ -40,8 +40,6 @@ export function RevenueReportsView() {
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
-    // total_sales = all income from transactions (POS sales, order collections, etc.)
-    // Note: order_collections are already included in transactions, so we only count total_sales
     const totalSales = data.reduce((sum: number, d: any) => sum + (d.total_sales || 0), 0)
     const transactionsCount = data.reduce((sum: number, d: any) => sum + (d.transactions_count || 0), 0)
     const avgTransaction = transactionsCount > 0 ? totalSales / transactionsCount : 0
