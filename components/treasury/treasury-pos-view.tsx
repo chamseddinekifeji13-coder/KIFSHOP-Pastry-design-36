@@ -625,6 +625,8 @@ export function TreasuryPosView() {
         key.includes("orders") || 
         key.includes(currentTenant.id)
       ), undefined, { revalidate: true })
+      // Invalidate revenue reports cache for real-time sync
+      globalMutate((key) => typeof key === "string" && key.includes("/api/treasury/revenue"), undefined, { revalidate: true })
 
       // Success
       toast.success("Vente enregistree!")

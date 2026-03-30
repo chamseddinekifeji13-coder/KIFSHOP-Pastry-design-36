@@ -40,21 +40,18 @@ export function RevenueReportsView() {
   const stats = useMemo(() => {
     const data = revenueData?.data || []
     
-    // Sum both total_sales AND total_collections (they track different things)
-    // total_sales = income from transactions (POS sales, etc.)
-    // total_collections = income from order collections
+    // total_sales = all income from transactions (POS sales, order collections, etc.)
+    // Note: order_collections are already included in transactions, so we only count total_sales
     const totalSales = data.reduce((sum: number, d: any) => sum + (d.total_sales || 0), 0)
-    const totalCollections = data.reduce((sum: number, d: any) => sum + (d.total_collections || 0), 0)
-    const total = totalSales + totalCollections
     const transactionsCount = data.reduce((sum: number, d: any) => sum + (d.transactions_count || 0), 0)
-    const avgTransaction = transactionsCount > 0 ? total / transactionsCount : 0
+    const avgTransaction = transactionsCount > 0 ? totalSales / transactionsCount : 0
     const totalExpenses = data.reduce((sum: number, d: any) => sum + (d.total_expenses || 0), 0)
 
     return {
-      totalRevenue: total,
+      totalRevenue: totalSales,
       averageTransaction: avgTransaction,
       totalExpenses: totalExpenses,
-      netRevenue: total - totalExpenses,
+      netRevenue: totalSales - totalExpenses,
       recordCount: data.length,
     }
   }, [revenueData])
@@ -73,8 +70,16 @@ export function RevenueReportsView() {
         <p className="text-center text-gray-600">Généré le {new Date().toLocaleDateString('fr-FR')}</p>
       </div>
 
-      {/* Print Button */}
-      <div className="flex justify-end print:hidden">
+      {/* Print Button & Last Updated */}
+      <div className="flex justify-between items-center print:hidden">
+        <div className="text-sm text-muted-foreground">
+          {revenueData?.generatedAt && (
+            <span>
+              Derniere mise a jour : {new Date(revenueData.generatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          )}
+          {isLoading && <span className="ml-2 text-amber-600">Actualisation...</span>}
+        </div>
         <Button onClick={handlePrint} variant="outline" className="gap-2">
           <Printer className="w-4 h-4" />
           Imprimer le rapport
