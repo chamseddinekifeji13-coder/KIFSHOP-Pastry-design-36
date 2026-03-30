@@ -1339,7 +1339,8 @@ export async function importDeliveryReport(
       // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
       if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
         // Only match if exact same delivery date (same day)
-        const deliveryDateStr = row.deliveryDate.split('T')[0]
+        // row.deliveryDate is already a string, so just split it
+        const deliveryDateStr = row.deliveryDate.includes('T') ? row.deliveryDate.split('T')[0] : row.deliveryDate
         const nextDay = new Date(row.deliveryDate)
         nextDay.setDate(nextDay.getDate() + 1)
         
@@ -1432,6 +1433,7 @@ export async function importDeliveryReport(
               payment_status: row.status === "delivered" ? "paid" : "unpaid",
               notes: row.notes ? `[Best Delivery] ${row.notes}` : "[Best Delivery Import]",
               delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
+              created_by: null, // Auto-imported from Best Delivery
             })
             .select("id")
             .single()

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { withSession, serverErrorResponse } from '@/lib/api-helpers'
 
+// Treasury Revenue API - Aggregates data from transactions, orders, and collections
 export async function GET(request: Request) {
   // Get session with proper error handling
   const [session, authError] = await withSession()
@@ -20,20 +21,21 @@ export async function GET(request: Request) {
     
     let data: any[] = []
 
-    // Calculate date range
-    const now = new Date()
+    // Calculate date range - use full ISO format for proper comparison
     let startDate: string
     
     if (type === 'daily') {
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      startDate = thirtyDaysAgo.toISOString().split('T')[0]
+      thirtyDaysAgo.setHours(0, 0, 0, 0)
+      startDate = thirtyDaysAgo.toISOString()
     } else if (type === 'monthly') {
       const oneYearAgo = new Date()
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-      startDate = oneYearAgo.toISOString().split('T')[0]
+      oneYearAgo.setHours(0, 0, 0, 0)
+      startDate = oneYearAgo.toISOString()
     } else {
-      startDate = '2020-01-01' // All years
+      startDate = '2020-01-01T00:00:00.000Z' // All years
     }
 
     // Fetch transactions for this tenant
@@ -42,6 +44,7 @@ export async function GET(request: Request) {
       .select('amount, type, category, payment_method, created_at')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate)
+    
 
     // Fetch order collections  
     const { data: collections } = await supabase
@@ -98,20 +101,26 @@ export async function GET(request: Request) {
       return aggregateMap.get(key)!
     }
 
-    // Process transactions - check type for proper classification
+    // Process transactions
+    // DB stores "income"/"expense" for type
     for (const t of transactions || []) {
       const key = getKey(t.created_at)
       const entry = ensureEntry(key)
       entry.transactions_count++
       
-      // Check if income transaction
+      // Income types: "income", "entree" 
+      // Expense types: "expense", "sortie"
       const isIncome = t.type === 'income' || t.type === 'entree'
       
       if (isIncome) {
         entry.total_sales += Number(t.amount) || 0
-        if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
-        else entry.total_card_income += Number(t.amount) || 0
-      } else if (t.type === 'expense' || t.type === 'sortie') {
+        entry.total_collections += Number(t.amount) || 0
+        if (t.payment_method === 'cash' || t.payment_method === 'especes') {
+          entry.total_cash_income += Number(t.amount) || 0
+        } else {
+          entry.total_card_income += Number(t.amount) || 0
+        }
+      } else {
         entry.total_expenses += Number(t.amount) || 0
       }
     }

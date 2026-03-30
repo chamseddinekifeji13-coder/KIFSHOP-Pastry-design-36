@@ -42,12 +42,12 @@ export async function GET(request: Request) {
     const cashierMap = new Map<string, any>()
 
     for (const transaction of transactions || []) {
-      const cashierId = transaction.created_by
+      const cashierId = transaction.created_by || 'system'
       
       if (!cashierMap.has(cashierId)) {
         cashierMap.set(cashierId, {
           cashierId,
-          cashierName: transaction.created_by_name || 'Inconnu',
+          cashierName: transaction.created_by_name || (cashierId === 'system' ? 'Système (Auto)' : 'Inconnu'),
           totalTransactions: 0,
           totalCollections: 0,
           totalAmount: 0,
@@ -80,13 +80,12 @@ export async function GET(request: Request) {
 
     // Process order collections
     for (const collection of orderCollections || []) {
-      const cashierId = collection.collected_by
-      if (!cashierId) continue
+      const cashierId = collection.collected_by || 'system'
       
       if (!cashierMap.has(cashierId)) {
         cashierMap.set(cashierId, {
           cashierId,
-          cashierName: collection.collected_by_name || 'Inconnu',
+          cashierName: collection.collected_by_name || (cashierId === 'system' ? 'Système (Auto)' : 'Inconnu'),
           totalTransactions: 0,
           totalCollections: 0,
           totalAmount: 0,
