@@ -93,7 +93,7 @@ export default function AuthLayout({
           
           {/* Footer */}
           <div className="text-sm text-muted-foreground">
-            2024 KIFSHOP. Tous droits reserves.
+            &copy; 2026 KIFSHOP Pastry. Tous droits reserves.
           </div>
         </div>
       </div>

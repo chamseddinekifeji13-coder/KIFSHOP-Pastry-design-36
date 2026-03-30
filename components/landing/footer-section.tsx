@@ -25,6 +25,7 @@ export function FooterSection() {
             <h4 className="text-sm font-semibold text-foreground">Produit</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li><Link href="#features" className="transition-colors hover:text-primary">Fonctionnalites</Link></li>
+              <li><Link href="#pricing" className="transition-colors hover:text-primary">Tarifs</Link></li>
               <li><Link href="#download" className="transition-colors hover:text-primary">Telechargement</Link></li>
               <li><Link href="/auth/sign-up" className="transition-colors hover:text-primary">Essai gratuit</Link></li>
             </ul>
@@ -36,7 +37,7 @@ export function FooterSection() {
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li><Link href="/auth/login" className="transition-colors hover:text-primary">Connexion</Link></li>
               <li><Link href="/auth/sign-up" className="transition-colors hover:text-primary">Creer un compte</Link></li>
-              <li><a href="tel:+21625122212" className="transition-colors hover:text-primary">Nous contacter</a></li>
+              <li><Link href="#contact" className="transition-colors hover:text-primary">Nous contacter</Link></li>
             </ul>
           </div>
 
@@ -53,7 +54,11 @@ export function FooterSection() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 text-sm text-muted-foreground sm:flex-row">
           <p>&copy; {new Date().getFullYear()} KIFSHOP Pastry. Tous droits reserves.</p>
-          <p>Concu en Tunisie avec passion</p>
+          <div className="flex items-center gap-4">
+            <Link href="/terms" className="transition-colors hover:text-primary">Conditions</Link>
+            <Link href="/privacy" className="transition-colors hover:text-primary">Confidentialite</Link>
+            <span>Concu en Tunisie avec passion</span>
+          </div>
         </div>
       </div>
     </footer>
