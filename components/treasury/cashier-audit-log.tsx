@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client"
 interface CashierTransaction {
   id: string
   created_by_name: string
-  created_by_id: string
+  created_by: string
   amount: number
   type: "income" | "expense"
   category: string

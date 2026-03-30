@@ -396,12 +396,11 @@ export async function createTransaction(tenantId: string, data: {
     // Normalize type to match database constraints
     const normalizedType = data.type === "income" || data.type === "entree" ? "income" : "expense"
 
-    // Get current user for created_by_name / created_by_id
+    // Get current user for created_by_name
     const { data: { user } } = await supabase.auth.getUser()
     const userName = user?.user_metadata?.display_name || user?.user_metadata?.name || user?.email || 'Caissier'
 
-    // Do NOT use created_by column - it has a FK constraint that causes errors
-    // Use created_by_name and created_by_id instead (TEXT columns, no FK)
+    // Use created_by, created_by_id and created_by_name columns
     const { data: row, error } = await supabase.from("transactions").insert({
       tenant_id: tenantId,
       type: normalizedType,
@@ -412,6 +411,7 @@ export async function createTransaction(tenantId: string, data: {
       description: data.description || null,
       order_id: data.orderId || null,
       created_by_name: userName,
+      created_by: user?.id || null,
       created_by_id: user?.id || null,
     }).select().single()
     
