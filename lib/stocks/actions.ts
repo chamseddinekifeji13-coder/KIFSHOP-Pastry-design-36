@@ -389,7 +389,8 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
       minStock: Number(p.min_stock), sellingPrice: Number(p.selling_price),
       costPrice, packagingCost: 0, ingredientCost: costPrice,
       imageUrl: p.image_url, weight: p.weight,
-      isPublished: p.is_published, minOrder: 1, tags: p.tags || [], createdAt: p.created_at,
+      isPublished: p.is_published, minOrder: 1, tags: p.tags || [],
+      storageLocationId: p.storage_location_id || null, createdAt: p.created_at,
       soldByWeight: p.sold_by_weight || false,
     }
   })
@@ -439,11 +440,14 @@ export async function createFinishedProduct(tenantId: string, data: {
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
-  return { id: row.id, tenantId: row.tenant_id, categoryId: row.category_id, name: row.name,
+  const costPrice = Number(row.cost_price)
+  return { id: row.id, tenantId: row.tenant_id, categoryId: row.category_id, category: null, name: row.name,
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
-    costPrice: Number(row.cost_price), imageUrl: row.image_url, weight: row.weight,
-    isPublished: row.is_published, minOrder: 1, tags: row.tags || [], createdAt: row.created_at }
+    costPrice, packagingCost: 0, ingredientCost: costPrice, imageUrl: row.image_url, weight: row.weight,
+    isPublished: row.is_published, minOrder: 1, tags: row.tags || [],
+    storageLocationId: row.storage_location_id || null, createdAt: row.created_at,
+    soldByWeight: row.sold_by_weight || false }
 }
 
 export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
@@ -1145,7 +1149,7 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
       pkg.currentStock ?? 0,
       pkg.unit || "unité",
       pkg.minStock ?? 0,
-      (pkg.pricePerUnit ?? 0).toFixed(2),
+      (pkg.price ?? 0).toFixed(2),
       "",
       new Date(pkg.createdAt).toLocaleDateString("fr-FR"),
     ])
@@ -1225,7 +1229,7 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
 
     // Add packaging
     packaging.forEach((pkg) => {
-      const price = pkg.pricePerUnit ?? 0
+      const price = pkg.price ?? 0
       const value = (pkg.currentStock ?? 0) * price
       totalValue += value
       const isLowStock = (pkg.currentStock ?? 0) <= (pkg.minStock ?? 0)

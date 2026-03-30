@@ -79,11 +79,14 @@ export class POS80ApiClient {
   async testConnection(): Promise<{ success: boolean; message: string; responseTime?: number }> {
     try {
       const startTime = Date.now()
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000)
       const response = await fetch(`${this.config.apiUrl}/health`, {
         method: 'GET',
         headers: this.getAuthHeaders(),
-        timeout: 10000,
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       this.responseTimeMs = Date.now() - startTime
 
       if (response.ok) {
@@ -121,11 +124,14 @@ export class POS80ApiClient {
 
       const url = `${this.config.apiUrl}/transactions?${params.toString()}`
 
+      const ctrl1 = new AbortController()
+      const tid1 = setTimeout(() => ctrl1.abort(), 30000)
       const response = await fetch(url, {
         method: 'GET',
         headers: this.getAuthHeaders(),
-        timeout: 30000,
+        signal: ctrl1.signal,
       })
+      clearTimeout(tid1)
 
       this.responseTimeMs = Date.now() - startTime
 
@@ -163,11 +169,14 @@ export class POS80ApiClient {
 
       const url = `${this.config.apiUrl}/reports/daily?${params.toString()}`
 
+      const ctrl2 = new AbortController()
+      const tid2 = setTimeout(() => ctrl2.abort(), 30000)
       const response = await fetch(url, {
         method: 'GET',
         headers: this.getAuthHeaders(),
-        timeout: 30000,
+        signal: ctrl2.signal,
       })
+      clearTimeout(tid2)
 
       this.responseTimeMs = Date.now() - startTime
 

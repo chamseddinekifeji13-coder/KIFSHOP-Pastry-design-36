@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 
 // ─── Get Stats Reset Date ─────────────────────────────────────
 export async function getStatsResetDate(tenantId: string): Promise<Date | null> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { data, error } = await supabase
     .from("tenant_settings")
@@ -22,7 +22,7 @@ export async function getStatsResetDate(tenantId: string): Promise<Date | null> 
 // ─── Reset Seller Performance Stats ───────────────────────────
 // Sets the reset date to NOW, so all stats before this date are ignored
 export async function resetSellerStats(tenantId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const now = new Date().toISOString()
   
@@ -48,7 +48,7 @@ export async function resetSellerStats(tenantId: string): Promise<{ success: boo
 
 // ─── Clear Stats Reset (go back to full history) ──────────────
 export async function clearStatsReset(tenantId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient()
+  const supabase = await createClient()
   
   const { error } = await supabase
     .from("tenant_settings")
