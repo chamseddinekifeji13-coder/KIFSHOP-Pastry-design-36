@@ -359,7 +359,7 @@ export function ProductionView() {
       </Tabs>
       
       {/* Drawer placé en dehors des Tabs pour être accessible depuis tous les onglets */}
-      <ProductionBatchDrawer open={batchDrawerOpen} onOpenChange={setBatchDrawerOpen} preselectedRecipeId={selectedRecipe} />
+      <ProductionBatchDrawer open={batchDrawerOpen} onOpenChange={setBatchDrawerOpen} preselectedRecipeId={selectedRecipe} onSuccess={() => mutateBatches()} />
     </div>
   )
 }

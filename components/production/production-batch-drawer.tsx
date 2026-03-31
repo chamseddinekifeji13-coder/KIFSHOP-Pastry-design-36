@@ -12,20 +12,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
 import { useRecipes } from "@/hooks/use-tenant-data"
-import { createProductionBatch } from "@/lib/production/actions"
-import { toast } from "sonner"
-import { useSWRConfig } from "swr"
 
 interface ProductionBatchDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   preselectedRecipeId?: string
+  onSuccess?: () => void
 }
 
-export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId }: ProductionBatchDrawerProps) {
+export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId, onSuccess }: ProductionBatchDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: recipes = [] } = useRecipes()
-  const { mutate } = useSWRConfig()
 
   const [selectedRecipeId, setSelectedRecipeId] = useState("")
   const [quantity, setQuantity] = useState("")
@@ -76,7 +73,7 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
       toast.success("Lot de production créé", {
         description: `${quantity}${unit} de ${recipeName}`,
       })
-      mutate((key: string) => typeof key === "string" && key.includes("batches"))
+      onSuccess?.()
       resetForm()
       onOpenChange(false)
     } catch (error) {
