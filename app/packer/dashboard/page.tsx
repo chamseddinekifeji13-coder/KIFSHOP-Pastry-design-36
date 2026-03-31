@@ -220,85 +220,95 @@ export default function PackerDashboardPage() {
   const minutes = Math.floor(elapsed / 60)
   const seconds = elapsed % 60
 
-  // Packing screen
+  // Packing screen - Mobile optimized
   if (viewMode === "packing" && selectedOrder) {
     return (
-      <div className="min-h-screen flex flex-col bg-white">
-        {/* Header */}
-        <header className="border-b p-4 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div className="min-h-screen flex flex-col bg-gray-100">
+        {/* Header with timer */}
+        <header className="bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10 safe-area-inset-top">
           <button 
             onClick={() => {
               setViewMode("list")
               setSelectedOrder(null)
             }}
-            className="px-3 py-2 hover:bg-gray-100 rounded-lg transition"
+            className="px-4 py-2 hover:bg-gray-100 active:bg-gray-200 rounded-xl font-medium transition touch-manipulation"
           >
             Retour
           </button>
-          <div className="flex items-center gap-2 text-lg font-mono font-bold text-blue-600">
+          <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-xl">
             <Clock className="w-5 h-5" />
-            <span>
+            <span className="text-xl font-mono font-bold tabular-nums">
               {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </span>
           </div>
         </header>
 
-        {/* Order details */}
-        <div className="flex-1 overflow-auto p-4 space-y-4">
-          {/* Customer */}
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+        {/* Order details - scrollable */}
+        <div className="flex-1 overflow-auto p-4 space-y-3 pb-safe">
+          {/* Customer card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <User className="w-6 h-6 text-blue-600" />
-              <div>
-                <h2 className="font-bold text-lg">{selectedOrder.customer_name}</h2>
+              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <User className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="font-bold text-lg truncate">{selectedOrder.customer_name}</h2>
                 {selectedOrder.customer_phone && (
-                  <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
+                  <a 
+                    href={`tel:${selectedOrder.customer_phone}`}
+                    className="text-sm text-blue-600 flex items-center gap-1 mt-0.5"
+                  >
                     <Phone className="w-4 h-4" />
                     {selectedOrder.customer_phone}
-                  </p>
+                  </a>
                 )}
               </div>
             </div>
           </div>
 
+          {/* Total - prominent */}
+          <div className="bg-green-600 rounded-2xl p-4 text-white shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 opacity-80" />
+                <span className="font-medium">Total a encaisser</span>
+              </div>
+              <p className="text-3xl font-bold">{selectedOrder.total} TND</p>
+            </div>
+          </div>
+
           {/* Address */}
-          <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
             <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Adresse de livraison</p>
-                <p className="font-medium">{selectedOrder.delivery_address}</p>
+              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Adresse</p>
+                <p className="font-medium text-sm">{selectedOrder.delivery_address}</p>
               </div>
             </div>
           </div>
 
-          {/* Total */}
-          <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-            <div className="flex items-center gap-3">
-              <DollarSign className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-green-600">{selectedOrder.total} TND</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Items */}
-          <div className="bg-gray-50 rounded-lg border overflow-hidden">
-            <div className="p-3 bg-gray-100 border-b">
+          {/* Items list */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-gray-50 border-b flex items-center justify-between">
               <h3 className="font-bold flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5" />
-                Articles ({selectedOrder.items.length})
+                <ShoppingBag className="w-5 h-5 text-gray-600" />
+                Articles
               </h3>
+              <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded-lg text-sm font-bold">
+                {selectedOrder.items.reduce((sum, i) => sum + i.quantity, 0)} pcs
+              </span>
             </div>
             <div className="divide-y">
               {selectedOrder.items.map((item, idx) => (
-                <div key={idx} className="p-4 flex justify-between items-center">
-                  <div>
-                    <p className="font-medium">{item.name}</p>
-                    <p className="text-sm text-gray-600">{item.price.toFixed(2)} TND</p>
+                <div key={idx} className="px-4 py-3 flex justify-between items-center">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{item.name}</p>
+                    <p className="text-sm text-gray-500">{item.price.toFixed(2)} TND</p>
                   </div>
-                  <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded font-bold text-lg">
+                  <div className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-lg ml-3">
                     x{item.quantity}
                   </div>
                 </div>
@@ -307,27 +317,27 @@ export default function PackerDashboardPage() {
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="border-t p-4 space-y-3 bg-white">
+        {/* Fixed action buttons at bottom */}
+        <div className="border-t bg-white p-4 space-y-3 safe-area-inset-bottom">
           <button 
             onClick={handleCompletePacking}
             disabled={actionLoading === "complete"}
-            className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold rounded-lg flex items-center justify-center gap-2 text-lg transition"
+            className="w-full py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-gray-400 text-white font-bold rounded-2xl flex items-center justify-center gap-3 text-lg transition touch-manipulation shadow-lg shadow-green-600/30"
           >
             {actionLoading === "complete" ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
-              <CheckCircle2 className="w-5 h-5" />
+              <CheckCircle2 className="w-6 h-6" />
             )}
-            Emballage terminé
+            Emballage termine
           </button>
           
           <button 
             onClick={handleReportProblem}
-            className="w-full py-3 border border-red-300 text-red-600 hover:bg-red-50 font-medium rounded-lg flex items-center justify-center gap-2 transition"
+            className="w-full py-3 border-2 border-red-200 text-red-600 hover:bg-red-50 active:bg-red-100 font-medium rounded-2xl flex items-center justify-center gap-2 transition touch-manipulation"
           >
-            <AlertCircle className="w-4 h-4" />
-            Signaler un problème
+            <AlertCircle className="w-5 h-5" />
+            Signaler un probleme
           </button>
         </div>
       </div>
@@ -336,76 +346,81 @@ export default function PackerDashboardPage() {
 
   // Orders list view
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b p-4 sticky top-0 z-10">
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      {/* Header - Mobile optimized */}
+      <header className="bg-white border-b px-4 py-3 sticky top-0 z-10 safe-area-inset-top">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-amber-600 flex items-center justify-center">
-              <Package className="w-6 h-6 text-white" />
+            <div className="w-11 h-11 rounded-xl bg-amber-600 flex items-center justify-center flex-shrink-0">
+              <Package className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="font-bold text-lg">{session.name}</h1>
-              <p className="text-xs text-gray-600">Emballeur</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base truncate">{session.name}</h1>
+              <p className="text-xs text-gray-500">Emballeur</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button 
               onClick={fetchOrders}
               disabled={isRefreshing}
-              className="p-2 hover:bg-gray-100 rounded-lg transition disabled:opacity-50"
+              className="p-3 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition touch-manipulation disabled:opacity-50"
+              aria-label="Actualiser"
             >
               <RefreshCw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
             </button>
             <button 
               onClick={handleLogout}
-              className="p-2 hover:bg-gray-100 rounded-lg transition"
+              className="p-3 hover:bg-gray-100 active:bg-red-50 rounded-xl transition touch-manipulation"
+              aria-label="Deconnexion"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         </div>
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 space-y-6">
+      <div className="flex-1 overflow-auto px-4 py-4 space-y-5 pb-safe">
         {/* My orders in progress */}
         {myOrders.length > 0 && (
           <section>
-            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 px-1">
               <Clock className="w-4 h-4 text-blue-600" />
-              Mes commandes en cours ({myOrders.length})
+              Mes commandes ({myOrders.length})
             </h2>
             <div className="space-y-3">
               {myOrders.map(order => (
-                <div key={order.id} className="bg-blue-50 rounded-lg p-4 border border-blue-200 hover:shadow-md transition">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg">{order.customer_name}</h3>
-                      <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                        <ShoppingBag className="w-4 h-4" />
-                        {order.items.reduce((sum, i) => sum + i.quantity, 0)} articles
-                      </p>
-                      <p className="text-sm font-bold text-blue-600 mt-1">
-                        {order.total.toFixed(2)} TND
-                      </p>
+                <button
+                  key={order.id}
+                  onClick={() => handleContinuePacking(order)}
+                  disabled={actionLoading === order.id}
+                  className="w-full bg-blue-50 rounded-2xl p-4 border-2 border-blue-200 active:bg-blue-100 active:border-blue-400 transition touch-manipulation text-left disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base truncate">{order.customer_name}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-sm text-gray-600 flex items-center gap-1">
+                          <ShoppingBag className="w-4 h-4" />
+                          {order.items.reduce((sum, i) => sum + i.quantity, 0)}
+                        </span>
+                        <span className="text-sm font-bold text-blue-600">
+                          {order.total.toFixed(2)} TND
+                        </span>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleContinuePacking(order)}
-                      disabled={actionLoading === order.id}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-bold rounded-lg flex items-center gap-1 transition"
-                    >
+                    <div className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold">
                       {actionLoading === order.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
                         <>
-                          Continuer
-                          <ChevronRight className="w-4 h-4" />
+                          <span className="text-sm">Continuer</span>
+                          <ChevronRight className="w-5 h-5" />
                         </>
                       )}
-                    </button>
+                    </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </section>
@@ -413,46 +428,50 @@ export default function PackerDashboardPage() {
 
         {/* Unassigned orders */}
         <section>
-          <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2 px-1">
             <ShoppingBag className="w-4 h-4 text-green-600" />
-            Commandes disponibles ({unassignedOrders.length})
+            Disponibles ({unassignedOrders.length})
           </h2>
           {unassignedOrders.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg border">
-              <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="text-gray-600">Aucune commande en attente</p>
+            <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-gray-200">
+              <Package className="w-14 h-14 mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-500 font-medium">Aucune commande</p>
+              <p className="text-gray-400 text-sm mt-1">Tirez vers le bas pour actualiser</p>
             </div>
           ) : (
             <div className="space-y-3">
               {unassignedOrders.map(order => (
-                <div key={order.id} className="bg-white rounded-lg p-4 border hover:shadow-md transition">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg">{order.customer_name}</h3>
-                      <p className="text-sm text-gray-600 mt-1 flex items-center gap-1">
-                        <ShoppingBag className="w-4 h-4" />
-                        {order.items.reduce((sum, i) => sum + i.quantity, 0)} articles
-                      </p>
-                      <p className="text-sm font-bold text-amber-600 mt-1">
-                        {order.total.toFixed(2)} TND
-                      </p>
+                <button
+                  key={order.id}
+                  onClick={() => handleTakeOrder(order)}
+                  disabled={actionLoading === order.id}
+                  className="w-full bg-white rounded-2xl p-4 border-2 border-gray-200 active:bg-green-50 active:border-green-400 transition touch-manipulation text-left disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-base truncate">{order.customer_name}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-sm text-gray-600 flex items-center gap-1">
+                          <ShoppingBag className="w-4 h-4" />
+                          {order.items.reduce((sum, i) => sum + i.quantity, 0)}
+                        </span>
+                        <span className="text-sm font-bold text-amber-600">
+                          {order.total.toFixed(2)} TND
+                        </span>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleTakeOrder(order)}
-                      disabled={actionLoading === order.id}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold rounded-lg flex items-center gap-1 transition"
-                    >
+                    <div className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-xl font-semibold">
                       {actionLoading === order.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-5 h-5 animate-spin" />
                       ) : (
                         <>
-                          Prendre
-                          <ChevronRight className="w-4 h-4" />
+                          <span className="text-sm">Prendre</span>
+                          <ChevronRight className="w-5 h-5" />
                         </>
                       )}
-                    </button>
+                    </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
