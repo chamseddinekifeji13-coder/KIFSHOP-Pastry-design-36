@@ -9,7 +9,7 @@ export async function fetchPackerOrders(tenantId: string) {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("*, order_items(*)")
+    .select("*")
     .eq("tenant_id", tenantId)
     .in("status", ["en-preparation", "pret"])
     .order("created_at", { ascending: true }) // FIFO — oldest first
