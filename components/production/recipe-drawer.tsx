@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, usePackaging, useRecipes } from "@/hooks/use-tenant-data"
 import { createRecipe, updateRecipe } from "@/lib/production/actions"
-import { useSWRConfig } from "swr"
+
 import { Toaster, toast } from "sonner"
 
 interface RecipeIngredient {
@@ -44,7 +44,6 @@ interface PackagingItem {
 
 export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDrawerProps) {
   const { currentTenant } = useTenant()
-  const { mutate } = useSWRConfig()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
   const { data: packagingList = [] } = usePackaging()
@@ -245,8 +244,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
         description: `"${name}" - ${ingredients.length} ingredients, ${totalYield} unites`,
       })
       
-      // Revalidate all recipe caches
-      mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+      // Revalidate recipe cache via onSuccess callback
       onSuccess?.()
   resetForm(); onOpenChange(false)
     } catch (error) { 
