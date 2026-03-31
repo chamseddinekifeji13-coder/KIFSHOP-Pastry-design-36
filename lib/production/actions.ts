@@ -27,9 +27,6 @@ export interface Recipe {
   instructions: string | null
   ingredients: RecipeIngredient[]
   packaging: RecipePackaging[]
-  theoreticalQuantity: number | null
-  packagedQuantity: number | null
-  wastagePercent: number | null
   createdAt: string
 }
 
@@ -117,30 +114,26 @@ export async function fetchRecipes(tenantId: string): Promise<Recipe[]> {
     yieldUnit: r.yield_unit, instructions: r.instructions,
     ingredients: ingredientsByRecipe.get(r.id) || [],
     packaging: packagingByRecipe.get(r.id) || [],
-    theoreticalQuantity: Number(r.theoretical_quantity) || null,
-    packagedQuantity: Number(r.packaged_quantity) || null,
-    wastagePercent: Number(r.wastage_percent) || null,
     createdAt: r.created_at,
   }))
 }
 
 export async function createRecipe(tenantId: string, data: {
   name: string; category?: string; finishedProductId?: string; yieldQuantity: number;
-  yieldUnit: string; instructions?: string; theoreticalQuantity?: number;
-  packagedQuantity?: number; wastagePercent?: number;
+  yieldUnit: string; instructions?: string;
   ingredients: { rawMaterialId: string; quantity: number; unit: string }[]
   packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
 }): Promise<Recipe | null> {
   console.log("[v0] createRecipe called with tenantId:", tenantId, "data:", data)
   const supabase = createClient()
   const { data: row, error } = await supabase.from("recipes").insert({
-    tenant_id: tenantId, name: data.name, category: data.category || null,
+    tenant_id: tenantId,
+    name: data.name,
+    category: data.category || null,
     finished_product_id: data.finishedProductId || null,
-    yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
+    yield_quantity: data.yieldQuantity,
+    yield_unit: data.yieldUnit,
     instructions: data.instructions || null,
-    theoretical_quantity: data.theoreticalQuantity || null,
-    packaged_quantity: data.packagedQuantity || null,
-    wastage_percent: data.wastagePercent || null,
   }).select().single()
   console.log("[v0] createRecipe insert result - row:", row, "error:", error)
   if (error || !row) { console.error("Error creating recipe:", error?.message); return null }
@@ -173,9 +166,6 @@ export async function createRecipe(tenantId: string, data: {
     yieldUnit: row.yield_unit, instructions: row.instructions,
     ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), 
     packaging: (data.packaging || []).map((p, idx) => ({ id: `pkg-${idx}`, ...p })),
-    theoreticalQuantity: data.theoreticalQuantity || null,
-    packagedQuantity: data.packagedQuantity || null,
-    wastagePercent: data.wastagePercent || null,
     createdAt: row.created_at 
   }
 }
@@ -188,9 +178,6 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
   yieldQuantity: number
   yieldUnit: string
   instructions?: string
-  theoreticalQuantity?: number | null
-  packagedQuantity?: number | null
-  wastagePercent?: number | null
   ingredients: { rawMaterialId: string; quantity: number; unit: string }[]
   packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
 }): Promise<Recipe | null> {
@@ -202,9 +189,6 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
     finished_product_id: data.finishedProductId || null,
     yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
     instructions: data.instructions || null,
-    theoretical_quantity: data.theoreticalQuantity || null,
-    packaged_quantity: data.packagedQuantity || null,
-    wastage_percent: data.wastagePercent || null,
     updated_at: new Date().toISOString()
   }).eq("id", recipeId).eq("tenant_id", tenantId).select().single()
   
@@ -242,9 +226,6 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
     yieldUnit: row.yield_unit, instructions: row.instructions,
     ingredients: data.ingredients.map((i, idx) => ({ id: `updated-${idx}`, ...i })), 
     packaging: (data.packaging || []).map((p, idx) => ({ id: `pkg-${idx}`, ...p })),
-    theoreticalQuantity: data.theoreticalQuantity || null,
-    packagedQuantity: data.packagedQuantity || null,
-    wastagePercent: data.wastagePercent || null,
     createdAt: row.created_at 
   }
 }

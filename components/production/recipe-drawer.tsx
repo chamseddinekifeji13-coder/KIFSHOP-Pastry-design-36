@@ -213,12 +213,9 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
       const recipeData = {
         name: name.trim(), 
         category,
-        notes: notes.trim(),
         yieldQuantity: totalYield,
         yieldUnit: "unites",
-        theoreticalQuantity: theoreticalTotal,
-        packagedQuantity: packagedTotal,
-        wastagePercent: wastage.percent,
+        instructions: notes.trim() || undefined,
         ingredients: ingredients.map(ing => ({
           rawMaterialId: ing.materialId,
           quantity: parseFloat(ing.quantity), 
@@ -236,10 +233,8 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
       let result
       if (isEditing && recipe?.id) {
         result = await updateRecipe(recipe.id, currentTenant.id, recipeData)
-        console.log("[v0] Recipe updated:", result)
       } else {
         result = await createRecipe(currentTenant.id, recipeData)
-        console.log("[v0] Recipe created:", result)
       }
       
       if (!result) {
@@ -252,7 +247,6 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
       })
       
       // Revalidate all recipe caches
-      console.log("[v0] Revalidating recipes cache for tenant:", currentTenant.id)
       mutate((key: string) => typeof key === "string" && key.includes("recipes"))
       onSuccess?.()
   resetForm(); onOpenChange(false)
