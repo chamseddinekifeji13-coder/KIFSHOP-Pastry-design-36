@@ -4,19 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { 
-  Package, 
-  LogOut, 
-  RefreshCw, 
-  Clock, 
-  User, 
-  ShoppingBag,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  ChevronRight,
-  Phone,
-  MapPin,
-  DollarSign
+  Package, LogOut, RefreshCw, Clock, User, ShoppingBag,
+  CheckCircle2, AlertCircle, Loader2, ChevronRight, Phone, MapPin, DollarSign
 } from "lucide-react"
 
 interface PackerSession {
@@ -208,7 +197,7 @@ export default function PackerDashboardPage() {
   // Report problem
   const handleReportProblem = async () => {
     if (!selectedOrder || !session) return
-    alert("Probleme signale au gerant - A implementer")
+    alert("Problème signalé au gérant - À implémenter")
   }
 
   // Logout
@@ -229,31 +218,29 @@ export default function PackerDashboardPage() {
     )
   }
 
+  const minutes = Math.floor(elapsed / 60)
+  const seconds = elapsed % 60
+
   // Packing screen
   if (viewMode === "packing" && selectedOrder) {
-    const minutes = Math.floor(elapsed / 60)
-    const seconds = elapsed % 60
-
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="min-h-screen flex flex-col bg-white">
         {/* Header */}
-        <header className="flex-none bg-card border-b p-4 sticky top-0 z-10">
-          <div className="flex items-center justify-between">
-            <button 
-              onClick={() => {
-                setViewMode("list")
-                setSelectedOrder(null)
-              }}
-              className="px-3 py-2 hover:bg-gray-100 rounded-lg transition"
-            >
-              Retour
-            </button>
-            <div className="flex items-center gap-2 text-lg font-mono font-bold text-blue-600">
-              <Clock className="w-5 h-5" />
-              <span>
-                {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-              </span>
-            </div>
+        <header className="border-b p-4 flex items-center justify-between sticky top-0 bg-white z-10">
+          <button 
+            onClick={() => {
+              setViewMode("list")
+              setSelectedOrder(null)
+            }}
+            className="px-3 py-2 hover:bg-gray-100 rounded-lg transition"
+          >
+            Retour
+          </button>
+          <div className="flex items-center gap-2 text-lg font-mono font-bold text-blue-600">
+            <Clock className="w-5 h-5" />
+            <span>
+              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+            </span>
           </div>
         </header>
 
@@ -322,7 +309,7 @@ export default function PackerDashboardPage() {
         </div>
 
         {/* Action buttons */}
-        <div className="flex-none border-t p-4 space-y-3 bg-card">
+        <div className="border-t p-4 space-y-3 bg-white">
           <button 
             onClick={handleCompletePacking}
             disabled={actionLoading === "complete"}
@@ -333,7 +320,7 @@ export default function PackerDashboardPage() {
             ) : (
               <CheckCircle2 className="w-5 h-5" />
             )}
-            Emballage termine
+            Emballage terminé
           </button>
           
           <button 
@@ -341,7 +328,7 @@ export default function PackerDashboardPage() {
             className="w-full py-3 border border-red-300 text-red-600 hover:bg-red-50 font-medium rounded-lg flex items-center justify-center gap-2 transition"
           >
             <AlertCircle className="w-4 h-4" />
-            Signaler un probleme
+            Signaler un problème
           </button>
         </div>
       </div>
