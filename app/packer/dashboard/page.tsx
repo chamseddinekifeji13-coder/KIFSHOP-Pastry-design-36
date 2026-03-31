@@ -474,40 +474,6 @@ export default function PackerDashboardPage() {
   )
 }
 
-
-interface PackerSession {
-  id: string
-  name: string
-  phone: string
-  tenant_id: string
-  logged_in_at: string
-}
-
-interface OrderItem {
-  name: string
-  quantity: number
-  price: number
-}
-
-interface PackerOrder {
-  id: string
-  customer_name: string
-  customer_phone: string
-  items: OrderItem[]
-  total: number
-  status: string
-  created_at: string
-  assigned_to: string | null
-  assigned_at: string | null
-  notes: string | null
-}
-
-type ViewMode = "list" | "packing"
-
-export default function PackerDashboardPage() {
-  const router = useRouter()
-  const [session, setSession] = useState<PackerSession | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [unassignedOrders, setUnassignedOrders] = useState<PackerOrder[]>([])
   const [myOrders, setMyOrders] = useState<PackerOrder[]>([])
