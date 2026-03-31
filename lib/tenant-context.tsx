@@ -12,7 +12,7 @@ type AuthUser = {
 }
 
 // ─── User Roles ───────────────────────────────────────────────
-export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "emballeur" | "owner"
+export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "emballeur" | "livreur" | "owner"
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   owner: "Proprietaire",
@@ -23,9 +23,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   caissier: "Caissier",
   patissier: "Patissier",
   emballeur: "Emballeur",
+  livreur: "Livreur",
 }
 
-export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier", "emballeur"]
+export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier", "emballeur", "livreur"]
 
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
@@ -37,6 +38,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   caissier: ["/tresorerie", "/pos80", "/support"],
   patissier: ["/production", "/support"],
   emballeur: ["/packer", "/support"],
+  livreur: ["/livraison", "/support"],
 }
 
 export function canAccessRoute(role: UserRole, pathname: string): boolean {

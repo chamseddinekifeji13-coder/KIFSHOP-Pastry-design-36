@@ -39,6 +39,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   caissier: "bg-rose-100 text-rose-800 border-rose-200",
   patissier: "bg-orange-100 text-orange-800 border-orange-200",
   emballeur: "bg-cyan-100 text-cyan-800 border-cyan-200",
+  livreur: "bg-teal-100 text-teal-800 border-teal-200",
 }
 
 const ROLE_AVATAR_COLORS: Record<UserRole, string> = {
@@ -50,6 +51,7 @@ const ROLE_AVATAR_COLORS: Record<UserRole, string> = {
   caissier: "bg-rose-100 text-rose-700",
   patissier: "bg-orange-100 text-orange-700",
   emballeur: "bg-cyan-100 text-cyan-700",
+  livreur: "bg-teal-100 text-teal-700",
 }
 
 function generateInitials(name: string): string {
