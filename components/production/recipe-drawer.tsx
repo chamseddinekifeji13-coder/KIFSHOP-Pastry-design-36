@@ -15,7 +15,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { useTenant } from "@/lib/tenant-context"
-import { useRawMaterials, useCategories, usePackaging, useRecipes } from "@/hooks/use-tenant-data"
+import { useRawMaterials, useCategories, usePackaging, useRecipes, useFinishedProducts } from "@/hooks/use-tenant-data"
 import { createRecipe, updateRecipe } from "@/lib/production/actions"
 import { useSWRConfig } from "swr"
 import { Toaster, toast } from "sonner"
@@ -48,10 +48,12 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
   const { data: categories = [] } = useCategories()
   const { data: packagingList = [] } = usePackaging()
   const { data: existingRecipes = [] } = useRecipes()
+  const { data: finishedProducts = [] } = useFinishedProducts()
   const { mutate } = useSWRConfig()
   const isEditing = !!recipe
 
   const [name, setName] = useState("")
+  const [selectedFinishedProductId, setSelectedFinishedProductId] = useState<string | null>(null)
   const [openNameCombobox, setOpenNameCombobox] = useState(false)
   const [customNameInput, setCustomNameInput] = useState("")
   const [category, setCategory] = useState("")
@@ -125,6 +127,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
   useEffect(() => {
     if (recipe) {
       setName(recipe.name); setCategory(recipe.category)
+      setSelectedFinishedProductId(recipe.finishedProductId || null)
       setIngredients((recipe.ingredients || []).map((ing: any) => ({
         materialId: ing.raw_material_id || ing.materialId,
         name: ing.name, quantity: ing.quantity.toString(), unit: ing.unit,
@@ -141,6 +144,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
 
   const resetForm = () => {
     setName(""); setCustomNameInput(""); setCategory(""); setNotes("")
+    setSelectedFinishedProductId(null)
     setIngredients([]); setSelectedMaterial(""); setIngredientQty("")
     setPackagingItems([]); setSelectedPackaging(""); setPackagingQty(""); setPackagingWeight("")
   }
@@ -212,6 +216,7 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
       const recipeData = {
         name: name.trim(), 
         category,
+        finishedProductId: selectedFinishedProductId || undefined,
         notes: notes.trim(),
         yieldQuantity: totalYield,
         yieldUnit: "unites",
@@ -276,17 +281,25 @@ mutate((key: string) => typeof key === "string" && key.includes("recipes"))
                   <PopoverTrigger asChild>
                     <div className="relative">
                       <Input
-                        placeholder="Saisir ou rechercher une recette..."
+                        placeholder="Saisir ou rechercher un produit fini..."
                         value={name}
                         onChange={(e) => {
                           setName(e.target.value)
                           setCustomNameInput(e.target.value)
-                          if (e.target.value.length > 0 && existingRecipes.some((r: any) => r.name.toLowerCase().includes(e.target.value.toLowerCase()))) {
-                            setOpenNameCombobox(true)
+                          // Ouvrir le dropdown si du texte correspond à un PF ou une recette
+                          if (e.target.value.length > 0) {
+                            const query = e.target.value.toLowerCase()
+                            const hasPFMatch = finishedProducts.some((p: any) => p.name.toLowerCase().includes(query))
+                            const hasRecipeMatch = existingRecipes.some((r: any) => r.name.toLowerCase().includes(query))
+                            if (hasPFMatch || hasRecipeMatch) {
+                              setOpenNameCombobox(true)
+                            }
                           }
+                          // Si on tape manuellement, on délie le PF
+                          setSelectedFinishedProductId(null)
                         }}
                         onFocus={() => {
-                          if (name.length > 0 || existingRecipes.length > 0) {
+                          if (finishedProducts.length > 0 || existingRecipes.length > 0) {
                             setOpenNameCombobox(true)
                           }
                         }}
@@ -298,71 +311,164 @@ mutate((key: string) => typeof key === "string" && key.includes("recipes"))
                   <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                     <Command>
                       <CommandInput
-                        placeholder="Chercher une recette..."
+                        placeholder="Chercher un produit fini..."
                         value={customNameInput}
                         onValueChange={setCustomNameInput}
                       />
                       <CommandList>
-                        <CommandEmpty>Aucune recette trouvee. Le nom sera cree.</CommandEmpty>
-                        <CommandGroup heading="Recettes existantes">
-                          {existingRecipes.map((r: any) => (
-                            <CommandItem
-                              key={r.id}
-                              value={r.name}
-                              onSelect={(val) => {
-                                setName(val)
-                                setCustomNameInput("")
-                                setOpenNameCombobox(false)
+                        <CommandEmpty>Aucun produit trouve. Le nom sera cree manuellement.</CommandEmpty>
+                        {/* Produits finis — source principale */}
+                        {finishedProducts.length > 0 && (
+                          <CommandGroup heading="Produits finis (catalogue)">
+                            {finishedProducts.map((pf: any) => {
+                              // Trouver si une recette existante est liée à ce PF
+                              const linkedRecipe = existingRecipes.find((r: any) => r.finishedProductId === pf.id)
+                              return (
+                                <CommandItem
+                                  key={`pf-${pf.id}`}
+                                  value={pf.name}
+                                  onSelect={(val) => {
+                                    setName(val)
+                                    setSelectedFinishedProductId(pf.id)
+                                    setCustomNameInput("")
+                                    setOpenNameCombobox(false)
 
-                                if (r.category) {
-                                  setCategory(r.category)
-                                }
+                                    // Auto-remplir la catégorie depuis le PF
+                                    if (pf.category) {
+                                      setCategory(pf.category)
+                                    }
 
-                                if (r.ingredients && r.ingredients.length > 0) {
-                                  const existingIngs = r.ingredients.map((ing: any) => ({
-                                    materialId: ing.raw_material_id || ing.materialId,
-                                    name: ing.name,
-                                    quantity: ing.quantity?.toString() || "0",
-                                    unit: ing.unit || "g"
-                                  }))
-                                  setIngredients(existingIngs)
-                                  toast.success("Recette pre-remplie", {
-                                    description: `${existingIngs.length} ingredients copies depuis "${val}"`
-                                  })
-                                }
+                                    // Si une recette existante est liée à ce PF, pré-remplir les ingrédients
+                                    if (linkedRecipe) {
+                                      if (linkedRecipe.ingredients && linkedRecipe.ingredients.length > 0) {
+                                        const existingIngs = linkedRecipe.ingredients.map((ing: any) => ({
+                                          materialId: ing.raw_material_id || ing.rawMaterialId || ing.materialId,
+                                          name: ing.name || rawMaterials.find((m: any) => m.id === (ing.raw_material_id || ing.rawMaterialId))?.name || "?",
+                                          quantity: ing.quantity?.toString() || "0",
+                                          unit: ing.unit || "g"
+                                        }))
+                                        setIngredients(existingIngs)
+                                        toast.success("Recette pre-remplie", {
+                                          description: `${existingIngs.length} ingredients copies depuis la recette existante`
+                                        })
+                                      }
+                                      if (linkedRecipe.packaging && linkedRecipe.packaging.length > 0) {
+                                        const existingPkgs = linkedRecipe.packaging.map((pkg: any) => ({
+                                          packagingId: pkg.packaging_id || pkg.packagingId,
+                                          name: pkg.name,
+                                          quantity: pkg.quantity || 0,
+                                          weight: pkg.weight_grams || pkg.weightGrams || pkg.weight || 0,
+                                          unit: pkg.unit || "pcs"
+                                        }))
+                                        setPackagingItems(existingPkgs)
+                                      }
+                                      if (linkedRecipe.category) {
+                                        setCategory(linkedRecipe.category)
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", selectedFinishedProductId === pf.id ? "opacity-100" : "opacity-0")} />
+                                  <div className="flex-1">
+                                    <div className="font-medium">{pf.name}</div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      {pf.category && <span>{pf.category}</span>}
+                                      {pf.unit && <span>{pf.unit}</span>}
+                                      {pf.sellingPrice > 0 && (
+                                        <Badge variant="outline" className="h-4 text-[10px]">
+                                          {pf.sellingPrice.toFixed(3)} TND
+                                        </Badge>
+                                      )}
+                                      {linkedRecipe && (
+                                        <Badge variant="secondary" className="h-4 text-[10px]">
+                                          Recette existante
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        )}
+                        {/* Recettes existantes sans PF lié — source secondaire */}
+                        {existingRecipes.filter((r: any) => !finishedProducts.some((pf: any) => pf.id === r.finishedProductId)).length > 0 && (
+                          <CommandGroup heading="Recettes existantes">
+                            {existingRecipes
+                              .filter((r: any) => !finishedProducts.some((pf: any) => pf.id === r.finishedProductId))
+                              .map((r: any) => (
+                                <CommandItem
+                                  key={`recipe-${r.id}`}
+                                  value={`${r.name} (recette)`}
+                                  onSelect={() => {
+                                    setName(r.name)
+                                    setSelectedFinishedProductId(r.finishedProductId || null)
+                                    setCustomNameInput("")
+                                    setOpenNameCombobox(false)
 
-                                if (r.packaging && r.packaging.length > 0) {
-                                  const existingPkgs = r.packaging.map((pkg: any) => ({
-                                    packagingId: pkg.packaging_id || pkg.packagingId,
-                                    name: pkg.name,
-                                    quantity: pkg.quantity || 0,
-                                    weight: pkg.weight_grams || pkg.weight || 0,
-                                    unit: pkg.unit || "pcs"
-                                  }))
-                                  setPackagingItems(existingPkgs)
-                                }
-                              }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", name === r.name ? "opacity-100" : "opacity-0")} />
-                              <div className="flex-1">
-                                <div className="font-medium">{r.name}</div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {r.category && <span>{r.category}</span>}
-                                  {r.ingredients?.length > 0 && (
-                                    <Badge variant="secondary" className="h-4 text-[10px]">
-                                      {r.ingredients.length} ing.
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
+                                    if (r.category) {
+                                      setCategory(r.category)
+                                    }
+
+                                    if (r.ingredients && r.ingredients.length > 0) {
+                                      const existingIngs = r.ingredients.map((ing: any) => ({
+                                        materialId: ing.raw_material_id || ing.rawMaterialId || ing.materialId,
+                                        name: ing.name || rawMaterials.find((m: any) => m.id === (ing.raw_material_id || ing.rawMaterialId))?.name || "?",
+                                        quantity: ing.quantity?.toString() || "0",
+                                        unit: ing.unit || "g"
+                                      }))
+                                      setIngredients(existingIngs)
+                                      toast.success("Recette pre-remplie", {
+                                        description: `${existingIngs.length} ingredients copies`
+                                      })
+                                    }
+
+                                    if (r.packaging && r.packaging.length > 0) {
+                                      const existingPkgs = r.packaging.map((pkg: any) => ({
+                                        packagingId: pkg.packaging_id || pkg.packagingId,
+                                        name: pkg.name,
+                                        quantity: pkg.quantity || 0,
+                                        weight: pkg.weight_grams || pkg.weightGrams || pkg.weight || 0,
+                                        unit: pkg.unit || "pcs"
+                                      }))
+                                      setPackagingItems(existingPkgs)
+                                    }
+                                  }}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", name === r.name && !selectedFinishedProductId ? "opacity-100" : "opacity-0")} />
+                                  <div className="flex-1">
+                                    <div className="font-medium">{r.name}</div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      {r.category && <span>{r.category}</span>}
+                                      {r.ingredients?.length > 0 && (
+                                        <Badge variant="secondary" className="h-4 text-[10px]">
+                                          {r.ingredients.length} ing.
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                          </CommandGroup>
+                        )}
                       </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
-                <p className="text-[11px] text-muted-foreground">Saisissez pour filtrer les recettes existantes ou creer un nouveau nom</p>
+                {selectedFinishedProductId && (
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
+                      Lie au produit fini
+                    </Badge>
+                    <span className="text-muted-foreground">Synchronise avec le catalogue PF</span>
+                  </div>
+                )}
+                {!selectedFinishedProductId && name && (
+                  <p className="text-[11px] text-amber-600">Nom saisi manuellement — non lie a un produit fini du catalogue</p>
+                )}
+                {!name && (
+                  <p className="text-[11px] text-muted-foreground">Selectionnez un produit fini du catalogue ou saisissez un nom manuellement</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Categorie *</Label>
