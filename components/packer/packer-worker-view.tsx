@@ -305,7 +305,7 @@ function PackerOrderCard({
   showTimer?: boolean
   children: React.ReactNode
 }) {
-  const items = order.order_items || []
+  const items = Array.isArray(order.items) ? order.items : []
 
   return (
     <Card className="py-4 gap-3">

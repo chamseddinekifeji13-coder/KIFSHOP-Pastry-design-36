@@ -133,10 +133,13 @@ export function AppSidebar() {
   const filteredNavigation = navigation
     .map((group) => ({
       ...group,
-      title: t(group.titleKey) || group.fallback,
+      title: t(group.titleKey) !== group.titleKey ? t(group.titleKey) : group.fallback,
       items: group.items
         .filter((item) => canAccessRoute(currentRole, item.href))
-        .map((item) => ({ ...item, title: t(item.titleKey) || item.fallback })),
+        .map((item) => {
+          const translated = t(item.titleKey)
+          return { ...item, title: translated !== item.titleKey ? translated : item.fallback }
+        }),
     }))
     .filter((group) => group.items.length > 0)
 
