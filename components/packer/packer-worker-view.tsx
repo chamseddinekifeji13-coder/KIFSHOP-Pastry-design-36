@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import useSWR from "swr"
 import {
   Package,
@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -69,6 +70,7 @@ export function PackerWorkerView() {
     null
   )
   const [issueReason, setIssueReason] = useState<string>("")
+  const [checkedMap, setCheckedMap] = useState<Record<string, Set<number>>>({})
 
   const orders = rawOrders || []
   const emballeurName = currentUser.name
@@ -87,6 +89,18 @@ export function PackerWorkerView() {
       o.status === "pret" && o.updated_at?.slice(0, 10) === today
   )
 
+  function toggleItem(orderId: string, idx: number) {
+    setCheckedMap((prev) => {
+      const current = new Set(prev[orderId] || [])
+      if (current.has(idx)) {
+        current.delete(idx)
+      } else {
+        current.add(idx)
+      }
+      return { ...prev, [orderId]: current }
+    })
+  }
+
   async function handleStartPacking(orderId: string) {
     setLoadingAction(orderId)
     await startPacking(orderId, tenantId, emballeurName)
@@ -97,6 +111,11 @@ export function PackerWorkerView() {
   async function handleCompletePacking(orderId: string) {
     setLoadingAction(orderId)
     await completePacking(orderId, tenantId, emballeurName)
+    setCheckedMap((prev) => {
+      const next = { ...prev }
+      delete next[orderId]
+      return next
+    })
     await mutate()
     setLoadingAction(null)
   }
@@ -184,36 +203,98 @@ export function PackerWorkerView() {
             <EmptyState text="Aucune commande en cours" />
           ) : (
             <div className="flex flex-col gap-3">
-              {inProgressOrders.map((order: any) => (
-                <PackerOrderCard key={order.id} order={order} showTimer>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      className="min-h-[48px] text-base font-semibold bg-green-600 hover:bg-green-700"
-                      onClick={() => handleCompletePacking(order.id)}
-                      disabled={loadingAction === order.id}
-                    >
-                      {loadingAction === order.id ? (
-                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      ) : (
-                        <CheckCircle2 className="h-5 w-5 mr-2" />
-                      )}
-                      Emballé ✓
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="min-h-[48px] text-base font-semibold border-amber-500 text-amber-600 hover:bg-amber-50"
-                      onClick={() => {
-                        setIssueDialogOrderId(order.id)
-                        setIssueReason("")
-                      }}
-                      disabled={loadingAction === order.id}
-                    >
-                      <AlertTriangle className="h-5 w-5 mr-2" />
-                      Problème
-                    </Button>
-                  </div>
-                </PackerOrderCard>
-              ))}
+              {inProgressOrders.map((order: any) => {
+                const items = Array.isArray(order.items) ? order.items : []
+                const checkedItems = checkedMap[order.id] || new Set()
+                const allChecked =
+                  items.length > 0 && checkedItems.size === items.length
+
+                return (
+                  <PackerOrderCard
+                    key={order.id}
+                    order={order}
+                    showTimer
+                    hideItems
+                    className={
+                      allChecked
+                        ? "border-green-500 dark:border-green-600"
+                        : undefined
+                    }
+                  >
+                    {/* Interactive checklist */}
+                    {items.length > 0 && (
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium text-sm text-muted-foreground">
+                          Articles :
+                        </span>
+                        {items.map((item: any, idx: number) => {
+                          const isChecked = checkedItems.has(idx)
+                          return (
+                            <label
+                              key={idx}
+                              className="flex items-center gap-3 min-h-[44px] px-2 rounded-md cursor-pointer hover:bg-muted/50 select-none"
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() =>
+                                  toggleItem(order.id, idx)
+                                }
+                                className="size-5"
+                              />
+                              <span
+                                className={
+                                  isChecked
+                                    ? "line-through text-green-600 dark:text-green-400"
+                                    : ""
+                                }
+                              >
+                                {item.quantity}x {item.name}
+                              </span>
+                            </label>
+                          )
+                        })}
+                        <span className="text-xs text-muted-foreground mt-1">
+                          {checkedItems.size}/{items.length} articles vérifiés
+                        </span>
+                      </div>
+                    )}
+
+                    {allChecked && (
+                      <p className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Tous les articles vérifiés ✓
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        className="min-h-[48px] text-base font-semibold bg-green-600 hover:bg-green-700"
+                        onClick={() => handleCompletePacking(order.id)}
+                        disabled={!allChecked || loadingAction === order.id}
+                      >
+                        {loadingAction === order.id ? (
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 mr-2" />
+                        )}
+                        Emballé ✓
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="min-h-[48px] text-base font-semibold border-amber-500 text-amber-600 hover:bg-amber-50"
+                        onClick={() => {
+                          setIssueDialogOrderId(order.id)
+                          setIssueReason("")
+                        }}
+                        disabled={loadingAction === order.id}
+                      >
+                        <AlertTriangle className="h-5 w-5 mr-2" />
+                        Problème
+                      </Button>
+                    </div>
+                  </PackerOrderCard>
+                )
+              })}
             </div>
           )}
         </TabsContent>
@@ -225,7 +306,7 @@ export function PackerWorkerView() {
           ) : (
             <div className="flex flex-col gap-3">
               {completedOrders.map((order: any) => (
-                <PackerOrderCard key={order.id} order={order}>
+                <PackerOrderCard key={order.id} order={order} showVerifiedBadge>
                   <Badge variant="secondary" className="w-fit">
                     <CheckCircle2 className="h-4 w-4 mr-1" />
                     Emballée
@@ -299,16 +380,22 @@ export function PackerWorkerView() {
 function PackerOrderCard({
   order,
   showTimer,
+  hideItems,
+  showVerifiedBadge,
+  className,
   children,
 }: {
   order: any
   showTimer?: boolean
+  hideItems?: boolean
+  showVerifiedBadge?: boolean
+  className?: string
   children: React.ReactNode
 }) {
   const items = Array.isArray(order.items) ? order.items : []
 
   return (
-    <Card className="py-4 gap-3">
+    <Card className={`py-4 gap-3 ${className || ""}`}>
       <CardContent className="flex flex-col gap-3 px-4">
         {/* Header row: order ID + timer */}
         <div className="flex items-center justify-between">
@@ -339,8 +426,8 @@ function PackerOrderCard({
           </div>
         )}
 
-        {/* Items list */}
-        {items.length > 0 && (
+        {/* Items list (hidden when parent renders its own checklist) */}
+        {!hideItems && items.length > 0 && (
           <div className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-muted-foreground">
               Articles :
@@ -350,6 +437,12 @@ function PackerOrderCard({
                 • {item.quantity}x {item.name}
               </span>
             ))}
+            {showVerifiedBadge && (
+              <span className="text-xs font-medium text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Tous vérifiés ✓
+              </span>
+            )}
           </div>
         )}
 
