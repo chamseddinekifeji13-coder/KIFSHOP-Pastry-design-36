@@ -84,6 +84,7 @@ const navigation = [
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
       { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },
       { titleKey: "nav.delivery", fallback: "Livraison", href: "/livraison", icon: Truck },
+      { titleKey: "nav.packer", fallback: "Préparation", href: "/packer", icon: Package },
     ],
   },
   {
