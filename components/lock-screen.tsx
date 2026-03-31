@@ -70,9 +70,18 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           setError("")
         } else {
           // Ensure error is always a string to avoid React #310
-          const errMsg = typeof data.error === "string" 
+          let errMsg = typeof data.error === "string" 
             ? data.error 
             : (data.error?.message || "Erreur de verification")
+          
+          // Provide a more helpful message for auth errors
+          if (errMsg === "Non authentifie") {
+            errMsg = "Session expiree. Veuillez vous reconnecter."
+            // Redirect to login after a short delay
+            setTimeout(() => {
+              window.location.href = "/auth/login"
+            }, 2000)
+          }
           setError(errMsg)
         }
 

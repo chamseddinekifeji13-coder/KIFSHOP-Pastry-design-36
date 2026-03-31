@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { SWRConfig } from "swr"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
@@ -25,10 +26,18 @@ interface AppShellProps {
 const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
-  const { isLoading, users, currentUser, updateUser } = useTenant()
+  const router = useRouter()
+  const { isLoading, isAuthenticated, users, currentUser } = useTenant()
   // null = not yet determined, true = locked, false = unlocked
   const [lockState, setLockState] = useState<null | boolean>(null)
   const hasEmployees = users.length > 1 && users.some((u) => u.pin)
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/auth/login")
+    }
+  }, [isLoading, isAuthenticated, router])
 
   // Owner must have a PIN — detect if it's missing
   const ownerNeedsPin = !isLoading && currentUser.role === "owner" && !currentUser.pin
@@ -90,13 +99,15 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
     sessionStorage.setItem("kifshop_unlocked_at", String(Date.now()))
   }
 
-  // Still loading data or determining lock state
-  if (isLoading || lockState === null) {
+  // Still loading data or determining lock state, or redirecting to login
+  if (isLoading || lockState === null || !isAuthenticated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
-          <p className="text-sm text-muted-foreground">Chargement...</p>
+          <p className="text-sm text-muted-foreground">
+            {!isAuthenticated && !isLoading ? "Redirection vers la connexion..." : "Chargement..."}
+          </p>
         </div>
       </div>
     )

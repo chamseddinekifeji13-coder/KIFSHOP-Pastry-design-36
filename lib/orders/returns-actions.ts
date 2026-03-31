@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/server"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -98,20 +98,20 @@ export const refundMethodLabels: Record<RefundMethod, string> = {
 // ─── Fetch Returns ────────────────────────────────────────────
 
 export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // 1. Fetch from order_returns table
   const { data, error } = await supabase
     .from("order_returns")
     .select(`
       *,
-      orders!inner(customer_name, total)
+      orders(id, customer_name, total)
     `)
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching returns:", error.message)
+    console.error("[v0] Error fetching returns:", error.message)
   }
 
   // For each return, fetch items
@@ -194,7 +194,7 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
 // ─── Get Returns for a specific order ─────────────────────────
 
 export async function getOrderReturns(orderId: string): Promise<OrderReturn[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from("order_returns")
@@ -203,7 +203,7 @@ export async function getOrderReturns(orderId: string): Promise<OrderReturn[]> {
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching order returns:", error.message)
+    console.error("[v0] Error fetching order returns:", error.message)
     return []
   }
 
@@ -247,7 +247,7 @@ export async function getOrderReturns(orderId: string): Promise<OrderReturn[]> {
 // ─── Create Return ────────────────────────────────────────────
 
 export async function createReturn(data: CreateReturnData): Promise<boolean> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Get order details
@@ -258,7 +258,7 @@ export async function createReturn(data: CreateReturnData): Promise<boolean> {
     .single()
 
   if (!order) {
-    console.error("Order not found")
+    console.error("[v0] Order not found")
     return false
   }
 
@@ -290,7 +290,7 @@ export async function createReturn(data: CreateReturnData): Promise<boolean> {
     .single()
 
   if (error || !returnRecord) {
-    console.error("Error creating return:", error?.message)
+    console.error("[v0] Error creating return:", error?.message)
     return false
   }
 
@@ -311,7 +311,7 @@ export async function createReturn(data: CreateReturnData): Promise<boolean> {
       .insert(itemRows)
 
     if (itemsErr) {
-      console.error("Error creating return items:", itemsErr.message)
+      console.error("[v0] Error creating return items:", itemsErr.message)
     }
   }
 
@@ -343,7 +343,7 @@ export async function processReturn(
   tenantId: string,
   action: "approved" | "rejected" | "completed"
 ): Promise<boolean> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Get the return
@@ -368,7 +368,7 @@ export async function processReturn(
     .eq("id", returnId)
 
   if (error) {
-    console.error("Error processing return:", error.message)
+    console.error("[v0] Error processing return:", error.message)
     return false
   }
 
@@ -424,7 +424,7 @@ export async function processReturn(
 // ─── Customer Credits ─────────────────────────────────────────
 
 export async function fetchCustomerCredits(tenantId: string): Promise<CustomerCredit[]> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from("customer_credits")
@@ -433,7 +433,7 @@ export async function fetchCustomerCredits(tenantId: string): Promise<CustomerCr
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("Error fetching credits:", error.message)
+    console.error("[v0] Error fetching credits:", error.message)
     return []
   }
 
@@ -458,7 +458,7 @@ export async function useCredit(
   creditId: string,
   amountToUse: number
 ): Promise<boolean> {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: credit } = await supabase
     .from("customer_credits")
@@ -484,7 +484,7 @@ export async function useCredit(
     .eq("id", creditId)
 
   if (error) {
-    console.error("Error using credit:", error.message)
+    console.error("[v0] Error using credit:", error.message)
     return false
   }
 
