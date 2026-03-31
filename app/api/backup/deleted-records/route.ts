@@ -1,18 +1,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { withSession } from "@/lib/api-helpers"
 
 export const dynamic = "force-dynamic"
 
 export async function GET(request: Request) {
+  const [session, authError] = await withSession()
+  if (authError) return authError
+
   try {
+    const tenantId = session!.tenantId
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId")
     const table = searchParams.get("table")
     const limit = parseInt(searchParams.get("limit") || "100")
-
-    if (!tenantId) {
-      return NextResponse.json({ error: "tenantId requis" }, { status: 400 })
-    }
 
     const supabase = await createClient()
 
@@ -47,6 +47,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const [, postAuthError] = await withSession()
+  if (postAuthError) return postAuthError
+
   try {
     const { auditId } = await request.json()
 

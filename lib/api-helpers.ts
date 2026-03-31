@@ -74,7 +74,7 @@ export async function withSession(): Promise<
 > {
   try {
     const session = await getServerSession()
-    console.log('[v0] withSession - Successfully retrieved session:', {
+    console.debug('[v0] withSession - Successfully retrieved session:', {
       tenantId: session.tenantId,
       authUserId: session.authUserId,
       role: session.activeRole

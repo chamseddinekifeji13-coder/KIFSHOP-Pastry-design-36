@@ -31,7 +31,7 @@ export const SWR_CONFIG = {
   // === Logging (development only) ===
   onError: (error: Error, key: string) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log("[SWR] Error fetching", key, ":", error.message)
+      console.debug("[SWR] Error fetching", key, ":", error.message)
     }
   },
   

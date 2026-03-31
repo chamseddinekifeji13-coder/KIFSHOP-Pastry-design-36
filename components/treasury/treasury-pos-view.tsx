@@ -211,11 +211,11 @@ export function TreasuryPosView() {
             const savedPrinter = localStorage.getItem("qz-printer-name")
             const state = qzService.getState()
             if (savedPrinter && state.printers.includes(savedPrinter)) {
-              console.log("[v0] QZ Tray ready with printer:", savedPrinter)
+              console.debug("[v0] QZ Tray ready with printer:", savedPrinter)
             }
           }
         } catch (e) {
-          console.log("[v0] QZ Tray not available")
+          console.debug("[v0] QZ Tray not available")
         }
       }
     }
@@ -491,13 +491,13 @@ export function TreasuryPosView() {
           date: new Date()
         }
         
-        console.log("[v0] Printing receipt with data:", receiptData)
+        console.debug("[v0] Printing receipt with data:", receiptData)
         
         await printer.printReceipt(receiptData)
         toast.success("Ticket imprime!")
         return
       } catch (error: any) {
-        console.log("[v0] USB print error:", error.message)
+        console.debug("[v0] USB print error:", error.message)
         toast.error("Erreur impression thermique, utilisation du navigateur")
       }
     }
@@ -623,12 +623,12 @@ export function TreasuryPosView() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.log("[v0] API error response:", errorData)
+        console.debug("[v0] API error response:", errorData)
         throw new Error(errorData.details || errorData.error || "Erreur lors de l'enregistrement")
       }
 
       const result = await response.json()
-      console.log("[v0] Sale recorded successfully:", result)
+      console.debug("[v0] Sale recorded successfully:", result)
 
       // Save transaction for receipt
       const transactionData = {

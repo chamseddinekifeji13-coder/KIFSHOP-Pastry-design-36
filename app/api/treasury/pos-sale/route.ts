@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { 
-  withSessionAndBody, 
-  badRequestResponse, 
-  serverErrorResponse 
+import {
+  withSessionAndBody,
+  badRequestResponse,
+  serverErrorResponse
 } from '@/lib/api-helpers'
+import { rateLimit, getClientIP } from '@/lib/rate-limit'
 
 interface POSSaleBody {
   items: Array<{ name: string; quantity: number; price: number }>
@@ -14,6 +15,12 @@ interface POSSaleBody {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIP(request)
+  const { limited } = rateLimit(`pos-sale:${ip}`, 60, 60000)
+  if (limited) {
+    return NextResponse.json({ error: "Trop de requêtes. Réessayez dans une minute." }, { status: 429 })
+  }
+
   // 1. Get session and parse body with centralized error handling
   const [data, error] = await withSessionAndBody<POSSaleBody>(request)
   if (error) return error

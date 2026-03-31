@@ -63,7 +63,7 @@ export async function syncPOS80Transactions(
     result.transactionsFound = transactions.length
 
     if (transactions.length === 0) {
-      console.log('[v0] No new POS80 transactions found')
+      console.debug('[v0] No new POS80 transactions found')
       result.success = true
       return completeSync(tenantId, result, 'success')
     }

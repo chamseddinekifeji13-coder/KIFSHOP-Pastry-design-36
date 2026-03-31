@@ -92,13 +92,13 @@ export class ThermalPrinter {
     try {
       // If showAll is true, show all USB devices (useful when printer is not in the filter list)
       if (showAll) {
-        this.device = await navigator.usb.requestDevice({
+        this.device = await navigator.usb!.requestDevice({
           filters: []  // Empty filter shows all USB devices
         })
       } else {
         // Request USB device - filter for common thermal printer vendors
         // Including POS80 and other generic Chinese thermal printers
-        this.device = await navigator.usb.requestDevice({
+        this.device = await navigator.usb!.requestDevice({
           filters: [
             // Epson
             { vendorId: 0x04B8 },

@@ -24,6 +24,7 @@ export interface Order {
   deliveryType: "pickup" | "delivery"
   courier?: string
   gouvernorat?: string
+  delegation?: string
   trackingNumber?: string
   source: "whatsapp" | "messenger" | "phone" | "web" | "instagram" | "tiktok" | "comptoir"
   paymentStatus: "paid" | "unpaid" | "partial"

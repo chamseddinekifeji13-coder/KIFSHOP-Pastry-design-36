@@ -3,7 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
-import type { ProspectStatus, PlatformProspect, ProspectStats } from "@/lib/super-admin/prospect-types"
+import type { ProspectSource, ProspectStatus, PlatformProspect, ProspectStats } from "@/lib/super-admin/prospect-types"
 
 async function requireSuperAdmin() {
   const supabase = await createClient()

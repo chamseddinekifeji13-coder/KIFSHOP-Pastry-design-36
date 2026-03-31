@@ -135,24 +135,24 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
 
   // Silent check - used at mount, shows success toast if connected
   const silentQZTrayCheck = async () => {
-    console.log("[v0] Silent QZ Tray check starting...")
+    console.debug("[v0] Silent QZ Tray check starting...")
     try {
       const qzService = getQZTrayService()
-      console.log("[v0] QZ Service obtained, attempting connection...")
+      console.debug("[v0] QZ Service obtained, attempting connection...")
       
       const connected = await qzService.connect()
-      console.log("[v0] QZ Tray connection result:", connected)
+      console.debug("[v0] QZ Tray connection result:", connected)
       
       if (connected) {
         const state = qzService.getState()
-        console.log("[v0] QZ State:", JSON.stringify(state))
+        console.debug("[v0] QZ State:", JSON.stringify(state))
         setQzState(state)
         setIsConnected(true)
-        console.log("[v0] QZ Tray auto-connected with", state.printers.length, "printers")
+        console.debug("[v0] QZ Tray auto-connected with", state.printers.length, "printers")
         
         // Show success notification when auto-detected
         const savedPrinter = localStorage.getItem("qz-printer-name")
-        console.log("[v0] Saved printer from localStorage:", savedPrinter)
+        console.debug("[v0] Saved printer from localStorage:", savedPrinter)
         
         if (savedPrinter && state.printers.includes(savedPrinter)) {
           toast.success(`QZ Tray detecte - ${savedPrinter}`, {
@@ -166,17 +166,17 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
           })
         }
       } else {
-        console.log("[v0] QZ Tray connection returned false")
+        console.debug("[v0] QZ Tray connection returned false")
       }
     } catch (error: any) {
       // Silent - don't show errors on initial mount
-      console.log("[v0] QZ Tray not available at startup:", error?.message || error)
+      console.debug("[v0] QZ Tray not available at startup:", error?.message || error)
     }
   }
 
   // Run full diagnostic
   const runDiagnostic = async () => {
-    console.log("[v0] Running QZ Tray diagnostic...")
+    console.debug("[v0] Running QZ Tray diagnostic...")
     toast.info("Diagnostic en cours...", { duration: 2000 })
     
     const result = await diagnoseQZTray()
@@ -194,7 +194,7 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
     }
     
     const message = lines.join("\n")
-    console.log("[v0] Diagnostic result:\n" + message)
+    console.debug("[v0] Diagnostic result:\n" + message)
     
     if (result.connected && result.printers.length > 0) {
       toast.success("QZ Tray fonctionne!", {
@@ -219,21 +219,21 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
 
   const checkQZTrayStatus = async () => {
     setIsCheckingQZ(true)
-    console.log("[v0] Starting QZ Tray check...")
+    console.debug("[v0] Starting QZ Tray check...")
     try {
       const qzService = getQZTrayService()
-      console.log("[v0] QZ Service initialized")
+      console.debug("[v0] QZ Service initialized")
       
       const connected = await qzService.connect()
-      console.log("[v0] QZ Tray connection result:", connected)
+      console.debug("[v0] QZ Tray connection result:", connected)
       
       if (connected) {
         const state = qzService.getState()
-        console.log("[v0] QZ State after connect:", state)
+        console.debug("[v0] QZ State after connect:", state)
         setQzState(state)
         toast.success(`QZ Tray connecté! ${state.printers.length} imprimante(s) trouvée(s)`)
       } else {
-        console.log("[v0] QZ Tray connection failed")
+        console.debug("[v0] QZ Tray connection failed")
         toast.error(
           "QZ Tray non disponible",
           {

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    console.log('[v0] POS80 Cron Job Started at', new Date().toISOString())
+    console.debug('[v0] POS80 Cron Job Started at', new Date().toISOString())
 
     const supabase = createAdminClient()
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (!tenants || tenants.length === 0) {
-      console.log('[v0] No active POS80 configurations found')
+      console.debug('[v0] No active POS80 configurations found')
       return NextResponse.json({
         success: true,
         synced: 0,
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    console.log(`[v0] Found ${tenants.length} active tenants for sync`)
+    console.debug(`[v0] Found ${tenants.length} active tenants for sync`)
 
     const results = []
 
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
           duration: result.duration_ms,
         })
 
-        console.log(
+        console.debug(
           `[v0] Synced ${result.transactionsCreated} transactions for tenant ${tenant.tenant_id}`
         )
       } catch (error) {
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     const successCount = results.filter((r) => r.success).length
     const failedCount = results.length - successCount
 
-    console.log(
+    console.debug(
       `[v0] POS80 Cron Job Completed: ${successCount} successful, ${failedCount} failed`
     )
 
