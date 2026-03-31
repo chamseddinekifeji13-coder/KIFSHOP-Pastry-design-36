@@ -4,19 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { 
-  Package, 
-  LogOut, 
-  RefreshCw, 
-  Clock, 
-  User, 
-  ShoppingBag,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  ChevronRight,
-  Phone,
-  MapPin,
-  DollarSign
+  Package, LogOut, RefreshCw, Clock, User, ShoppingBag,
+  CheckCircle2, AlertCircle, Loader2, ChevronRight, Phone, MapPin, DollarSign
 } from "lucide-react"
 
 interface PackerSession {
@@ -207,7 +196,7 @@ export default function PackerDashboardPage() {
   // Report problem
   const handleReportProblem = async () => {
     if (!selectedOrder || !session) return
-    alert("Probleme signale au gerant - A implementer")
+    alert("Problème signalé au gérant - À implémenter")
   }
 
   // Logout
@@ -330,7 +319,7 @@ export default function PackerDashboardPage() {
             ) : (
               <CheckCircle2 className="w-5 h-5" />
             )}
-            Emballage termine
+            Emballage terminé
           </button>
           
           <button 
@@ -338,7 +327,7 @@ export default function PackerDashboardPage() {
             className="w-full py-3 border border-red-300 text-red-600 hover:bg-red-50 font-medium rounded-lg flex items-center justify-center gap-2 transition"
           >
             <AlertCircle className="w-4 h-4" />
-            Signaler un probleme
+            Signaler un problème
           </button>
         </div>
       </div>
