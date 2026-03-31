@@ -44,6 +44,7 @@ interface PackagingItem {
 
 export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDrawerProps) {
   const { currentTenant } = useTenant()
+  const { mutate } = useSWRConfig()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
   const { data: packagingList = [] } = usePackaging()
@@ -232,17 +233,28 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
         })),
       }
       
+      let result
       if (isEditing && recipe?.id) {
-        await updateRecipe(recipe.id, currentTenant.id, recipeData)
+        result = await updateRecipe(recipe.id, currentTenant.id, recipeData)
+        console.log("[v0] Recipe updated:", result)
       } else {
-        await createRecipe(currentTenant.id, recipeData)
+        result = await createRecipe(currentTenant.id, recipeData)
+        console.log("[v0] Recipe created:", result)
+      }
+      
+      if (!result) {
+        toast.error("Erreur: la recette n'a pas ete sauvegardee")
+        return
       }
       
       toast.success(isEditing ? "Recette modifiee" : "Recette creee", {
         description: `"${name}" - ${ingredients.length} ingredients, ${totalYield} unites`,
       })
-mutate((key: string) => typeof key === "string" && key.includes("recipes"))
-  onSuccess?.()
+      
+      // Revalidate all recipe caches
+      console.log("[v0] Revalidating recipes cache for tenant:", currentTenant.id)
+      mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+      onSuccess?.()
   resetForm(); onOpenChange(false)
     } catch (error) { 
       console.error("Error saving recipe:", error)
