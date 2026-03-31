@@ -255,14 +255,19 @@ mutate((key: string) => typeof key === "string" && key.includes("recipes"))
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-2xl w-full p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
-        <div className="bg-gradient-to-br from-secondary to-secondary/80 px-6 py-8 text-secondary-foreground">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"><ChefHat className="h-5 w-5" /></div>
-            <div>
-              <h2 className="text-lg font-semibold">{isEditing ? "Modifier la recette" : "Nouvelle fiche technique"}</h2>
-              <p className="text-sm opacity-70">{isEditing ? `Modifier "${recipe?.name}"` : "Definissez les ingredients et le rendement"}</p>
+      <SheetContent className="sm:max-w-2xl w-full p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-5 [&>button]:right-5 [&>button]:text-white [&>button]:opacity-90 [&>button]:hover:opacity-100 [&>button]:bg-white/20 [&>button]:rounded-full [&>button]:p-1.5">
+        {/* Header avec gradient attractif */}
+        <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 px-6 py-10 text-white relative overflow-hidden">
+          {/* Decorative circles */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/10 rounded-full" />
+          
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm mb-4 shadow-lg">
+              <ChefHat className="h-8 w-8" />
             </div>
+            <h2 className="text-2xl font-bold">{isEditing ? "Modifier la recette" : "Nouvelle fiche technique"}</h2>
+            <p className="text-sm opacity-80 mt-1">{isEditing ? `Modification de "${recipe?.name}"` : "Definissez les ingredients et le conditionnement"}</p>
           </div>
         </div>
 
@@ -654,9 +659,9 @@ mutate((key: string) => typeof key === "string" && key.includes("recipes"))
           </div>
         </div>
 
-        <div className="border-t bg-muted/30 px-6 py-4 flex gap-3">
-          <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>Annuler</Button>
-          <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" onClick={handleSubmit} disabled={saving}>
+        <div className="border-t bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 px-6 py-5 flex gap-3">
+          <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={() => onOpenChange(false)}>Annuler</Button>
+          <Button className="flex-1 rounded-xl h-12 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-orange-500/25" onClick={handleSubmit} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
             {saving ? "Sauvegarde..." : isEditing ? "Enregistrer" : "Creer la recette"}
           </Button>

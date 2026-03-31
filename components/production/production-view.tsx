@@ -181,7 +181,7 @@ export function ProductionView() {
 
         <TabsContent value="batches" className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setBatchDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />Nouveau lot</Button>
+            <Button onClick={() => setBatchDrawerOpen(true)} className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg"><Plus className="mr-2 h-4 w-4" />Nouveau lot</Button>
           </div>
           
           {batches.length === 0 ? (
@@ -242,15 +242,23 @@ export function ProductionView() {
 
         <TabsContent value="recipes" className="space-y-4">
           <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
+            <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-lg"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild><Button><Play className="mr-2 h-4 w-4" />Lancer production</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
-              <DialogHeader className="shrink-0">
-                <DialogTitle>Lancer une production</DialogTitle>
-                <DialogDescription>Selectionnez une recette et la quantite a produire</DialogDescription>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
+            <DialogTrigger asChild><Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg"><Play className="mr-2 h-4 w-4" />Lancer production</Button></DialogTrigger>
+            <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+              {/* Header avec gradient */}
+              <div className="bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 px-6 py-8 text-white relative overflow-hidden">
+                <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/10 rounded-full" />
+                <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-white/10 rounded-full" />
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm mb-3">
+                    <Play className="h-7 w-7" />
+                  </div>
+                  <DialogTitle className="text-xl font-bold text-white">Lancer une production</DialogTitle>
+                  <DialogDescription className="text-white/80 mt-1">Selectionnez une recette et la quantite a produire</DialogDescription>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-4 p-6">
                 <div className="space-y-2">
                   <Label>Recette</Label>
                   <Select value={selectedRecipe} onValueChange={setSelectedRecipe}>
@@ -281,9 +289,9 @@ export function ProductionView() {
                   </>
                 )}
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t shrink-0">
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                <Button onClick={handleStartProduction} disabled={!canProduce || producing}>
+              <div className="flex gap-3 p-6 pt-4 border-t bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 shrink-0">
+                <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1 h-11 rounded-xl">Annuler</Button>
+                <Button onClick={handleStartProduction} disabled={!canProduce || producing} className="flex-1 h-11 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-teal-500/25">
                   {producing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Production en cours...</> : <><Play className="mr-2 h-4 w-4" />Lancer la production</>}
                 </Button>
               </div>

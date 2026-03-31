@@ -97,18 +97,23 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden">
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Package className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">Nouveau lot de production</h2>
+      <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden p-0 [&>button]:top-5 [&>button]:right-5 [&>button]:text-white [&>button]:opacity-90 [&>button]:hover:opacity-100 [&>button]:bg-white/20 [&>button]:rounded-full [&>button]:p-1.5">
+        {/* Header avec gradient vert-teal attractif */}
+        <div className="bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 px-6 py-10 text-white relative overflow-hidden">
+          {/* Decorative circles */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full" />
+          <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-white/10 rounded-full" />
+          
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm mb-4 shadow-lg">
+              <Package className="h-8 w-8" />
             </div>
-            <p className="text-sm text-muted-foreground">Créer un lot vrac à conditionner</p>
+            <h2 className="text-2xl font-bold">Nouveau lot de production</h2>
+            <p className="text-sm opacity-80 mt-1">Creer un lot vrac a conditionner</p>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-6 py-6">
+        <div className="flex-1 overflow-y-auto space-y-6 p-6">
           {/* Sélection recette avec recherche */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -249,21 +254,21 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
           </div>
         </div>
 
-        <div className="flex gap-2 pt-4 border-t">
+        <div className="flex gap-3 p-6 pt-5 border-t bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30">
           <Button
             variant="outline"
             onClick={() => {
               resetForm()
               onOpenChange(false)
             }}
-            className="flex-1"
+            className="flex-1 h-12 rounded-xl"
           >
             Annuler
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={saving || !selectedRecipeId || !quantity}
-            className="flex-1"
+            className="flex-1 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-teal-500/25"
           >
             {saving ? "Création..." : "Créer le lot"}
           </Button>
