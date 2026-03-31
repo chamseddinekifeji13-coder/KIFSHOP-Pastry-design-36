@@ -237,21 +237,34 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
         })),
       }
       
+      let result
       if (isEditing && recipe?.id) {
-        await updateRecipe(recipe.id, currentTenant.id, recipeData)
+        result = await updateRecipe(recipe.id, currentTenant.id, recipeData)
       } else {
-        await createRecipe(currentTenant.id, recipeData)
+        result = await createRecipe(currentTenant.id, recipeData)
+      }
+
+      // Verifier que l'operation a reellement reussi
+      if (!result) {
+        toast.error("Erreur lors de la sauvegarde", {
+          description: "La recette n'a pas pu etre enregistree. Verifiez les donnees et reessayez."
+        })
+        return
       }
       
       toast.success(isEditing ? "Recette modifiee" : "Recette creee", {
         description: `"${name}" - ${ingredients.length} ingredients, ${totalYield} unites`,
       })
-mutate((key: string) => typeof key === "string" && key.includes("recipes"))
-  onSuccess?.()
-  resetForm(); onOpenChange(false)
+
+      // Rafraichir les donnees - utiliser les deux methodes pour garantir la mise a jour
+      await mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+      onSuccess?.()
+      resetForm(); onOpenChange(false)
     } catch (error) { 
       console.error("Error saving recipe:", error)
-      toast.error("Erreur lors de la sauvegarde") 
+      toast.error("Erreur lors de la sauvegarde", {
+        description: error instanceof Error ? error.message : "Veuillez reessayer"
+      })
     }
     finally { setSaving(false) }
   }
