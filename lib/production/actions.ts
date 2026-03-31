@@ -130,16 +130,20 @@ export async function createRecipe(tenantId: string, data: {
   packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
 }): Promise<Recipe | null> {
   const supabase = createClient()
-  const { data: row, error } = await supabase.from("recipes").insert({
+  const insertPayload = {
     tenant_id: tenantId, name: data.name, category: data.category || null,
     finished_product_id: data.finishedProductId || null,
-    yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
+    yield_quantity: data.yieldQuantity || 0, yield_unit: data.yieldUnit || "unites",
     instructions: data.instructions || null,
     theoretical_quantity: data.theoreticalQuantity || null,
     packaged_quantity: data.packagedQuantity || null,
     wastage_percent: data.wastagePercent || null,
-  }).select().single()
-  if (error || !row) { console.error("Error creating recipe:", error?.message); return null }
+  }
+  const { data: row, error } = await supabase.from("recipes").insert(insertPayload).select().single()
+  if (error || !row) {
+    console.error("Error creating recipe:", error?.message, "Payload:", JSON.stringify(insertPayload))
+    throw new Error(error?.message || "Impossible de creer la recette")
+  }
 
   // Insert ingredients
   if (data.ingredients.length > 0) {
@@ -196,7 +200,7 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
   const { data: row, error } = await supabase.from("recipes").update({
     name: data.name, category: data.category || null,
     finished_product_id: data.finishedProductId || null,
-    yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
+    yield_quantity: data.yieldQuantity || 0, yield_unit: data.yieldUnit || "unites",
     instructions: data.instructions || null,
     theoretical_quantity: data.theoreticalQuantity || null,
     packaged_quantity: data.packagedQuantity || null,
@@ -204,7 +208,10 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
     updated_at: new Date().toISOString()
   }).eq("id", recipeId).eq("tenant_id", tenantId).select().single()
   
-  if (error || !row) { console.error("Error updating recipe:", error?.message); return null }
+  if (error || !row) {
+    console.error("Error updating recipe:", error?.message)
+    throw new Error(error?.message || "Impossible de modifier la recette")
+  }
 
   // Delete existing ingredients and packaging, then re-insert
   await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId)
