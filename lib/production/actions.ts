@@ -68,11 +68,9 @@ export interface ProductionRun {
 }
 
 export async function fetchRecipes(tenantId: string): Promise<Recipe[]> {
-  console.log("[v0] fetchRecipes called with tenantId:", tenantId)
   const supabase = createClient()
   const { data: recipes, error } = await supabase
     .from("recipes").select("*").eq("tenant_id", tenantId).order("name")
-  console.log("[v0] fetchRecipes result - recipes:", recipes?.length, "error:", error)
   if (error) { console.error("Error fetching recipes:", error.message); return [] }
   if (!recipes || recipes.length === 0) return []
 
@@ -124,7 +122,6 @@ export async function createRecipe(tenantId: string, data: {
   ingredients: { rawMaterialId: string; quantity: number; unit: string }[]
   packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
 }): Promise<Recipe | null> {
-  console.log("[v0] createRecipe called with tenantId:", tenantId, "data:", data)
   const supabase = createClient()
   const { data: row, error } = await supabase.from("recipes").insert({
     tenant_id: tenantId,
@@ -135,7 +132,6 @@ export async function createRecipe(tenantId: string, data: {
     yield_unit: data.yieldUnit,
     instructions: data.instructions || null,
   }).select().single()
-  console.log("[v0] createRecipe insert result - row:", row, "error:", error)
   if (error || !row) { console.error("Error creating recipe:", error?.message); return null }
 
   // Insert ingredients
