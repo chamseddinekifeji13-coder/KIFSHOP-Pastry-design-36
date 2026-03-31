@@ -272,97 +272,97 @@ mutate((key: string) => typeof key === "string" && key.includes("recipes"))
             <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Nom de la recette *</Label>
-                <div className="flex gap-2">
-                  <Input 
-                    placeholder="Saisir le nom de la recette..."
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="flex-1 bg-muted/50 border-0"
-                  />
-                  <Popover open={openNameCombobox} onOpenChange={setOpenNameCombobox}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="rounded-lg"
-                        title="Choisir parmi les recettes existantes"
-                      >
-                        <ChevronsUpDown className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64 p-0" align="start">
-                      <Command>
-                        <CommandInput
-                          placeholder="Chercher une recette..."
-                          value={customNameInput}
-                          onValueChange={setCustomNameInput}
-                        />
-                        <CommandList>
-                          <CommandEmpty>Aucune recette trouvee.</CommandEmpty>
-                          <CommandGroup heading="Recettes existantes">
-                            {existingRecipes.map((r: any) => (
-                              <CommandItem
-                                key={r.id}
-                                value={r.name}
-                                onSelect={(val) => {
-                                  // Auto-fill: copier le nom et pre-remplir les ingredients
-                                  setName(val)
-                                  setCustomNameInput("")
-                                  setOpenNameCombobox(false)
-                                  
-                                  // Pre-remplir la categorie
-                                  if (r.category) {
-                                    setCategory(r.category)
-                                  }
-                                  
-                                  // Pre-remplir les ingredients si disponibles
-                                  if (r.ingredients && r.ingredients.length > 0) {
-                                    const existingIngs = r.ingredients.map((ing: any) => ({
-                                      materialId: ing.raw_material_id || ing.materialId,
-                                      name: ing.name,
-                                      quantity: ing.quantity?.toString() || "0",
-                                      unit: ing.unit || "g"
-                                    }))
-                                    setIngredients(existingIngs)
-                                    toast.success("Recette pre-remplie", {
-                                      description: `${existingIngs.length} ingredients copies depuis "${val}"`
-                                    })
-                                  }
-                                  
-                                  // Pre-remplir le conditionnement si disponible
-                                  if (r.packaging && r.packaging.length > 0) {
-                                    const existingPkgs = r.packaging.map((pkg: any) => ({
-                                      packagingId: pkg.packaging_id || pkg.packagingId,
-                                      name: pkg.name,
-                                      quantity: pkg.quantity || 0,
-                                      weight: pkg.weight_grams || pkg.weight || 0,
-                                      unit: pkg.unit || "pcs"
-                                    }))
-                                    setPackagingItems(existingPkgs)
-                                  }
-                                }}
-                              >
-                                <Check className={cn("mr-2 h-4 w-4", name === r.name ? "opacity-100" : "opacity-0")} />
-                                <div className="flex-1">
-                                  <div className="font-medium">{r.name}</div>
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    {r.category && <span>{r.category}</span>}
-                                    {r.ingredients?.length > 0 && (
-                                      <Badge variant="secondary" className="h-4 text-[10px]">
-                                        {r.ingredients.length} ing.
-                                      </Badge>
-                                    )}
-                                  </div>
+                <Popover open={openNameCombobox} onOpenChange={setOpenNameCombobox}>
+                  <PopoverTrigger asChild>
+                    <div className="relative">
+                      <Input
+                        placeholder="Saisir ou rechercher une recette..."
+                        value={name}
+                        onChange={(e) => {
+                          setName(e.target.value)
+                          setCustomNameInput(e.target.value)
+                          if (e.target.value.length > 0 && existingRecipes.some((r: any) => r.name.toLowerCase().includes(e.target.value.toLowerCase()))) {
+                            setOpenNameCombobox(true)
+                          }
+                        }}
+                        onFocus={() => {
+                          if (name.length > 0 || existingRecipes.length > 0) {
+                            setOpenNameCombobox(true)
+                          }
+                        }}
+                        className="bg-muted/50 border-0 pr-8"
+                      />
+                      <ChevronsUpDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <Command>
+                      <CommandInput
+                        placeholder="Chercher une recette..."
+                        value={customNameInput}
+                        onValueChange={setCustomNameInput}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Aucune recette trouvee. Le nom sera cree.</CommandEmpty>
+                        <CommandGroup heading="Recettes existantes">
+                          {existingRecipes.map((r: any) => (
+                            <CommandItem
+                              key={r.id}
+                              value={r.name}
+                              onSelect={(val) => {
+                                setName(val)
+                                setCustomNameInput("")
+                                setOpenNameCombobox(false)
+
+                                if (r.category) {
+                                  setCategory(r.category)
+                                }
+
+                                if (r.ingredients && r.ingredients.length > 0) {
+                                  const existingIngs = r.ingredients.map((ing: any) => ({
+                                    materialId: ing.raw_material_id || ing.materialId,
+                                    name: ing.name,
+                                    quantity: ing.quantity?.toString() || "0",
+                                    unit: ing.unit || "g"
+                                  }))
+                                  setIngredients(existingIngs)
+                                  toast.success("Recette pre-remplie", {
+                                    description: `${existingIngs.length} ingredients copies depuis "${val}"`
+                                  })
+                                }
+
+                                if (r.packaging && r.packaging.length > 0) {
+                                  const existingPkgs = r.packaging.map((pkg: any) => ({
+                                    packagingId: pkg.packaging_id || pkg.packagingId,
+                                    name: pkg.name,
+                                    quantity: pkg.quantity || 0,
+                                    weight: pkg.weight_grams || pkg.weight || 0,
+                                    unit: pkg.unit || "pcs"
+                                  }))
+                                  setPackagingItems(existingPkgs)
+                                }
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", name === r.name ? "opacity-100" : "opacity-0")} />
+                              <div className="flex-1">
+                                <div className="font-medium">{r.name}</div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  {r.category && <span>{r.category}</span>}
+                                  {r.ingredients?.length > 0 && (
+                                    <Badge variant="secondary" className="h-4 text-[10px]">
+                                      {r.ingredients.length} ing.
+                                    </Badge>
+                                  )}
                                 </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <p className="text-[11px] text-muted-foreground">Saisir directement ou cliquer sur l'icone pour choisir parmi les recettes existantes</p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                <p className="text-[11px] text-muted-foreground">Saisissez pour filtrer les recettes existantes ou creer un nouveau nom</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-medium">Categorie *</Label>

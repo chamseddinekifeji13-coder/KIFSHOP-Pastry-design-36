@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   CalendarDays, ChefHat, Package, AlertTriangle, CheckCircle2, ArrowRight,
-  ShoppingCart, Loader2, ClipboardList, Eye, ChevronDown, ChevronRight,
+  ShoppingCart, Loader2, ClipboardList, Eye, ChevronDown, ChevronRight, Search,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -63,6 +63,7 @@ export function ProductionPlanner() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [detailPlan, setDetailPlan] = useState<ProductionPlan | null>(null)
+  const [planSearch, setPlanSearch] = useState("")
 
   // Creation form state
   const [selectedRecipe, setSelectedRecipe] = useState("")
@@ -143,8 +144,12 @@ export function ProductionPlanner() {
     setCalculatedMaterials(null)
   }
 
-  // Active/pending plans
-  const activePlans = plans.filter((p) => !["completed", "cancelled"].includes(p.status))
+  // Active/pending plans with search
+  const activePlans = useMemo(() => {
+    return plans
+      .filter((p) => !["completed", "cancelled"].includes(p.status))
+      .filter((p) => !planSearch || p.recipeName.toLowerCase().includes(planSearch.toLowerCase()))
+  }, [plans, planSearch])
   const pastPlans = plans.filter((p) => ["completed", "cancelled"].includes(p.status))
 
   return (
@@ -155,10 +160,21 @@ export function ProductionPlanner() {
           <h2 className="text-lg font-semibold">Planification de production</h2>
           <p className="text-sm text-muted-foreground">Planifiez vos productions et gerez les besoins en matieres premieres</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <ClipboardList className="mr-2 h-4 w-4" />
-          Nouveau plan
-        </Button>
+        <div className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un plan..."
+              value={planSearch}
+              onChange={(e) => setPlanSearch(e.target.value)}
+              className="pl-9 w-48 bg-muted/50 border-0"
+            />
+          </div>
+          <Button onClick={() => setCreateOpen(true)}>
+            <ClipboardList className="mr-2 h-4 w-4" />
+            Nouveau plan
+          </Button>
+        </div>
       </div>
 
       {/* Active plans */}
@@ -393,6 +409,11 @@ function PlanCard({ plan, onView, compact }: { plan: ProductionPlan; onView: () 
           {plan.labLocationName && (
             <p className="text-[10px] text-muted-foreground mt-1">Labo: {plan.labLocationName}</p>
           )}
+          {plan.startedAt && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Debut: {new Date(plan.startedAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
           <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs"><Eye className="mr-1.5 h-3 w-3" /> Details</Button>
         </CardContent>
       )}
@@ -547,6 +568,31 @@ function PlanDetailDialog({ plan, onClose, onRefresh }: { plan: ProductionPlan; 
                 <div className="bg-muted/50 rounded-lg p-2.5">
                   <span className="text-[10px] text-muted-foreground block">Cree par</span>
                   <span className="font-medium text-xs">{plan.createdByName}</span>
+                </div>
+              )}
+              {plan.startedAt && (
+                <div className="bg-muted/50 rounded-lg p-2.5">
+                  <span className="text-[10px] text-muted-foreground block">Debut production</span>
+                  <span className="font-medium text-xs">{new Date(plan.startedAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              )}
+              {plan.completedAt && (
+                <div className="bg-muted/50 rounded-lg p-2.5">
+                  <span className="text-[10px] text-muted-foreground block">Fin production</span>
+                  <span className="font-medium text-xs">{new Date(plan.completedAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              )}
+              {plan.startedAt && plan.completedAt && (
+                <div className="bg-primary/10 rounded-lg p-2.5 col-span-2">
+                  <span className="text-[10px] text-muted-foreground block">Duree totale</span>
+                  <span className="font-medium text-xs">{(() => {
+                    const ms = new Date(plan.completedAt).getTime() - new Date(plan.startedAt).getTime()
+                    const minutes = Math.floor(ms / 60000)
+                    const hours = Math.floor(minutes / 60)
+                    const remainingMins = minutes % 60
+                    if (hours > 0) return `${hours}h ${remainingMins}min`
+                    return `${minutes}min`
+                  })()}</span>
                 </div>
               )}
             </div>
