@@ -49,7 +49,6 @@ export function RecipeDrawer({ open, onOpenChange, recipe, onSuccess }: RecipeDr
   const { data: categories = [] } = useCategories()
   const { data: packagingList = [] } = usePackaging()
   const { data: existingRecipes = [] } = useRecipes()
-  const { mutate } = useSWRConfig()
   const isEditing = !!recipe
 
   const [name, setName] = useState("")
