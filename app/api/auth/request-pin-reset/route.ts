@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     // For now, we'll log the OTP since email service may not be configured
     // In production, you would send this via email using Resend, SendGrid, etc.
-    console.log(`[PIN Recovery] OTP for ${userEmail}: ${otp}`)
+    console.debug(`[PIN Recovery] OTP for ${userEmail}: ${otp}`)
 
     // Return success with tenantUserId for the next step
     return NextResponse.json({

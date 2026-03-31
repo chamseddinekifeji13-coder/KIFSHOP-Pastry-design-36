@@ -387,7 +387,7 @@ export async function fetchClosureHistory(
 }
 
 export async function createTransaction(tenantId: string, data: {
-  type: "income" | "expense"; amount: number; category: string;
+  type: "income" | "expense" | "entree"; amount: number; category: string;
   paymentMethod?: string; reference?: string; description?: string; orderId?: string
 }): Promise<Transaction | null> {
   const supabase = createClient()
@@ -438,8 +438,8 @@ export async function createTransaction(tenantId: string, data: {
       createdBy: row.created_by_name || row.created_by,
       createdAt: row.created_at
     }
-  } catch (err: Error) {
-    console.error("[v0] Exception in createTransaction:", err.message)
+  } catch (err: unknown) {
+    console.error("[v0] Exception in createTransaction:", err instanceof Error ? err.message : err)
     throw err
   }
 }

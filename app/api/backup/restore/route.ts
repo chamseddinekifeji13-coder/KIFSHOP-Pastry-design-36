@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { withRole } from "@/lib/api-helpers"
+import { rateLimit, getClientIP } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -8,7 +10,7 @@ const RESTORE_ORDER = [
   "categories",
   "storage_locations",
   "finished_products",
-  "raw_materials", 
+  "raw_materials",
   "consumables",
   "clients",
   "orders",
@@ -30,23 +32,33 @@ interface BackupData {
 }
 
 export async function POST(request: Request) {
+  const [session, authError] = await withRole('owner', 'gerant')
+  if (authError) return authError
+
+  const ip = getClientIP(request)
+  const { limited } = rateLimit(`backup-restore:${ip}`, 3, 60000)
+  if (limited) {
+    return NextResponse.json({ error: "Trop de requêtes. Réessayez dans une minute." }, { status: 429 })
+  }
+
   try {
     const body = await request.json()
-    const { backup, options } = body as { 
+    const { backup, options } = body as {
       backup: BackupData
-      options?: { 
+      options?: {
         tables?: string[]
-        mode?: "merge" | "replace" 
+        mode?: "merge" | "replace"
       }
     }
 
-    if (!backup || !backup.data || !backup.tenantId) {
+    if (!backup || !backup.data) {
       return NextResponse.json(
         { error: "Fichier de sauvegarde invalide" },
         { status: 400 }
       )
     }
 
+    const tenantId = session!.tenantId
     const supabase = await createClient()
     const tablesToRestore = options?.tables || RESTORE_ORDER.filter(t => backup.tables.includes(t))
     const mode = options?.mode || "merge"
@@ -68,7 +80,7 @@ export async function POST(request: Request) {
         const { error: deleteError } = await supabase
           .from(table)
           .delete()
-          .eq("tenant_id", backup.tenantId)
+          .eq("tenant_id", tenantId)
 
         if (deleteError) {
           errors.push(`Erreur suppression: ${deleteError.message}`)

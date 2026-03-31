@@ -45,8 +45,8 @@ export async function notifyStockCritical(
       })
 
     // TODO: Envoyer une notification push/email ici
-  } catch (err: Error) {
-    console.error("Error creating stock alert notification:", err.message)
+  } catch (err: unknown) {
+    console.error("Error creating stock alert notification:", err instanceof Error ? err.message : err)
   }
 }
 
@@ -79,8 +79,8 @@ export async function notifyBonApprovCreated(
         action_url: `/approvisionnement?tab=draft&id=${bonId}`,
         status: "unread",
       })
-  } catch (err: Error) {
-    console.error("Error creating bon created notification:", err.message)
+  } catch (err: unknown) {
+    console.error("Error creating bon created notification:", err instanceof Error ? err.message : err)
   }
 }
 
@@ -109,8 +109,8 @@ export async function notifyBonApprovValidated(
     }))
 
     await supabase.from("workflow_notifications").insert(notifications)
-  } catch (err: Error) {
-    console.error("Error creating bon validated notification:", err.message)
+  } catch (err: unknown) {
+    console.error("Error creating bon validated notification:", err instanceof Error ? err.message : err)
   }
 }
 
@@ -141,8 +141,8 @@ export async function notifyPurchaseOrdersCreated(
         action_url: `/achats/commandes?bon=${bonId}`,
         status: "unread",
       })
-  } catch (err: Error) {
-    console.error("Error creating purchase order notification:", err.message)
+  } catch (err: unknown) {
+    console.error("Error creating purchase order notification:", err instanceof Error ? err.message : err)
   }
 }
 
@@ -170,23 +170,26 @@ export async function fetchUnreadNotifications(
       return []
     }
 
-    return (data || []).map((n: unknown) => ({
-      id: n.id,
-      userId: n.user_id,
-      tenantId: n.tenant_id,
-      type: n.type,
-      title: n.title,
-      message: n.message,
-      entityType: n.entity_type,
-      entityId: n.entity_id,
-      relatedEntityId: n.related_entity_id,
-      status: n.status,
-      actionUrl: n.action_url,
-      createdAt: n.created_at,
-      readAt: n.read_at,
-    }))
-  } catch (err: Error) {
-    console.error("Error in fetchUnreadNotifications:", err.message)
+    return (data || []).map((n) => {
+      const rec = n as Record<string, unknown>
+      return {
+        id: rec.id as string,
+        userId: rec.user_id as string,
+        tenantId: rec.tenant_id as string,
+        type: rec.type as Notification['type'],
+        title: rec.title as string,
+        message: rec.message as string,
+        entityType: rec.entity_type as string,
+        entityId: rec.entity_id as string,
+        relatedEntityId: rec.related_entity_id as string | undefined,
+        status: rec.status as Notification['status'],
+        actionUrl: rec.action_url as string | undefined,
+        createdAt: rec.created_at as string,
+        readAt: rec.read_at as string | undefined,
+      }
+    })
+  } catch (err: unknown) {
+    console.error("Error in fetchUnreadNotifications:", err instanceof Error ? err.message : err)
     return []
   }
 }
@@ -212,8 +215,8 @@ export async function markNotificationAsRead(notificationId: string): Promise<bo
     }
 
     return true
-  } catch (err: Error) {
-    console.error("Error in markNotificationAsRead:", err.message)
+  } catch (err: unknown) {
+    console.error("Error in markNotificationAsRead:", err instanceof Error ? err.message : err)
     return false
   }
 }
@@ -238,8 +241,8 @@ export async function archiveNotification(notificationId: string): Promise<boole
     }
 
     return true
-  } catch (err: Error) {
-    console.error("Error in archiveNotification:", err.message)
+  } catch (err: unknown) {
+    console.error("Error in archiveNotification:", err instanceof Error ? err.message : err)
     return false
   }
 }

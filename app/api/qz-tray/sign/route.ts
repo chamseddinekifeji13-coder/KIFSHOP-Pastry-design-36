@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // For demo mode, return empty signature (QZ Tray accepts this for localhost)
     // In production, you would sign with a real certificate
     if (!process.env.QZ_PRIVATE_KEY) {
-      console.log('[QZ Sign] Demo mode - returning empty signature')
+      console.debug('[QZ Sign] Demo mode - returning empty signature')
       return NextResponse.json({ signature: '' })
     }
 
