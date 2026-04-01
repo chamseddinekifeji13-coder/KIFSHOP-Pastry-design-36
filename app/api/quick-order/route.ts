@@ -40,6 +40,8 @@ export async function POST(request: Request) {
       source, deliveryType, courier, gouvernorat, delegation, shippingCost, deliveryDate, address, truecallerVerified,
       // Offer fields
       orderType, offerBeneficiary, offerReason, discountPercent,
+      // Structured items for order_items table
+      items: structuredItems,
     } = body
 
     // For offers, amount can be 0 if discount is 100%
@@ -103,6 +105,21 @@ export async function POST(request: Request) {
     const discount = isOffer && discountPercent ? (amount * (discountPercent / 100)) : 0
     const finalTotal = isOffer ? amount - discount : amount
 
+    // Get next order number atomically
+    let orderNumber: number | null = null
+    let orderNumberDisplay: string | null = null
+    try {
+      const { data: counterData } = await supabase.rpc("get_next_order_number", {
+        p_tenant_id: session.tenantId,
+      })
+      if (counterData && counterData.length > 0) {
+        orderNumber = counterData[0].next_number
+        orderNumberDisplay = counterData[0].display_text
+      }
+    } catch (e) {
+      console.debug("Order numbering not available yet:", e)
+    }
+
     // Prepare base order data (without client_id - orders table doesn't have it)
     const baseOrderData = {
       tenant_id: session.tenantId,
@@ -121,6 +138,7 @@ export async function POST(request: Request) {
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
       confirmed_by_name: session.displayName,
       truecaller_verified: truecallerVerified || false,
+      ...(orderNumber ? { order_number: orderNumber, order_number_display: orderNumberDisplay } : {}),
     }
 
     // Add offer fields if they exist in the table
@@ -158,7 +176,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Erreur creation commande: " + orderError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, order })
+    // Insert structured order_items if provided
+    if (order && Array.isArray(structuredItems) && structuredItems.length > 0) {
+      const itemRows = structuredItems.map((item: any) => ({
+        order_id: order.id,
+        finished_product_id: item.productId || null,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+      }))
+
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .insert(itemRows)
+
+      if (itemsError) {
+        console.error("Error creating order items:", itemsError.message)
+        // Non-blocking: order was already created, items in notes as fallback
+      }
+
+      // Also store items as JSON array in the order's items column for packer view
+      const itemsJson = structuredItems.map((item: any) => ({
+        id: item.productId || "",
+        productId: item.productId || "",
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }))
+
+      await supabase
+        .from("orders")
+        .update({ items: itemsJson })
+        .eq("id", order.id)
+    }
+
+    return NextResponse.json({ success: true, order, orderId: order?.id })
   } catch (error) {
     return serverErrorResponse(error)
   }

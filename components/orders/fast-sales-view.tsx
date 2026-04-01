@@ -286,6 +286,7 @@ export function FastSalesView() {
           delegation: deliveryType === "delivery" ? delegation : undefined,
           shippingCost: shipping,
           address: deliveryType === "delivery" ? address.trim() : undefined,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
         }),
       })
 

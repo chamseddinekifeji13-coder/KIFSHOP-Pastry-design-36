@@ -33,7 +33,7 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
-  exportOrdersToCSV,
+  exportOrdersToCSV, resetOrderCounter, getOrderCounter,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -63,6 +63,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   pret: { label: "Pret", color: "bg-primary" },
   "en-livraison": { label: "En livraison", color: "bg-orange-500" },
   livre: { label: "Livre / Vendu", color: "bg-muted" },
+  annule: { label: "Annule", color: "bg-destructive" },
 }
 
 const courierNames: Record<string, string> = {
@@ -121,7 +122,7 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
 }
 
 export function OrdersView() {
-  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
   const { t } = useI18n()
   const searchParams = useSearchParams()
 
@@ -172,13 +173,17 @@ export function OrdersView() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
 
+  // Order counter reset
+  const [resetCounterDialogOpen, setResetCounterDialogOpen] = useState(false)
+  const [resettingCounter, setResettingCounter] = useState(false)
+
   const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
   // SWR fetcher for orders
   const { data: orders = [], mutate, isLoading } = useSWR(
     isDemoTenant ? null : ["orders", currentTenant.id],
     () => fetchOrders(currentTenant.id),
-    { revalidateOnFocus: false }
+    { refreshInterval: 30000, revalidateOnFocus: true }
   )
 
   // SWR for all returns
@@ -259,6 +264,21 @@ export function OrdersView() {
     setViewMode(newMode)
     localStorage.setItem("orders-view-mode", newMode)
   }, [viewMode])
+
+  // Reset order counter
+  const handleResetCounter = useCallback(async () => {
+    setResettingCounter(true)
+    const ok = await resetOrderCounter(currentTenant.id)
+    if (ok) {
+      toast.success("Compteur remis a zero", {
+        description: "Le prochain numero de commande sera CMD-001",
+      })
+      setResetCounterDialogOpen(false)
+    } else {
+      toast.error("Erreur lors de la remise a zero du compteur")
+    }
+    setResettingCounter(false)
+  }, [currentTenant.id])
 
   // Fast sales mode - rendered but hidden when not active (avoids React #300 hook order issues)
   // The early return was causing hooks to be called conditionally which violates React rules
@@ -616,7 +636,14 @@ export function OrdersView() {
               <SourceIcon className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-sm">{order.customerName}</span>
             </div>
-            {getPaymentBadge(order.paymentStatus)}
+            <div className="flex items-center gap-1.5">
+              {order.orderNumberDisplay && (
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {order.orderNumberDisplay}
+                </Badge>
+              )}
+              {getPaymentBadge(order.paymentStatus)}
+            </div>
           </div>
 
           <div className="space-y-1 text-sm text-muted-foreground">
@@ -706,7 +733,15 @@ export function OrdersView() {
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
           </Button>
-          
+          {(currentUser.role === "gerant" || currentUser.role === "owner") && (
+            <Button
+              variant="outline"
+              onClick={() => setResetCounterDialogOpen(true)}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Reinitialiser compteur</span>
+            </Button>
+          )}
           <Button onClick={() => setNewOrderOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             {t("orders.new_order")}
@@ -799,7 +834,12 @@ export function OrdersView() {
                       <div className="flex items-center gap-3">
                         <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
                         <div>
-                          <p className="font-medium text-sm">{order.customerName}</p>
+                          <div className="flex items-center gap-2">
+                            {order.orderNumberDisplay && (
+                              <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                            )}
+                            <p className="font-medium text-sm">{order.customerName}</p>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
                           </p>
@@ -1251,7 +1291,11 @@ export function OrdersView() {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  Commande
+                  {selectedOrder.orderNumberDisplay ? (
+                    <span className="font-mono">{selectedOrder.orderNumberDisplay}</span>
+                  ) : (
+                    "Commande"
+                  )}
                   <Badge variant="outline" className={`${statusConfig[selectedOrder.status]?.color} text-white text-[10px]`}>
                     {statusConfig[selectedOrder.status]?.label}
                   </Badge>
@@ -2132,6 +2176,39 @@ export function OrdersView() {
 
         {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
         <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+
+        {/* Reset Counter Confirmation Dialog */}
+        <Dialog open={resetCounterDialogOpen} onOpenChange={setResetCounterDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reinitialiser le compteur de commandes</DialogTitle>
+              <DialogDescription>
+                Cette action remet le compteur a zero. La prochaine commande sera numerotee CMD-001. Les commandes existantes conservent leurs numeros.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setResetCounterDialogOpen(false)}
+                disabled={resettingCounter}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleResetCounter}
+                disabled={resettingCounter}
+              >
+                {resettingCounter ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                Confirmer la remise a zero
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   )

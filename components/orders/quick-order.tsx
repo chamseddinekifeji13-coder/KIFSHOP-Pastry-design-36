@@ -365,6 +365,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
           deliveryDate: deliveryDate || undefined,
           address: deliveryType === "delivery" ? clientAddress.trim() : undefined,
           truecallerVerified,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
         }),
       })
 
