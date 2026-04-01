@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react"
 import {
-  Megaphone, Send, Users, Star, AlertTriangle, Filter,
-  MessageCircle, Phone, CheckCircle2, Loader2, Copy, X,
-  Hash, TrendingUp, ChevronDown, Ban, User, Truck, Calendar,
+  Megaphone, Send, Users, Star, Filter,
+  MessageCircle, Phone, CheckCircle2, Loader2, Copy,
+  User, Truck, Calendar,
   Bell, Package,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,10 +17,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader,
-  DialogTitle, DialogFooter,
-} from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import { useClients, useOrders } from "@/hooks/use-tenant-data"
 import { type Client } from "@/lib/clients/actions"
@@ -37,6 +33,16 @@ const statusFilter: Record<string, { label: string; color: string }> = {
   warning: { label: "Attention", color: "bg-amber-100 text-amber-700" },
 }
 
+// Status display labels for orders
+const orderStatusLabels: Record<string, string> = {
+  "nouveau": "Nouveau",
+  "en-preparation": "En preparation",
+  "pret": "Pret",
+  "en-livraison": "En livraison",
+  "livre": "Livre",
+  "annule": "Annule",
+}
+
 export function CampaignsView() {
   const { data: clients = [], isLoading } = useClients()
   const { data: orders = [], isLoading: ordersLoading } = useOrders()
@@ -49,6 +55,7 @@ export function CampaignsView() {
   const [minSpent, setMinSpent] = useState<string>("")
   const [maxReturns, setMaxReturns] = useState<string>("")
   const [excludeBlacklisted, setExcludeBlacklisted] = useState(true)
+  const [includeOrderContacts, setIncludeOrderContacts] = useState(true)
 
   // Compose
   const [channel, setChannel] = useState<Channel>("whatsapp")
@@ -63,25 +70,63 @@ export function CampaignsView() {
   // Delivery notifications state
   const [deliveryChannel, setDeliveryChannel] = useState<Channel>("whatsapp")
   const [deliveryMessage, setDeliveryMessage] = useState(
-    "Bonjour {nom},\n\nVotre commande est prevue pour livraison aujourd'hui.\n\nAdresse: {adresse}\nMontant: {montant} TND\n\nMerci de votre confiance!\nKIFSHOP"
+    "Bonjour {nom},\n\nVotre commande #{numero} est prevue pour livraison aujourd'hui.\n\nAdresse: {adresse}\nMontant: {montant} TND\n\nMerci de votre confiance!\nKIFSHOP"
   )
   const [sendingDelivery, setSendingDelivery] = useState(false)
   const [deliverySent, setDeliverySent] = useState(false)
   const [selectedDeliveryOrders, setSelectedDeliveryOrders] = useState<string[]>([])
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState<string>("all")
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split("T")[0]
+  // Get today's date in local timezone YYYY-MM-DD format (fixes UTC vs local mismatch)
+  const today = useMemo(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const day = String(now.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
+  }, [])
 
-  // Filter orders with delivery date today and status "en-livraison" or "pret"
+  // Derive contacts from orders that aren't in clients table
+  const orderDerivedContacts = useMemo(() => {
+    if (!includeOrderContacts) return []
+    const clientPhones = new Set(clients.map(c => c.phone).filter(Boolean))
+    const contactMap = new Map<string, { name: string; phone: string; orderCount: number; totalSpent: number }>()
+
+    for (const order of orders) {
+      if (!order.customerPhone) continue
+      const phone = order.customerPhone.trim()
+      if (clientPhones.has(phone)) continue
+
+      const existing = contactMap.get(phone)
+      if (existing) {
+        existing.orderCount++
+        existing.totalSpent += (order.total ?? 0)
+        if (!existing.name && order.customerName) {
+          existing.name = order.customerName
+        }
+      } else {
+        contactMap.set(phone, {
+          name: order.customerName || "",
+          phone,
+          orderCount: 1,
+          totalSpent: order.total ?? 0,
+        })
+      }
+    }
+
+    return Array.from(contactMap.values())
+  }, [orders, clients, includeOrderContacts])
+
+  // Filter orders with delivery date today - include more statuses for better visibility
   const todayDeliveryOrders = useMemo(() => {
     return orders.filter((order) => {
-      // Check if delivery date is today
       const orderDeliveryDate = order.deliveryDate?.split("T")[0]
-      // Only include confirmed orders (en-livraison or pret status)
-      const isConfirmed = order.status === "en-livraison" || order.status === "pret"
-      return orderDeliveryDate === today && isConfirmed && order.deliveryType === "delivery"
+      // Include en-preparation, pret, and en-livraison statuses for today's deliveries
+      const isRelevant = order.status === "en-livraison" || order.status === "pret" || order.status === "en-preparation"
+      const matchesStatusFilter = deliveryStatusFilter === "all" || order.status === deliveryStatusFilter
+      return orderDeliveryDate === today && isRelevant && order.deliveryType === "delivery" && matchesStatusFilter
     })
-  }, [orders, today])
+  }, [orders, today, deliveryStatusFilter])
 
   // Get selected orders for notification
   const ordersToNotify = useMemo(() => {
@@ -91,12 +136,21 @@ export function CampaignsView() {
 
   // Process delivery message with order variables
   const processedDeliveryMessage = (order: Order) => {
+    const address = order.customerAddress || order.deliveryAddress || ""
+    const fullAddress = [
+      address,
+      order.delegation,
+      order.gouvernorat,
+    ].filter(Boolean).join(", ") || "Non specifiee"
+
     return deliveryMessage
       .replace(/\{nom\}/g, order.customerName || "Cher(e) client(e)")
       .replace(/\{telephone\}/g, order.customerPhone || "")
-      .replace(/\{adresse\}/g, order.customerAddress || order.deliveryAddress || "Non specifiee")
+      .replace(/\{adresse\}/g, fullAddress)
       .replace(/\{montant\}/g, (order.total ?? 0).toFixed(0))
-      .replace(/\{statut\}/g, order.status === "en-livraison" ? "En livraison" : "Pret")
+      .replace(/\{statut\}/g, orderStatusLabels[order.status] || order.status)
+      .replace(/\{numero\}/g, order.orderNumberDisplay || order.id.substring(0, 8))
+      .replace(/\{coursier\}/g, order.courier || "Non assigne")
   }
 
   const handleToggleDeliveryOrder = (orderId: string) => {
@@ -117,8 +171,12 @@ export function CampaignsView() {
 
   const handleCopyDeliveryNumbers = () => {
     const numbers = ordersToNotify.map((o) => o.customerPhone).filter(Boolean).join("\n")
+    if (!numbers) {
+      toast.error("Aucun numero de telephone disponible")
+      return
+    }
     navigator.clipboard.writeText(numbers)
-    toast.success(`${ordersToNotify.length} numeros copies dans le presse-papiers`)
+    toast.success(`${ordersToNotify.filter(o => o.customerPhone).length} numeros copies dans le presse-papiers`)
   }
 
   const handleCopyDeliveryMessage = () => {
@@ -127,12 +185,19 @@ export function CampaignsView() {
   }
 
   const handleSendDeliveryNotifications = async () => {
+    if (ordersToNotify.length === 0) return
+    const ordersWithoutPhone = ordersToNotify.filter(o => !o.customerPhone)
+    if (ordersWithoutPhone.length > 0) {
+      toast.warning(`${ordersWithoutPhone.length} commande(s) sans numero de telephone seront ignorees`)
+    }
+
     setSendingDelivery(true)
     try {
       // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
       await new Promise((r) => setTimeout(r, 2000))
       setDeliverySent(true)
-      toast.success(`Notifications envoyees a ${ordersToNotify.length} clients via ${deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}`)
+      const notifiedCount = ordersToNotify.filter(o => o.customerPhone).length
+      toast.success(`Notifications envoyees a ${notifiedCount} clients via ${deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}`)
     } catch (err) {
       console.error("Erreur envoi notifications livraison:", err)
       toast.error(err instanceof Error ? err.message : "Erreur lors de l'envoi des notifications")
@@ -141,17 +206,42 @@ export function CampaignsView() {
     }
   }
 
-  // Filter audience
+  // Filter audience - combine clients and order-derived contacts
   const audience = useMemo(() => {
-    return clients.filter((c) => {
+    const filteredClients = clients.filter((c) => {
       if (excludeBlacklisted && c.status === "blacklisted") return false
       if (targetStatus !== "all" && c.status !== targetStatus) return false
       if (minOrders && c.totalOrders < parseInt(minOrders)) return false
       if (minSpent && c.totalSpent < parseFloat(minSpent)) return false
       if (maxReturns && c.returnCount > parseInt(maxReturns)) return false
+      if (!c.phone) return false
       return true
     })
-  }, [clients, targetStatus, minOrders, minSpent, maxReturns, excludeBlacklisted])
+
+    // Add order-derived contacts that match filters
+    const orderContacts = orderDerivedContacts
+      .filter((c) => {
+        if (targetStatus !== "all") return false // Can't filter by status for order-derived contacts
+        if (minOrders && c.orderCount < parseInt(minOrders)) return false
+        if (minSpent && c.totalSpent < parseFloat(minSpent)) return false
+        return true
+      })
+      .map((c) => ({
+        id: `order-contact-${c.phone}`,
+        tenantId: "",
+        phone: c.phone,
+        name: c.name || null,
+        status: "normal" as const,
+        returnCount: 0,
+        totalOrders: c.orderCount,
+        totalSpent: c.totalSpent,
+        notes: null,
+        createdAt: "",
+        updatedAt: "",
+      }))
+
+    return [...filteredClients, ...orderContacts]
+  }, [clients, orderDerivedContacts, targetStatus, minOrders, minSpent, maxReturns, excludeBlacklisted])
 
   // Template variables
   const processedMessage = (client: Client) => {
@@ -163,9 +253,13 @@ export function CampaignsView() {
   }
 
   const handleCopyNumbers = () => {
-    const numbers = audience.map((c) => c.phone).join("\n")
+    const numbers = audience.map((c) => c.phone).filter(Boolean).join("\n")
+    if (!numbers) {
+      toast.error("Aucun numero de telephone disponible")
+      return
+    }
     navigator.clipboard.writeText(numbers)
-    toast.success(`${audience.length} numeros copies dans le presse-papiers`)
+    toast.success(`${audience.filter(c => c.phone).length} numeros copies dans le presse-papiers`)
   }
 
   const handleCopyMessage = () => {
@@ -196,6 +290,17 @@ export function CampaignsView() {
     )
   }
 
+  // Stats synced from orders
+  const totalOrdersToday = orders.filter(o => {
+    const created = o.createdAt?.split("T")[0]
+    return created === today
+  }).length
+  const pendingDeliveries = orders.filter(o =>
+    o.deliveryType === "delivery" &&
+    o.deliveryDate?.split("T")[0] === today &&
+    (o.status === "en-preparation" || o.status === "pret" || o.status === "en-livraison")
+  ).length
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -205,6 +310,17 @@ export function CampaignsView() {
           <p className="text-muted-foreground">
             Creez des campagnes et envoyez des notifications de livraison
           </p>
+        </div>
+        {/* Quick sync stats from orders */}
+        <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted">
+            <Package className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">{totalOrdersToday} cmd aujourd'hui</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-50 text-orange-700">
+            <Truck className="h-3.5 w-3.5" />
+            <span>{pendingDeliveries} livraisons en attente</span>
+          </div>
         </div>
       </div>
 
@@ -313,15 +429,32 @@ export function CampaignsView() {
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="exclude-blacklisted"
-                    checked={excludeBlacklisted}
-                    onCheckedChange={(v) => setExcludeBlacklisted(v === true)}
-                  />
-                  <label htmlFor="exclude-blacklisted" className="text-sm">
-                    Exclure les clients blacklistes
-                  </label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="exclude-blacklisted"
+                      checked={excludeBlacklisted}
+                      onCheckedChange={(v) => setExcludeBlacklisted(v === true)}
+                    />
+                    <label htmlFor="exclude-blacklisted" className="text-sm">
+                      Exclure les clients blacklistes
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="include-order-contacts"
+                      checked={includeOrderContacts}
+                      onCheckedChange={(v) => setIncludeOrderContacts(v === true)}
+                    />
+                    <label htmlFor="include-order-contacts" className="text-sm">
+                      Inclure les contacts des commandes (non-inscrits)
+                    </label>
+                    {orderDerivedContacts.length > 0 && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5">
+                        +{orderDerivedContacts.length}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -355,8 +488,16 @@ export function CampaignsView() {
                           }`}>
                             {c.status}
                           </Badge>
+                          {c.id.startsWith("order-contact-") && (
+                            <Badge variant="outline" className="text-[10px] px-1 py-0">
+                              via commande
+                            </Badge>
+                          )}
                         </div>
-                        <span className="text-xs text-muted-foreground">{c.phone}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground">{c.totalOrders} cmd</span>
+                          <span className="text-xs text-muted-foreground">{c.phone}</span>
+                        </div>
                       </div>
                     ))}
                     {audience.length > 50 && (
@@ -391,11 +532,21 @@ export function CampaignsView() {
                     <span className="text-muted-foreground">Normal</span>
                     <span className="font-medium">{audience.filter(c => c.status === "normal").length}</span>
                   </div>
+                  {includeOrderContacts && orderDerivedContacts.length > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Via commandes</span>
+                      <span className="font-medium">{audience.filter(c => c.id.startsWith("order-contact-")).length}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Avec telephone</span>
+                    <span className="font-medium">{audience.filter(c => c.phone).length}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">CA moyen</span>
                     <span className="font-medium">
                       {audience.length > 0
-                        ? (audience.reduce((s, c) => s + c.totalSpent, 0) / audience.length).toFixed(0)
+                        ? (audience.reduce((s, c) => s + (c.totalSpent ?? 0), 0) / audience.length).toFixed(0)
                         : 0} TND
                     </span>
                   </div>
@@ -591,7 +742,7 @@ export function CampaignsView() {
                   </div>
                   <p className="text-xl font-bold">Notifications envoyees !</p>
                   <p className="text-muted-foreground mt-1">
-                    {ordersToNotify.length} clients ont ete avertis de leur livraison via {deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}
+                    {ordersToNotify.filter(o => o.customerPhone).length} clients ont ete avertis de leur livraison via {deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}
                   </p>
                   <Button className="mt-6" onClick={() => { setDeliverySent(false); setSelectedDeliveryOrders([]) }}>
                     Nouvelle notification
@@ -608,13 +759,26 @@ export function CampaignsView() {
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
-                        Livraisons prevues aujourd'hui
+                        Livraisons prevues aujourd'hui ({today})
                       </CardTitle>
-                      {todayDeliveryOrders.length > 0 && (
-                        <Button variant="outline" size="sm" onClick={handleSelectAllDeliveryOrders}>
-                          {selectedDeliveryOrders.length === todayDeliveryOrders.length ? "Deselectioner tout" : "Selectionner tout"}
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <Select value={deliveryStatusFilter} onValueChange={setDeliveryStatusFilter}>
+                          <SelectTrigger className="w-[160px] h-8 text-xs">
+                            <SelectValue placeholder="Filtrer par statut" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous les statuts</SelectItem>
+                            <SelectItem value="en-preparation">En preparation</SelectItem>
+                            <SelectItem value="pret">Pret</SelectItem>
+                            <SelectItem value="en-livraison">En livraison</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {todayDeliveryOrders.length > 0 && (
+                          <Button variant="outline" size="sm" onClick={handleSelectAllDeliveryOrders}>
+                            {selectedDeliveryOrders.length === todayDeliveryOrders.length ? "Deselectionner tout" : "Selectionner tout"}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -623,7 +787,7 @@ export function CampaignsView() {
                         <Package className="h-12 w-12 mx-auto text-muted-foreground/40 mb-3" />
                         <p className="text-sm text-muted-foreground">Aucune livraison confirmee pour aujourd'hui</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Les commandes avec statut "Pret" ou "En livraison" et une date de livraison aujourd'hui apparaitront ici
+                          Les commandes avec statut "En preparation", "Pret" ou "En livraison" et une date de livraison aujourd'hui apparaitront ici
                         </p>
                       </div>
                     ) : (
@@ -644,22 +808,47 @@ export function CampaignsView() {
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">{order.customerName}</span>
+                                <span className="font-medium text-sm">{order.customerName || "Sans nom"}</span>
+                                {order.orderNumberDisplay && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 font-mono">
+                                    {order.orderNumberDisplay}
+                                  </Badge>
+                                )}
                                 <Badge variant="secondary" className={`text-[10px] px-1.5 ${
-                                  order.status === "en-livraison" ? "bg-orange-100 text-orange-700" : "bg-primary/10 text-primary"
+                                  order.status === "en-livraison" ? "bg-orange-100 text-orange-700" :
+                                  order.status === "pret" ? "bg-primary/10 text-primary" :
+                                  "bg-amber-100 text-amber-700"
                                 }`}>
-                                  {order.status === "en-livraison" ? "En livraison" : "Pret"}
+                                  {orderStatusLabels[order.status] || order.status}
                                 </Badge>
+                                {!order.customerPhone && (
+                                  <Badge variant="destructive" className="text-[10px] px-1.5">
+                                    Pas de tel.
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-xs text-muted-foreground truncate">
-                                {order.customerPhone} - {order.customerAddress || "Adresse non specifiee"}
+                                {order.customerPhone || "Pas de telephone"} - {order.customerAddress || order.deliveryAddress || "Adresse non specifiee"}
+                                {order.gouvernorat && `, ${order.gouvernorat}`}
                               </p>
+                              {order.courier && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  Coursier: {order.courier}
+                                </p>
+                              )}
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold text-sm">{order.total.toFixed(0)} TND</p>
+                              <p className="font-semibold text-sm">{(order.total ?? 0).toFixed(0)} TND</p>
                               <p className="text-[10px] text-muted-foreground">
-                                {order.items.length} article{order.items.length > 1 ? "s" : ""}
+                                {order.items?.length || 0} article{(order.items?.length || 0) > 1 ? "s" : ""}
                               </p>
+                              <Badge variant="outline" className={`text-[9px] mt-0.5 ${
+                                order.paymentStatus === "paid" ? "text-emerald-600 border-emerald-200" :
+                                order.paymentStatus === "partial" ? "text-amber-600 border-amber-200" :
+                                "text-red-600 border-red-200"
+                              }`}>
+                                {order.paymentStatus === "paid" ? "Paye" : order.paymentStatus === "partial" ? "Partiel" : "Non paye"}
+                              </Badge>
                             </div>
                           </div>
                         ))}
@@ -700,7 +889,7 @@ export function CampaignsView() {
                         />
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           <p className="text-[10px] text-muted-foreground w-full mb-1">Variables disponibles :</p>
-                          {["{nom}", "{telephone}", "{adresse}", "{montant}", "{statut}"].map((v) => (
+                          {["{nom}", "{telephone}", "{adresse}", "{montant}", "{statut}", "{numero}", "{coursier}"].map((v) => (
                             <button
                               key={v}
                               onClick={() => setDeliveryMessage((m) => m + " " + v)}
@@ -729,7 +918,7 @@ export function CampaignsView() {
                         </p>
                         {ordersToNotify.length > 0 && (
                           <p className="text-[10px] text-muted-foreground mt-2">
-                            Apercu pour: {ordersToNotify[0].customerName}
+                            Apercu pour: {ordersToNotify[0].customerName || "Client"}
                           </p>
                         )}
                       </div>
@@ -752,17 +941,36 @@ export function CampaignsView() {
                     <Separator />
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">En livraison</span>
-                        <span className="font-medium">{ordersToNotify.filter(o => o.status === "en-livraison").length}</span>
+                        <span className="text-muted-foreground">En preparation</span>
+                        <span className="font-medium">{ordersToNotify.filter(o => o.status === "en-preparation").length}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Pret</span>
                         <span className="font-medium">{ordersToNotify.filter(o => o.status === "pret").length}</span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-muted-foreground">En livraison</span>
+                        <span className="font-medium">{ordersToNotify.filter(o => o.status === "en-livraison").length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Avec telephone</span>
+                        <span className="font-medium">{ordersToNotify.filter(o => o.customerPhone).length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Sans telephone</span>
+                        <span className="font-medium text-red-600">{ordersToNotify.filter(o => !o.customerPhone).length}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
                         <span className="text-muted-foreground">Total livraisons</span>
                         <span className="font-medium">
-                          {ordersToNotify.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")} TND
+                          {ordersToNotify.reduce((sum, o) => sum + (o.total ?? 0), 0).toLocaleString("fr-TN")} TND
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Non paye</span>
+                        <span className="font-medium text-red-600">
+                          {ordersToNotify.filter(o => o.paymentStatus === "unpaid").length}
                         </span>
                       </div>
                     </div>
@@ -789,14 +997,14 @@ export function CampaignsView() {
                       <Button
                         className="w-full"
                         onClick={handleSendDeliveryNotifications}
-                        disabled={ordersToNotify.length === 0 || sendingDelivery}
+                        disabled={ordersToNotify.filter(o => o.customerPhone).length === 0 || sendingDelivery}
                       >
                         {sendingDelivery ? (
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
                         ) : (
                           <Send className="h-4 w-4 mr-2" />
                         )}
-                        Envoyer notifications
+                        Envoyer notifications ({ordersToNotify.filter(o => o.customerPhone).length})
                       </Button>
                     </div>
                   </CardContent>
