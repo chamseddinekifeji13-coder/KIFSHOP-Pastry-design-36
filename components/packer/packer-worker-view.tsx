@@ -76,13 +76,15 @@ export function PackerWorkerView() {
   const emballeurName = currentUser.name
   const today = new Date().toISOString().slice(0, 10)
 
-  // Filter orders into tabs
+  // Filter orders into tabs using packed_by (not courier, which is for delivery)
   const toPackOrders = orders.filter(
-    (o: any) => o.status === "en-preparation" && (!o.courier || o.courier === "")
+    (o: any) =>
+      (o.status === "nouveau" || o.status === "en-preparation") &&
+      (!o.packed_by || o.packed_by === "")
   )
   const inProgressOrders = orders.filter(
     (o: any) =>
-      o.status === "en-preparation" && o.courier === emballeurName
+      o.status === "en-preparation" && o.packed_by === emballeurName
   )
   const completedOrders = orders.filter(
     (o: any) =>
