@@ -11,7 +11,7 @@ export async function fetchPackerOrders(tenantId: string) {
     .from("orders")
     .select("*")
     .eq("tenant_id", tenantId)
-    .in("status", ["en-preparation", "pret"])
+    .in("status", ["nouveau", "en-preparation", "pret"])
     .order("created_at", { ascending: true }) // FIFO — oldest first
 
   if (error) {
@@ -23,7 +23,7 @@ export async function fetchPackerOrders(tenantId: string) {
 }
 
 // ─── Take order — emballeur starts packing ─────────────────────
-// Sets courier field to emballeur name, records in status history
+// Sets packed_by field to emballeur name, transitions to en-preparation if needed
 
 export async function startPacking(
   orderId: string,
@@ -32,18 +32,32 @@ export async function startPacking(
 ): Promise<boolean> {
   const supabase = createClient()
 
-  // Mark who is packing (use courier field)
-  const { error: courierError } = await supabase
+  // Get current status to determine if we need a status transition
+  const { data: current } = await supabase
     .from("orders")
-    .update({ courier: emballeurName })
+    .select("status")
+    .eq("id", orderId)
+    .single()
+
+  const fromStatus = current?.status || "nouveau"
+  const toStatus = "en-preparation"
+
+  // Mark who is packing (packed_by) and ensure status is en-preparation
+  const { error: updateError } = await supabase
+    .from("orders")
+    .update({
+      packed_by: emballeurName,
+      status: toStatus,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", orderId)
 
-  if (courierError) {
-    console.error("Error assigning packer:", courierError.message)
+  if (updateError) {
+    console.error("Error assigning packer:", updateError.message)
     return false
   }
 
-  // Record in status history (status stays en-preparation, but we log the assignment)
+  // Record in status history
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -51,8 +65,8 @@ export async function startPacking(
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
-    from_status: "en-preparation",
-    to_status: "en-preparation",
+    from_status: fromStatus,
+    to_status: toStatus,
     changed_by: user?.id || null,
     changed_by_name: emballeurName,
     note: `Prise en charge par ${emballeurName}`,
@@ -112,11 +126,20 @@ export async function reportPackingIssue(
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Get current status for history
+  const { data: current } = await supabase
+    .from("orders")
+    .select("status")
+    .eq("id", orderId)
+    .single()
+
+  const currentStatus = current?.status || "en-preparation"
+
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
-    from_status: "en-preparation",
-    to_status: "en-preparation",
+    from_status: currentStatus,
+    to_status: currentStatus,
     changed_by: user?.id || null,
     changed_by_name: emballeurName,
     note: `Problème: ${issue}`,
