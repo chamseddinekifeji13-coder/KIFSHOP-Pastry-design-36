@@ -1,6 +1,4 @@
-"use server"
-
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/client"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -100,7 +98,7 @@ export const refundMethodLabels: Record<RefundMethod, string> = {
 // ─── Fetch Returns ────────────────────────────────────────────
 
 export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   // 1. Fetch from order_returns table
   const { data, error } = await supabase
@@ -196,7 +194,7 @@ export async function fetchReturns(tenantId: string): Promise<OrderReturn[]> {
 // ─── Get Returns for a specific order ─────────────────────────
 
 export async function getOrderReturns(orderId: string): Promise<OrderReturn[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("order_returns")
@@ -249,7 +247,7 @@ export async function getOrderReturns(orderId: string): Promise<OrderReturn[]> {
 // ─── Create Return ────────────────────────────────────────────
 
 export async function createReturn(data: CreateReturnData): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Get order details
@@ -345,7 +343,7 @@ export async function processReturn(
   tenantId: string,
   action: "approved" | "rejected" | "completed"
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Get the return
@@ -426,7 +424,7 @@ export async function processReturn(
 // ─── Customer Credits ─────────────────────────────────────────
 
 export async function fetchCustomerCredits(tenantId: string): Promise<CustomerCredit[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("customer_credits")
@@ -460,7 +458,7 @@ export async function useCredit(
   creditId: string,
   amountToUse: number
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data: credit } = await supabase
     .from("customer_credits")

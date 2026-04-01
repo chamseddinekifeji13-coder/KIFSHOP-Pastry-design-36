@@ -1,6 +1,4 @@
-"use server"
-
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/client"
 
 export interface DeliveryCompany {
   id: string
@@ -19,7 +17,7 @@ export interface DeliveryCompany {
 
 // ─── Fetch Delivery Companies ────────────────────────────────────────────
 export async function fetchDeliveryCompanies(tenantId: string): Promise<DeliveryCompany[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("delivery_companies")
@@ -57,7 +55,7 @@ export async function fetchDeliveryCompanies(tenantId: string): Promise<Delivery
 
 // ─── Fetch Active Delivery Companies (for dropdowns) ────────────────────────
 export async function fetchActiveDeliveryCompanies(tenantId: string): Promise<{ id: string; name: string }[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("delivery_companies")
@@ -85,7 +83,7 @@ export async function createDeliveryCompany(
     notes?: string | null
   }
 ): Promise<DeliveryCompany | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data: row, error } = await supabase
     .from("delivery_companies")
@@ -133,7 +131,7 @@ export async function updateDeliveryCompany(
     isActive?: boolean
   }
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -162,7 +160,7 @@ export async function updateDeliveryCompany(
 
 // ─── Delete Delivery Company ────────────────────────────────────────────
 export async function deleteDeliveryCompany(companyId: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   // Check if this company is used in any orders
   const { data: orders } = await supabase
@@ -213,7 +211,7 @@ export async function setDefaultDeliveryCompany(
   tenantId: string,
   shippingCost: number = 0
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   // First, unset all others as default for this tenant
   await supabase
@@ -245,7 +243,7 @@ export async function setDefaultDeliveryCompany(
 
 // ─── Fetch Default Delivery Company ────────────────────────────────────────────
 export async function fetchDefaultDeliveryCompany(tenantId: string): Promise<{ id: string; name: string; shippingCost: number } | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("delivery_companies")
