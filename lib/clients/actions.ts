@@ -63,12 +63,31 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     .order("created_at", { ascending: false })
 
   if (error) { console.error("Error fetching clients:", error); return [] }
-  
-  // Enrich each client with Best Delivery stats
+
+  // Fetch all orders for this tenant in a single query (for stats enrichment)
+  const { data: allOrders } = await supabase
+    .from("orders")
+    .select("customer_phone, total, status")
+    .eq("tenant_id", tenantId)
+
+  // Build a map of phone -> order stats from the orders table
+  const orderStatsMap = new Map<string, { count: number; total: number }>()
+  if (allOrders) {
+    for (const o of allOrders) {
+      const phone = (o.customer_phone || "").trim()
+      if (!phone) continue
+      const existing = orderStatsMap.get(phone) || { count: 0, total: 0 }
+      existing.count++
+      existing.total += Number(o.total) || 0
+      orderStatsMap.set(phone, existing)
+    }
+  }
+
+  // Enrich each client with Best Delivery stats + orders table stats
   const enrichedClients = await Promise.all(
     (data || []).map(async (clientRow) => {
       const client = mapClient(clientRow)
-      
+
       // Fetch Best Delivery shipments for this client
       const { data: shipments } = await supabase
         .from("best_delivery_shipments")
@@ -86,7 +105,7 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
           const status = (shipment.status || "").toLowerCase()
           const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
           const isReturned = status === "returned" || status === "retour"
-          
+
           if (isDelivered) {
             bdCount++
             bdTotal += Number(shipment.cod_amount) || 0
@@ -96,17 +115,19 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
         })
       }
 
-      // During startup, use Best Delivery as source of truth
-      // Override client.totalOrders and client.totalSpent with Best Delivery data
+      // Combine stats: Best Delivery + orders table
+      // Use orders table stats as well so campaigns audience filtering works correctly
+      const orderStats = orderStatsMap.get(client.phone) || { count: 0, total: 0 }
+
       return {
         ...client,
-        totalOrders: bdCount,
-        totalSpent: bdTotal,
+        totalOrders: bdCount + orderStats.count,
+        totalSpent: bdTotal + orderStats.total,
         returnCount: bdReturned,
       }
     })
   )
-  
+
   return enrichedClients
 }
 
@@ -121,9 +142,9 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
     .single()
 
   if (error || !data) return null
-  
+
   const client = mapClient(data)
-  
+
   // Fetch Best Delivery shipments for this client
   const { data: shipments } = await supabase
     .from("best_delivery_shipments")
@@ -141,7 +162,7 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
       const status = (shipment.status || "").toLowerCase()
       const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
       const isReturned = status === "returned" || status === "retour"
-      
+
       if (isDelivered) {
         bdCount++
         bdTotal += Number(shipment.cod_amount) || 0
@@ -151,11 +172,21 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
     })
   }
 
-  // During startup, use Best Delivery as source of truth
+  // Fetch order stats from orders table
+  const { data: orderData } = await supabase
+    .from("orders")
+    .select("total")
+    .eq("tenant_id", client.tenantId)
+    .eq("customer_phone", client.phone)
+
+  const orderCount = orderData?.length || 0
+  const orderTotal = (orderData || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0)
+
+  // Combine Best Delivery + orders table stats
   return {
     ...client,
-    totalOrders: bdCount,
-    totalSpent: bdTotal,
+    totalOrders: bdCount + orderCount,
+    totalSpent: bdTotal + orderTotal,
     returnCount: bdReturned,
   }
 }

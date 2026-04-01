@@ -1,28 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import useSWR from 'swr'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Bell, AlertCircle, CheckCircle, Package, Trash2 } from 'lucide-react'
-import { markNotificationAsRead, archiveNotification } from '@/lib/workflow/notifications'
-
-interface Notification {
-  id: string
-  type: 'stock_alert' | 'bon_created' | 'bon_validated' | 'bon_sent' | 'po_ready' | 'delivery_expected'
-  title: string
-  message: string
-  status: 'unread' | 'read' | 'archived'
-  actionUrl?: string
-  createdAt: string
-}
+import {
+  fetchUnreadNotifications,
+  markNotificationAsRead,
+  archiveNotification,
+  type Notification,
+} from '@/lib/workflow/notifications'
 
 interface NotificationBellProps {
   userId: string
@@ -32,17 +25,17 @@ interface NotificationBellProps {
 export function NotificationBell({ userId, tenantId }: NotificationBellProps) {
   const [open, setOpen] = useState(false)
 
-  const { data: notificationsData, mutate } = useSWR(
-    open ? `/api/notifications?userId=${userId}&tenantId=${tenantId}` : null,
-    async (url) => {
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to fetch notifications')
-      return res.json()
-    },
-    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  // Use browser Supabase client directly instead of fetch API (which fails auth)
+  const { data: notifications = [], mutate } = useSWR<Notification[]>(
+    userId && tenantId ? `workflow-notifications-${userId}-${tenantId}` : null,
+    () => fetchUnreadNotifications(userId, tenantId),
+    {
+      revalidateOnFocus: true,
+      dedupingInterval: 10000,
+      refreshInterval: 15000,
+    }
   )
 
-  const notifications: Notification[] = notificationsData?.notifications || []
   const unreadCount = notifications.filter(n => n.status === 'unread').length
 
   const handleMarkAsRead = async (notificationId: string, e: React.MouseEvent) => {
