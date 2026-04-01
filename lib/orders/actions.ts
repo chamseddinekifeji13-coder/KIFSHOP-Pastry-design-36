@@ -40,6 +40,9 @@ export interface Order {
   offerReason?: string
   discountPercent?: number
   discountAmount?: number
+  // Order numbering
+  orderNumber?: number
+  orderNumberDisplay?: string
 }
 
 export interface StatusHistoryEntry {
@@ -155,12 +158,13 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         deliveryType: o.delivery_type || "pickup",
         courier: o.courier || undefined,
         gouvernorat: o.gouvernorat || undefined,
+        delegation: o.delegation || undefined,
         trackingNumber: o.tracking_number || undefined,
         source: o.source || "comptoir",
         paymentStatus: o.payment_status || "unpaid",
         createdAt: o.created_at,
-        deliveryDate: undefined,
-        estimatedDeliveryAt: undefined,
+        deliveryDate: o.delivery_date || undefined,
+        estimatedDeliveryAt: o.estimated_delivery_at || undefined,
         deliveredAt: o.delivered_at || undefined,
         deliveryAddress: o.customer_address || undefined,
         notes: o.notes || undefined,
@@ -170,6 +174,9 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         offerReason: o.offer_reason || undefined,
         discountPercent: o.discount_percent || 0,
         discountAmount: o.discount_amount || 0,
+        // Order numbering
+        orderNumber: o.order_number || undefined,
+        orderNumberDisplay: o.order_number_display || undefined,
       })
     })
   }
@@ -217,6 +224,21 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   if (deposit >= total) paymentStatus = "paid"
   else if (deposit > 0) paymentStatus = "partial"
 
+  // Get next order number atomically
+  let orderNumber: number | null = null
+  let orderNumberDisplay: string | null = null
+  try {
+    const { data: counterData } = await supabase.rpc("get_next_order_number", {
+      p_tenant_id: data.tenantId,
+    })
+    if (counterData && counterData.length > 0) {
+      orderNumber = counterData[0].next_number
+      orderNumberDisplay = counterData[0].display_text
+    }
+  } catch (e) {
+    console.debug("Order numbering not available yet:", e)
+  }
+
   // Insert order
   const { data: order, error } = await supabase
     .from("orders")
@@ -244,6 +266,8 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       offer_reason: data.offerReason || null,
       discount_percent: data.discountPercent || 0,
       discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
+      // Order numbering
+      ...(orderNumber ? { order_number: orderNumber, order_number_display: orderNumberDisplay } : {}),
     })
     .select()
     .single()
@@ -311,6 +335,9 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     offerReason: order.offer_reason || undefined,
     discountPercent: order.discount_percent || 0,
     discountAmount: order.discount_amount || 0,
+    // Order numbering
+    orderNumber: order.order_number || undefined,
+    orderNumberDisplay: order.order_number_display || undefined,
   }
 }
 
@@ -675,6 +702,45 @@ export async function deleteOrder(orderId: string): Promise<boolean> {
   return true
 }
 
+// ─── Order Counter Management ────────────────────────────────────
+
+export async function getOrderCounter(tenantId: string): Promise<{ currentCounter: number; lastResetAt: string | null } | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("order_counters")
+    .select("current_counter, last_reset_at")
+    .eq("tenant_id", tenantId)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    currentCounter: data.current_counter,
+    lastResetAt: data.last_reset_at,
+  }
+}
+
+export async function resetOrderCounter(tenantId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  try {
+    const { error } = await supabase.rpc("reset_order_counter", {
+      p_tenant_id: tenantId,
+    })
+
+    if (error) {
+      console.error("Error resetting order counter:", error.message)
+      return false
+    }
+
+    return true
+  } catch (e) {
+    console.error("Error resetting order counter:", e)
+    return false
+  }
+}
+
 // ─── CSV Export Functions ────────────────────────────────────────
 
 export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: string[]; data: any[][] }> {
@@ -699,7 +765,7 @@ export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: st
   ]
 
   const data: any[][] = orders.map((order) => [
-    order.id.substring(0, 8),
+    order.orderNumberDisplay || order.id.substring(0, 8),
     order.customerName,
     order.customerPhone,
     order.customerAddress || "",
@@ -726,6 +792,7 @@ function translateStatus(status: string): string {
     pret: "Prêt",
     "en-livraison": "En livraison",
     livre: "Livré",
+    annule: "Annulé",
   }
   return map[status] || status
 }

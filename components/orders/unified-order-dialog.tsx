@@ -409,6 +409,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
           offerBeneficiary: offerBeneficiary.trim() || undefined,
           offerReason: offerReason.trim() || undefined,
           discountPercent: discountPercent ? Number(discountPercent) : undefined,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
         }),
       })
 

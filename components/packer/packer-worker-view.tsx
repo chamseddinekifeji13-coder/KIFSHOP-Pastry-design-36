@@ -399,12 +399,12 @@ function PackerOrderCard({
   return (
     <Card className={`py-4 gap-3 ${className || ""}`}>
       <CardContent className="flex flex-col gap-3 px-4">
-        {/* Header row: order ID + timer */}
+        {/* Header row: order number + timer */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-muted-foreground" />
-            <span className="font-semibold text-sm">
-              #{order.id?.substring(0, 8)}
+            <span className="font-semibold text-sm font-mono">
+              {order.order_number_display || `#${order.id?.substring(0, 8)}`}
             </span>
           </div>
           {showTimer && <PackingTimer orderId={order.id} />}
