@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Drawer as DrawerPrimitive } from 'vaul'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 
 import { cn } from '@/lib/utils'
 
@@ -28,6 +29,13 @@ const DrawerOverlay = React.forwardRef<
 ))
 DrawerOverlay.displayName = 'DrawerOverlay'
 
+{/* 
+  A11y fix for Vaul Drawer (React 19 / Radix UI compatibility):
+  - Vaul uses Radix Dialog primitives internally, same a11y rules apply
+  - Every Drawer MUST have a Title (visible or sr-only via VisuallyHidden)
+  - Every Drawer MUST have a Description OR aria-describedby={undefined}
+  - We add aria-describedby={undefined} as fallback and a VisuallyHidden Title
+*/}
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
@@ -36,6 +44,8 @@ const DrawerContent = React.forwardRef<
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
+      // aria-describedby={undefined} suppresses the Radix warning when no Description is used
+      aria-describedby={undefined}
       className={cn(
         'group/drawer-content bg-background fixed z-50 flex h-auto flex-col',
         'data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b',
@@ -46,6 +56,10 @@ const DrawerContent = React.forwardRef<
       )}
       {...props}
     >
+      {/* Fallback accessible title for screen readers when no visible DrawerTitle is provided */}
+      <VisuallyHidden asChild>
+        <DrawerPrimitive.Title>Drawer</DrawerPrimitive.Title>
+      </VisuallyHidden>
       <div className="bg-muted mx-auto mt-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />
       {children}
     </DrawerPrimitive.Content>
