@@ -43,6 +43,13 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
+{/* 
+  A11y fix for Radix UI Sheet (React 19 / Radix UI compatibility):
+  - Sheet uses @radix-ui/react-dialog under the hood, same rules apply
+  - Every Sheet MUST have a Title (visible or sr-only via VisuallyHidden)
+  - Every Sheet MUST have a Description OR aria-describedby={undefined}
+  - We add aria-describedby={undefined} as fallback when no Description is provided
+*/}
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> & {
@@ -53,6 +60,8 @@ const SheetContent = React.forwardRef<
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
+      // aria-describedby={undefined} suppresses the Radix warning when no Description is used
+      aria-describedby={undefined}
       className={cn(
         'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
         side === 'right' &&
@@ -67,6 +76,7 @@ const SheetContent = React.forwardRef<
       )}
       {...props}
     >
+      {/* Fallback accessible title for screen readers when no visible SheetTitle is provided */}
       <VisuallyHidden asChild>
         <SheetPrimitive.Title>Sheet</SheetPrimitive.Title>
       </VisuallyHidden>

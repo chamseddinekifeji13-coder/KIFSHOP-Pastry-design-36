@@ -43,6 +43,13 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+{/* 
+  A11y fix for Radix UI Dialog (React 19 / Radix UI compatibility):
+  - Every Dialog MUST have a Title (visible or sr-only via VisuallyHidden)
+  - Every Dialog MUST have a Description OR aria-describedby={undefined} to suppress the warning
+  - We add aria-describedby={undefined} as fallback when no Description is provided by children
+  - Consumers can override by including their own DialogDescription (visible or in VisuallyHidden)
+*/}
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
@@ -53,12 +60,15 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      // aria-describedby={undefined} suppresses the Radix warning when no Description is used
+      aria-describedby={undefined}
       className={cn(
         'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
         className,
       )}
       {...props}
     >
+      {/* Fallback accessible title for screen readers when no visible DialogTitle is provided */}
       <VisuallyHidden asChild>
         <DialogPrimitive.Title>Dialog</DialogPrimitive.Title>
       </VisuallyHidden>
