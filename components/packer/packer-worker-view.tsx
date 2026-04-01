@@ -10,6 +10,7 @@ import {
   Loader2,
   MapPin,
   CalendarDays,
+  MessageSquare,
 } from "lucide-react"
 import { useTenant } from "@/lib/tenant-context"
 import {
@@ -209,7 +210,7 @@ export function PackerWorkerView() {
                 const items = Array.isArray(order.items) ? order.items : []
                 const checkedItems = checkedMap[order.id] || new Set()
                 const allChecked =
-                  items.length > 0 && checkedItems.size === items.length
+                  items.length === 0 || checkedItems.size === items.length
 
                 return (
                   <PackerOrderCard
@@ -261,7 +262,7 @@ export function PackerWorkerView() {
                       </div>
                     )}
 
-                    {allChecked && (
+                    {allChecked && items.length > 0 && (
                       <p className="text-sm font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
                         <CheckCircle2 className="h-4 w-4" />
                         Tous les articles vérifiés ✓
@@ -459,11 +460,24 @@ function PackerOrderCard({
           </div>
         )}
 
-        {/* Notes (important for special instructions) */}
+        {/* Notes / special instructions — prominent for packer */}
         {order.notes && (
-          <p className="text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 rounded px-2 py-1.5 font-medium">
-            {order.notes}
-          </p>
+          <div className="bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-300 dark:border-blue-700 rounded-lg px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-1">
+              <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                Note du gérant
+              </span>
+            </div>
+            <p className="text-sm text-blue-900 dark:text-blue-100 font-medium whitespace-pre-line">
+              {order.notes}
+            </p>
+          </div>
+        )}
+
+        {/* Fallback: show items parsed from notes when structured items are empty */}
+        {items.length === 0 && order.notes && (
+          <NotesItemsFallback notes={order.notes} />
         )}
 
         {/* Actions */}
@@ -495,6 +509,42 @@ function PackingTimer({ orderId }: { orderId: string }) {
       <span>
         {minutes}:{seconds.toString().padStart(2, "0")}
       </span>
+    </div>
+  )
+}
+
+// ─── Notes Items Fallback ───────────────────────────────────────
+// Parses item-like lines from notes (e.g. "2x PACK BSISSA 500G")
+
+const ITEM_LINE_RE = /^(\d+)\s*[xX×]\s*(.+)/
+
+function parseItemsFromNotes(notes: string): { quantity: string; name: string }[] {
+  return notes
+    .split(/[\n,;]+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const m = line.match(ITEM_LINE_RE)
+      if (m) return { quantity: m[1], name: m[2].trim() }
+      return null
+    })
+    .filter(Boolean) as { quantity: string; name: string }[]
+}
+
+function NotesItemsFallback({ notes }: { notes: string }) {
+  const parsed = parseItemsFromNotes(notes)
+  if (parsed.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <span className="font-medium text-muted-foreground">
+        Articles (depuis les notes) :
+      </span>
+      {parsed.map((item, idx) => (
+        <span key={idx} className="ml-2">
+          • {item.quantity}x {item.name}
+        </span>
+      ))}
     </div>
   )
 }
