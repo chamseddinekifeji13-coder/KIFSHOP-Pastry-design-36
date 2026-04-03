@@ -53,6 +53,21 @@ const orderStatusLabels: Record<string, string> = {
   "annule": "Annule",
 }
 
+function formatPhoneForWhatsApp(phone: string): string {
+  if (!phone) return ''
+  // Retirer espaces, tirets, parenthèses, points
+  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '')
+  // Retirer le + si présent pour reconstruire
+  if (cleaned.startsWith('+')) cleaned = cleaned.substring(1)
+  // Si commence par 00 (format international avec 00)
+  if (cleaned.startsWith('00')) cleaned = cleaned.substring(2)
+  // Si commence par 0 (format local tunisien: 0X XXXXXXXX)
+  if (cleaned.startsWith('0')) cleaned = '216' + cleaned.substring(1)
+  // Si c'est un numéro local court (8 chiffres ou moins) sans indicatif pays
+  if (cleaned.length <= 8) cleaned = '216' + cleaned
+  return cleaned
+}
+
 export function CampaignsView() {
   const { data: clients = [], isLoading } = useClients()
   const { data: orders = [], isLoading: ordersLoading } = useOrders()
@@ -197,7 +212,10 @@ export function CampaignsView() {
 
   const handleSendDeliveryNotifications = () => {
     const withPhone = ordersToNotify.filter(o => o.customerPhone)
-    if (withPhone.length === 0) return
+    if (withPhone.length === 0) {
+      toast.error("Aucun client avec numero de telephone")
+      return
+    }
 
     const order = withPhone[currentDeliveryIndex % withPhone.length]
 
@@ -851,33 +869,31 @@ export function CampaignsView() {
                                 </p>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="text-right">
-                                <p className="font-semibold text-sm">{(order.total ?? 0).toFixed(0)} TND</p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  {order.items?.length || 0} article{(order.items?.length || 0) > 1 ? "s" : ""}
-                                </p>
-                                <Badge variant="outline" className={`text-[9px] mt-0.5 ${
-                                  order.paymentStatus === "paid" ? "text-emerald-600 border-emerald-200" :
-                                  order.paymentStatus === "partial" ? "text-amber-600 border-amber-200" :
-                                  "text-red-600 border-red-200"
-                                }`}>
-                                  {order.paymentStatus === "paid" ? "Paye" : order.paymentStatus === "partial" ? "Partiel" : "Non paye"}
-                                </Badge>
-                              </div>
+                            <div className="text-right flex flex-col items-end gap-1">
+                              <p className="font-semibold text-sm">{(order.total ?? 0).toFixed(0)} TND</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {order.items?.length || 0} article{(order.items?.length || 0) > 1 ? "s" : ""}
+                              </p>
+                              <Badge variant="outline" className={`text-[9px] mt-0.5 ${
+                                order.paymentStatus === "paid" ? "text-emerald-600 border-emerald-200" :
+                                order.paymentStatus === "partial" ? "text-amber-600 border-amber-200" :
+                                "text-red-600 border-red-200"
+                              }`}>
+                                {order.paymentStatus === "paid" ? "Paye" : order.paymentStatus === "partial" ? "Partiel" : "Non paye"}
+                              </Badge>
                               {order.customerPhone && (
-                                <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
                                   <a
                                     href={`https://wa.me/${formatPhoneForWhatsApp(order.customerPhone)}?text=${encodeURIComponent(processedDeliveryMessage(order))}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
-                                    <Button size="sm" variant="outline" className="text-green-600 h-7 text-[10px] px-2">
+                                    <Button size="sm" variant="outline" className="h-6 px-2 text-green-600 hover:text-green-700 hover:bg-green-50">
                                       <MessageCircle className="h-3 w-3 mr-1" /> WhatsApp
                                     </Button>
                                   </a>
                                   <a href={`sms:${order.customerPhone}?body=${encodeURIComponent(processedDeliveryMessage(order))}`}>
-                                    <Button size="sm" variant="outline" className="text-blue-600 h-7 text-[10px] px-2">
+                                    <Button size="sm" variant="outline" className="h-6 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
                                       <Phone className="h-3 w-3 mr-1" /> SMS
                                     </Button>
                                   </a>
@@ -1036,10 +1052,10 @@ export function CampaignsView() {
                         <Send className="h-4 w-4 mr-2" />
                         {(() => {
                           const withPhone = ordersToNotify.filter(o => o.customerPhone)
-                          if (currentDeliveryIndex === 0) {
+                          if (currentDeliveryIndex === 0 || currentDeliveryIndex >= withPhone.length) {
                             return `Envoyer notifications (${withPhone.length})`
                           }
-                          const nextOrder = withPhone[currentDeliveryIndex % withPhone.length]
+                          const nextOrder = withPhone[currentDeliveryIndex]
                           return `Suivant: ${nextOrder?.customerName || "Client"} (${currentDeliveryIndex}/${withPhone.length})`
                         })()}
                       </Button>
