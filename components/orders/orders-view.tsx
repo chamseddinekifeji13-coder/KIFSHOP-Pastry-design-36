@@ -183,7 +183,7 @@ export function OrdersView() {
   const { data: orders = [], mutate, isLoading } = useSWR(
     isDemoTenant ? null : ["orders", currentTenant.id],
     () => fetchOrders(currentTenant.id),
-    { refreshInterval: 30000, revalidateOnFocus: true }
+    { refreshInterval: 30000, revalidateOnFocus: false }
   )
 
   // SWR for all returns
