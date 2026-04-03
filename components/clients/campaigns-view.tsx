@@ -26,16 +26,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type Channel = "whatsapp" | "sms"
 
-function formatPhoneForWhatsApp(phone: string): string {
-  if (!phone) return ''
-  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '')
-  if (cleaned.startsWith('+')) cleaned = cleaned.substring(1)
-  if (cleaned.startsWith('00')) cleaned = cleaned.substring(2)
-  if (cleaned.startsWith('0')) cleaned = '216' + cleaned.substring(1)
-  if (cleaned.length <= 8) cleaned = '216' + cleaned
-  return cleaned
-}
-
 const statusFilter: Record<string, { label: string; color: string }> = {
   all: { label: "Tous", color: "bg-muted" },
   normal: { label: "Normal", color: "bg-muted" },
