@@ -43,6 +43,21 @@ const orderStatusLabels: Record<string, string> = {
   "annule": "Annule",
 }
 
+function formatPhoneForWhatsApp(phone: string): string {
+  if (!phone) return ''
+  // Retirer espaces, tirets, parenthèses, points
+  let cleaned = phone.replace(/[\s\-\(\)\.]/g, '')
+  // Retirer le + si présent pour reconstruire
+  if (cleaned.startsWith('+')) cleaned = cleaned.substring(1)
+  // Si commence par 00 (format international avec 00)
+  if (cleaned.startsWith('00')) cleaned = cleaned.substring(2)
+  // Si commence par 0 (format local tunisien: 0X XXXXXXXX)
+  if (cleaned.startsWith('0')) cleaned = '216' + cleaned.substring(1)
+  // Si c'est un numéro local court (8 chiffres ou moins) sans indicatif pays
+  if (cleaned.length <= 8) cleaned = '216' + cleaned
+  return cleaned
+}
+
 export function CampaignsView() {
   const { data: clients = [], isLoading } = useClients()
   const { data: orders = [], isLoading: ordersLoading } = useOrders()
@@ -76,6 +91,7 @@ export function CampaignsView() {
   const [deliverySent, setDeliverySent] = useState(false)
   const [selectedDeliveryOrders, setSelectedDeliveryOrders] = useState<string[]>([])
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState<string>("all")
+  const [currentDeliveryIndex, setCurrentDeliveryIndex] = useState(0)
 
   // Get today's date in local timezone YYYY-MM-DD format (fixes UTC vs local mismatch)
   const today = useMemo(() => {
@@ -184,25 +200,31 @@ export function CampaignsView() {
     toast.success("Message copie dans le presse-papiers")
   }
 
-  const handleSendDeliveryNotifications = async () => {
-    if (ordersToNotify.length === 0) return
-    const ordersWithoutPhone = ordersToNotify.filter(o => !o.customerPhone)
-    if (ordersWithoutPhone.length > 0) {
-      toast.warning(`${ordersWithoutPhone.length} commande(s) sans numero de telephone seront ignorees`)
+  const handleSendDeliveryNotifications = () => {
+    const withPhone = ordersToNotify.filter(o => o.customerPhone)
+    if (withPhone.length === 0) {
+      toast.error("Aucun client avec numero de telephone")
+      return
     }
 
-    setSendingDelivery(true)
-    try {
-      // Simulate sending (in production, integrate with WhatsApp Business API or SMS gateway)
-      await new Promise((r) => setTimeout(r, 2000))
+    const order = withPhone[currentDeliveryIndex % withPhone.length]
+
+    if (deliveryChannel === "whatsapp") {
+      const url = `https://wa.me/${formatPhoneForWhatsApp(order.customerPhone!)}?text=${encodeURIComponent(processedDeliveryMessage(order))}`
+      window.open(url, '_blank')
+    } else {
+      window.location.href = `sms:${order.customerPhone}?body=${encodeURIComponent(processedDeliveryMessage(order))}`
+    }
+
+    const next = currentDeliveryIndex + 1
+    setCurrentDeliveryIndex(next)
+
+    if (next < withPhone.length) {
+      toast.success(`Message ouvert pour ${order.customerName || "Client"}. ${withPhone.length - next} restant(s)`)
+    } else {
+      setCurrentDeliveryIndex(0)
       setDeliverySent(true)
-      const notifiedCount = ordersToNotify.filter(o => o.customerPhone).length
-      toast.success(`Notifications envoyees a ${notifiedCount} clients via ${deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}`)
-    } catch (err) {
-      console.error("Erreur envoi notifications livraison:", err)
-      toast.error(err instanceof Error ? err.message : "Erreur lors de l'envoi des notifications")
-    } finally {
-      setSendingDelivery(false)
+      toast.success(`Tous les ${withPhone.length} messages envoyes !`)
     }
   }
 
@@ -744,7 +766,7 @@ export function CampaignsView() {
                   <p className="text-muted-foreground mt-1">
                     {ordersToNotify.filter(o => o.customerPhone).length} clients ont ete avertis de leur livraison via {deliveryChannel === "whatsapp" ? "WhatsApp" : "SMS"}
                   </p>
-                  <Button className="mt-6" onClick={() => { setDeliverySent(false); setSelectedDeliveryOrders([]) }}>
+                  <Button className="mt-6" onClick={() => { setDeliverySent(false); setSelectedDeliveryOrders([]); setCurrentDeliveryIndex(0) }}>
                     Nouvelle notification
                   </Button>
                 </div>
@@ -837,7 +859,7 @@ export function CampaignsView() {
                                 </p>
                               )}
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex flex-col items-end gap-1">
                               <p className="font-semibold text-sm">{(order.total ?? 0).toFixed(0)} TND</p>
                               <p className="text-[10px] text-muted-foreground">
                                 {order.items?.length || 0} article{(order.items?.length || 0) > 1 ? "s" : ""}
@@ -849,6 +871,24 @@ export function CampaignsView() {
                               }`}>
                                 {order.paymentStatus === "paid" ? "Paye" : order.paymentStatus === "partial" ? "Partiel" : "Non paye"}
                               </Badge>
+                              {order.customerPhone && (
+                                <div className="flex gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                                  <a
+                                    href={`https://wa.me/${formatPhoneForWhatsApp(order.customerPhone)}?text=${encodeURIComponent(processedDeliveryMessage(order))}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Button size="sm" variant="outline" className="h-6 px-2 text-green-600 hover:text-green-700 hover:bg-green-50">
+                                      <MessageCircle className="h-3 w-3 mr-1" /> WhatsApp
+                                    </Button>
+                                  </a>
+                                  <a href={`sms:${order.customerPhone}?body=${encodeURIComponent(processedDeliveryMessage(order))}`}>
+                                    <Button size="sm" variant="outline" className="h-6 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                                      <Phone className="h-3 w-3 mr-1" /> SMS
+                                    </Button>
+                                  </a>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -997,14 +1037,17 @@ export function CampaignsView() {
                       <Button
                         className="w-full"
                         onClick={handleSendDeliveryNotifications}
-                        disabled={ordersToNotify.filter(o => o.customerPhone).length === 0 || sendingDelivery}
+                        disabled={ordersToNotify.filter(o => o.customerPhone).length === 0}
                       >
-                        {sendingDelivery ? (
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                          <Send className="h-4 w-4 mr-2" />
-                        )}
-                        Envoyer notifications ({ordersToNotify.filter(o => o.customerPhone).length})
+                        <Send className="h-4 w-4 mr-2" />
+                        {(() => {
+                          const withPhone = ordersToNotify.filter(o => o.customerPhone)
+                          if (currentDeliveryIndex === 0 || currentDeliveryIndex >= withPhone.length) {
+                            return `Envoyer notifications (${withPhone.length})`
+                          }
+                          const nextOrder = withPhone[currentDeliveryIndex]
+                          return `Suivant: ${nextOrder?.customerName || "Client"} (${currentDeliveryIndex}/${withPhone.length})`
+                        })()}
                       </Button>
                     </div>
                   </CardContent>
