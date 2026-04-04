@@ -1040,14 +1040,13 @@ export async function parseCSVContent(content: string): Promise<{
       ? values[columnIndices.trackingNumber]?.replace(/"/g, "").trim()
       : undefined
     
-    // Convert scientific notation to regular number if needed (e.g. "1,08E+11")
-    if (trackingNumber && trackingNumber.includes("E")) {
-      try {
-        const num = parseFloat(trackingNumber.replace(",", "."))
+    // Convert scientific notation to integer string (e.g. "1,08E+11", "1.08e+11")
+    if (trackingNumber && /[eE]/.test(trackingNumber)) {
+      const num = parseFloat(trackingNumber.replace(",", "."))
+      if (Number.isFinite(num)) {
         trackingNumber = Math.floor(num).toString()
-      } catch {
-        // Keep as is if conversion fails
       }
+      // If NaN/Infinity, keep original trackingNumber — do not store "NaN"
     }
     
     // Best Delivery format: "Nom Telephone Adresse" in the Nom field
@@ -1087,6 +1086,12 @@ export async function parseCSVContent(content: string): Promise<{
       errors.push({ row: i + 1, error: "Nom client manquant" })
       continue
     }
+
+    if (!customerPhone?.trim()) {
+      errors.push({ row: i + 1, error: "Telephone client manquant" })
+      continue
+    }
+    customerPhone = customerPhone.trim()
 
     const rawStatus = columnIndices.status !== undefined 
       ? values[columnIndices.status]?.toLowerCase().replace(/"/g, "").trim() 
@@ -1331,6 +1336,12 @@ export async function importDeliveryReport(
         row: i + 2,
         error: "Doublon detecte dans le fichier (ligne ignoree)",
       })
+      continue
+    }
+
+    if (!row.customerPhone?.trim()) {
+      result.errors.push({ row: i + 2, error: "Telephone client manquant" })
+      result.failed++
       continue
     }
 

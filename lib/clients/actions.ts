@@ -390,7 +390,8 @@ function mapOrder(row: any): OrderRecord {
     tenantId: row.tenant_id,
     clientId: row.client_id,
     phone: row.customer_phone,
-    clientName: row.customer_name,
+    // Compatibility fallback for legacy schemas that used `client_name`
+    clientName: row.customer_name || row.client_name || null,
     total: Number(row.total) || 0,
     status: row.status,
     notes: row.notes,
