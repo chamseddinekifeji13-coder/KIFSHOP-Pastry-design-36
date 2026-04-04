@@ -44,6 +44,7 @@ interface StockMovementDrawerProps {
 
 export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementDrawerProps) {
   const { currentTenant } = useTenant()
+  const tenantId = currentTenant?.id
   const { mutate: globalMutate } = useSWRConfig()
   const { data: locations = [] } = useStorageLocations()
   const { data: rawMaterials = [], mutate: mutateRaw } = useRawMaterials()
@@ -144,6 +145,11 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   }
 
   const handleSubmit = async (action: "entree" | "sortie" | "transfert") => {
+    if (!tenantId) {
+      toast.error("Tenant introuvable")
+      return
+    }
+
     if (!activeItem) {
       toast.error("Veuillez selectionner un article")
       return
@@ -173,7 +179,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     setSaving(true)
     try {
       const itemType = activeItem.type === "raw" ? "raw_material" : activeItem.type === "finished" ? "finished_product" : "packaging"
-      const success = await createStockMovement(currentTenant.id, {
+      const success = await createStockMovement(tenantId, {
         itemType,
         rawMaterialId: activeItem.type === "raw" ? activeItem.id : undefined,
         finishedProductId: activeItem.type === "finished" ? activeItem.id : undefined,
@@ -201,7 +207,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
           key.includes("raw_materials") || 
           key.includes("finished_products") || 
           key.includes("critical_stock") ||
-          key.includes(currentTenant.id)
+          (tenantId ? key.includes(tenantId) : false)
         ), undefined, { revalidate: true })
         
         resetForm()
