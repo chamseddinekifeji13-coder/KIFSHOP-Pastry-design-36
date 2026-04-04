@@ -146,6 +146,28 @@ export async function POST(request: Request) {
       )
     }
 
+    // Keep treasury journal in sync: record this collection in transactions.
+    const { error: transactionInsertError } = await supabase
+      .from("transactions")
+      .insert({
+        tenant_id: session.tenantId,
+        type: "income",
+        category: "encaissement-commande",
+        amount,
+        payment_method: paymentMethod,
+        description: `Encaissement commande #${orderId}`,
+        order_id: orderId,
+        cash_session_id: activeSession.id,
+        is_collection: true,
+        created_by_name: session.displayName,
+        created_at: new Date().toISOString(),
+      })
+
+    if (transactionInsertError) {
+      // Do not fail the collection response if journal write fails.
+      console.error("[collect-order] transaction insert failed:", transactionInsertError)
+    }
+
     // Mark order as paid so it disappears from "to collect" lists.
     const nextDeposit = currentDeposit + amount
     const nextPaymentStatus =
