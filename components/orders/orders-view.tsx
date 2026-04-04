@@ -56,6 +56,7 @@ import { toast } from "sonner"
 import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { exportToCSV } from "@/lib/csv-export"
 import { FastSalesView } from "./fast-sales-view"
+import { SendToDeliveryDialog } from "./send-to-delivery-dialog"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -176,6 +177,9 @@ export function OrdersView() {
   // Order counter reset
   const [resetCounterDialogOpen, setResetCounterDialogOpen] = useState(false)
   const [resettingCounter, setResettingCounter] = useState(false)
+
+  // Send to delivery provider state
+  const [sendToDeliveryOpen, setSendToDeliveryOpen] = useState(false)
 
   const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
@@ -1755,15 +1759,25 @@ export function OrdersView() {
                         </Button>
                       )}
                       {selectedOrder.deliveryType === "delivery" ? (
-                        <Button
-                          variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
-                          className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
-                          disabled={actionLoading}
-                          onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
-                        >
-                          <Truck className="mr-2 h-4 w-4" />
-                          Expedier la commande
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setSendToDeliveryOpen(true)}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Envoyer au service de livraison
+                          </Button>
+                          <Button
+                            variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
+                            className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
+                            disabled={actionLoading}
+                            onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Expedier la commande
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
@@ -2209,6 +2223,34 @@ export function OrdersView() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Send to Delivery Provider Dialog */}
+        <SendToDeliveryDialog
+          open={sendToDeliveryOpen}
+          onOpenChange={setSendToDeliveryOpen}
+          order={selectedOrder ? {
+            id: selectedOrder.id,
+            order_number: selectedOrder.orderNumberDisplay,
+            client_name: selectedOrder.customerName,
+            client_phone: selectedOrder.customerPhone,
+            delivery_address: selectedOrder.customerAddress,
+            delivery_city: selectedOrder.gouvernorat,
+            delivery_postal_code: selectedOrder.delegation,
+            total: selectedOrder.total,
+            items: selectedOrder.items.map(item => ({
+              product_name: item.name,
+              name: item.name,
+              quantity: item.quantity,
+              unit_price: item.price,
+              price: item.price,
+            })),
+            notes: selectedOrder.notes,
+          } : null}
+          onSuccess={() => {
+            mutate()
+            setSendToDeliveryOpen(false)
+          }}
+        />
       </div>
     </>
   )
