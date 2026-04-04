@@ -130,16 +130,20 @@ export async function createRecipe(tenantId: string, data: {
   packaging?: { packagingId: string; name: string; quantity: number; weightGrams: number; unit: string }[]
 }): Promise<Recipe | null> {
   const supabase = createClient()
-  const { data: row, error } = await supabase.from("recipes").insert({
+  const insertPayload = {
     tenant_id: tenantId, name: data.name, category: data.category || null,
     finished_product_id: data.finishedProductId || null,
-    yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
+    yield_quantity: data.yieldQuantity || 0, yield_unit: data.yieldUnit || "unites",
     instructions: data.instructions || null,
     theoretical_quantity: data.theoreticalQuantity || null,
     packaged_quantity: data.packagedQuantity || null,
     wastage_percent: data.wastagePercent || null,
-  }).select().single()
-  if (error || !row) { console.error("Error creating recipe:", error?.message); return null }
+  }
+  const { data: row, error } = await supabase.from("recipes").insert(insertPayload).select().single()
+  if (error || !row) {
+    console.error("Error creating recipe:", error?.message, "Payload:", JSON.stringify(insertPayload))
+    throw new Error(error?.message || "Impossible de creer la recette")
+  }
 
   // Insert ingredients
   if (data.ingredients.length > 0) {
@@ -168,7 +172,7 @@ export async function createRecipe(tenantId: string, data: {
     finishedProductId: row.finished_product_id, yieldQuantity: Number(row.yield_quantity),
     yieldUnit: row.yield_unit, instructions: row.instructions,
     ingredients: data.ingredients.map((i, idx) => ({ id: `new-${idx}`, ...i })), 
-    packaging: data.packaging || [],
+    packaging: (data.packaging || []).map((p, idx) => ({ id: `pkg-${idx}`, ...p })),
     theoreticalQuantity: data.theoreticalQuantity || null,
     packagedQuantity: data.packagedQuantity || null,
     wastagePercent: data.wastagePercent || null,
@@ -196,7 +200,7 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
   const { data: row, error } = await supabase.from("recipes").update({
     name: data.name, category: data.category || null,
     finished_product_id: data.finishedProductId || null,
-    yield_quantity: data.yieldQuantity, yield_unit: data.yieldUnit,
+    yield_quantity: data.yieldQuantity || 0, yield_unit: data.yieldUnit || "unites",
     instructions: data.instructions || null,
     theoretical_quantity: data.theoreticalQuantity || null,
     packaged_quantity: data.packagedQuantity || null,
@@ -204,7 +208,10 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
     updated_at: new Date().toISOString()
   }).eq("id", recipeId).eq("tenant_id", tenantId).select().single()
   
-  if (error || !row) { console.error("Error updating recipe:", error?.message); return null }
+  if (error || !row) {
+    console.error("Error updating recipe:", error?.message)
+    throw new Error(error?.message || "Impossible de modifier la recette")
+  }
 
   // Delete existing ingredients and packaging, then re-insert
   await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId)
@@ -237,7 +244,7 @@ export async function updateRecipe(recipeId: string, tenantId: string, data: {
     finishedProductId: row.finished_product_id, yieldQuantity: Number(row.yield_quantity),
     yieldUnit: row.yield_unit, instructions: row.instructions,
     ingredients: data.ingredients.map((i, idx) => ({ id: `updated-${idx}`, ...i })), 
-    packaging: data.packaging || [],
+    packaging: (data.packaging || []).map((p, idx) => ({ id: `pkg-${idx}`, ...p })),
     theoreticalQuantity: data.theoreticalQuantity || null,
     packagedQuantity: data.packagedQuantity || null,
     wastagePercent: data.wastagePercent || null,
@@ -371,11 +378,35 @@ export async function completeProduction(
     const supabase = createClient()
     const { error } = await supabase
       .from("production_plans")
-      .update({ status: "completed", updated_at: new Date().toISOString() })
+      .update({ status: "completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq("id", planId)
     if (error) {
       console.error("Error updating plan status after production:", error.message)
-      // Production already happened, just log the error
+    }
+  }
+
+  // 3. Auto-create a production batch for conditioning
+  if (result.success) {
+    try {
+      const supabase = createClient()
+      const { data: recipe } = await supabase
+        .from("recipes")
+        .select("tenant_id")
+        .eq("id", recipeId)
+        .single()
+      if (recipe) {
+        await supabase.from("production_batches").insert({
+          tenant_id: recipe.tenant_id,
+          recipe_id: recipeId,
+          recipe_name: result.recipe_name,
+          produced_quantity: result.finished_product_units || quantity,
+          produced_unit: "unites",
+          remaining_quantity: result.finished_product_units || quantity,
+          notes: notes || `Genere automatiquement depuis le plan de production`,
+        })
+      }
+    } catch (err) {
+      console.error("Auto-batch creation failed:", err)
     }
   }
 
@@ -412,7 +443,24 @@ export async function createProductionBatch(tenantId: string, data: {
 }): Promise<ProductionBatch | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
+
+  // Protection contre double consommation: verifier si un lot avec la meme recette
+  // a ete cree dans les 2 dernieres minutes
+  if (data.recipeId) {
+    const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+    const { data: recentBatches } = await supabase
+      .from("production_batches")
+      .select("id")
+      .eq("recipe_id", data.recipeId)
+      .eq("tenant_id", tenantId)
+      .in("status", ["en_cours", "partiellement_conditionne"])
+      .gte("created_at", twoMinAgo)
+      .limit(1)
+    if (recentBatches && recentBatches.length > 0) {
+      throw new Error("Un lot pour cette recette a deja ete cree il y a moins de 2 minutes. Veuillez patienter avant de relancer.")
+    }
+  }
+
   // Si une recette est liée, déduire les matières premières du stock
   let consumeResult = null
   if (data.recipeId) {
@@ -475,20 +523,35 @@ export async function addPackagingSession(tenantId: string, batchId: string, dat
     throw new Error(error?.message || "Erreur lors de l'ajout de la session de conditionnement")
   }
   
-  // 2. Ajouter les produits finis au stock (si finishedProductId fourni)
+  // 2. Ajouter les produits finis au stock (si finishedProductId fourni) — optimistic locking
   if (data.finishedProductId) {
-    const { data: product, error: productError } = await supabase
+    const { data: product } = await supabase
       .from("finished_products")
       .select("current_stock")
       .eq("id", data.finishedProductId)
       .single()
-    
+
     if (product) {
-      const newStock = Number(product.current_stock) + data.quantity
-      await supabase
+      const oldStock = Number(product.current_stock)
+      const { error: updateError } = await supabase
         .from("finished_products")
-        .update({ current_stock: newStock })
+        .update({ current_stock: oldStock + data.quantity })
         .eq("id", data.finishedProductId)
+        .eq("current_stock", oldStock) // optimistic lock
+      if (updateError) {
+        console.error("Stock update conflict, retrying...")
+        const { data: fresh } = await supabase
+          .from("finished_products")
+          .select("current_stock")
+          .eq("id", data.finishedProductId)
+          .single()
+        if (fresh) {
+          await supabase
+            .from("finished_products")
+            .update({ current_stock: Number(fresh.current_stock) + data.quantity })
+            .eq("id", data.finishedProductId)
+        }
+      }
     }
   }
   
@@ -517,7 +580,86 @@ export async function addPackagingSession(tenantId: string, batchId: string, dat
     packagingName: session.packaging_name, 
     weightGrams: Number(session.weight_grams),
     quantity: session.quantity, 
-    totalGrams: Number(session.total_grams), 
+    totalGrams: Number(session.total_grams),
     sessionDate: session.session_date,
   }
+}
+
+// ─── Fetch packaging sessions for a batch ─────────────────
+export async function fetchBatchPackagingSessions(batchId: string): Promise<BatchPackagingSession[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("batch_packaging_sessions")
+    .select("*")
+    .eq("batch_id", batchId)
+    .order("session_date", { ascending: false })
+  if (error) { console.error("Error fetching batch sessions:", error.message); return [] }
+  return (data || []).map((s) => ({
+    id: s.id,
+    batchId: s.batch_id,
+    packagingId: s.packaging_id,
+    packagingName: s.packaging_name,
+    weightGrams: Number(s.weight_grams),
+    quantity: s.quantity,
+    totalGrams: Number(s.total_grams),
+    sessionDate: s.session_date,
+  }))
+}
+
+// ─── Production runs with recipe names ────────────────────
+export interface ProductionRunWithRecipe extends ProductionRun {
+  recipeName: string
+  totalCost: number | null
+  costPerUnit: number | null
+}
+
+export async function fetchProductionRunsWithRecipes(tenantId: string): Promise<ProductionRunWithRecipe[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from("production_runs")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+  if (error) { console.error("Error fetching production runs:", error.message); return [] }
+  if (!data || data.length === 0) return []
+
+  // Fetch recipe names for all unique recipe IDs
+  const recipeIds = [...new Set(data.map((r) => r.recipe_id).filter(Boolean))]
+  const recipeMap = new Map<string, string>()
+  if (recipeIds.length > 0) {
+    const { data: recipes } = await supabase
+      .from("recipes")
+      .select("id, name")
+      .in("id", recipeIds)
+    recipes?.forEach((r) => recipeMap.set(r.id, r.name))
+  }
+
+  return data.map((r) => ({
+    id: r.id,
+    tenantId: r.tenant_id,
+    recipeId: r.recipe_id,
+    quantityMultiplier: Number(r.quantity_multiplier),
+    status: r.status,
+    startedAt: r.started_at,
+    completedAt: r.completed_at,
+    notes: r.notes,
+    createdAt: r.created_at,
+    recipeName: recipeMap.get(r.recipe_id) || "Recette supprimee",
+    totalCost: r.total_cost != null ? Number(r.total_cost) : null,
+    costPerUnit: r.cost_per_unit != null ? Number(r.cost_per_unit) : null,
+  }))
+}
+
+// ─── Count production runs for the current month ──────────
+export async function countMonthlyProductionRuns(tenantId: string): Promise<number> {
+  const supabase = createClient()
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const { count, error } = await supabase
+    .from("production_runs")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .gte("created_at", startOfMonth)
+  if (error) { console.error("Error counting monthly runs:", error.message); return 0 }
+  return count || 0
 }

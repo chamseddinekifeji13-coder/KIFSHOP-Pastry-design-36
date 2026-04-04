@@ -6,7 +6,7 @@ import { getServerSession } from '@/lib/active-profile'
 // ─── Cash Session Management ──────────────────────────────────
 
 export async function openCashSession(openingBalance: number) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   const { data, error } = await supabase
@@ -30,7 +30,7 @@ export async function closeCashSession(
   closingBalance: number,
   differenceReason?: string
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   // Fetch session to calculate expected balance
@@ -82,7 +82,7 @@ export async function closeCashSession(
 }
 
 export async function getActiveCashSession() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   const { data } = await supabase
@@ -105,7 +105,7 @@ export async function collectOrderPayment(
   paymentMethod: string = 'cash',
   notes?: string
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   try {
@@ -149,7 +149,7 @@ export async function collectOrderPayment(
 }
 
 export async function getOrderCollections(orderId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data } = await supabase
     .from('order_collections')
@@ -168,7 +168,7 @@ async function createDailyClosure(
   actualClosing: number,
   differenceReason?: string
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   // Get all transactions for the session
@@ -228,7 +228,7 @@ async function createDailyClosure(
 }
 
 export async function getDailyClosure(closureDate: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   const { data } = await supabase
@@ -242,7 +242,7 @@ export async function getDailyClosure(closureDate: string) {
 }
 
 export async function getCashierStats(startDate: string, endDate: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const session = await getServerSession()
 
   const { data } = await supabase

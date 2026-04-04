@@ -33,7 +33,7 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
-  exportOrdersToCSV,
+  exportOrdersToCSV, resetOrderCounter, getOrderCounter,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -56,6 +56,7 @@ import { toast } from "sonner"
 import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { exportToCSV } from "@/lib/csv-export"
 import { FastSalesView } from "./fast-sales-view"
+import { SendToDeliveryDialog } from "./send-to-delivery-dialog"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -63,6 +64,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   pret: { label: "Pret", color: "bg-primary" },
   "en-livraison": { label: "En livraison", color: "bg-orange-500" },
   livre: { label: "Livre / Vendu", color: "bg-muted" },
+  annule: { label: "Annule", color: "bg-destructive" },
 }
 
 const courierNames: Record<string, string> = {
@@ -121,7 +123,7 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
 }
 
 export function OrdersView() {
-  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
   const { t } = useI18n()
   const searchParams = useSearchParams()
 
@@ -173,13 +175,20 @@ export function OrdersView() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
 
+  // Order counter reset
+  const [resetCounterDialogOpen, setResetCounterDialogOpen] = useState(false)
+  const [resettingCounter, setResettingCounter] = useState(false)
+
+  // Send to delivery provider state
+  const [sendToDeliveryOpen, setSendToDeliveryOpen] = useState(false)
+
   const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
   // SWR fetcher for orders
   const { data: orders = [], mutate, isLoading } = useSWR(
     isDemoTenant ? null : ["orders", currentTenant.id],
     () => fetchOrders(currentTenant.id),
-    { revalidateOnFocus: false }
+    { refreshInterval: 30000, revalidateOnFocus: false }
   )
 
   // SWR for all returns
@@ -260,6 +269,21 @@ export function OrdersView() {
     setViewMode(newMode)
     localStorage.setItem("orders-view-mode", newMode)
   }, [viewMode])
+
+  // Reset order counter
+  const handleResetCounter = useCallback(async () => {
+    setResettingCounter(true)
+    const ok = await resetOrderCounter(currentTenant.id)
+    if (ok) {
+      toast.success("Compteur remis a zero", {
+        description: "Le prochain numero de commande sera CMD-001",
+      })
+      setResetCounterDialogOpen(false)
+    } else {
+      toast.error("Erreur lors de la remise a zero du compteur")
+    }
+    setResettingCounter(false)
+  }, [currentTenant.id])
 
   // Fast sales mode - rendered but hidden when not active (avoids React #300 hook order issues)
   // The early return was causing hooks to be called conditionally which violates React rules
@@ -651,7 +675,14 @@ export function OrdersView() {
               <SourceIcon className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-sm">{order.customerName}</span>
             </div>
-            {getPaymentBadge(order.paymentStatus)}
+            <div className="flex items-center gap-1.5">
+              {order.orderNumberDisplay && (
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {order.orderNumberDisplay}
+                </Badge>
+              )}
+              {getPaymentBadge(order.paymentStatus)}
+            </div>
           </div>
 
           <div className="space-y-1 text-sm text-muted-foreground">
@@ -741,7 +772,15 @@ export function OrdersView() {
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
           </Button>
-          
+          {(currentUser.role === "gerant" || currentUser.role === "owner") && (
+            <Button
+              variant="outline"
+              onClick={() => setResetCounterDialogOpen(true)}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Reinitialiser compteur</span>
+            </Button>
+          )}
           <Button onClick={() => setNewOrderOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             {t("orders.new_order")}
@@ -834,7 +873,12 @@ export function OrdersView() {
                       <div className="flex items-center gap-3">
                         <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
                         <div>
-                          <p className="font-medium text-sm">{order.customerName}</p>
+                          <div className="flex items-center gap-2">
+                            {order.orderNumberDisplay && (
+                              <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                            )}
+                            <p className="font-medium text-sm">{order.customerName}</p>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
                           </p>
@@ -1286,7 +1330,11 @@ export function OrdersView() {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  Commande
+                  {selectedOrder.orderNumberDisplay ? (
+                    <span className="font-mono">{selectedOrder.orderNumberDisplay}</span>
+                  ) : (
+                    "Commande"
+                  )}
                   <Badge variant="outline" className={`${statusConfig[selectedOrder.status]?.color} text-white text-[10px]`}>
                     {statusConfig[selectedOrder.status]?.label}
                   </Badge>
@@ -1323,9 +1371,17 @@ export function OrdersView() {
                     <h4 className="text-sm font-medium">Livraison</h4>
                     <div className="rounded-lg border p-3 space-y-2">
                       {selectedOrder.gouvernorat && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Gouvernorat</span>
-                          <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Gouvernorat</span>
+                            <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                          </div>
+                          {selectedOrder.delegation && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Delegation</span>
+                              <span className="font-medium">{selectedOrder.delegation}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       <div className="flex items-center justify-between text-sm">
@@ -1754,15 +1810,25 @@ export function OrdersView() {
                         </Button>
                       )}
                       {selectedOrder.deliveryType === "delivery" ? (
-                        <Button
-                          variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
-                          className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
-                          disabled={actionLoading}
-                          onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
-                        >
-                          <Truck className="mr-2 h-4 w-4" />
-                          Expedier la commande
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setSendToDeliveryOpen(true)}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Envoyer au service de livraison
+                          </Button>
+                          <Button
+                            variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
+                            className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
+                            disabled={actionLoading}
+                            onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Expedier la commande
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
@@ -2175,6 +2241,67 @@ export function OrdersView() {
 
         {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
         <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+
+        {/* Reset Counter Confirmation Dialog */}
+        <Dialog open={resetCounterDialogOpen} onOpenChange={setResetCounterDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reinitialiser le compteur de commandes</DialogTitle>
+              <DialogDescription>
+                Cette action remet le compteur a zero. La prochaine commande sera numerotee CMD-001. Les commandes existantes conservent leurs numeros.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setResetCounterDialogOpen(false)}
+                disabled={resettingCounter}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleResetCounter}
+                disabled={resettingCounter}
+              >
+                {resettingCounter ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                Confirmer la remise a zero
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Send to Delivery Provider Dialog */}
+        <SendToDeliveryDialog
+          open={sendToDeliveryOpen}
+          onOpenChange={setSendToDeliveryOpen}
+          order={selectedOrder ? {
+            id: selectedOrder.id,
+            order_number: selectedOrder.orderNumberDisplay,
+            client_name: selectedOrder.customerName,
+            client_phone: selectedOrder.customerPhone,
+            delivery_address: selectedOrder.customerAddress,
+            delivery_city: selectedOrder.gouvernorat,
+            delivery_postal_code: selectedOrder.delegation,
+            total: selectedOrder.total,
+            items: selectedOrder.items.map(item => ({
+              product_name: item.name,
+              name: item.name,
+              quantity: item.quantity,
+              unit_price: item.price,
+              price: item.price,
+            })),
+            notes: selectedOrder.notes,
+          } : null}
+          onSuccess={() => {
+            mutate()
+            setSendToDeliveryOpen(false)
+          }}
+        />
       </div>
     </>
   )

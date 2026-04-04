@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Send, Phone, Mail, MapPin, Loader2, CheckCircle2 } from "lucide-react"
+import { Send, Phone, Mail, MapPin, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -26,13 +26,39 @@ const SUBJECTS = [
 export function ContactSection() {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSending(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setSending(false)
-    setSent(true)
+    setError(null)
+
+    try {
+      const formData = new FormData(e.currentTarget)
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.get("name"),
+          phone: formData.get("phone"),
+          email: formData.get("email"),
+          subject: formData.get("subject"),
+          shop_name: formData.get("shop_name"),
+          message: formData.get("message"),
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Erreur lors de l'envoi du message.")
+      }
+
+      setSent(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors de l'envoi. Veuillez reessayer.")
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -88,6 +114,12 @@ export function ContactSection() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
+              {error && (
+                <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="contact-name">
                   Nom complet <span className="text-destructive">*</span>

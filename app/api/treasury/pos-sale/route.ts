@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { 
-  withSessionAndBody, 
-  badRequestResponse, 
-  serverErrorResponse 
+import {
+  withSessionAndBody,
+  badRequestResponse,
+  serverErrorResponse
 } from '@/lib/api-helpers'
+import { rateLimit, getClientIP } from '@/lib/rate-limit'
 
 interface POSSaleBody {
   items: Array<{ name: string; quantity: number; price: number }>
@@ -14,6 +15,12 @@ interface POSSaleBody {
 }
 
 export async function POST(request: Request) {
+  const ip = getClientIP(request)
+  const { limited } = rateLimit(`pos-sale:${ip}`, 60, 60000)
+  if (limited) {
+    return NextResponse.json({ error: "Trop de requêtes. Réessayez dans une minute." }, { status: 429 })
+  }
+
   // 1. Get session and parse body with centralized error handling
   const [data, error] = await withSessionAndBody<POSSaleBody>(request)
   if (error) return error
@@ -56,9 +63,7 @@ export async function POST(request: Request) {
       insertData.created_by = session.activeProfileId
     }
     
-    // 6. Insert transaction - WITHOUT created_by to avoid FK constraint error
-    // The created_by column has a foreign key constraint that causes issues
-    // We use created_by_name (TEXT) instead to store who made the sale
+    // 6. Insert transaction
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
       .insert({
@@ -69,7 +74,6 @@ export async function POST(request: Request) {
         description: fullDescription,
         payment_method: paymentMethod === "card" ? "card" : "cash",
         created_by_name: session.displayName || "Caissier",
-        created_by_id: session.activeProfileId || null,
       })
       .select()
 

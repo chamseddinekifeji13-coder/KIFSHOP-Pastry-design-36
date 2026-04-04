@@ -18,21 +18,12 @@ export function createAdminClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   
   if (!url) {
-    const error = new Error('Missing Supabase URL')
-    console.error('[v0] createAdminClient Error - URL missing:', {
-      SUPABASE_URL: !!process.env.SUPABASE_URL,
-      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL
-    })
-    throw error
+    throw new Error('Missing Supabase URL')
   }
   
   if (!serviceKey) {
-    const error = new Error('Missing Supabase Service Role Key')
-    console.error('[v0] createAdminClient Error - Service Key missing')
-    throw error
+    throw new Error('Missing Supabase Service Role Key')
   }
-  
-  console.log('[v0] createAdminClient initialized with URL:', url.substring(0, 30) + '...')
   
   return createSupabaseClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false }

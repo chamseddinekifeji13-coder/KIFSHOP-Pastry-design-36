@@ -1,12 +1,14 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { withRole } from "@/lib/api-helpers"
+import { rateLimit, getClientIP } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
 
 // Tables to backup with their dependencies order
 const BACKUP_TABLES = [
   "categories",
-  "storage_locations", 
+  "storage_locations",
   "finished_products",
   "raw_materials",
   "consumables",
@@ -22,14 +24,19 @@ const BACKUP_TABLES = [
 ]
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get("tenantId")
-    const tables = searchParams.get("tables")?.split(",") || BACKUP_TABLES
+  const [session, authError] = await withRole('owner', 'gerant')
+  if (authError) return authError
 
-    if (!tenantId) {
-      return NextResponse.json({ error: "tenantId requis" }, { status: 400 })
-    }
+  const ip = getClientIP(request)
+  const { limited } = rateLimit(`backup-export:${ip}`, 5, 60000)
+  if (limited) {
+    return NextResponse.json({ error: "Trop de requêtes. Réessayez dans une minute." }, { status: 429 })
+  }
+
+  try {
+    const tenantId = session!.tenantId
+    const { searchParams } = new URL(request.url)
+    const tables = searchParams.get("tables")?.split(",") || BACKUP_TABLES
 
     const supabase = await createClient()
     const backupData: Record<string, unknown[]> = {}

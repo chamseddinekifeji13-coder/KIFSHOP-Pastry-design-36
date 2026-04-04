@@ -124,8 +124,8 @@ export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryS
   // Debug: log all statuses (only in development)
   if (process.env.NODE_ENV === 'development') {
     const allStatuses = shipments.map(s => s.status).filter(Boolean)
-    console.log("[v0] All statuses in shipments:", allStatuses)
-    console.log("[v0] Total shipments:", total)
+    console.debug("[v0] All statuses in shipments:", allStatuses)
+    console.debug("[v0] Total shipments:", total)
   }
   
   const pending = shipments.filter((s) => isPendingStatus(s.status)).length
@@ -136,7 +136,7 @@ export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryS
   const returned = shipments.filter((s) => isReturnedStatus(s.status)).length
 
   if (process.env.NODE_ENV === 'development') {
-    console.log("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
+    console.debug("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
   }
 
   const completed = delivered + failed + returned
@@ -363,7 +363,7 @@ async function findOrCreateClientFromShipment(
       .single()
 
     if (!createError && newClient) {
-      console.log(`[v0] Created new client: ${newClient.name} (${phone})`)
+      console.debug(`[v0] Created new client: ${newClient.name} (${phone})`)
       return { clientId: newClient.id, clientName: newClient.name, wasCreated: true }
     } else {
       console.error("[v0] Failed to create client:", createError?.message)
@@ -852,7 +852,7 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
   // If it's just a number or single character, it's invalid
   if (/^\d+$/.test(dateStr) && dateStr.length <= 2) {
     if (process.env.NODE_ENV === 'development') {
-      console.log("[v0] Skipping invalid date:", dateStr)
+      console.debug("[v0] Skipping invalid date:", dateStr)
     }
     return undefined
   }
@@ -864,7 +864,7 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
     // Check if it's a valid date
     if (isNaN(date.getTime())) {
       if (process.env.NODE_ENV === 'development') {
-        console.log("[v0] Invalid date format:", dateStr)
+        console.debug("[v0] Invalid date format:", dateStr)
       }
       return undefined
     }
@@ -873,7 +873,7 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
     return date.toISOString()
   } catch (e) {
     if (process.env.NODE_ENV === 'development') {
-      console.log("[v0] Error parsing date:", dateStr, e)
+      console.debug("[v0] Error parsing date:", dateStr, e)
     }
     return undefined
   }

@@ -11,6 +11,8 @@
  * - Ouverture du tiroir-caisse
  */
 
+const QZ_DEBUG = process.env.NODE_ENV === 'development'
+
 // ESC/POS Commands in hex format for QZ Tray
 const ESCPOS_HEX = {
   INIT: "1B40",
@@ -90,22 +92,22 @@ class QZTrayService {
 
     // Listen for WebSocket close events
     this.qz.websocket.setClosedCallbacks((closeEvent: any) => {
-      console.log("[QZ Tray] WebSocket closed:", closeEvent?.reason || "Connection lost")
+      if (QZ_DEBUG) console.log("[QZ Tray] WebSocket closed:", closeEvent?.reason || "Connection lost")
       this.state.connected = false
       this.notifyListeners()
 
       // Attempt auto-reconnect if not intentionally disconnected
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         const delay = Math.min(2000 * (this.reconnectAttempts + 1), 10000) // Exponential backoff up to 10s
-        console.log(`[QZ Tray] Auto-reconnect in ${delay/1000}s (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`)
+        if (QZ_DEBUG) console.log(`[QZ Tray] Auto-reconnect in ${delay/1000}s (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`)
         
         this.reconnectTimeout = setTimeout(async () => {
           this.reconnectAttempts++
-          console.log("[QZ Tray] Auto-reconnecting...")
+          if (QZ_DEBUG) console.log("[QZ Tray] Auto-reconnecting...")
           this.connectionPromise = null // Reset to allow new connection
           const success = await this.connect()
           if (success) {
-            console.log("[QZ Tray] Auto-reconnect successful!")
+            if (QZ_DEBUG) console.log("[QZ Tray] Auto-reconnect successful!")
             this.reconnectAttempts = 0 // Reset on success
           }
         }, delay)
@@ -146,7 +148,7 @@ class QZTrayService {
     // Check if already loaded
     if ((window as any).qz) {
       this.qz = (window as any).qz
-      console.log("[QZ Tray] Library already loaded")
+      if (QZ_DEBUG) console.log("[QZ Tray] Library already loaded")
       return true
     }
 
@@ -160,10 +162,10 @@ class QZTrayService {
     // The qz-tray.js file is hosted locally in /public/qz-tray.js
     const localSource = "/qz-tray.js"
     
-    console.log("[QZ Tray] Loading library from LOCAL source:", localSource)
+    if (QZ_DEBUG) console.log("[QZ Tray] Loading library from LOCAL source:", localSource)
     const localLoaded = await this.tryLoadScript(localSource)
     if (localLoaded) {
-      console.log("[QZ Tray] Library loaded successfully from LOCAL source")
+      if (QZ_DEBUG) console.log("[QZ Tray] Library loaded successfully from LOCAL source")
       return true
     }
     
@@ -173,13 +175,13 @@ class QZTrayService {
       "https://cdn.jsdelivr.net/npm/qz-tray@2.2.3/qz-tray.min.js",
     ]
     
-    console.log("[QZ Tray] Local failed, trying CDN fallback...")
+    if (QZ_DEBUG) console.log("[QZ Tray] Local failed, trying CDN fallback...")
 
     for (const src of cdnSources) {
-      console.log("[QZ Tray] Trying CDN:", src)
+      if (QZ_DEBUG) console.log("[QZ Tray] Trying CDN:", src)
       const loaded = await this.tryLoadScript(src)
       if (loaded) {
-        console.log("[QZ Tray] Library loaded from CDN:", src)
+        if (QZ_DEBUG) console.log("[QZ Tray] Library loaded from CDN:", src)
         return true
       }
     }
@@ -233,33 +235,33 @@ class QZTrayService {
 
   private async _connect(): Promise<boolean> {
     try {
-      console.log("[QZ Tray] Starting connection...")
+      if (QZ_DEBUG) console.log("[QZ Tray] Starting connection...")
       
       // Load library if needed
       const loaded = await this.loadQZLibrary()
-      console.log("[QZ Tray] Library loaded:", loaded)
+      if (QZ_DEBUG) console.log("[QZ Tray] Library loaded:", loaded)
       if (!loaded || !this.qz) {
         console.error("[QZ Tray] Library not available - make sure QZ Tray app is running")
         return false
       }
 
-      console.log("[QZ Tray] Checking existing connection...")
+      if (QZ_DEBUG) console.log("[QZ Tray] Checking existing connection...")
       
       // Check if already connected
       if (this.qz.websocket.isActive()) {
-        console.log("[QZ Tray] Already connected")
+        if (QZ_DEBUG) console.log("[QZ Tray] Already connected")
         this.state.connected = true
         await this.loadPrinters()
         this.notifyListeners()
         return true
       }
 
-      console.log("[QZ Tray] Configuring security...")
+      if (QZ_DEBUG) console.log("[QZ Tray] Configuring security...")
       
       // Configure security for QZ Tray with proper certificate and signing
       // This eliminates "Untrusted website" warnings
       this.qz.security.setCertificatePromise((resolve: (cert: string) => void, reject: (err: Error) => void) => {
-        console.log("[QZ Tray] Fetching certificate from server...")
+        if (QZ_DEBUG) console.log("[QZ Tray] Fetching certificate from server...")
         fetch("/api/qz-tray/certificate", { 
           cache: 'no-store',
           headers: { 'Content-Type': 'text/plain' }
@@ -271,7 +273,7 @@ class QZTrayService {
             throw new Error("Certificate fetch failed")
           })
           .then(cert => {
-            console.log("[QZ Tray] Certificate loaded successfully")
+            if (QZ_DEBUG) console.log("[QZ Tray] Certificate loaded successfully")
             resolve(cert)
           })
           .catch(err => {
@@ -288,7 +290,7 @@ class QZTrayService {
 
       this.qz.security.setSignaturePromise((toSign: string) => {
         return (resolve: (sig: string) => void, reject: (err: Error) => void) => {
-          console.log("[QZ Tray] Signing message via server...")
+          if (QZ_DEBUG) console.log("[QZ Tray] Signing message via server...")
           fetch("/api/qz-tray/sign", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -296,7 +298,7 @@ class QZTrayService {
           })
             .then(response => response.json())
             .then(data => {
-              console.log("[QZ Tray] Message signed successfully")
+              if (QZ_DEBUG) console.log("[QZ Tray] Message signed successfully")
               resolve(data.signature || "")
             })
             .catch(err => {
@@ -307,7 +309,7 @@ class QZTrayService {
         }
       })
 
-      console.log("[QZ Tray] Connecting WebSocket...")
+      if (QZ_DEBUG) console.log("[QZ Tray] Connecting WebSocket...")
       
       // QZ Tray connection strategy:
       // 1. SECURE port (8181) FIRST - uses certificate/signature for trusted connection
@@ -332,12 +334,12 @@ class QZTrayService {
       for (const strategy of connectionStrategies) {
         if (connected) break
         
-        console.log(`[QZ Tray] Trying: ${strategy.name}...`)
+        if (QZ_DEBUG) console.log(`[QZ Tray] Trying: ${strategy.name}...`)
         
         try {
           // Disconnect first if there's a stale connection
           if (this.qz.websocket.isActive()) {
-            console.log("[QZ Tray] Disconnecting stale connection...")
+            if (QZ_DEBUG) console.log("[QZ Tray] Disconnecting stale connection...")
             try {
               await this.qz.websocket.disconnect()
             } catch (e) {
@@ -350,7 +352,7 @@ class QZTrayService {
           
           // Increased timeout to 20 seconds to allow time for user to approve QZ Tray permission dialog
           // When user checks "Remember this decision", the Allow button gets temporarily disabled while QZ processes
-          console.log(`[QZ Tray] Connecting with 20 second timeout (permission dialog may appear)...`)
+          if (QZ_DEBUG) console.log(`[QZ Tray] Connecting with 20 second timeout (permission dialog may appear)...`)
           await Promise.race([
             this.qz.websocket.connect(strategy.options),
             new Promise((_, reject) => 
@@ -363,16 +365,16 @@ class QZTrayService {
           
           // Verify connection is active
           if (this.qz.websocket.isActive()) {
-            console.log(`[QZ Tray] SUCCESS! Connected via ${strategy.name}`)
+            if (QZ_DEBUG) console.log(`[QZ Tray] SUCCESS! Connected via ${strategy.name}`)
             connected = true
             lastError = null
             break
           } else {
-            console.log(`[QZ Tray] ${strategy.name} connected but websocket not active`)
+            if (QZ_DEBUG) console.log(`[QZ Tray] ${strategy.name} connected but websocket not active`)
           }
         } catch (error: any) {
           lastError = error
-          console.log(`[QZ Tray] ${strategy.name} failed:`, error.message || error)
+          if (QZ_DEBUG) console.log(`[QZ Tray] ${strategy.name} failed:`, error.message || error)
           
           // Add specific guidance for permission issues
           if (error.message?.includes("Permission") || error.message?.includes("Untrusted") || error.message?.includes("dialog")) {
@@ -400,7 +402,7 @@ class QZTrayService {
       // Get version
       try {
         this.state.version = await this.qz.api.getVersion()
-        console.log("[QZ Tray] Version:", this.state.version)
+        if (QZ_DEBUG) console.log("[QZ Tray] Version:", this.state.version)
       } catch {
         this.state.version = "Unknown"
       }
@@ -409,7 +411,7 @@ class QZTrayService {
       await this.loadPrinters()
       this.notifyListeners()
 
-      console.log("[QZ Tray] Connected successfully, found printers:", this.state.printers)
+      if (QZ_DEBUG) console.log("[QZ Tray] Connected successfully, found printers:", this.state.printers)
       return true
     } catch (error: any) {
       console.error("[QZ Tray] Connection failed:", error.message)
@@ -444,11 +446,11 @@ class QZTrayService {
       try {
         // Check if connection is still active
         if (!this.qz.websocket.isActive()) {
-          console.log("[QZ Tray] WebSocket not active, cannot load printers")
+          if (QZ_DEBUG) console.log("[QZ Tray] WebSocket not active, cannot load printers")
           return []
         }
         
-        console.log(`[QZ Tray] Loading printers (attempt ${attempt}/3)...`)
+        if (QZ_DEBUG) console.log(`[QZ Tray] Loading printers (attempt ${attempt}/3)...`)
         
         // Increase timeout to 15 seconds for printer detection (signature takes time)
         const printers = await Promise.race([
@@ -459,11 +461,11 @@ class QZTrayService {
         ])
         
         this.state.printers = Array.isArray(printers) ? printers : (printers ? [printers] : [])
-        console.log("[QZ Tray] Printers found:", this.state.printers.length, "printer(s)")
+        if (QZ_DEBUG) console.log("[QZ Tray] Printers found:", this.state.printers.length, "printer(s)")
         
         // Even if no printers, mark as successful if we got a response
         if (this.state.printers.length === 0) {
-          console.log("[QZ Tray] WARNING: No printers found - Check QZ Tray has printer configured")
+          if (QZ_DEBUG) console.log("[QZ Tray] WARNING: No printers found - Check QZ Tray has printer configured")
         }
         
         this.notifyListeners()
@@ -472,7 +474,7 @@ class QZTrayService {
         console.error(`[QZ Tray] Error loading printers (attempt ${attempt}):`, error.message || error)
         if (attempt < 3) {
           // Wait 2 seconds before retry
-          console.log(`[QZ Tray] Retrying in 2 seconds...`)
+          if (QZ_DEBUG) console.log(`[QZ Tray] Retrying in 2 seconds...`)
           await new Promise(resolve => setTimeout(resolve, 2000))
         }
       }
@@ -650,7 +652,7 @@ class QZTrayService {
         data: data.join("")
       }])
 
-      console.log("[QZ Tray] Receipt printed successfully")
+      if (QZ_DEBUG) console.log("[QZ Tray] Receipt printed successfully")
       return true
     } catch (error: any) {
       console.error("[QZ Tray] Print error:", error)
@@ -673,7 +675,7 @@ class QZTrayService {
         data: ESCPOS_HEX.OPEN_DRAWER_PIN2
       }])
 
-      console.log("[QZ Tray] Cash drawer opened")
+      if (QZ_DEBUG) console.log("[QZ Tray] Cash drawer opened")
       return true
     } catch (error: any) {
       console.error("[QZ Tray] Drawer error:", error)
@@ -700,7 +702,7 @@ class QZTrayService {
         data: receiptData.join("")
       }])
 
-      console.log("[QZ Tray] Receipt printed and drawer opened")
+      if (QZ_DEBUG) console.log("[QZ Tray] Receipt printed and drawer opened")
       return true
     } catch (error: any) {
       console.error("[QZ Tray] Print+Drawer error:", error)
@@ -798,34 +800,34 @@ export async function diagnoseQZTray(): Promise<{
     const qz = (window as any).qz
     if (qz) {
       result.libraryLoaded = true
-      console.log("[QZ Diag] Library is loaded")
+      if (QZ_DEBUG) console.log("[QZ Diag] Library is loaded")
       
       // Check websocket availability
       if (qz.websocket) {
         result.websocketAvailable = true
-        console.log("[QZ Diag] WebSocket module available")
+        if (QZ_DEBUG) console.log("[QZ Diag] WebSocket module available")
         
         // Check if connected
         if (qz.websocket.isActive()) {
           result.connected = true
-          console.log("[QZ Diag] Already connected")
+          if (QZ_DEBUG) console.log("[QZ Diag] Already connected")
           
           // Get printers
           try {
             const printers = await qz.printers.find()
             result.printers = Array.isArray(printers) ? printers : [printers]
           } catch (e) {
-            console.log("[QZ Diag] Could not get printers:", e)
+            if (QZ_DEBUG) console.log("[QZ Diag] Could not get printers:", e)
           }
           
           // Get version
           try {
             result.version = await qz.api.getVersion()
           } catch (e) {
-            console.log("[QZ Diag] Could not get version:", e)
+            if (QZ_DEBUG) console.log("[QZ Diag] Could not get version:", e)
           }
         } else {
-          console.log("[QZ Diag] WebSocket not active, QZ Tray may not be running")
+          if (QZ_DEBUG) console.log("[QZ Diag] WebSocket not active, QZ Tray may not be running")
           result.error = "WebSocket not active - QZ Tray may not be running on localhost:8181"
         }
       } else {
@@ -838,7 +840,7 @@ export async function diagnoseQZTray(): Promise<{
     result.error = e.message || String(e)
   }
   
-  console.log("[QZ Diag] Result:", result)
+  if (QZ_DEBUG) console.log("[QZ Diag] Result:", result)
   return result
 }
 

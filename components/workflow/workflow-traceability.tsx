@@ -1,3 +1,5 @@
+"use client"
+
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -8,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, TrendingDown, TrendingUp, GitBranch } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 
 interface WorkflowAuditLog {
@@ -34,10 +36,8 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Create Supabase client once outside the effect
+  const supabase = createClient();
 
   useEffect(() => {
     if (!tenantId) return;
@@ -88,7 +88,7 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [tenantId, supabase]);
+  }, [tenantId]);
 
   const getEntityIcon = (entityType: string) => {
     switch (entityType) {

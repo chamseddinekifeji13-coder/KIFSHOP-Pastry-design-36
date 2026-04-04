@@ -12,7 +12,7 @@ type AuthUser = {
 }
 
 // ─── User Roles ───────────────────────────────────────────────
-export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "owner"
+export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "emballeur" | "livreur" | "owner"
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   owner: "Proprietaire",
@@ -22,9 +22,11 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   achat: "Achat",
   caissier: "Caissier",
   patissier: "Patissier",
+  emballeur: "Emballeur",
+  livreur: "Livreur",
 }
 
-export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier"]
+export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier", "emballeur", "livreur"]
 
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
@@ -35,6 +37,8 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   achat: ["/approvisionnement", "/workflow", "/support"],
   caissier: ["/tresorerie", "/pos80", "/support"],
   patissier: ["/production", "/support"],
+  emballeur: ["/packer", "/support"],
+  livreur: ["/livraison", "/support"],
 }
 
 export function canAccessRoute(role: UserRole, pathname: string): boolean {
@@ -92,6 +96,7 @@ export interface TenantState {
   tenants: Tenant[]
   authUser: AuthUser | null
   isLoading: boolean
+  isAuthenticated: boolean // New: true if user is authenticated with Supabase Auth
   isSuspended: boolean
   isTrialExpired: boolean
   trialDaysLeft: number
@@ -393,6 +398,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     ? Math.max(0, Math.ceil((new Date(sub.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0
 
+  // Check if user is authenticated with Supabase Auth
+  const isAuthenticated = authUser !== null
+
   return (
     <TenantContext.Provider
       value={{
@@ -403,6 +411,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         tenants,
         authUser,
         isLoading,
+        isAuthenticated,
         isSuspended,
         isTrialExpired,
         trialDaysLeft,
@@ -429,6 +438,7 @@ const SSR_FALLBACK: TenantState = {
   tenants: [FALLBACK_TENANT],
   authUser: null,
   isLoading: true,
+  isAuthenticated: false,
   isSuspended: false,
   isTrialExpired: false,
   trialDaysLeft: 0,

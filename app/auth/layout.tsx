@@ -53,6 +53,7 @@ export default function AuthLayout({
                 src="https://images.unsplash.com/photo-1558326567-98ae2405596b?q=80&w=800&auto=format&fit=crop"
                 alt="Patisserie"
                 fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover rounded-3xl shadow-2xl shadow-primary/10"
                 priority
               />
@@ -93,7 +94,7 @@ export default function AuthLayout({
           
           {/* Footer */}
           <div className="text-sm text-muted-foreground">
-            2024 KIFSHOP. Tous droits reserves.
+            &copy; 2026 KIFSHOP Pastry. Tous droits reserves.
           </div>
         </div>
       </div>

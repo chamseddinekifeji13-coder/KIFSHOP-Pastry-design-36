@@ -6,7 +6,7 @@ import {
   Trash2, Plus, Minus, Search, User, Clock, ShoppingBag,
   X, Check, Loader2, Package, Unlock, RefreshCw, ArrowLeft,
   TrendingUp, TrendingDown, Settings, FileText, Calculator,
-  Image as ImageIcon
+  Image as ImageIcon, Scale
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -34,6 +34,7 @@ import { PrinterSettings } from "./printer-settings"
 import { getPrinter } from "@/lib/thermal-printer"
 import { getQZTrayService } from "@/lib/qz-tray-service"
 import { useSoundManager } from "@/lib/sound-manager"
+import { WeightInputDialog } from "@/components/orders/weight-input-dialog"
 
 // Types
 interface CartItem {
@@ -42,6 +43,8 @@ interface CartItem {
   price: number
   quantity: number
   image?: string
+  soldByWeight?: boolean
+  weightKg?: number
 }
 
 // Format currency
@@ -106,7 +109,7 @@ const generateReceiptHTML = (data: {
       ${data.items.map(item => `
         <div class="item">
           <span class="item-name">${item.name}</span>
-          <span class="item-qty">x${item.quantity}</span>
+          <span class="item-qty">${item.soldByWeight ? '' : 'x' + item.quantity}</span>
           <span class="item-price">${formatCurrency(item.price * item.quantity)}</span>
         </div>
       `).join('')}
@@ -180,6 +183,10 @@ export function TreasuryPosView() {
   const [paymentNumpadOpen, setPaymentNumpadOpen] = useState(false)
   const [searchMode, setSearchMode] = useState<"grid" | "search">("grid")
 
+  // Weight dialog state
+  const [weightDialogOpen, setWeightDialogOpen] = useState(false)
+  const [selectedProductForWeight, setSelectedProductForWeight] = useState<any>(null)
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => {
@@ -204,11 +211,11 @@ export function TreasuryPosView() {
             const savedPrinter = localStorage.getItem("qz-printer-name")
             const state = qzService.getState()
             if (savedPrinter && state.printers.includes(savedPrinter)) {
-              console.log("[v0] QZ Tray ready with printer:", savedPrinter)
+              console.debug("[v0] QZ Tray ready with printer:", savedPrinter)
             }
           }
         } catch (e) {
-          console.log("[v0] QZ Tray not available")
+          console.debug("[v0] QZ Tray not available")
         }
       }
     }
@@ -239,6 +246,13 @@ export function TreasuryPosView() {
 
   // Cart functions
   const addToCart = useCallback((product: any) => {
+    // Check if product is sold by weight
+    if (product.soldByWeight || product.sold_by_weight) {
+      setSelectedProductForWeight(product)
+      setWeightDialogOpen(true)
+      return
+    }
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id)
       if (existing) {
@@ -259,6 +273,31 @@ export function TreasuryPosView() {
     // Play sound when item added to cart
     soundManager.playAddToCart()
   }, [soundManager])
+
+  // Handle weight confirmation from dialog
+  const handleWeightConfirm = useCallback((weightInKg: number, totalPrice: number) => {
+    if (!selectedProductForWeight) return
+
+    const product = selectedProductForWeight
+    const pricePerKg = product.sellingPrice || product.selling_price || 0
+
+    setCart(prev => {
+      // For weight items, always add a new line (different weights = different lines)
+      return [...prev, {
+        id: `${product.id}-${Date.now()}`,
+        name: `${product.name} (${weightInKg.toFixed(3)} kg)`,
+        price: pricePerKg * weightInKg,
+        quantity: 1,
+        image: product.imageUrl || product.image_url,
+        soldByWeight: true,
+        weightKg: weightInKg,
+      }]
+    })
+
+    soundManager.playAddToCart()
+    setSelectedProductForWeight(null)
+    setWeightDialogOpen(false)
+  }, [selectedProductForWeight, soundManager])
 
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -452,13 +491,13 @@ export function TreasuryPosView() {
           date: new Date()
         }
         
-        console.log("[v0] Printing receipt with data:", receiptData)
+        console.debug("[v0] Printing receipt with data:", receiptData)
         
         await printer.printReceipt(receiptData)
         toast.success("Ticket imprime!")
         return
       } catch (error: any) {
-        console.log("[v0] USB print error:", error.message)
+        console.debug("[v0] USB print error:", error.message)
         toast.error("Erreur impression thermique, utilisation du navigateur")
       }
     }
@@ -584,12 +623,12 @@ export function TreasuryPosView() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.log("[v0] API error response:", errorData)
+        console.debug("[v0] API error response:", errorData)
         throw new Error(errorData.details || errorData.error || "Erreur lors de l'enregistrement")
       }
 
       const result = await response.json()
-      console.log("[v0] Sale recorded successfully:", result)
+      console.debug("[v0] Sale recorded successfully:", result)
 
       // Save transaction for receipt
       const transactionData = {
@@ -625,6 +664,8 @@ export function TreasuryPosView() {
         key.includes("orders") || 
         key.includes(currentTenant.id)
       ), undefined, { revalidate: true })
+      // Invalidate revenue reports cache for real-time sync
+      globalMutate((key) => typeof key === "string" && key.includes("/api/treasury/revenue"), undefined, { revalidate: true })
 
       // Success
       toast.success("Vente enregistree!")
@@ -820,7 +861,8 @@ export function TreasuryPosView() {
                 {filteredProducts.map((product: any) => {
                   const productPrice = product.sellingPrice || product.selling_price || 0
                   const productImage = product.imageUrl || product.image_url
-                  const inCart = cart.find(item => item.id === product.id)
+                  const isByWeight = product.soldByWeight || product.sold_by_weight
+                  const inCart = cart.find(item => item.id === product.id || (isByWeight && item.id.startsWith(product.id)))
                   
                   return (
                     <button
@@ -835,9 +877,16 @@ export function TreasuryPosView() {
                       )}
                     >
                       {/* Quantity badge */}
-                      {inCart && (
+                      {inCart && !isByWeight && (
                         <div className="absolute -top-2 -right-2 bg-gradient-to-br from-amber-500 to-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
                           {inCart.quantity}
+                        </div>
+                      )}
+
+                      {/* Weight badge */}
+                      {isByWeight && (
+                        <div className="absolute -top-2 -left-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg z-10 gap-1">
+                          <Scale className="h-3 w-3" /> kg
                         </div>
                       )}
 
@@ -862,7 +911,7 @@ export function TreasuryPosView() {
                         {product.name}
                       </h3>
                       <p className="text-amber-400 font-bold text-base mt-1">
-                        {formatCurrency(productPrice)} <span className="text-xs font-normal text-gray-500">TND</span>
+                        {formatCurrency(productPrice)} <span className="text-xs font-normal text-gray-500">{isByWeight ? "TND/kg" : "TND"}</span>
                       </p>
                     </button>
                   )
@@ -930,26 +979,35 @@ export function TreasuryPosView() {
                         <h4 className="font-medium text-white text-sm line-clamp-1">{item.name}</h4>
                         <p className="text-gray-400 text-sm">{formatCurrency(item.price)} TND</p>
                         
-                        {/* Quantity controls */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
-                            onClick={() => updateQuantity(item.id, -1)}
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </Button>
-                          <span className="w-8 text-center font-bold text-white">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
-                            onClick={() => updateQuantity(item.id, 1)}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {/* Quantity controls - hide +/- for weight items */}
+                        {item.soldByWeight ? (
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <Scale className="h-3.5 w-3.5 text-blue-400" />
+                            <span className="text-xs text-blue-400 font-medium">
+                              {item.weightKg?.toFixed(3)} kg
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
+                              onClick={() => updateQuantity(item.id, -1)}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                            <span className="w-8 text-center font-bold text-white">{item.quantity}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
+                              onClick={() => updateQuantity(item.id, 1)}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Price & Delete */}
@@ -1186,7 +1244,9 @@ export function TreasuryPosView() {
               </div>
               {lastTransaction.items.map((item: CartItem) => (
                 <div key={item.id} className="flex justify-between py-1 text-gray-300">
-                  <span className="truncate flex-1">{item.name} x{item.quantity}</span>
+                  <span className="truncate flex-1">
+                    {item.soldByWeight ? item.name : `${item.name} x${item.quantity}`}
+                  </span>
                   <span>{formatCurrency(item.price * item.quantity)}</span>
                 </div>
               ))}
@@ -1205,6 +1265,20 @@ export function TreasuryPosView() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Weight Input Dialog for products sold by weight */}
+      {selectedProductForWeight && (
+        <WeightInputDialog
+          open={weightDialogOpen}
+          onOpenChange={(open) => {
+            setWeightDialogOpen(open)
+            if (!open) setSelectedProductForWeight(null)
+          }}
+          productName={selectedProductForWeight.name}
+          pricePerKg={selectedProductForWeight.sellingPrice || selectedProductForWeight.selling_price || 0}
+          onConfirm={handleWeightConfirm}
+        />
+      )}
     </div>
   )
 }

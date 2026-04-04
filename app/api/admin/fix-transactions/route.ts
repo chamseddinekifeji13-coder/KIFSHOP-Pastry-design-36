@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
+import { withRole } from '@/lib/api-helpers'
 
 /**
  * Fix transactions table schema issues
  * This endpoint provides instructions and status for fixing the problematic foreign key constraint
  */
 export async function GET() {
+  const [, authError] = await withRole('owner', 'gerant')
+  if (authError) return authError
+
   return NextResponse.json({
     status: 'constraint_detected',
     message: 'The transactions table has a problematic foreign key constraint on created_by',
@@ -24,6 +28,9 @@ export async function GET() {
 }
 
 export async function POST() {
+  const [, postAuthError] = await withRole('owner', 'gerant')
+  if (postAuthError) return postAuthError
+
   return NextResponse.json({
     success: false,
     message: 'Manual SQL execution required. Please follow the GET endpoint instructions to fix this issue.',

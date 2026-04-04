@@ -83,6 +83,8 @@ const navigation = [
       { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
       { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },
+      { titleKey: "nav.delivery", fallback: "Livraison", href: "/livraison", icon: Truck },
+      { titleKey: "nav.packer", fallback: "Préparation", href: "/packer", icon: Package },
     ],
   },
   {
@@ -131,10 +133,13 @@ export function AppSidebar() {
   const filteredNavigation = navigation
     .map((group) => ({
       ...group,
-      title: t(group.titleKey) || group.fallback,
+      title: t(group.titleKey) !== group.titleKey ? t(group.titleKey) : group.fallback,
       items: group.items
         .filter((item) => canAccessRoute(currentRole, item.href))
-        .map((item) => ({ ...item, title: t(item.titleKey) || item.fallback })),
+        .map((item) => {
+          const translated = t(item.titleKey)
+          return { ...item, title: translated !== item.titleKey ? translated : item.fallback }
+        }),
     }))
     .filter((group) => group.items.length > 0)
 

@@ -14,10 +14,10 @@ export async function GET(request: Request) {
 
     const supabase = await createClient()
 
-    // Fetch all transactions for the period with cashier info
+    // Fetch all transactions for the period with cashier info - include category for proper classification
     const { data: transactions, error } = await supabase
       .from('transactions')
-      .select('created_by, created_by_name, amount, type, payment_method')
+      .select('created_by, created_by_name, amount, type, category, payment_method')
       .eq('tenant_id', session.tenantId)
       .gte('created_at', startDate ? `${startDate}T00:00:00` : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .lte('created_at', endDate ? `${endDate}T23:59:59` : new Date().toISOString())
@@ -30,16 +30,25 @@ export async function GET(request: Request) {
       )
     }
 
+    // Also fetch order collections
+    const { data: orderCollections } = await supabase
+      .from('order_collections')
+      .select('collected_by, collected_by_name, amount')
+      .eq('tenant_id', session.tenantId)
+      .gte('collected_at', startDate ? `${startDate}T00:00:00` : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .lte('collected_at', endDate ? `${endDate}T23:59:59` : new Date().toISOString())
+
     // Group and aggregate by cashier
     const cashierMap = new Map<string, any>()
 
     for (const transaction of transactions || []) {
-      const cashierId = transaction.created_by
+      // Use created_by_name as the cashier identifier since created_by may not exist
+      const cashierKey = transaction.created_by_name || 'Inconnu'
       
-      if (!cashierMap.has(cashierId)) {
-        cashierMap.set(cashierId, {
-          cashierId,
-          cashierName: transaction.created_by_name || 'Inconnu',
+      if (!cashierMap.has(cashierKey)) {
+        cashierMap.set(cashierKey, {
+          cashierId: cashierKey,
+          cashierName: cashierKey,
           totalTransactions: 0,
           totalCollections: 0,
           totalAmount: 0,
@@ -48,12 +57,17 @@ export async function GET(request: Request) {
         })
       }
 
-      const cashier = cashierMap.get(cashierId)!
+      const cashier = cashierMap.get(cashierKey)!
       cashier.totalTransactions++
 
-      if (transaction.type === 'collection') {
+      // Count income transactions - check both type AND category
+      const incomeTypes = ['income', 'entree']
+      const incomeCategories = ['vente_pos', 'vente_comptoir', 'pos_sale', 'collection', 'Commande client', 'Vente comptoir']
+      const isIncome = incomeTypes.includes(transaction.type) || incomeCategories.includes(transaction.category)
+      
+      if (isIncome) {
         cashier.totalCollections++
-        cashier.totalAmount += transaction.amount || 0
+        cashier.totalAmount += Number(transaction.amount) || 0
       }
 
       // Track by transaction type
@@ -63,6 +77,29 @@ export async function GET(request: Request) {
       // Track by payment method
       cashier.paymentMethods[transaction.payment_method || 'cash'] =
         (cashier.paymentMethods[transaction.payment_method || 'cash'] || 0) + 1
+    }
+
+    // Process order collections
+    for (const collection of orderCollections || []) {
+      const cashierKey = collection.collected_by_name || 'Inconnu'
+      if (!cashierKey) continue
+      
+      if (!cashierMap.has(cashierKey)) {
+        cashierMap.set(cashierKey, {
+          cashierId: cashierKey,
+          cashierName: cashierKey,
+          totalTransactions: 0,
+          totalCollections: 0,
+          totalAmount: 0,
+          transactionsByType: {},
+          paymentMethods: {},
+        })
+      }
+
+      const cashier = cashierMap.get(cashierKey)!
+      cashier.totalTransactions++
+      cashier.totalCollections++
+      cashier.totalAmount += Number(collection.amount) || 0
     }
 
     const data = Array.from(cashierMap.values()).sort((a, b) => b.totalAmount - a.totalAmount)

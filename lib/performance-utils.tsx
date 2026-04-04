@@ -3,19 +3,19 @@
 
 'use client'
 
-import { memo, Suspense, type ReactNode } from 'react'
+import { memo, Suspense, lazy, type ReactNode, type ComponentType } from 'react'
 
-// Lazy load heavy components
-export const createLazyComponent = <P extends object>(
-  importFunc: () => Promise<{ default: React.ComponentType<P> }>,
-  displayName: string
-) => {
-  const Component = memo(async (props: P) => {
-    const { default: LazyComponent } = await importFunc()
-    return <LazyComponent {...props} />
-  })
-  
-  Component.displayName = displayName
+// Lazy load heavy components using React.lazy
+export function createLazyComponent<P extends object>(
+  importFunc: () => Promise<{ default: ComponentType<P> }>,
+  label?: string
+) {
+  const LazyComp = lazy(importFunc)
+
+  // Create a wrapper component with displayName
+  const Component = (props: P) => <LazyComp {...props} />
+  if (label) Component.displayName = label
+
   return Component
 }
 
@@ -57,12 +57,12 @@ MemoList.displayName = 'MemoList'
 export function measurePerformance(
   operation: string,
   callback: () => void | Promise<void>
-) {
+): void | Promise<void> {
   const start = performance.now()
-  
+
   try {
     const result = callback()
-    
+
     if (result instanceof Promise) {
       return result.finally(() => {
         const duration = performance.now() - start
@@ -71,7 +71,7 @@ export function measurePerformance(
         }
       })
     }
-    
+
     const duration = performance.now() - start
     if (duration > 100) {
       console.warn(`[Perf] ${operation} took ${duration.toFixed(2)}ms`)
@@ -89,22 +89,21 @@ export const optimizeImageUrl = (
   quality: number = 75
 ): string => {
   if (!url) return ''
-  
+
   // For Vercel Blob storage
   if (url.includes('blob.vercel-storage.com')) {
     return `${url}?w=${width}&q=${quality}`
   }
-  
+
   // For Supabase storage
   if (url.includes('supabase')) {
     return `${url}`
   }
-  
+
   return url
 }
 
 // Batch updates to reduce re-renders
 export function batch(callback: () => void) {
-  // Use React's batch API
   callback()
 }

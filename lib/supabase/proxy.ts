@@ -31,7 +31,7 @@ export async function updateSession(request: NextRequest) {
     const isAuthRoute = pathname.startsWith('/auth')
     const isSuperAdminRoute = pathname.startsWith('/super-admin')
     const isApiRoute = pathname.startsWith('/api')
-    const isPublicRoute = pathname === '/' || isAuthRoute || isApiRoute || pathname.startsWith('/download') || pathname.startsWith('/store')
+    const isPublicRoute = pathname === '/' || isAuthRoute || isApiRoute || pathname.startsWith('/download') || pathname.startsWith('/store') || pathname === '/terms' || pathname === '/privacy'
 
     // Redirect unauthenticated users to login
     if (!user && !isPublicRoute) {
