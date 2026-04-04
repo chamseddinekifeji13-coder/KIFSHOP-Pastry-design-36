@@ -51,6 +51,7 @@ export function DeliveryProviderCredentialsSettings() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingCode, setEditingCode] = useState<DeliveryProviderCode | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
+  const [dbError, setDbError] = useState(false)
 
   // Form state
   const [selectedProvider, setSelectedProvider] = useState<DeliveryProviderCode>("best_delivery")
@@ -71,11 +72,14 @@ export function DeliveryProviderCredentialsSettings() {
   const loadCredentials = async () => {
     if (!currentTenant?.id) return
     setLoading(true)
+    setDbError(false)
     try {
       const data = await fetchProviderCredentials(currentTenant.id)
       setCredentials(data || [])
     } catch (error) {
-      toast.error("Error loading provider credentials")
+      console.error("[v0] Error loading provider credentials:", error)
+      setDbError(true)
+      setCredentials([])
     } finally {
       setLoading(false)
     }
@@ -365,6 +369,17 @@ export function DeliveryProviderCredentialsSettings() {
       </CardHeader>
 
       <CardContent>
+        {dbError ? (
+          <Alert className="mb-4 border-yellow-200 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              <strong>Configuration Setup Required:</strong> The delivery provider configuration tables need to be initialized in your database. 
+              Please execute the SQL script from <code>scripts/create-delivery-providers-table.sql</code> in your Supabase dashboard to enable this feature.
+              <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-yellow-700 underline ml-1">Open Supabase SQL Editor →</a>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        
         {credentials.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No provider credentials configured yet</p>
