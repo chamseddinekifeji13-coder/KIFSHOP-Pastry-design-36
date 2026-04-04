@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DollarSign, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import { useClientOrders } from '@/hooks/use-tenant-data'
 import { useToast } from '@/hooks/use-toast'
@@ -24,15 +25,25 @@ export function QuickOrderCollection() {
   const [isCollecting, setIsCollecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [collectedOrderIds, setCollectedOrderIds] = useState<Set<string>>(new Set())
+  const [showCollected, setShowCollected] = useState(false)
 
-  // Filter orders that are delivered but not yet collected
-  const deliveredOrders = orders?.filter((o: any) => {
+  const isDeliveredOrder = (o: any) => {
     const status = String(o.status || '').toLowerCase()
+    return status === 'livre' || status === 'delivered'
+  }
+
+  const isOrderCollected = (o: any) => {
     const paymentStatus = String(o.payment_status || o.paymentStatus || '').toLowerCase()
-    const isDelivered = status === 'livre' || status === 'delivered'
     const isPaid = paymentStatus === 'paid' || paymentStatus === 'collected' || paymentStatus === 'encaisse' || paymentStatus === 'encaissé'
     const isAlreadyCollectedLocally = collectedOrderIds.has(o.id)
-    return isDelivered && !isPaid && !isAlreadyCollectedLocally
+    return isPaid || isAlreadyCollectedLocally
+  }
+
+  // Filter orders to display: pending only, or pending+collected when toggle is enabled
+  const deliveredOrders = orders?.filter((o: any) => {
+    if (!isDeliveredOrder(o)) return false
+    if (showCollected) return true
+    return !isOrderCollected(o)
   }) || []
 
   const handleOpenCollection = (order: any) => {
@@ -118,6 +129,17 @@ export function QuickOrderCollection() {
           <DollarSign className="w-5 h-5 mr-2 text-green-600" />
           Commandes a Encaisser
         </h3>
+
+        <div className="mb-4 flex items-center gap-2">
+          <Checkbox
+            id="show-collected-orders"
+            checked={showCollected}
+            onCheckedChange={(checked) => setShowCollected(checked === true)}
+          />
+          <Label htmlFor="show-collected-orders" className="text-sm text-gray-700 cursor-pointer">
+            Afficher aussi les commandes deja encaissees
+          </Label>
+        </div>
         
         {deliveredOrders.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
@@ -149,17 +171,25 @@ export function QuickOrderCollection() {
                     {(order.total || 0).toFixed(3)} TND
                   </TableCell>
                   <TableCell>
-                    <Badge className="bg-green-100 text-green-800">Livre</Badge>
+                    {isOrderCollected(order) ? (
+                      <Badge className="bg-blue-100 text-blue-800">Encaissee</Badge>
+                    ) : (
+                      <Badge className="bg-green-100 text-green-800">Livre</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      onClick={() => handleOpenCollection(order)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      Encaisser
-                    </Button>
+                    {isOrderCollected(order) ? (
+                      <span className="text-xs text-gray-500">Deja encaissee</span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenCollection(order)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <DollarSign className="w-4 h-4 mr-1" />
+                        Encaisser
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
