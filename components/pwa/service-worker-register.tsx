@@ -3,6 +3,9 @@
 import { useEffect, useCallback } from "react"
 import { toast } from "sonner"
 
+const SW_BUILD = "20260404-collect-fix"
+const SW_SCRIPT_URL = `/sw.js?build=${SW_BUILD}`
+
 export function ServiceWorkerRegister() {
   const onUpdate = useCallback((reg: ServiceWorkerRegistration) => {
     const waiting = reg.waiting
@@ -23,12 +26,19 @@ export function ServiceWorkerRegister() {
 
     const registerSW = async () => {
       try {
-        const existingReg = await navigator.serviceWorker.getRegistration()
-        if (existingReg) {
-          await existingReg.update()
+        // Recovery step: unregister stale service workers so clients can migrate
+        // even when an old script is stuck behind intermediary caches.
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        for (const registration of registrations) {
+          const scriptUrl = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || ""
+          const isStaleKifshopSw = scriptUrl.includes("/sw.js") && !scriptUrl.includes(`build=${SW_BUILD}`)
+
+          if (isStaleKifshopSw) {
+            await registration.unregister()
+          }
         }
 
-        const reg = await navigator.serviceWorker.register("/sw.js", { 
+        const reg = await navigator.serviceWorker.register(SW_SCRIPT_URL, {
           updateViaCache: "none",
           scope: "/"
         })
