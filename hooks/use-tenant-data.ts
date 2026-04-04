@@ -6,7 +6,7 @@ import { fetchTransactions, fetchRevenueReport, fetchCashierStats } from "@/lib/
 import { fetchSuppliers, fetchPurchaseOrders, fetchSupplierPriceHistory, fetchPurchaseInvoices, fetchDeliveryNotes } from "@/lib/approvisionnement/actions"
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
-import { fetchOrders } from "@/lib/orders/actions"
+import { fetchOrders, fetchAllPaymentCollections } from "@/lib/orders/actions"
 import { fetchNotifications } from "@/lib/notifications/actions"
 import { getCriticalStock } from "@/lib/stocks/notifications"
 import { fetchProductionPlans } from "@/lib/planning/actions"
@@ -133,6 +133,13 @@ export function useInventorySessions() {
 
 export function useOrders() {
   return useTenantQuery("orders", fetchOrders, { refreshInterval: 10000 })  // Rafraichit toutes les 10s pour le dashboard
+}
+
+export function usePaymentCollections() {
+  return useTenantQuery("payment-collections", fetchAllPaymentCollections, { 
+    refreshInterval: 5000,  // Rafraichit toutes les 5s pour synchroniser avec les encaissements
+    dedupingInterval: 500,
+  })
 }
 
 export function useProspects() {

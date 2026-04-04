@@ -1,16 +1,17 @@
 "use client"
 
-import { Wallet, TrendingUp, AlertTriangle, ClipboardList, Loader2 } from "lucide-react"
+import { Wallet, TrendingUp, AlertTriangle, ClipboardList, Loader2, Banknote } from "lucide-react"
 import { useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { useTransactions, useRawMaterials, useOrders } from "@/hooks/use-tenant-data"
+import { useTransactions, useRawMaterials, useOrders, usePaymentCollections } from "@/hooks/use-tenant-data"
 
 export function KPICards() {
   const { data: transactions, isLoading: txLoading } = useTransactions()
   const { data: rawMaterials, isLoading: rmLoading } = useRawMaterials()
   const { data: orders, isLoading: ordLoading } = useOrders()
+  const { data: paymentCollections, isLoading: pcLoading } = usePaymentCollections()
 
-  const isLoading = txLoading || rmLoading || ordLoading
+  const isLoading = txLoading || rmLoading || ordLoading || pcLoading
 
   // Date locale correcte (pas UTC)
   const today = new Date().toLocaleDateString("fr-CA")
@@ -42,6 +43,15 @@ export function KPICards() {
     )
     const readyOrders = (orders || []).filter((o) => o.status === "pret")
 
+    // Encaissements du jour depuis payment_collections
+    const todayCollections = (paymentCollections || []).filter(
+      (p) => p.collectedAt?.startsWith(today)
+    )
+    const todayCollectionsTotal = todayCollections.reduce(
+      (sum, p) => sum + (p.amount ?? 0), 0
+    )
+    const todayCollectionsCount = todayCollections.length
+
     return {
       todayRevenue,
       todayCount,
@@ -49,8 +59,10 @@ export function KPICards() {
       criticalStockCount,
       pendingOrdersCount: pendingOrders.length,
       readyOrdersCount: readyOrders.length,
+      todayCollectionsTotal,
+      todayCollectionsCount,
     }
-  }, [transactions, rawMaterials, orders, today])
+  }, [transactions, rawMaterials, orders, paymentCollections, today])
 
   const cards = [
     {
@@ -68,6 +80,14 @@ export function KPICards() {
       icon: TrendingUp,
       iconBg: "bg-secondary/20",
       iconColor: "text-secondary-foreground",
+    },
+    {
+      title: "Encaissements du jour",
+      value: `${kpiData.todayCollectionsTotal.toLocaleString("fr-TN")} TND`,
+      subtitle: `${kpiData.todayCollectionsCount} encaissement${kpiData.todayCollectionsCount !== 1 ? "s" : ""} commandes`,
+      icon: Banknote,
+      iconBg: kpiData.todayCollectionsCount > 0 ? "bg-green-500/10" : "bg-muted",
+      iconColor: kpiData.todayCollectionsCount > 0 ? "text-green-600" : "text-muted-foreground",
     },
     {
       title: "Stocks critiques",
@@ -88,7 +108,7 @@ export function KPICards() {
   ]
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((card) => {
         const Icon = card.icon
         return (

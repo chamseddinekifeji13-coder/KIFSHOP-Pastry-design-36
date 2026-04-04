@@ -818,3 +818,45 @@ function translateSource(source: string): string {
   }
   return map[source] || source
 }
+
+// ─── Fetch All Payment Collections (pour dashboard et KPIs) ───────────
+
+export interface PaymentCollectionWithOrder extends PaymentCollection {
+  orderCustomerName?: string
+  orderTotal?: number
+}
+
+export async function fetchAllPaymentCollections(tenantId: string): Promise<PaymentCollectionWithOrder[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select(`
+      *,
+      orders!inner(customer_name, total)
+    `)
+    .eq("tenant_id", tenantId)
+    .order("collected_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching all payment collections:", error.message)
+    return []
+  }
+
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    orderId: p.order_id,
+    tenantId: p.tenant_id,
+    amount: Number(p.amount),
+    paymentMethod: p.payment_method as PaymentMethod,
+    collectedBy: p.collected_by as CollectedBy,
+    collectorName: p.collector_name,
+    reference: p.reference,
+    notes: p.notes,
+    collectedAt: p.collected_at,
+    recordedByName: p.recorded_by_name,
+    createdAt: p.created_at,
+    orderCustomerName: p.orders?.customer_name,
+    orderTotal: p.orders?.total ? Number(p.orders.total) : undefined,
+  }))
+}
