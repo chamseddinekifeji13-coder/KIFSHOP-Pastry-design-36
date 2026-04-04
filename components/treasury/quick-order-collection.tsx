@@ -23,7 +23,12 @@ export function QuickOrderCollection() {
     mutate: mutateTodayCollections,
     isLoading: isTodayCollectionsLoading,
   } = useSWR('/api/treasury/collections-today', async (url: string) => {
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    })
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`)
     }

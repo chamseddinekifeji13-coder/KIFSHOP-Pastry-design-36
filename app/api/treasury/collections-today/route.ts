@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { withSession, serverErrorResponse } from "@/lib/api-helpers"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export async function GET() {
   const [session, authError] = await withSession()
   if (authError) return authError
@@ -75,22 +78,30 @@ export async function GET() {
     const total = totalOrderCollections + totalPaymentCollections
     const count = orderCollectionsToday.length + paymentCollectionsToday.length
 
-    return NextResponse.json({
-      success: true,
-      total,
-      count,
-      date: tunisDayKey,
-      breakdown: {
-        orderCollections: {
-          total: totalOrderCollections,
-          count: orderCollectionsToday.length,
-        },
-        paymentCollections: {
-          total: totalPaymentCollections,
-          count: paymentCollectionsToday.length,
+    return NextResponse.json(
+      {
+        success: true,
+        total,
+        count,
+        date: tunisDayKey,
+        generatedAt: new Date().toISOString(),
+        breakdown: {
+          orderCollections: {
+            total: totalOrderCollections,
+            count: orderCollectionsToday.length,
+          },
+          paymentCollections: {
+            total: totalPaymentCollections,
+            count: paymentCollectionsToday.length,
+          },
         },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    )
   } catch (error) {
     return serverErrorResponse(error)
   }
