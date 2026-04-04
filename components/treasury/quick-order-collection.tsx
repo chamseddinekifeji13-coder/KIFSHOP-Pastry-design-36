@@ -23,11 +23,17 @@ export function QuickOrderCollection() {
   const [notes, setNotes] = useState('')
   const [isCollecting, setIsCollecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [collectedOrderIds, setCollectedOrderIds] = useState<Set<string>>(new Set())
 
   // Filter orders that are delivered but not yet collected
-  const deliveredOrders = orders?.filter((o: any) => 
-    o.status === 'livre' || o.status === 'delivered'
-  ) || []
+  const deliveredOrders = orders?.filter((o: any) => {
+    const status = String(o.status || '').toLowerCase()
+    const paymentStatus = String(o.payment_status || o.paymentStatus || '').toLowerCase()
+    const isDelivered = status === 'livre' || status === 'delivered'
+    const isPaid = paymentStatus === 'paid' || paymentStatus === 'collected' || paymentStatus === 'encaisse' || paymentStatus === 'encaissé'
+    const isAlreadyCollectedLocally = collectedOrderIds.has(o.id)
+    return isDelivered && !isPaid && !isAlreadyCollectedLocally
+  }) || []
 
   const handleOpenCollection = (order: any) => {
     setSelectedOrder(order)
@@ -75,6 +81,11 @@ export function QuickOrderCollection() {
       toast({
         title: "Encaissement réussi",
         description: `Paiement de ${amount} TND enregistré`
+      })
+      setCollectedOrderIds((prev) => {
+        const next = new Set(prev)
+        next.add(selectedOrder.id)
+        return next
       })
       setSelectedOrder(null)
       mutate()
