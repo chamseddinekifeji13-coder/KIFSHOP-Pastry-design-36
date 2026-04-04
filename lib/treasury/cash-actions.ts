@@ -105,10 +105,10 @@ export async function collectOrderPayment(
   paymentMethod: string = 'cash',
   notes?: string
 ) {
-  const supabase = await createClient()
-  const session = await getServerSession()
-
   try {
+    const supabase = await createClient()
+    const session = await getServerSession()
+
     // Get active cash session
     const activeSession = await getActiveCashSession()
     if (!activeSession) {
