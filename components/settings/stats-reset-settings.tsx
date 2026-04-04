@@ -38,6 +38,11 @@ export function StatsResetSettings() {
   }
 
   const handleResetStats = async () => {
+    if (!currentTenant?.id) {
+      toast.error("Tenant introuvable")
+      return
+    }
+
     setLoading(true)
     try {
       const result = await resetSellerStats(currentTenant.id)
@@ -58,6 +63,11 @@ export function StatsResetSettings() {
   }
 
   const handleClearReset = async () => {
+    if (!currentTenant?.id) {
+      toast.error("Tenant introuvable")
+      return
+    }
+
     setLoading(true)
     try {
       const result = await clearStatsReset(currentTenant.id)

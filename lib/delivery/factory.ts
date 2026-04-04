@@ -16,7 +16,7 @@ export class DeliveryProviderFactory {
   private static providers: Map<
     DeliveryProviderCode,
     new (credentials: DeliveryProviderCredentials) => BaseDeliveryProvider
-  > = new Map([
+  > = new Map<DeliveryProviderCode, new (credentials: DeliveryProviderCredentials) => BaseDeliveryProvider>([
     ['best_delivery', BestDeliveryProvider],
     ['aramex', AramexProvider],
     ['first_delivery', FirstDeliveryProvider],

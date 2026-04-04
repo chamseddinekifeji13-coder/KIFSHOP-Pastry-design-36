@@ -41,7 +41,8 @@ interface CourierCollection {
 }
 
 export function CourierCollectionsView() {
-  const tenantId = useTenant()
+  const { currentTenant } = useTenant()
+  const tenantId = currentTenant?.id
   const [unverified, setUnverified] = useState<CourierCollection[]>([])
   const [all, setAll] = useState<CourierCollection[]>([])
   const [summary, setSummary] = useState<any>(null)
@@ -51,6 +52,14 @@ export function CourierCollectionsView() {
   const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set())
 
   const loadData = async () => {
+    if (!tenantId) {
+      setUnverified([])
+      setSummary(null)
+      setDrivers([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const [collections, summaryData] = await Promise.all([
       getUnverifiedCourierCollections(tenantId),
@@ -72,6 +81,7 @@ export function CourierCollectionsView() {
   }, [tenantId])
 
   const handleApprove = async (id: string) => {
+    if (!tenantId) return
     setApprovingIds((prev) => new Set([...prev, id]))
     const success = await approveCourierCollection(id, tenantId)
     if (success) {
@@ -86,7 +96,7 @@ export function CourierCollectionsView() {
   }
 
   const handleApproveDriver = async () => {
-    if (!selectedDriver) return
+    if (!tenantId || !selectedDriver) return
     setApprovingIds((prev) => new Set([...prev, selectedDriver]))
     const success = await approveCourierCollectionsByDriver(tenantId, selectedDriver)
     if (success) {
