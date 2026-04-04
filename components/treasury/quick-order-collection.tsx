@@ -44,12 +44,24 @@ export function QuickOrderCollection() {
     try {
       setError(null)
       setIsCollecting(true)
-      await collectOrderPayment(
+      const result = await collectOrderPayment(
         selectedOrder.id,
         parseFloat(amount) || 0,
         paymentMethod,
         notes
       )
+
+      if (!result?.success) {
+        const errorMessage = result?.error || "Erreur lors de l'encaissement"
+        setError(errorMessage)
+        toast({
+          title: "Erreur lors de l'encaissement",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        return
+      }
+
       toast({
         title: "Encaissement réussi",
         description: `Paiement de ${amount} TND enregistré`
