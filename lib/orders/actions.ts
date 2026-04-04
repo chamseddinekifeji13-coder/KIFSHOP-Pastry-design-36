@@ -860,3 +860,242 @@ export async function fetchAllPaymentCollections(tenantId: string): Promise<Paym
     orderTotal: p.orders?.total ? Number(p.orders.total) : undefined,
   }))
 }
+
+// ─── Fonctions pour gérer les encaissements par livreur ───────────
+
+export interface CourierCollection {
+  id: string
+  orderId: string
+  tenantId: string
+  amount: number
+  paymentMethod: PaymentMethod
+  collectorName: string
+  collectedAt: string
+  recordedByName?: string
+  verified: boolean
+  verifiedAt?: string
+  verifiedByName?: string
+  reference?: string
+  notes?: string
+}
+
+/**
+ * Récupère tous les encaissements par livreur NON VERIFIES
+ */
+export async function getUnverifiedCourierCollections(tenantId: string): Promise<CourierCollection[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select(`
+      id,
+      order_id,
+      tenant_id,
+      amount,
+      payment_method,
+      collector_name,
+      collected_at,
+      recorded_by_name,
+      reference,
+      notes,
+      verified,
+      verified_at,
+      verified_by_name,
+      orders!inner(customer_name, total)
+    `)
+    .eq("tenant_id", tenantId)
+    .eq("collected_by", "courier")
+    .eq("verified", false)
+    .order("collected_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching unverified courier collections:", error.message)
+    return []
+  }
+
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    orderId: p.order_id,
+    tenantId: p.tenant_id,
+    amount: Number(p.amount),
+    paymentMethod: p.payment_method as PaymentMethod,
+    collectorName: p.collector_name,
+    collectedAt: p.collected_at,
+    recordedByName: p.recorded_by_name,
+    reference: p.reference,
+    notes: p.notes,
+    verified: p.verified,
+    verifiedAt: p.verified_at,
+    verifiedByName: p.verified_by_name,
+  }))
+}
+
+/**
+ * Approuve la réception d'un encaissement par livreur
+ */
+export async function approveCourierCollection(
+  paymentCollectionId: string,
+  tenantId: string
+): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const verifiedAt = new Date().toISOString()
+  const verifiedByName = user?.user_metadata?.display_name || user?.email || null
+
+  const { error } = await supabase
+    .from("payment_collections")
+    .update({
+      verified: true,
+      verified_at: verifiedAt,
+      verified_by_name: verifiedByName,
+    })
+    .eq("id", paymentCollectionId)
+    .eq("tenant_id", tenantId)
+
+  if (error) {
+    console.error("Error approving courier collection:", error.message)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Approuve tous les encaissements d'un livreur spécifique pour une date donnée
+ */
+export async function approveCourierCollectionsByDriver(
+  tenantId: string,
+  driverName: string,
+  approvalDate?: string
+): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const verifiedAt = new Date().toISOString()
+  const verifiedByName = user?.user_metadata?.display_name || user?.email || null
+  const dateFilter = approvalDate || new Date().toISOString().split("T")[0]
+
+  // Récupère tous les encaissements du livreur pour cette date
+  const { data: collections, error: fetchError } = await supabase
+    .from("payment_collections")
+    .select("id, collected_at")
+    .eq("tenant_id", tenantId)
+    .eq("collected_by", "courier")
+    .eq("collector_name", driverName)
+    .eq("verified", false)
+    .gte("collected_at", `${dateFilter}T00:00:00`)
+    .lt("collected_at", `${dateFilter}T23:59:59`)
+
+  if (fetchError) {
+    console.error("Error fetching courier collections:", fetchError.message)
+    return false
+  }
+
+  if (!collections || collections.length === 0) {
+    return true // Rien à approuver
+  }
+
+  // Approuve tous les encaissements trouvés
+  const { error: updateError } = await supabase
+    .from("payment_collections")
+    .update({
+      verified: true,
+      verified_at: verifiedAt,
+      verified_by_name: verifiedByName,
+    })
+    .in(
+      "id",
+      collections.map((c: any) => c.id)
+    )
+    .eq("tenant_id", tenantId)
+
+  if (updateError) {
+    console.error("Error approving courier collections:", updateError.message)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Récupère un résumé des encaissements par livreur (vérifiés vs non vérifiés)
+ */
+export async function getCourierCollectionsSummary(tenantId: string): Promise<{
+  unverifiedCount: number
+  unverifiedTotal: number
+  verifiedCount: number
+  verifiedTotal: number
+  byCourier: Record<
+    string,
+    {
+      unverifiedCount: number
+      unverifiedTotal: number
+      verifiedCount: number
+      verifiedTotal: number
+    }
+  >
+}> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select("collector_name, amount, verified")
+    .eq("tenant_id", tenantId)
+    .eq("collected_by", "courier")
+
+  if (error) {
+    console.error("Error fetching courier collections summary:", error.message)
+    return {
+      unverifiedCount: 0,
+      unverifiedTotal: 0,
+      verifiedCount: 0,
+      verifiedTotal: 0,
+      byCourier: {},
+    }
+  }
+
+  const summary = {
+    unverifiedCount: 0,
+    unverifiedTotal: 0,
+    verifiedCount: 0,
+    verifiedTotal: 0,
+    byCourier: {} as Record<
+      string,
+      {
+        unverifiedCount: number
+        unverifiedTotal: number
+        verifiedCount: number
+        verifiedTotal: number
+      }
+    >,
+  }
+
+  for (const collection of data || []) {
+    const courier = collection.collector_name || "Non spécifié"
+    const amount = Number(collection.amount)
+
+    if (!summary.byCourier[courier]) {
+      summary.byCourier[courier] = {
+        unverifiedCount: 0,
+        unverifiedTotal: 0,
+        verifiedCount: 0,
+        verifiedTotal: 0,
+      }
+    }
+
+    if (collection.verified) {
+      summary.verifiedCount++
+      summary.verifiedTotal += amount
+      summary.byCourier[courier].verifiedCount++
+      summary.byCourier[courier].verifiedTotal += amount
+    } else {
+      summary.unverifiedCount++
+      summary.unverifiedTotal += amount
+      summary.byCourier[courier].unverifiedCount++
+      summary.byCourier[courier].unverifiedTotal += amount
+    }
+  }
+
+  return summary
+}

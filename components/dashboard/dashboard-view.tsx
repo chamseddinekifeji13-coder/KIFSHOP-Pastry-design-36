@@ -6,6 +6,7 @@ import { KPICards } from "./kpi-cards"
 import { RevenueChart } from "./revenue-chart"
 import { AlertsPanel } from "./alerts-panel"
 import { RecentCollectionsPanel } from "./recent-collections-panel"
+import { CourierCollectionsPanel } from "./courier-collections-panel"
 import { OnlineSalesWidget } from "./online-sales-widget"
 import { BestDeliveryReport } from "./best-delivery-report"
 import { SyncStatusIndicator } from "./sync-status-indicator"
@@ -64,6 +65,7 @@ export function DashboardView() {
         <div className="space-y-6">
           <AlertsPanel />
           <RecentCollectionsPanel />
+          <CourierCollectionsPanel />
           <OnlineSalesWidget />
         </div>
       </div>
