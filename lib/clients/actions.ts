@@ -83,50 +83,53 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     }
   }
 
+  // Fetch all Best Delivery shipments in one query to avoid N+1.
+  const { data: allShipments, error: shipmentsError } = await supabase
+    .from("best_delivery_shipments")
+    .select("customer_phone, status, cod_amount")
+    .eq("tenant_id", tenantId)
+
+  if (shipmentsError) {
+    console.error("Error fetching best delivery shipments:", shipmentsError)
+  }
+
+  // Build a map of phone -> shipment stats from Best Delivery
+  const shipmentStatsMap = new Map<string, { deliveredCount: number; deliveredTotal: number; returnedCount: number }>()
+  for (const shipment of allShipments || []) {
+    const phone = (shipment.customer_phone || "").trim()
+    if (!phone) continue
+
+    const status = (shipment.status || "").toLowerCase()
+    const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
+    const isReturned = status === "returned" || status === "retour"
+
+    const existing = shipmentStatsMap.get(phone) || { deliveredCount: 0, deliveredTotal: 0, returnedCount: 0 }
+    if (isDelivered) {
+      existing.deliveredCount++
+      existing.deliveredTotal += Number(shipment.cod_amount) || 0
+    } else if (isReturned) {
+      existing.returnedCount++
+    }
+    shipmentStatsMap.set(phone, existing)
+  }
+
   // Enrich each client with Best Delivery stats + orders table stats
-  const enrichedClients = await Promise.all(
-    (data || []).map(async (clientRow) => {
-      const client = mapClient(clientRow)
+  const enrichedClients = (data || []).map((clientRow) => {
+    const client = mapClient(clientRow)
+    const normalizedPhone = (client.phone || "").trim()
+    const bdStats = shipmentStatsMap.get(normalizedPhone) || { deliveredCount: 0, deliveredTotal: 0, returnedCount: 0 }
 
-      // Fetch Best Delivery shipments for this client
-      const { data: shipments } = await supabase
-        .from("best_delivery_shipments")
-        .select("status, cod_amount")
-        .eq("tenant_id", tenantId)
-        .eq("customer_phone", client.phone)
+    // Combine stats: Best Delivery + orders table
+    // Use orders table stats as well so campaigns audience filtering works correctly
+    const orderStats = orderStatsMap.get(normalizedPhone) || { count: 0, total: 0 }
 
-      // Calculate stats from Best Delivery
-      let bdCount = 0
-      let bdTotal = 0
-      let bdReturned = 0
-
-      if (shipments && shipments.length > 0) {
-        shipments.forEach((shipment) => {
-          const status = (shipment.status || "").toLowerCase()
-          const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
-          const isReturned = status === "returned" || status === "retour"
-
-          if (isDelivered) {
-            bdCount++
-            bdTotal += Number(shipment.cod_amount) || 0
-          } else if (isReturned) {
-            bdReturned++
-          }
-        })
-      }
-
-      // Combine stats: Best Delivery + orders table
-      // Use orders table stats as well so campaigns audience filtering works correctly
-      const orderStats = orderStatsMap.get(client.phone) || { count: 0, total: 0 }
-
-      return {
-        ...client,
-        totalOrders: bdCount + orderStats.count,
-        totalSpent: bdTotal + orderStats.total,
-        returnCount: bdReturned,
-      }
-    })
-  )
+    return {
+      ...client,
+      totalOrders: bdStats.deliveredCount + orderStats.count,
+      totalSpent: bdStats.deliveredTotal + orderStats.total,
+      returnCount: bdStats.returnedCount,
+    }
+  })
 
   return enrichedClients
 }
