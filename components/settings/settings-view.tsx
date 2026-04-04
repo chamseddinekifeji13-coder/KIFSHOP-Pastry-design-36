@@ -15,6 +15,7 @@ import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
 import { DeliveryCompaniesSettings } from "./delivery-companies-settings"
+import { DeliveryProviderCredentialsSettings } from "./delivery-provider-credentials-settings"
 import { StatsResetSettings } from "./stats-reset-settings"
 import { ROLE_LABELS } from "@/lib/tenant-context"
 import { Textarea } from "@/components/ui/textarea"
@@ -394,6 +395,11 @@ export function SettingsView() {
         {/* Delivery Companies - Owner & Gerant */}
         {(currentRole === "owner" || currentRole === "gerant") && (
           <DeliveryCompaniesSettings />
+        )}
+
+        {/* Delivery Provider API Settings - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <DeliveryProviderCredentialsSettings />
         )}
 
         {/* Users Management - Owner & Gerant */}
