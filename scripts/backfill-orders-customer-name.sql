@@ -1,6 +1,7 @@
 -- ============================================================
 -- Backfill customer_name in orders
 -- Safe and idempotent: only updates rows with empty/null customer_name
+-- Compatible with schemas where orders.client_id does NOT exist
 -- ============================================================
 
 BEGIN;
@@ -10,23 +11,24 @@ BEGIN;
 SELECT COUNT(*) AS rows_to_update
 FROM public.orders o
 LEFT JOIN public.clients c
-  ON c.id = o.client_id
+  ON c.tenant_id = o.tenant_id
+ AND c.phone = o.customer_phone
 WHERE (o.customer_name IS NULL OR btrim(o.customer_name) = '')
-  AND (
-    (c.name IS NOT NULL AND btrim(c.name) <> '')
-    OR (o.client_name IS NOT NULL AND btrim(o.client_name) <> '')
-  );
+  AND c.name IS NOT NULL
+  AND btrim(c.name) <> '';
 
 -- 2) Fill missing names:
---    priority = clients.name -> orders.client_name
+--    priority = clients.name (matched by tenant_id + customer_phone)
 UPDATE public.orders o
 SET
-  customer_name = COALESCE(NULLIF(btrim(c.name), ''), NULLIF(btrim(o.client_name), '')),
+  customer_name = NULLIF(btrim(c.name), ''),
   updated_at = NOW()
 FROM public.clients c
-WHERE c.id = o.client_id
+WHERE c.tenant_id = o.tenant_id
+  AND c.phone = o.customer_phone
   AND (o.customer_name IS NULL OR btrim(o.customer_name) = '')
-  AND COALESCE(NULLIF(btrim(c.name), ''), NULLIF(btrim(o.client_name), '')) IS NOT NULL;
+  AND c.name IS NOT NULL
+  AND btrim(c.name) <> '';
 
 -- 3) Optional: check remaining rows without names
 SELECT COUNT(*) AS rows_still_missing_name
