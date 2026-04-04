@@ -26,13 +26,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get tenant ID from user profile
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('tenant_id')
       .eq('id', user.id)
       .single();
 
-    if (!profile?.tenant_id) {
+    if (profileError || !profile?.tenant_id) {
       return NextResponse.json(
         { error: 'Tenant not found' },
         { status: 400 }
