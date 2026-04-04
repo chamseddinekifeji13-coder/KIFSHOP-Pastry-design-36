@@ -81,7 +81,10 @@ export function QuickOrderCollection() {
 
   const handleOpenCollection = (order: any) => {
     setSelectedOrder(order)
-    setAmount(order.total?.toString() || '0')
+    const total = Number(order?.total) || 0
+    const deposit = Number(order?.deposit) || 0
+    const remaining = Math.max(total - deposit, 0)
+    setAmount(remaining.toString())
     setPaymentMethod('cash')
     setNotes('')
     setError(null)
@@ -145,7 +148,9 @@ export function QuickOrderCollection() {
       })
       setSelectedOrder(null)
       mutate()
-      mutateTodayCollections()
+      setTimeout(() => {
+        mutateTodayCollections()
+      }, 1200)
     } catch (err: any) {
       const errorMessage = err.message || 'Erreur lors de l\'encaissement'
       console.error('[v0] Collection failed:', err)
@@ -292,7 +297,7 @@ export function QuickOrderCollection() {
                 step="0.001"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Total original: {(selectedOrder?.total || 0).toFixed(3)} TND
+                Reste a encaisser: {Math.max((Number(selectedOrder?.total) || 0) - (Number(selectedOrder?.deposit) || 0), 0).toFixed(3)} TND
               </p>
             </div>
 

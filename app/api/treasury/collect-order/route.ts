@@ -33,35 +33,57 @@ export async function POST(request: Request) {
   try {
     const supabase = createAdminClient()
 
-    // Prevent duplicate collection on the same order.
-    const { data: existingCollection, error: existingCollectionError } = await supabase
-      .from("order_collections")
-      .select("id, collected_at")
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("id, total, deposit, payment_status")
       .eq("tenant_id", session.tenantId)
-      .eq("order_id", orderId)
-      .order("collected_at", { ascending: false })
-      .limit(1)
+      .eq("id", orderId)
       .maybeSingle()
 
-    if (existingCollectionError) {
+    if (orderError) {
       return NextResponse.json(
         {
           success: false,
-          error: "Erreur verification encaissement existant",
-          details: existingCollectionError.message,
-          code: existingCollectionError.code,
+          error: "Erreur lecture commande",
+          details: orderError.message,
+          code: orderError.code,
         },
         { status: 500 }
       )
     }
 
-    if (existingCollection) {
+    if (!order) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Commande introuvable",
+        },
+        { status: 404 }
+      )
+    }
+
+    const normalizedPaymentStatus = String(order.payment_status || "").toLowerCase().trim()
+    const currentDeposit = Number(order.deposit) || 0
+    const totalAmount = Number(order.total) || 0
+    const remainingAmount = Math.max(totalAmount - currentDeposit, 0)
+    const isAlreadyPaid =
+      normalizedPaymentStatus === "paid" ||
+      normalizedPaymentStatus === "collected" ||
+      remainingAmount <= 0
+
+    if (isAlreadyPaid) {
       return NextResponse.json(
         {
           success: false,
           error: "Cette commande est deja encaissee",
         },
         { status: 409 }
+      )
+    }
+
+    if (amount > remainingAmount) {
+      return badRequestResponse(
+        `Montant invalide: reste ${remainingAmount.toFixed(3)} TND a encaisser`
       )
     }
 
@@ -106,6 +128,7 @@ export async function POST(request: Request) {
         payment_method: paymentMethod,
         collected_by: session.activeProfileId,
         collected_by_name: session.displayName,
+        collected_at: new Date().toISOString(),
         notes,
       })
       .select()
@@ -124,10 +147,19 @@ export async function POST(request: Request) {
     }
 
     // Mark order as paid so it disappears from "to collect" lists.
+    const nextDeposit = currentDeposit + amount
+    const nextPaymentStatus =
+      nextDeposit >= totalAmount
+        ? "paid"
+        : nextDeposit > 0
+          ? "partial"
+          : "unpaid"
+
     const { error: orderUpdateError } = await supabase
       .from("orders")
       .update({
-        payment_status: "paid",
+        deposit: nextDeposit,
+        payment_status: nextPaymentStatus,
         updated_at: new Date().toISOString(),
       })
       .eq("tenant_id", session.tenantId)
