@@ -169,9 +169,54 @@ export async function POST(request: Request) {
       console.error("[collect-order] order payment_status update failed:", orderUpdateError)
     }
 
+    // Return fresh "today" totals from the same request to avoid client-side flicker.
+    const tunisDayKey = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Tunis",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date())
+    const windowStart = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+    const [{ data: orderCollections }, { data: paymentCollections }] = await Promise.all([
+      supabase
+        .from("order_collections")
+        .select("amount, collected_at")
+        .eq("tenant_id", session.tenantId)
+        .gte("collected_at", windowStart),
+      supabase
+        .from("payment_collections")
+        .select("amount, collected_at")
+        .eq("tenant_id", session.tenantId)
+        .gte("collected_at", windowStart),
+    ])
+
+    const isTodayInTunis = (value: string | null | undefined): boolean => {
+      if (!value) return false
+      const date = new Date(value)
+      if (Number.isNaN(date.getTime())) return false
+      const dayKey = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Africa/Tunis",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(date)
+      return dayKey === tunisDayKey
+    }
+
+    const orderCollectionsToday = (orderCollections || []).filter((row) => isTodayInTunis(row.collected_at))
+    const paymentCollectionsToday = (paymentCollections || []).filter((row) => isTodayInTunis(row.collected_at))
+    const totalOrderCollections = orderCollectionsToday.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+    const totalPaymentCollections = paymentCollectionsToday.reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
+
     return NextResponse.json({
       success: true,
       data: collection,
+      todayTotals: {
+        total: totalOrderCollections + totalPaymentCollections,
+        count: orderCollectionsToday.length + paymentCollectionsToday.length,
+        date: tunisDayKey,
+      },
     })
   } catch (error) {
     return serverErrorResponse(error)

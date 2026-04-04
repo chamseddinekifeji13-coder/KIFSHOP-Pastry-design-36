@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 import { withSession, serverErrorResponse } from "@/lib/api-helpers"
 
 export const dynamic = "force-dynamic"
@@ -10,7 +10,7 @@ export async function GET() {
   if (authError) return authError
 
   try {
-    const supabase = await createClient()
+    const supabase = createAdminClient()
     const tunisDayKey = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Africa/Tunis",
       year: "numeric",

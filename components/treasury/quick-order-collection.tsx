@@ -132,7 +132,14 @@ export function QuickOrderCollection() {
 
       // Keep the "total collected today" card in sync immediately.
       const collectedAmount = parseFloat(amount) || 0
-      if (collectedAmount > 0) {
+      if (result?.todayTotals && Number.isFinite(Number(result.todayTotals.total))) {
+        mutateTodayCollections({
+          success: true,
+          total: Number(result.todayTotals.total) || 0,
+          count: Number(result.todayTotals.count) || 0,
+          date: result.todayTotals.date,
+        }, false)
+      } else if (collectedAmount > 0) {
         mutateTodayCollections((prev: any) => ({
           ...(prev || {}),
           success: true,
@@ -150,7 +157,7 @@ export function QuickOrderCollection() {
       mutate()
       setTimeout(() => {
         mutateTodayCollections()
-      }, 1200)
+      }, 10000)
     } catch (err: any) {
       const errorMessage = err.message || 'Erreur lors de l\'encaissement'
       console.error('[v0] Collection failed:', err)
