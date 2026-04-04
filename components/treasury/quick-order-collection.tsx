@@ -108,7 +108,7 @@ export function QuickOrderCollection() {
                   <TableCell className="font-medium">
                     #{order.id?.slice(0, 8)}
                   </TableCell>
-                  <TableCell>{order.customer_name || order.customerName || 'N/A'}</TableCell>
+                  <TableCell>{order.customer_name || order.customerName || order.customer_phone || order.phone || 'N/A'}</TableCell>
                   <TableCell>
                     {new Date(order.created_at || order.createdAt).toLocaleDateString('fr-FR')}
                   </TableCell>
@@ -156,7 +156,9 @@ export function QuickOrderCollection() {
             
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600">Client</p>
-              <p className="font-semibold">{selectedOrder?.customer_name || selectedOrder?.customerName}</p>
+              <p className="font-semibold">
+                {selectedOrder?.customer_name || selectedOrder?.customerName || selectedOrder?.customer_phone || selectedOrder?.phone || "N/A"}
+              </p>
             </div>
 
             <div>
