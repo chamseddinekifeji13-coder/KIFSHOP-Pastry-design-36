@@ -7,7 +7,7 @@ BEGIN;
 -- 1. delivery_provider_credentials table
 CREATE TABLE IF NOT EXISTS delivery_provider_credentials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   provider_code TEXT NOT NULL,
   provider_name TEXT NOT NULL,
   api_key TEXT,
@@ -39,8 +39,8 @@ CREATE INDEX IF NOT EXISTS idx_delivery_credentials_provider ON delivery_provide
 -- 2. delivery_shipments table
 CREATE TABLE IF NOT EXISTS delivery_shipments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES public.orders(id) ON DELETE SET NULL,
   order_number TEXT NOT NULL,
   provider_code TEXT NOT NULL,
   customer_name TEXT NOT NULL,
@@ -97,7 +97,7 @@ CREATE INDEX IF NOT EXISTS idx_shipments_tracking ON delivery_shipments(tracking
 -- 3. delivery_shipment_items table
 CREATE TABLE IF NOT EXISTS delivery_shipment_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  shipment_id UUID NOT NULL REFERENCES delivery_shipments(id) ON DELETE CASCADE,
+  shipment_id UUID NOT NULL REFERENCES public.delivery_shipments(id) ON DELETE CASCADE,
   product_id UUID,
   product_name TEXT NOT NULL,
   sku TEXT,
@@ -114,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_shipment_items_shipment ON delivery_shipment_item
 -- 4. delivery_export_logs table
 CREATE TABLE IF NOT EXISTS delivery_export_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   shipment_id UUID REFERENCES delivery_shipments(id) ON DELETE SET NULL,
   provider_code TEXT NOT NULL,
   operation TEXT NOT NULL,
@@ -139,7 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_export_logs_provider ON delivery_export_logs(prov
 -- 5. delivery_webhooks table
 CREATE TABLE IF NOT EXISTS delivery_webhooks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT REFERENCES public.tenants(id) ON DELETE CASCADE,
   provider_code TEXT NOT NULL,
   event_type TEXT NOT NULL,
   tracking_number TEXT,
@@ -159,7 +159,7 @@ CREATE INDEX IF NOT EXISTS idx_webhooks_tracking ON delivery_webhooks(tracking_n
 -- 6. delivery_rates table
 CREATE TABLE IF NOT EXISTS delivery_rates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id TEXT NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   provider_code TEXT NOT NULL,
   zone_name TEXT NOT NULL,
   governorates TEXT[],
