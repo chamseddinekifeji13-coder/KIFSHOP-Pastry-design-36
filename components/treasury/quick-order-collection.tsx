@@ -27,16 +27,29 @@ export function QuickOrderCollection() {
   const [collectedOrderIds, setCollectedOrderIds] = useState<Set<string>>(new Set())
   const [showCollected, setShowCollected] = useState(false)
 
+  const normalizeStatus = (value: unknown) => String(value || '').toLowerCase().trim()
+
   const isDeliveredOrder = (o: any) => {
-    const status = String(o.status || '').toLowerCase()
-    return status === 'livre' || status === 'delivered'
+    const status = normalizeStatus(o.status)
+    return (
+      status === 'pret' ||
+      status === 'ready' ||
+      status === 'en-livraison' ||
+      status === 'en_livraison' ||
+      status === 'en livraison' ||
+      status === 'livre' ||
+      status === 'delivered'
+    )
   }
 
   const isOrderCollected = (o: any) => {
-    const paymentStatus = String(o.payment_status || o.paymentStatus || '').toLowerCase()
+    const paymentStatus = normalizeStatus(o.payment_status || o.paymentStatus)
     const isPaid = paymentStatus === 'paid' || paymentStatus === 'collected' || paymentStatus === 'encaisse' || paymentStatus === 'encaissé'
+    const total = Number(o.total) || 0
+    const deposit = Number(o.deposit) || 0
+    const hasNoRemaining = total <= 0 ? true : (total - deposit) <= 0
     const isAlreadyCollectedLocally = collectedOrderIds.has(o.id)
-    return isPaid || isAlreadyCollectedLocally
+    return isPaid || hasNoRemaining || isAlreadyCollectedLocally
   }
 
   // Filter orders to display: pending only, or pending+collected when toggle is enabled
@@ -143,7 +156,7 @@ export function QuickOrderCollection() {
         
         {deliveredOrders.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            Aucune commande livree en attente d'encaissement
+            Aucune commande en attente d'encaissement
           </div>
         ) : (
           <Table>
