@@ -1040,14 +1040,13 @@ export async function parseCSVContent(content: string): Promise<{
       ? values[columnIndices.trackingNumber]?.replace(/"/g, "").trim()
       : undefined
     
-    // Convert scientific notation to regular number if needed
-    if (trackingNumber && trackingNumber.includes("E")) {
-      try {
-        const num = parseFloat(trackingNumber.replace(",", "."))
+    // Convert scientific notation to integer string (e.g. "1,08E+11", "1.08e+11")
+    if (trackingNumber && /[eE]/.test(trackingNumber)) {
+      const num = parseFloat(trackingNumber.replace(",", "."))
+      if (Number.isFinite(num)) {
         trackingNumber = Math.floor(num).toString()
-      } catch {
-        // Keep as is if conversion fails
       }
+      // If NaN/Infinity, keep original trackingNumber — do not store "NaN"
     }
     
     // Best Delivery format: "Nom Telephone Adresse" in the Nom field
@@ -1088,6 +1087,12 @@ export async function parseCSVContent(content: string): Promise<{
       continue
     }
 
+    if (!customerPhone?.trim()) {
+      errors.push({ row: i + 1, error: "Telephone client manquant" })
+      continue
+    }
+    customerPhone = customerPhone.trim()
+
     const rawStatus = columnIndices.status !== undefined 
       ? values[columnIndices.status]?.toLowerCase().replace(/"/g, "").trim() 
       : "pending"
@@ -1112,6 +1117,35 @@ export async function parseCSVContent(content: string): Promise<{
       : undefined
     const fees = feesStr ? parseFloat(feesStr) : undefined
 
+    const deliveryDateRaw =
+      columnIndices.deliveryDate !== undefined
+        ? values[columnIndices.deliveryDate]?.replace(/"/g, "").trim()
+        : undefined
+    const dateAddedRaw =
+      columnIndices.dateAdded !== undefined
+        ? values[columnIndices.dateAdded]?.replace(/"/g, "").trim()
+        : undefined
+    const pickupDateRaw =
+      columnIndices.pickupDate !== undefined
+        ? values[columnIndices.pickupDate]?.replace(/"/g, "").trim()
+        : undefined
+
+    const deliveryDate = deliveryDateRaw ? parseAndValidateDate(deliveryDateRaw) : undefined
+    if (deliveryDateRaw && !deliveryDate) {
+      errors.push({ row: i + 1, error: `Date livraison invalide: "${deliveryDateRaw}"` })
+      continue
+    }
+    const dateAdded = dateAddedRaw ? parseAndValidateDate(dateAddedRaw) : undefined
+    if (dateAddedRaw && !dateAdded) {
+      errors.push({ row: i + 1, error: `Date ajoutee invalide: "${dateAddedRaw}"` })
+      continue
+    }
+    const pickupDate = pickupDateRaw ? parseAndValidateDate(pickupDateRaw) : undefined
+    if (pickupDateRaw && !pickupDate) {
+      errors.push({ row: i + 1, error: `Date retrait invalide: "${pickupDateRaw}"` })
+      continue
+    }
+
     rows.push({
       orderNumber: columnIndices.orderNumber !== undefined 
         ? values[columnIndices.orderNumber]?.replace(/"/g, "") 
@@ -1126,15 +1160,9 @@ export async function parseCSVContent(content: string): Promise<{
       notes: columnIndices.notes !== undefined 
         ? values[columnIndices.notes]?.replace(/"/g, "") 
         : undefined,
-      deliveryDate: columnIndices.deliveryDate !== undefined 
-        ? parseAndValidateDate(values[columnIndices.deliveryDate]?.replace(/"/g, "").trim())
-        : undefined,
-      dateAdded: columnIndices.dateAdded !== undefined
-        ? parseAndValidateDate(values[columnIndices.dateAdded]?.replace(/"/g, "").trim())
-        : undefined,
-      pickupDate: columnIndices.pickupDate !== undefined
-        ? parseAndValidateDate(values[columnIndices.pickupDate]?.replace(/"/g, "").trim())
-        : undefined,
+      deliveryDate,
+      dateAdded,
+      pickupDate,
     })
   }
 
@@ -1254,6 +1282,8 @@ export async function importDeliveryReport(
   syncClients: boolean = false
 ): Promise<ImportResult> {
   const supabase = createClient()
+  const { data } = await supabase.auth.getUser()
+  const user = data?.user ?? null
 
   const result: ImportResult = {
     total: rows.length,
@@ -1309,6 +1339,12 @@ export async function importDeliveryReport(
       continue
     }
 
+    if (!row.customerPhone?.trim()) {
+      result.errors.push({ row: i + 2, error: "Telephone client manquant" })
+      result.failed++
+      continue
+    }
+
     try {
       // Check if shipment already exists by tracking number, order number, or customer name + phone combination
       let existingShipment = null
@@ -1339,20 +1375,30 @@ export async function importDeliveryReport(
       // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
       if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
         // Only match if exact same delivery date (same day)
-        const deliveryDateStr = row.deliveryDate.split('T')[0]
-        const nextDay = new Date(row.deliveryDate)
-        nextDay.setDate(nextDay.getDate() + 1)
-        
-        const { data } = await supabase
-          .from("best_delivery_shipments")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .ilike("customer_name", row.customerName)
-          .eq("customer_phone", row.customerPhone)
-          .gte("exported_at", deliveryDateStr)
-          .lt("exported_at", nextDay.toISOString().split('T')[0])
-          .single()
-        existingShipment = data
+        // deliveryDate is an ISO string from parseAndValidateDate(); guard invalid strings
+        const deliveryIso = row.deliveryDate.trim()
+        const dayStart = new Date(deliveryIso)
+        if (Number.isNaN(dayStart.getTime())) {
+          // Skip day-based duplicate lookup; import continues without this match
+        } else {
+          const deliveryDateStr = deliveryIso.includes("T")
+            ? deliveryIso.split("T")[0]
+            : deliveryIso.slice(0, 10)
+          const nextDay = new Date(dayStart)
+          nextDay.setDate(nextDay.getDate() + 1)
+          const nextDayStr = nextDay.toISOString().split("T")[0]
+
+          const { data } = await supabase
+            .from("best_delivery_shipments")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .ilike("customer_name", row.customerName)
+            .eq("customer_phone", row.customerPhone)
+            .gte("exported_at", deliveryDateStr)
+            .lt("exported_at", nextDayStr)
+            .single()
+          existingShipment = data
+        }
       }
 
       if (existingShipment) {
@@ -1432,6 +1478,7 @@ export async function importDeliveryReport(
               payment_status: row.status === "delivered" ? "paid" : "unpaid",
               notes: row.notes ? `[Best Delivery] ${row.notes}` : "[Best Delivery Import]",
               delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
+              created_by: user?.id ?? null,
             })
             .select("id")
             .single()
