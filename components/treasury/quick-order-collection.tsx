@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { collectOrderPayment } from '@/lib/treasury/cash-actions'
 import { DollarSign, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import { useClientOrders } from '@/hooks/use-tenant-data'
 import { useToast } from '@/hooks/use-toast'
@@ -44,15 +43,26 @@ export function QuickOrderCollection() {
     try {
       setError(null)
       setIsCollecting(true)
-      const result = await collectOrderPayment(
-        selectedOrder.id,
-        parseFloat(amount) || 0,
-        paymentMethod,
-        notes
-      )
+      const response = await fetch('/api/treasury/collect-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: selectedOrder.id,
+          amount: parseFloat(amount) || 0,
+          paymentMethod,
+          notes,
+        }),
+      })
+
+      const result = await response.json().catch(() => ({
+        success: false,
+        error: "Reponse serveur invalide",
+      }))
 
       if (!result?.success) {
-        const errorMessage = result?.error || "Erreur lors de l'encaissement"
+        const errorMessage = result?.error || result?.details || "Erreur lors de l'encaissement"
         setError(errorMessage)
         toast({
           title: "Erreur lors de l'encaissement",
