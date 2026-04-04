@@ -28,6 +28,10 @@ export function QuickOrderCollection() {
       throw new Error(`HTTP ${response.status}`)
     }
     return response.json()
+  }, {
+    refreshInterval: 10000,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
   })
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [amount, setAmount] = useState('')
@@ -117,6 +121,18 @@ export function QuickOrderCollection() {
         title: "Encaissement réussi",
         description: `Paiement de ${amount} TND enregistré`
       })
+
+      // Keep the "total collected today" card in sync immediately.
+      const collectedAmount = parseFloat(amount) || 0
+      if (collectedAmount > 0) {
+        mutateTodayCollections((prev: any) => ({
+          ...(prev || {}),
+          success: true,
+          total: (Number(prev?.total) || 0) + collectedAmount,
+          count: (Number(prev?.count) || 0) + 1,
+        }), false)
+      }
+
       setCollectedOrderIds((prev) => {
         const next = new Set(prev)
         next.add(selectedOrder.id)
