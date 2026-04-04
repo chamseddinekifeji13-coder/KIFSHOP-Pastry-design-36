@@ -85,16 +85,13 @@ export class ThermalPrinter {
   
   // Request printer access (showAll = true to show all USB devices without filter)
   async connect(showAll: boolean = false): Promise<boolean> {
-    if (!ThermalPrinter.isSupported()) {
+    // Capture once to avoid any mismatch between multiple availability checks.
+    const usb = typeof navigator !== "undefined" ? navigator.usb : undefined
+    if (!usb) {
       throw new Error("WebUSB n'est pas supporté par ce navigateur. Utilisez Chrome ou Edge.")
     }
     
     try {
-      const usb = navigator.usb
-      if (!usb) {
-        throw new Error("WebUSB indisponible dans ce contexte navigateur.")
-      }
-
       // If showAll is true, show all USB devices (useful when printer is not in the filter list)
       if (showAll) {
         this.device = await usb.requestDevice({
