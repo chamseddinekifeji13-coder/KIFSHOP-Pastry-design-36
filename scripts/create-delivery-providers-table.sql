@@ -42,3 +42,17 @@ CREATE INDEX IF NOT EXISTS idx_delivery_shipments_order ON delivery_shipments(or
 CREATE INDEX IF NOT EXISTS idx_delivery_shipments_provider ON delivery_shipments(provider_code);
 CREATE INDEX IF NOT EXISTS idx_delivery_shipments_status ON delivery_shipments(status);
 CREATE INDEX IF NOT EXISTS idx_delivery_shipments_tracking ON delivery_shipments(tracking_number);
+
+-- Enable Row Level Security
+ALTER TABLE delivery_provider_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_shipments ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS Policies for delivery_provider_credentials
+CREATE POLICY "tenant_isolation_credentials" ON delivery_provider_credentials FOR ALL
+  USING (tenant_id IN (SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()))
+  WITH CHECK (tenant_id IN (SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()));
+
+-- Create RLS Policies for delivery_shipments
+CREATE POLICY "tenant_isolation_shipments" ON delivery_shipments FOR ALL
+  USING (tenant_id IN (SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()))
+  WITH CHECK (tenant_id IN (SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()));
