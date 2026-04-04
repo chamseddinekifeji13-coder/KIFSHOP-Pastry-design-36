@@ -58,3 +58,10 @@ CREATE INDEX IF NOT EXISTS idx_delivery_shipments_tracking ON delivery_shipments
 
 ALTER TABLE delivery_provider_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE delivery_shipments ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "tenant_isolation_credentials" ON delivery_provider_credentials
+  FOR ALL USING (tenant_id IN (SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()));
+
+CREATE POLICY "tenant_isolation_shipments" ON delivery_shipments
+  FOR ALL USING (tenant_id IN (SELECT tenant_id FROM tenant_users WHERE user_id = auth.uid()));
