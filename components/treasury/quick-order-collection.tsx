@@ -18,6 +18,17 @@ import { useToast } from '@/hooks/use-toast'
 export function QuickOrderCollection() {
   const { data: orders, isLoading, mutate } = useClientOrders()
   const { toast } = useToast()
+  const {
+    data: todayCollectionsData,
+    mutate: mutateTodayCollections,
+    isLoading: isTodayCollectionsLoading,
+  } = useSWR('/api/treasury/collections-today', async (url: string) => {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+    return response.json()
+  })
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
@@ -113,6 +124,7 @@ export function QuickOrderCollection() {
       })
       setSelectedOrder(null)
       mutate()
+      mutateTodayCollections()
     } catch (err: any) {
       const errorMessage = err.message || 'Erreur lors de l\'encaissement'
       console.error('[v0] Collection failed:', err)
@@ -142,6 +154,18 @@ export function QuickOrderCollection() {
           <DollarSign className="w-5 h-5 mr-2 text-green-600" />
           Commandes a Encaisser
         </h3>
+
+        <div className="mb-4 rounded-lg border bg-green-50 p-3">
+          <p className="text-sm text-green-800">Total encaisse aujourd&apos;hui</p>
+          <p className="text-xl font-bold text-green-900">
+            {isTodayCollectionsLoading
+              ? "..."
+              : `${(Number(todayCollectionsData?.total) || 0).toFixed(3)} TND`}
+          </p>
+          <p className="text-xs text-green-700">
+            {(Number(todayCollectionsData?.count) || 0)} encaissement(s)
+          </p>
+        </div>
 
         <div className="mb-4 flex items-center gap-2">
           <Checkbox
