@@ -1,7 +1,6 @@
-// @ts-nocheck
 // Example integration showing how to use the workflow system in your app
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStockAlerts, useBonApprovisionnement } from '@/hooks/use-workflow-data';
 import { useStockAlertsWorkflow } from '@/hooks/use-stock-alerts-workflow';
 import { useTenant } from '@/lib/tenant-context';
@@ -54,7 +53,7 @@ export function QuickConvertAlerts() {
     );
 
     if (bonApproId) {
-      console.debug('Created urgent procurement order:', bonApproId);
+      console.log('Created urgent procurement order:', bonApproId);
     }
   };
 
@@ -74,27 +73,44 @@ export function AutomatedWorkflow() {
   const { currentTenant } = useTenant();
   const { alerts, refetch } = useStockAlerts(currentTenant?.id || null);
   const { convertAlertsToAppro } = useStockAlertsWorkflow();
+  const alertsRef = useRef(alerts);
+  const refetchRef = useRef(refetch);
+  const convertAlertsToApproRef = useRef(convertAlertsToAppro);
 
   useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
+  useEffect(() => {
+    convertAlertsToApproRef.current = convertAlertsToAppro;
+  }, [convertAlertsToAppro]);
+
+  useEffect(() => {
+    if (!currentTenant?.id) return;
+
     // Run workflow check every 30 minutes
     const interval = setInterval(async () => {
-      await refetch();
+      await refetchRef.current();
 
-      const criticalAlerts = alerts.filter(
+      const criticalAlerts = alertsRef.current.filter(
         a => a.severity === 'critical' && a.status === 'pending'
       );
 
       if (criticalAlerts.length > 0) {
-        await convertAlertsToAppro(
+        await convertAlertsToApproRef.current(
           criticalAlerts.map(a => a.id),
           'urgent'
         );
-        console.debug(`Auto-converted ${criticalAlerts.length} critical alerts`);
+        console.log(`Auto-converted ${criticalAlerts.length} critical alerts`);
       }
     }, 30 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [currentTenant?.id]);
 
   return null;
 }
@@ -102,7 +118,6 @@ export function AutomatedWorkflow() {
 // Example 4: Batch processing with status tracking
 export function BatchProcessWorkflow() {
   const { currentTenant: tenant } = useTenant();
-  const { user } = useAuth();
   const { orders, refetch } = useBonApprovisionnement(tenant?.id || null);
   const { generatePurchaseOrders, isLoading } = useStockAlertsWorkflow();
   const [status, setStatus] = useState<string>('');
@@ -198,19 +213,28 @@ export function WorkflowNotifications() {
 }
 
 // Example 7: Export workflow data
-export async function exportWorkflowData() {
+export async function exportWorkflowData(tenantId: string) {
   const response = await fetch('/api/workflow/audit-log', {
     headers: {
-      'x-tenant-id': tenant?.id || '',
+      'x-tenant-id': tenantId,
     },
   });
 
-  const { auditLog } = await response.json();
+  type WorkflowAuditLogRow = {
+    performed_at: string;
+    entity_type: string;
+    action: string;
+    old_status?: string | null;
+    new_status?: string | null;
+    performed_by?: string | null;
+  };
+
+  const { auditLog } = (await response.json()) as { auditLog: WorkflowAuditLogRow[] };
 
   // Convert to CSV
   const csv = [
     ['Date', 'Entity Type', 'Action', 'Old Status', 'New Status', 'User'],
-    ...auditLog.map(log => [
+    ...auditLog.map((log: WorkflowAuditLogRow) => [
       new Date(log.performed_at).toISOString(),
       log.entity_type,
       log.action,

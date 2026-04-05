@@ -25,7 +25,6 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useTenant } from "@/lib/tenant-context"
 import { toast } from "sonner"
-import type { Order } from "@/lib/orders/actions"
 
 type DeliveryProviderCode = "aramex" | "first_delivery" | "best_delivery"
 
@@ -64,8 +63,29 @@ const AVAILABLE_PROVIDERS: ProviderInfo[] = [
 interface SendToDeliveryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  order: Order | null
+  order: DeliveryOrder | null
   onSuccess?: () => void
+}
+
+interface DeliveryOrderItem {
+  name: string
+  quantity: number
+  price: number
+  product_name?: string
+  unit_price?: number
+}
+
+interface DeliveryOrder {
+  id: string
+  order_number?: string
+  client_name: string
+  client_phone: string
+  delivery_address?: string
+  delivery_city?: string
+  delivery_postal_code?: string
+  total: number
+  notes?: string
+  items: DeliveryOrderItem[]
 }
 
 export function SendToDeliveryDialog({

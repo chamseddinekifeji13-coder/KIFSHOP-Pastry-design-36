@@ -20,9 +20,8 @@ import {
   deleteProviderCredentials,
   setDefaultProvider,
   testProviderConnection,
-  type DeliveryProviderCredentials,
 } from "@/lib/delivery/provider-credentials-actions"
-import { DeliveryProviderCode } from "@/lib/delivery/types"
+import type { DeliveryProviderCode, DeliveryProviderCredentials } from "@/lib/delivery/types"
 
 const PROVIDERS: Array<{ code: DeliveryProviderCode; name: string; description: string }> = [
   {

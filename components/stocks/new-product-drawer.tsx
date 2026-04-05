@@ -301,8 +301,8 @@ export function NewProductDrawer({ open, onOpenChange, onSuccess }: NewProductDr
       
       // Revalidate SWR cache for dashboard
       mutate((key: string) => typeof key === "string" && (
-        key.includes("finished_products") || 
-        key.includes("critical_stock") ||
+        key.includes("finished-products") || 
+        key.includes("critical-stock") ||
         key.includes(currentTenant.id)
       ), undefined, { revalidate: true })
       

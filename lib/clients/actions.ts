@@ -83,50 +83,59 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     }
   }
 
+  // Fetch all Best Delivery shipments in one query to avoid N+1.
+  const { data: allShipments, error: shipmentsError } = await supabase
+    .from("best_delivery_shipments")
+    .select("customer_phone, status, cod_amount")
+    .eq("tenant_id", tenantId)
+
+  if (shipmentsError) {
+    console.error("Error fetching best delivery shipments:", shipmentsError)
+  }
+
+  // Build a map of phone -> shipment stats from Best Delivery
+  const shipmentStatsMap = new Map<string, { deliveredCount: number; deliveredTotal: number; returnedCount: number }>()
+  for (const shipment of allShipments || []) {
+    const phone = (shipment.customer_phone || "").trim()
+    if (!phone) continue
+
+    const status = (shipment.status || "").toLowerCase()
+    const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
+    const isReturned = status === "returned" || status === "retour"
+
+    const existing = shipmentStatsMap.get(phone) || { deliveredCount: 0, deliveredTotal: 0, returnedCount: 0 }
+    if (isDelivered) {
+      existing.deliveredCount++
+      existing.deliveredTotal += Number(shipment.cod_amount) || 0
+    } else if (isReturned) {
+      existing.returnedCount++
+    }
+    shipmentStatsMap.set(phone, existing)
+  }
+
   // Enrich each client with Best Delivery stats + orders table stats
-  const enrichedClients = await Promise.all(
-    (data || []).map(async (clientRow) => {
-      const client = mapClient(clientRow)
+  const enrichedClients = (data || []).map((clientRow) => {
+    const client = mapClient(clientRow)
+    const normalizedPhone = (client.phone || "").trim()
+    const bdStats = shipmentStatsMap.get(normalizedPhone) || { deliveredCount: 0, deliveredTotal: 0, returnedCount: 0 }
 
-      // Fetch Best Delivery shipments for this client
-      const { data: shipments } = await supabase
-        .from("best_delivery_shipments")
-        .select("status, cod_amount")
-        .eq("tenant_id", tenantId)
-        .eq("customer_phone", client.phone)
+    // Combine stats: Best Delivery + orders table
+    // Use orders table stats as well so campaigns audience filtering works correctly
+    const orderStats = orderStatsMap.get(normalizedPhone) || { count: 0, total: 0 }
 
-      // Calculate stats from Best Delivery
-      let bdCount = 0
-      let bdTotal = 0
-      let bdReturned = 0
+    const computedTotalOrders = bdStats.deliveredCount + orderStats.count
+    const computedTotalSpent = bdStats.deliveredTotal + orderStats.total
+    const computedReturnCount = bdStats.returnedCount
 
-      if (shipments && shipments.length > 0) {
-        shipments.forEach((shipment) => {
-          const status = (shipment.status || "").toLowerCase()
-          const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
-          const isReturned = status === "returned" || status === "retour"
-
-          if (isDelivered) {
-            bdCount++
-            bdTotal += Number(shipment.cod_amount) || 0
-          } else if (isReturned) {
-            bdReturned++
-          }
-        })
-      }
-
-      // Combine stats: Best Delivery + orders table
-      // Use orders table stats as well so campaigns audience filtering works correctly
-      const orderStats = orderStatsMap.get(client.phone) || { count: 0, total: 0 }
-
-      return {
-        ...client,
-        totalOrders: bdCount + orderStats.count,
-        totalSpent: bdTotal + orderStats.total,
-        returnCount: bdReturned,
-      }
-    })
-  )
+    return {
+      ...client,
+      // Preserve persisted counters from clients table to avoid losing
+      // data coming from non-Best-Delivery flows.
+      totalOrders: Math.max(Number(client.totalOrders) || 0, computedTotalOrders),
+      totalSpent: Math.max(Number(client.totalSpent) || 0, computedTotalSpent),
+      returnCount: Math.max(Number(client.returnCount) || 0, computedReturnCount),
+    }
+  })
 
   return enrichedClients
 }
@@ -144,13 +153,14 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
   if (error || !data) return null
 
   const client = mapClient(data)
+  const normalizedPhone = (client.phone || "").trim()
 
   // Fetch Best Delivery shipments for this client
   const { data: shipments } = await supabase
     .from("best_delivery_shipments")
     .select("status, cod_amount")
     .eq("tenant_id", client.tenantId)
-    .eq("customer_phone", client.phone)
+    .eq("customer_phone", normalizedPhone)
 
   // Calculate stats from Best Delivery
   let bdCount = 0
@@ -177,17 +187,23 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
     .from("orders")
     .select("total")
     .eq("tenant_id", client.tenantId)
-    .eq("customer_phone", client.phone)
+    .eq("customer_phone", normalizedPhone)
 
   const orderCount = orderData?.length || 0
   const orderTotal = (orderData || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0)
 
   // Combine Best Delivery + orders table stats
+  const computedTotalOrders = bdCount + orderCount
+  const computedTotalSpent = bdTotal + orderTotal
+  const computedReturnCount = bdReturned
+
   return {
     ...client,
-    totalOrders: bdCount + orderCount,
-    totalSpent: bdTotal + orderTotal,
-    returnCount: bdReturned,
+    // Preserve persisted counters from clients table to avoid losing
+    // data coming from non-Best-Delivery flows.
+    totalOrders: Math.max(Number(client.totalOrders) || 0, computedTotalOrders),
+    totalSpent: Math.max(Number(client.totalSpent) || 0, computedTotalSpent),
+    returnCount: Math.max(Number(client.returnCount) || 0, computedReturnCount),
   }
 }
 
@@ -421,7 +437,8 @@ function mapOrder(row: any): OrderRecord {
     tenantId: row.tenant_id,
     clientId: row.client_id,
     phone: row.customer_phone,
-    clientName: row.customer_name,
+    // Compatibility fallback for legacy schemas that used `client_name`
+    clientName: row.customer_name || row.client_name || null,
     total: Number(row.total) || 0,
     status: row.status,
     notes: row.notes,

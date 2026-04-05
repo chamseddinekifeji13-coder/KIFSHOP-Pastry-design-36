@@ -3,6 +3,9 @@
 import { useEffect, useCallback } from "react"
 import { toast } from "sonner"
 
+const SW_BUILD = process.env.NEXT_PUBLIC_SW_BUILD || "dev-local"
+const SW_SCRIPT_URL = `/sw.js?build=${encodeURIComponent(SW_BUILD)}`
+
 export function ServiceWorkerRegister() {
   const onUpdate = useCallback((reg: ServiceWorkerRegistration) => {
     const waiting = reg.waiting
@@ -20,15 +23,37 @@ export function ServiceWorkerRegister() {
     if (!("serviceWorker" in navigator)) return
 
     let intervalId: ReturnType<typeof setInterval> | null = null
+    let visibilityChangeHandler: (() => void) | null = null
 
     const registerSW = async () => {
       try {
-        const existingReg = await navigator.serviceWorker.getRegistration()
-        if (existingReg) {
-          await existingReg.update()
+        const expectedSwUrl = new URL(SW_SCRIPT_URL, window.location.origin).toString()
+
+        // Recovery step: unregister stale service workers so clients can migrate
+        // even when an old script is stuck behind intermediary caches.
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        for (const registration of registrations) {
+          const scriptUrl = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || ""
+          const isKifshopSw = scriptUrl.includes("/sw.js")
+          let isStaleKifshopSw = false
+
+          if (isKifshopSw) {
+            try {
+              const parsed = new URL(scriptUrl)
+              const buildInRegistration = parsed.searchParams.get("build")
+              // Consider stale when build is missing/mismatched, or URL differs from current target URL.
+              isStaleKifshopSw = buildInRegistration !== SW_BUILD || scriptUrl !== expectedSwUrl
+            } catch {
+              isStaleKifshopSw = true
+            }
+          }
+
+          if (isStaleKifshopSw) {
+            await registration.unregister()
+          }
         }
 
-        const reg = await navigator.serviceWorker.register("/sw.js", { 
+        const reg = await navigator.serviceWorker.register(SW_SCRIPT_URL, {
           updateViaCache: "none",
           scope: "/"
         })
@@ -56,12 +81,12 @@ export function ServiceWorkerRegister() {
           reg.update().catch(() => {})
         }, 30 * 1000)
 
-        const handleVisibilityChange = () => {
+        visibilityChangeHandler = () => {
           if (document.visibilityState === "visible") {
             reg.update().catch(() => {})
           }
         }
-        document.addEventListener("visibilitychange", handleVisibilityChange)
+        document.addEventListener("visibilitychange", visibilityChangeHandler)
 
       } catch (err) {
         // Service Worker registration failures are not critical
@@ -84,6 +109,9 @@ export function ServiceWorkerRegister() {
 
     return () => {
       if (intervalId) clearInterval(intervalId)
+      if (visibilityChangeHandler) {
+        document.removeEventListener("visibilitychange", visibilityChangeHandler)
+      }
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange)
     }
   }, [onUpdate])

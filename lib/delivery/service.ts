@@ -112,7 +112,7 @@ export class UnifiedDeliveryService {
           credentials.provider_code as DeliveryProviderCode,
           response
         );
-        return { ...response, shipment_id: shipmentId };
+        return { ...response, shipment_id: shipmentId ?? undefined };
       }
 
       return response;

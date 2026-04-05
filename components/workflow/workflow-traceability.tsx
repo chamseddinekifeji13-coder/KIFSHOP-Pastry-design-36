@@ -59,7 +59,7 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
         setAuditLog(data || []);
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Failed to fetch audit log";
+          err instanceof Error ? err.message : "Impossible de recuperer le journal d'audit";
         setError(errorMessage);
       } finally {
         setIsLoading(false);
@@ -125,11 +125,11 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
   const getEntityLabel = (entityType: string) => {
     switch (entityType) {
       case "stock_alert":
-        return "Stock Alert";
+        return "Alerte de stock";
       case "bon_approvisionnement":
-        return "Procurement Order";
+        return "Bon d'approvisionnement";
       case "purchase_order":
-        return "Purchase Order";
+        return "Commande fournisseur";
       default:
         return entityType;
     }
@@ -140,7 +140,7 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center py-8 text-gray-500">
-            Loading workflow history...
+            Chargement de l'historique du workflow...
           </div>
         </CardContent>
       </Card>
@@ -152,7 +152,7 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center py-8 text-red-600">
-            <p className="font-medium">Failed to load workflow history</p>
+            <p className="font-medium">Echec du chargement de l'historique du workflow</p>
             <p className="text-sm mt-1">{error}</p>
           </div>
         </CardContent>
@@ -165,7 +165,7 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
       <Card>
         <CardContent className="pt-6">
           <div className="text-center py-8 text-gray-500">
-            No workflow history yet
+            Aucun historique de workflow pour le moment
           </div>
         </CardContent>
       </Card>
@@ -175,9 +175,9 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Workflow Traceability</CardTitle>
+        <CardTitle>Traçabilité du workflow</CardTitle>
         <CardDescription>
-          Complete audit log of all workflow transformations
+          Journal d'audit complet de toutes les transformations du workflow
         </CardDescription>
       </CardHeader>
 
@@ -229,17 +229,17 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
                   <div className="mt-2 flex gap-2 flex-wrap">
                     {log.related_alert_id && (
                       <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded">
-                        Alert: {log.related_alert_id.slice(0, 8)}...
+                        Alerte : {log.related_alert_id.slice(0, 8)}...
                       </span>
                     )}
                     {log.related_appro_id && (
                       <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                        Procurement: {log.related_appro_id.slice(0, 8)}...
+                        Appro : {log.related_appro_id.slice(0, 8)}...
                       </span>
                     )}
                     {log.related_order_id && (
                       <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
-                        Order: {log.related_order_id.slice(0, 8)}...
+                        Commande : {log.related_order_id.slice(0, 8)}...
                       </span>
                     )}
                   </div>

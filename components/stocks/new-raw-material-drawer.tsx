@@ -100,8 +100,8 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         
         // Revalidate SWR cache for dashboard
         globalMutate((key) => typeof key === "string" && (
-          key.includes("raw_materials") || 
-          key.includes("critical_stock") ||
+          key.includes("raw-materials") || 
+          key.includes("critical-stock") ||
           key.includes(currentTenant.id)
         ), undefined, { revalidate: true })
         

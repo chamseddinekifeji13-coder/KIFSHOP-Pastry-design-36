@@ -107,6 +107,31 @@ export interface CreateOrderData {
   discountPercent?: number
 }
 
+async function getCurrentActor(
+  supabase: ReturnType<typeof createClient>,
+  fallbackUser?: { id?: string; email?: string | null; user_metadata?: { display_name?: string | null } } | null
+): Promise<{ actorId: string | null; actorName: string | null }> {
+  const authUser = fallbackUser ?? (await supabase.auth.getUser()).data.user
+  let actorId = authUser?.id || null
+  let actorName = authUser?.user_metadata?.display_name || authUser?.email || null
+
+  // Prefer active profile label selected on lock screen for audit logs.
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/active-profile", { cache: "no-store" })
+      if (res.ok) {
+        const profile = await res.json()
+        const displayName = typeof profile?.displayName === "string" ? profile.displayName.trim() : ""
+        if (displayName) actorName = displayName
+      }
+    } catch {
+      // Keep auth fallback when API is unavailable.
+    }
+  }
+
+  return { actorId, actorName }
+}
+
 // ─── Fetch Orders ─────────────────────────────────────────────
 
 // Helper function to map delivery status to order status
@@ -207,8 +232,8 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     throw new Error("La commande doit contenir au moins un article")
   }
 
-  // Get creator name from auth user
-  const creatorName = user.user_metadata?.display_name || user.email || null
+  const actor = await getCurrentActor(supabase, user)
+  const creatorName = actor.actorName
 
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
@@ -301,7 +326,7 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       tenant_id: data.tenantId,
       from_status: null,
       to_status: "nouveau",
-      changed_by: user.id,
+      changed_by: actor.actorId,
       changed_by_name: creatorName,
       note: "Commande creee",
     })
@@ -381,16 +406,15 @@ export async function updateOrderStatus(
   }
 
   // Record status history
-  const { data: { user } } = await supabase.auth.getUser()
-  const changerName = user?.user_metadata?.display_name || user?.email || null
+  const actor = await getCurrentActor(supabase)
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: fromStatus,
     to_status: newStatus,
-    changed_by: user?.id || null,
-    changed_by_name: changerName,
+    changed_by: actor.actorId,
+    changed_by_name: actor.actorName,
     note: note || null,
   })
 
@@ -426,16 +450,15 @@ export async function updatePaymentStatus(
   }
 
   // Record as note in history
-  const { data: { user } } = await supabase.auth.getUser()
-  const updaterName = user?.user_metadata?.display_name || user?.email || null
+  const actor = await getCurrentActor(supabase)
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: null,
     to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
-    changed_by: user?.id || null,
-    changed_by_name: updaterName,
+    changed_by: actor.actorId,
+    changed_by_name: actor.actorName,
     note: paymentStatus === "paid"
       ? "Paiement complet enregistre"
       : `Acompte de ${newDeposit} TND enregistre`,

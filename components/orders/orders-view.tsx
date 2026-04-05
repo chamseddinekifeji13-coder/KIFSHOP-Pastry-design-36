@@ -144,6 +144,7 @@ export function OrdersView() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isApiExporting, setIsApiExporting] = useState(false)
 
   // Payment collection state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -347,6 +348,40 @@ export function OrdersView() {
       toast.error("Erreur lors de la mise a jour")
     }
     setActionLoading(false)
+  }
+
+  const handleExportToDeliveryApi = async () => {
+    if (!selectedOrder || isApiExporting) return
+    if (selectedOrder.deliveryType !== "delivery") {
+      toast.error("Cette commande n'est pas en mode livraison")
+      return
+    }
+
+    setIsApiExporting(true)
+    try {
+      const res = await fetch("/api/delivery/export-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: selectedOrder.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        const details =
+          typeof data?.details === "string"
+            ? data.details
+            : data?.error || "Erreur export API"
+        throw new Error(details)
+      }
+
+      toast.success("Commande exportee vers l'API livraison")
+      mutate()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erreur export API"
+      toast.error(msg)
+    } finally {
+      setIsApiExporting(false)
+    }
   }
 
   const openPaymentDialog = () => {
@@ -1738,6 +1773,22 @@ export function OrdersView() {
 
                 {/* Actions */}
                 <div className="space-y-2">
+                  {selectedOrder.deliveryType === "delivery" && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={isApiExporting}
+                      onClick={handleExportToDeliveryApi}
+                    >
+                      {isApiExporting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Truck className="mr-2 h-4 w-4" />
+                      )}
+                      Exporter au transporteur (API)
+                    </Button>
+                  )}
+
                   {selectedOrder.status === "nouveau" && (
                     <Button className="w-full" disabled={actionLoading} onClick={() => handleStatusChange("en-preparation")}>
                       {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Package className="mr-2 h-4 w-4" />}

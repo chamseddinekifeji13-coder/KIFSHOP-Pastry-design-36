@@ -5,10 +5,11 @@
   "scripts": {
     "build": "next build",
     "check:hooks": "node scripts/check-conditional-usecallback.mjs",
+    "check:env-files": "node scripts/check-no-tracked-env-files.mjs",
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
-    "test:local": "npm run check:hooks && npm run build"
+    "test:local": "npm run check:hooks && npm run check:env-files && npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

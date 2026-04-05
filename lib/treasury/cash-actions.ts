@@ -105,14 +105,17 @@ export async function collectOrderPayment(
   paymentMethod: string = 'cash',
   notes?: string
 ) {
-  const supabase = await createClient()
-  const session = await getServerSession()
-
   try {
+    const supabase = await createClient()
+    const session = await getServerSession()
+
     // Get active cash session
     const activeSession = await getActiveCashSession()
     if (!activeSession) {
-      throw new Error('Aucune session de caisse active - ouvrez d\'abord une session')
+      return {
+        success: false,
+        error: "Aucune session de caisse active - ouvrez d'abord une session",
+      }
     }
 
     // Create collection record directly (bypassing the problematic transactions table)
@@ -134,17 +137,29 @@ export async function collectOrderPayment(
 
     if (collError) {
       console.error('[v0] Collection insert error:', collError)
-      throw new Error(`Erreur lors de l'enregistrement du paiement: ${collError.message || collError.details || 'Erreur inconnue'}`)
+      return {
+        success: false,
+        error: `Erreur lors de l'enregistrement du paiement: ${collError.message || collError.details || 'Erreur inconnue'}`,
+      }
     }
 
     if (!collData) {
-      throw new Error('Aucun enregistrement de paiement créé')
+      return {
+        success: false,
+        error: "Aucun enregistrement de paiement cree",
+      }
     }
 
-    return collData
+    return {
+      success: true,
+      data: collData,
+    }
   } catch (error: any) {
     console.error('[v0] collectOrderPayment error:', error)
-    throw error
+    return {
+      success: false,
+      error: error?.message || "Erreur inattendue lors de l'encaissement",
+    }
   }
 }
 

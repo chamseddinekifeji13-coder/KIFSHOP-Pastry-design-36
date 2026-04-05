@@ -74,19 +74,30 @@ export class POS80ApiClient {
   }
 
   /**
+   * Execute a fetch call with timeout and guaranteed timer cleanup.
+   */
+  private async fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      return await fetch(url, {
+        method: 'GET',
+        headers: this.getAuthHeaders(),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
+  /**
    * Test API connection
    */
   async testConnection(): Promise<{ success: boolean; message: string; responseTime?: number }> {
     try {
       const startTime = Date.now()
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 10000)
-      const response = await fetch(`${this.config.apiUrl}/health`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        signal: controller.signal,
-      })
-      clearTimeout(timeoutId)
+      const response = await this.fetchWithTimeout(`${this.config.apiUrl}/health`, 10000)
       this.responseTimeMs = Date.now() - startTime
 
       if (response.ok) {
@@ -123,15 +134,7 @@ export class POS80ApiClient {
       }
 
       const url = `${this.config.apiUrl}/transactions?${params.toString()}`
-
-      const ctrl1 = new AbortController()
-      const tid1 = setTimeout(() => ctrl1.abort(), 30000)
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        signal: ctrl1.signal,
-      })
-      clearTimeout(tid1)
+      const response = await this.fetchWithTimeout(url, 30000)
 
       this.responseTimeMs = Date.now() - startTime
 
@@ -168,15 +171,7 @@ export class POS80ApiClient {
       }
 
       const url = `${this.config.apiUrl}/reports/daily?${params.toString()}`
-
-      const ctrl2 = new AbortController()
-      const tid2 = setTimeout(() => ctrl2.abort(), 30000)
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-        signal: ctrl2.signal,
-      })
-      clearTimeout(tid2)
+      const response = await this.fetchWithTimeout(url, 30000)
 
       this.responseTimeMs = Date.now() - startTime
 

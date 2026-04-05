@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { collectOrderPayment } from '@/lib/treasury/cash-actions'
+import { Checkbox } from '@/components/ui/checkbox'
 import { DollarSign, CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import { useClientOrders } from '@/hooks/use-tenant-data'
 import { useToast } from '@/hooks/use-toast'
@@ -18,21 +18,73 @@ import { useToast } from '@/hooks/use-toast'
 export function QuickOrderCollection() {
   const { data: orders, isLoading, mutate } = useClientOrders()
   const { toast } = useToast()
+  const {
+    data: todayCollectionsData,
+    mutate: mutateTodayCollections,
+    isLoading: isTodayCollectionsLoading,
+  } = useSWR('/api/treasury/collections-today', async (url: string) => {
+    const response = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+    return response.json()
+  }, {
+    refreshInterval: 10000,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+  })
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [amount, setAmount] = useState('')
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [notes, setNotes] = useState('')
   const [isCollecting, setIsCollecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [collectedOrderIds, setCollectedOrderIds] = useState<Set<string>>(new Set())
+  const [showCollected, setShowCollected] = useState(false)
 
-  // Filter orders that are delivered but not yet collected
-  const deliveredOrders = orders?.filter((o: any) => 
-    o.status === 'livre' || o.status === 'delivered'
-  ) || []
+  const normalizeStatus = (value: unknown) => String(value || '').toLowerCase().trim()
+
+  const isDeliveredOrder = (o: any) => {
+    const status = normalizeStatus(o.status)
+    return (
+      status === 'pret' ||
+      status === 'ready' ||
+      status === 'en-livraison' ||
+      status === 'en_livraison' ||
+      status === 'en livraison' ||
+      status === 'livre' ||
+      status === 'delivered'
+    )
+  }
+
+  const isOrderCollected = (o: any) => {
+    const paymentStatus = normalizeStatus(o.payment_status || o.paymentStatus)
+    const isPaid = paymentStatus === 'paid' || paymentStatus === 'collected' || paymentStatus === 'encaisse' || paymentStatus === 'encaissé'
+    const total = Number(o.total) || 0
+    const deposit = Number(o.deposit) || 0
+    const hasNoRemaining = total > 0 && (total - deposit) <= 0
+    const isAlreadyCollectedLocally = collectedOrderIds.has(o.id)
+    return isPaid || hasNoRemaining || isAlreadyCollectedLocally
+  }
+
+  // Filter orders to display: pending only, or pending+collected when toggle is enabled
+  const deliveredOrders = orders?.filter((o: any) => {
+    if (!isDeliveredOrder(o)) return false
+    if (showCollected) return true
+    return !isOrderCollected(o)
+  }) || []
 
   const handleOpenCollection = (order: any) => {
     setSelectedOrder(order)
-    setAmount(order.total?.toString() || '0')
+    const total = Number(order?.total) || 0
+    const deposit = Number(order?.deposit) || 0
+    const remaining = Math.max(total - deposit, 0)
+    setAmount(remaining.toString())
     setPaymentMethod('cash')
     setNotes('')
     setError(null)
@@ -44,18 +96,101 @@ export function QuickOrderCollection() {
     try {
       setError(null)
       setIsCollecting(true)
-      await collectOrderPayment(
-        selectedOrder.id,
-        parseFloat(amount) || 0,
-        paymentMethod,
-        notes
-      )
+      const response = await fetch('/api/treasury/collect-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: selectedOrder.id,
+          amount: parseFloat(amount) || 0,
+          paymentMethod,
+          notes,
+        }),
+      })
+
+      const contentType = response.headers.get('content-type') || ''
+      let result: any = null
+
+      if (contentType.includes('application/json')) {
+        result = await response.json().catch(() => null)
+      } else {
+        const rawBody = await response.text().catch(() => '')
+        result = {
+          success: false,
+          error: rawBody?.trim() || `HTTP ${response.status}`,
+        }
+      }
+
+      if (!response.ok) {
+        const errorMessage =
+          result?.error ||
+          result?.details ||
+          `Erreur serveur (HTTP ${response.status})`
+        setError(errorMessage)
+        toast({
+          title: "Erreur lors de l'encaissement",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (!result || typeof result !== 'object') {
+        const errorMessage = "Reponse serveur invalide"
+        setError(errorMessage)
+        toast({
+          title: "Erreur lors de l'encaissement",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (!result?.success) {
+        const errorMessage = result?.error || result?.details || "Erreur lors de l'encaissement"
+        setError(errorMessage)
+        toast({
+          title: "Erreur lors de l'encaissement",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        return
+      }
+
       toast({
         title: "Encaissement réussi",
         description: `Paiement de ${amount} TND enregistré`
       })
+
+      // Keep the "total collected today" card in sync immediately.
+      const collectedAmount = parseFloat(amount) || 0
+      if (result?.todayTotals && Number.isFinite(Number(result.todayTotals.total))) {
+        mutateTodayCollections({
+          success: true,
+          total: Number(result.todayTotals.total) || 0,
+          count: Number(result.todayTotals.count) || 0,
+          date: result.todayTotals.date,
+        }, false)
+      } else if (collectedAmount > 0) {
+        mutateTodayCollections((prev: any) => ({
+          ...(prev || {}),
+          success: true,
+          total: (Number(prev?.total) || 0) + collectedAmount,
+          count: (Number(prev?.count) || 0) + 1,
+        }), false)
+      }
+
+      setCollectedOrderIds((prev) => {
+        const next = new Set(prev)
+        next.add(selectedOrder.id)
+        return next
+      })
       setSelectedOrder(null)
       mutate()
+      setTimeout(() => {
+        mutateTodayCollections()
+      }, 10000)
     } catch (err: any) {
       const errorMessage = err.message || 'Erreur lors de l\'encaissement'
       console.error('[v0] Collection failed:', err)
@@ -85,10 +220,33 @@ export function QuickOrderCollection() {
           <DollarSign className="w-5 h-5 mr-2 text-green-600" />
           Commandes a Encaisser
         </h3>
+
+        <div className="mb-4 rounded-lg border bg-green-50 p-3">
+          <p className="text-sm text-green-800">Total encaisse aujourd&apos;hui</p>
+          <p className="text-xl font-bold text-green-900">
+            {isTodayCollectionsLoading
+              ? "..."
+              : `${(Number(todayCollectionsData?.total) || 0).toFixed(3)} TND`}
+          </p>
+          <p className="text-xs text-green-700">
+            {(Number(todayCollectionsData?.count) || 0)} encaissement(s)
+          </p>
+        </div>
+
+        <div className="mb-4 flex items-center gap-2">
+          <Checkbox
+            id="show-collected-orders"
+            checked={showCollected}
+            onCheckedChange={(checked) => setShowCollected(checked === true)}
+          />
+          <Label htmlFor="show-collected-orders" className="text-sm text-gray-700 cursor-pointer">
+            Afficher aussi les commandes deja encaissees
+          </Label>
+        </div>
         
         {deliveredOrders.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            Aucune commande livree en attente d'encaissement
+            Aucune commande en attente d'encaissement
           </div>
         ) : (
           <Table>
@@ -108,7 +266,7 @@ export function QuickOrderCollection() {
                   <TableCell className="font-medium">
                     #{order.id?.slice(0, 8)}
                   </TableCell>
-                  <TableCell>{order.customer_name || order.customerName || 'N/A'}</TableCell>
+                  <TableCell>{order.customer_name || order.customerName || order.customer_phone || order.phone || 'N/A'}</TableCell>
                   <TableCell>
                     {new Date(order.created_at || order.createdAt).toLocaleDateString('fr-FR')}
                   </TableCell>
@@ -116,17 +274,25 @@ export function QuickOrderCollection() {
                     {(order.total || 0).toFixed(3)} TND
                   </TableCell>
                   <TableCell>
-                    <Badge className="bg-green-100 text-green-800">Livre</Badge>
+                    {isOrderCollected(order) ? (
+                      <Badge className="bg-blue-100 text-blue-800">Encaissee</Badge>
+                    ) : (
+                      <Badge className="bg-green-100 text-green-800">Livre</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      onClick={() => handleOpenCollection(order)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      Encaisser
-                    </Button>
+                    {isOrderCollected(order) ? (
+                      <span className="text-xs text-gray-500">Deja encaissee</span>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleOpenCollection(order)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <DollarSign className="w-4 h-4 mr-1" />
+                        Encaisser
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -156,7 +322,9 @@ export function QuickOrderCollection() {
             
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600">Client</p>
-              <p className="font-semibold">{selectedOrder?.customer_name || selectedOrder?.customerName}</p>
+              <p className="font-semibold">
+                {selectedOrder?.customer_name || selectedOrder?.customerName || selectedOrder?.customer_phone || selectedOrder?.phone || "N/A"}
+              </p>
             </div>
 
             <div>
@@ -169,7 +337,7 @@ export function QuickOrderCollection() {
                 step="0.001"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Total original: {(selectedOrder?.total || 0).toFixed(3)} TND
+                Reste a encaisser: {Math.max((Number(selectedOrder?.total) || 0) - (Number(selectedOrder?.deposit) || 0), 0).toFixed(3)} TND
               </p>
             </div>
 
