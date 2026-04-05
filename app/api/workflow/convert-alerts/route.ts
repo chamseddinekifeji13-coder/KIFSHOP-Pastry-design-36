@@ -12,7 +12,6 @@ type RawMaterialRow = {
   current_stock: number | string | null
   min_stock: number | string | null
   price_per_unit: number | string | null
-  supplier: string | null
 }
 
 async function convertFromRawMaterials(
@@ -28,9 +27,7 @@ async function convertFromRawMaterials(
 
   const { data: materials, error: materialsError } = await supabase
     .from("raw_materials")
-    .select(
-      "id, tenant_id, name, unit, current_stock, min_stock, price_per_unit, supplier"
-    )
+    .select("id, tenant_id, name, unit, current_stock, min_stock, price_per_unit")
     .eq("tenant_id", tenantId)
     .in("id", materialIds)
 
@@ -100,7 +97,7 @@ async function convertFromRawMaterials(
     requested_quantity: requested,
     estimated_unit_price: m.price_per_unit != null ? price : null,
     estimated_total: lineTotal,
-    assigned_supplier_name: m.supplier ? String(m.supplier) : null,
+    assigned_supplier_name: null,
     status: "pending" as const,
   }))
 
