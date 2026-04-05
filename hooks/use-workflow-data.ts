@@ -52,16 +52,32 @@ export function useStockAlerts(tenantId: string | null) {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("stock_alerts")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("severity", { ascending: false })
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/workflow/stock-alerts", {
+        method: "GET",
+        headers: {
+          "x-tenant-id": tenantId,
+          "Cache-Control": "no-cache",
+        },
+        cache: "no-store",
+      });
 
-      if (fetchError) throw fetchError;
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok) {
+        const errorBody = contentType.includes("application/json")
+          ? await response.json().catch(() => null)
+          : null;
+        const message =
+          errorBody?.error ||
+          `Erreur HTTP ${response.status} lors du chargement des alertes`;
+        throw new Error(message);
+      }
 
-      setAlerts(data || []);
+      if (!contentType.includes("application/json")) {
+        throw new Error("Réponse invalide du serveur pour les alertes");
+      }
+
+      const payload = (await response.json()) as { alerts?: StockAlert[] };
+      setAlerts(Array.isArray(payload.alerts) ? payload.alerts : []);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Impossible de recuperer les alertes";
