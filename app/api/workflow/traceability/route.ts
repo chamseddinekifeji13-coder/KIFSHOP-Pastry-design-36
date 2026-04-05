@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get the bon d'approvisionnement
+    // Get the procurement order
     const { data: order, error: orderError } = await supabase
-      .from('bon_approvisionnement')
+      .from('procurement_orders')
       .select('*')
       .eq('id', orderId)
       .eq('tenant_id', user.user_metadata?.tenant_id)
@@ -36,42 +36,28 @@ export async function GET(request: NextRequest) {
       throw new Error(orderError.message)
     }
 
-    // Get audit trail from workflow_audit_log table
-    const { data: auditEntries, error: auditError } = await supabase
-      .from('workflow_audit_log')
-      .select('*')
-      .eq('entity_id', orderId)
-      .eq('entity_type', 'bon_approvisionnement')
-      .eq('tenant_id', user.user_metadata?.tenant_id)
-      .order('performed_at', { ascending: true })
-
-    if (auditError) {
-      console.warn('[Traceability] Error fetching audit log:', auditError.message)
-    }
+    // Parse audit trail
+    const auditTrail = order?.audit_trail ? JSON.parse(order.audit_trail) : []
 
     // Format for timeline
-    const timeline = (auditEntries || []).map((entry: any) => ({
-      id: entry.id,
+    const timeline = auditTrail.map((entry: any) => ({
+      id: `${orderId}-${entry.timestamp}`,
       action: entry.action,
-      timestamp: new Date(entry.performed_at),
-      user_id: entry.performed_by,
-      old_status: entry.old_status,
-      new_status: entry.new_status,
-      details: entry.details,
-      description: getActionDescription(entry.action, entry.details)
+      timestamp: new Date(entry.timestamp),
+      user_id: entry.user_id,
+      changes: entry.changes,
+      description: getActionDescription(entry.action, entry.changes)
     }))
 
     return NextResponse.json(
       {
         order: {
           id: order.id,
-          reference: order.reference,
+          material_name: order.material_name,
+          quantity: order.quantity,
           status: order.status,
-          priority: order.priority,
-          total_items: order.total_items,
-          estimated_total: order.estimated_total,
           created_at: order.created_at,
-          validated_at: order.validated_at
+          supplier_id: order.supplier_id
         },
         timeline: timeline.reverse()
       },
