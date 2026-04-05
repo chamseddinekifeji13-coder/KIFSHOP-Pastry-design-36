@@ -145,15 +145,33 @@ export function useBonApprovisionnement(tenantId: string | null) {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("bon_approvisionnement")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      // Use API endpoint instead of direct Supabase client to bypass RLS issues
+      const response = await fetch("/api/workflow/procurement-orders", {
+        method: "GET",
+        headers: {
+          "x-tenant-id": tenantId,
+          "Cache-Control": "no-cache",
+        },
+        cache: "no-store",
+      });
 
-      if (fetchError) throw fetchError;
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok) {
+        const errorBody = contentType.includes("application/json")
+          ? await response.json().catch(() => null)
+          : null;
+        const message =
+          errorBody?.error ||
+          `Erreur HTTP ${response.status} lors du chargement des bons`;
+        throw new Error(message);
+      }
 
-      setOrders(data || []);
+      if (!contentType.includes("application/json")) {
+        throw new Error("Réponse invalide du serveur pour les bons d'approvisionnement");
+      }
+
+      const data = await response.json();
+      setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(
         formatWorkflowDbError(
