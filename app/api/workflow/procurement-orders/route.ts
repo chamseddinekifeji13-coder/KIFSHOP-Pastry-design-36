@@ -90,13 +90,19 @@ export async function POST(request: NextRequest) {
     const adminSupabase = createAdminClient()
 
     // Generate reference number
-    const { data: refData } = await adminSupabase.rpc('generate_appro_reference', {
+    const { data: refData, error: rpcError } = await adminSupabase.rpc('generate_appro_reference', {
       p_tenant_id: tenantId
     })
 
+    let referenceNumber = refData
+    if (rpcError) {
+      console.warn('[Generate Reference] RPC error:', rpcError.message)
+      referenceNumber = `BA-${Date.now()}`
+    }
+
     const order = {
       tenant_id: tenantId,
-      reference: refData || `BA-${Date.now()}`,
+      reference: referenceNumber,
       status: 'draft',
       priority: body.priority || 'normal',
       notes: body.notes || null,
