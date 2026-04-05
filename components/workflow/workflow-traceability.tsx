@@ -135,71 +135,6 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
     }
   };
 
-  const formatDetails = (details: Record<string, any> | undefined, action: string, entityType: string): string | null => {
-    if (!details || Object.keys(details).length === 0) return null;
-
-    const parts: string[] = [];
-
-    // Format based on action type
-    if (action === "created" && entityType === "bon_approvisionnement") {
-      if (details.alert_count) {
-        parts.push(`${details.alert_count} alerte(s) convertie(s)`);
-      }
-      if (details.estimated_total !== undefined) {
-        parts.push(`Total estimé: ${details.estimated_total.toFixed(3)} TND`);
-      }
-    } else if (action === "converted") {
-      if (details.alert_count) {
-        parts.push(`${details.alert_count} alerte(s)`);
-      }
-      if (details.bon_reference) {
-        parts.push(`Bon: ${details.bon_reference}`);
-      }
-    } else if (action === "validated") {
-      if (details.validated_items) {
-        parts.push(`${details.validated_items} article(s) validé(s)`);
-      }
-      if (details.total_amount !== undefined) {
-        parts.push(`Montant: ${details.total_amount.toFixed(3)} TND`);
-      }
-    } else if (action === "sent_to_supplier") {
-      if (details.supplier_name) {
-        parts.push(`Fournisseur: ${details.supplier_name}`);
-      }
-      if (details.items_count) {
-        parts.push(`${details.items_count} article(s)`);
-      }
-    } else if (action === "ordered") {
-      if (details.order_reference) {
-        parts.push(`Réf: ${details.order_reference}`);
-      }
-      if (details.total_amount !== undefined) {
-        parts.push(`Montant: ${details.total_amount.toFixed(3)} TND`);
-      }
-    } else if (action === "received") {
-      if (details.received_items) {
-        parts.push(`${details.received_items} article(s) reçu(s)`);
-      }
-      if (details.partial) {
-        parts.push("(Réception partielle)");
-      }
-    } else if (action === "cancelled") {
-      if (details.reason) {
-        parts.push(`Raison: ${details.reason}`);
-      }
-    }
-
-    // If no specific formatting matched, show a summary
-    if (parts.length === 0) {
-      // Generic fallback - show key info without raw JSON
-      if (details.item_name) parts.push(details.item_name);
-      if (details.quantity) parts.push(`Qté: ${details.quantity}`);
-      if (details.reference) parts.push(`Réf: ${details.reference}`);
-    }
-
-    return parts.length > 0 ? parts.join(" • ") : null;
-  };
-
   if (isLoading) {
     return (
       <Card>
@@ -284,9 +219,9 @@ export function WorkflowTraceability({ tenantId }: WorkflowTraceabilityProps) {
 
                   {log.details && Object.keys(log.details).length > 0 && (
                     <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                      {formatDetails(log.details, log.action, log.entity_type) || (
-                        <span className="text-gray-400 italic">Aucun détail supplémentaire</span>
-                      )}
+                      <pre className="whitespace-pre-wrap break-words">
+                        {JSON.stringify(log.details, null, 2)}
+                      </pre>
                     </div>
                   )}
 
