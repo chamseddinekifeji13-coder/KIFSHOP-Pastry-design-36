@@ -1,6 +1,6 @@
 // Example integration showing how to use the workflow system in your app
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStockAlerts, useBonApprovisionnement } from '@/hooks/use-workflow-data';
 import { useStockAlertsWorkflow } from '@/hooks/use-stock-alerts-workflow';
 import { useTenant } from '@/lib/tenant-context';
@@ -73,18 +73,35 @@ export function AutomatedWorkflow() {
   const { currentTenant } = useTenant();
   const { alerts, refetch } = useStockAlerts(currentTenant?.id || null);
   const { convertAlertsToAppro } = useStockAlertsWorkflow();
+  const alertsRef = useRef(alerts);
+  const refetchRef = useRef(refetch);
+  const convertAlertsToApproRef = useRef(convertAlertsToAppro);
 
   useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
+  useEffect(() => {
+    convertAlertsToApproRef.current = convertAlertsToAppro;
+  }, [convertAlertsToAppro]);
+
+  useEffect(() => {
+    if (!currentTenant?.id) return;
+
     // Run workflow check every 30 minutes
     const interval = setInterval(async () => {
-      await refetch();
+      await refetchRef.current();
 
-      const criticalAlerts = alerts.filter(
+      const criticalAlerts = alertsRef.current.filter(
         a => a.severity === 'critical' && a.status === 'pending'
       );
 
       if (criticalAlerts.length > 0) {
-        await convertAlertsToAppro(
+        await convertAlertsToApproRef.current(
           criticalAlerts.map(a => a.id),
           'urgent'
         );
@@ -93,7 +110,7 @@ export function AutomatedWorkflow() {
     }, 30 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [currentTenant?.id]);
 
   return null;
 }

@@ -67,7 +67,7 @@ export function QuickOrderCollection() {
     const isPaid = paymentStatus === 'paid' || paymentStatus === 'collected' || paymentStatus === 'encaisse' || paymentStatus === 'encaissé'
     const total = Number(o.total) || 0
     const deposit = Number(o.deposit) || 0
-    const hasNoRemaining = total <= 0 ? true : (total - deposit) <= 0
+    const hasNoRemaining = total > 0 && (total - deposit) <= 0
     const isAlreadyCollectedLocally = collectedOrderIds.has(o.id)
     return isPaid || hasNoRemaining || isAlreadyCollectedLocally
   }

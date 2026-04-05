@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
@@ -8,7 +8,6 @@ import { RotateCcw, Check } from "lucide-react"
 import { useTenant } from "@/lib/tenant-context"
 import { resetSellerStats, clearStatsReset, getStatsResetDate } from "@/lib/settings/stats-actions"
 import { toast } from "sonner"
-import { useEffect } from "react"
 
 export function StatsResetSettings() {
   const { currentTenant } = useTenant()
@@ -17,27 +16,28 @@ export function StatsResetSettings() {
   const [resetDate, setResetDate] = useState<Date | null>(null)
   const [checking, setChecking] = useState(true)
 
-  // Check if stats have been reset
-  useEffect(() => {
-    if (currentTenant?.id) {
-      checkResetDate()
-    }
-  }, [currentTenant?.id])
-
-  const checkResetDate = async () => {
-    if (!currentTenant?.id) {
+  const checkResetDate = useCallback(async () => {
+    const tenantId = currentTenant?.id
+    if (!tenantId) {
       setChecking(false)
       return
     }
     try {
-      const date = await getStatsResetDate(currentTenant.id)
+      const date = await getStatsResetDate(tenantId)
       setResetDate(date)
     } catch (error) {
       console.error("Error checking reset date:", error)
     } finally {
       setChecking(false)
     }
-  }
+  }, [currentTenant?.id])
+
+  // Check if stats have been reset
+  useEffect(() => {
+    if (currentTenant?.id) {
+      checkResetDate()
+    }
+  }, [currentTenant?.id, checkResetDate])
 
   const handleResetStats = async () => {
     if (!currentTenant?.id) {

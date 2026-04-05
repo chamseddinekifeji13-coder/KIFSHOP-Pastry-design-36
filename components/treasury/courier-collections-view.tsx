@@ -75,6 +75,7 @@ export function CourierCollectionsView() {
   }
 
   useEffect(() => {
+    if (!tenantId) return
     loadData()
     const interval = setInterval(loadData, 15000) // Rafraîchir toutes les 15s
     return () => clearInterval(interval)

@@ -1,4 +1,9 @@
 const path = require("path")
+const buildStamp =
+  process.env.SW_BUILD_ID ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.VERCEL_DEPLOYMENT_ID ||
+  `local-${Date.now()}`
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -42,6 +47,9 @@ const nextConfig = {
     ],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+  env: {
+    NEXT_PUBLIC_SW_BUILD: buildStamp,
   },
 }
 

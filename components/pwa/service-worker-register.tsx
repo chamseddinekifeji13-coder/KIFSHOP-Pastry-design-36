@@ -3,8 +3,8 @@
 import { useEffect, useCallback } from "react"
 import { toast } from "sonner"
 
-const SW_BUILD = "20260404-collect-fix"
-const SW_SCRIPT_URL = `/sw.js?build=${SW_BUILD}`
+const SW_BUILD = process.env.NEXT_PUBLIC_SW_BUILD || "dev-local"
+const SW_SCRIPT_URL = `/sw.js?build=${encodeURIComponent(SW_BUILD)}`
 
 export function ServiceWorkerRegister() {
   const onUpdate = useCallback((reg: ServiceWorkerRegistration) => {
@@ -26,12 +26,26 @@ export function ServiceWorkerRegister() {
 
     const registerSW = async () => {
       try {
+        const expectedSwUrl = new URL(SW_SCRIPT_URL, window.location.origin).toString()
+
         // Recovery step: unregister stale service workers so clients can migrate
         // even when an old script is stuck behind intermediary caches.
         const registrations = await navigator.serviceWorker.getRegistrations()
         for (const registration of registrations) {
           const scriptUrl = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || ""
-          const isStaleKifshopSw = scriptUrl.includes("/sw.js") && !scriptUrl.includes(`build=${SW_BUILD}`)
+          const isKifshopSw = scriptUrl.includes("/sw.js")
+          let isStaleKifshopSw = false
+
+          if (isKifshopSw) {
+            try {
+              const parsed = new URL(scriptUrl)
+              const buildInRegistration = parsed.searchParams.get("build")
+              // Consider stale when build is missing/mismatched, or URL differs from current target URL.
+              isStaleKifshopSw = buildInRegistration !== SW_BUILD || scriptUrl !== expectedSwUrl
+            } catch {
+              isStaleKifshopSw = true
+            }
+          }
 
           if (isStaleKifshopSw) {
             await registration.unregister()
