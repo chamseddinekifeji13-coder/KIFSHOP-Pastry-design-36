@@ -29,13 +29,21 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Prefer persisted workflow alerts when the table exists.
+    // Sync stock alerts from raw_materials (creates new alerts for items below min_stock)
+    // This is fast because it only inserts missing alerts
+    await supabase.rpc("sync_stock_alerts", { p_tenant_id: tenantId }).catch(() => {
+      // Ignore errors - function might not exist yet
+    })
+
+    // Fetch only pending alerts (not converted, ignored, or resolved)
     const { data: alerts, error: alertsError } = await supabase
       .from("stock_alerts")
       .select("*")
       .eq("tenant_id", tenantId)
+      .eq("status", "pending")
       .order("severity", { ascending: false })
       .order("created_at", { ascending: false })
+      .limit(100)
 
     const stockAlertsTableMissing =
       !!alertsError &&
