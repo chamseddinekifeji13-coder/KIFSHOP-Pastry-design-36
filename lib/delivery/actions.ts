@@ -858,18 +858,28 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
   }
 
   try {
-    // Try parsing as ISO date or common formats
+    // Handle French/Excel style dates first: dd/mm/yyyy or dd-mm-yyyy
+    const frMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+    if (frMatch) {
+      const day = Number(frMatch[1])
+      const month = Number(frMatch[2])
+      const year = Number(frMatch[3])
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+        if (!Number.isNaN(date.getTime())) {
+          return date.toISOString()
+        }
+      }
+    }
+
+    // Fallback to native parser for ISO and other valid formats
     const date = new Date(dateStr)
-    
-    // Check if it's a valid date
     if (isNaN(date.getTime())) {
       if (process.env.NODE_ENV === 'development') {
         console.debug("[v0] Invalid date format:", dateStr)
       }
       return undefined
     }
-
-    // Return ISO string for database storage
     return date.toISOString()
   } catch (e) {
     if (process.env.NODE_ENV === 'development') {
@@ -877,6 +887,17 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
     }
     return undefined
   }
+}
+
+function parseLocalizedNumber(value?: string): number | undefined {
+  if (!value) return undefined
+  const normalized = value
+    .replace(/"/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(",", ".")
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 export async function parseCSVContent(content: string): Promise<{
@@ -1101,9 +1122,9 @@ export async function parseCSVContent(content: string): Promise<{
 
     // Extract price if available
     const priceStr = columnIndices.price !== undefined
-      ? values[columnIndices.price]?.replace(/"/g, "").trim()
+      ? values[columnIndices.price]
       : undefined
-    const price = priceStr ? parseFloat(priceStr) : undefined
+    const price = parseLocalizedNumber(priceStr)
 
     // Validation: prix doit être > 0 (conforme à la logique métier)
     if (price === undefined || price === null || price <= 0) {
@@ -1113,9 +1134,9 @@ export async function parseCSVContent(content: string): Promise<{
 
     // Extract fees if available
     const feesStr = columnIndices.fees !== undefined
-      ? values[columnIndices.fees]?.replace(/"/g, "").trim()
+      ? values[columnIndices.fees]
       : undefined
-    const fees = feesStr ? parseFloat(feesStr) : undefined
+    const fees = parseLocalizedNumber(feesStr)
 
     const deliveryDateRaw =
       columnIndices.deliveryDate !== undefined
