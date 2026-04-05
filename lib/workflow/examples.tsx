@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Example integration showing how to use the workflow system in your app
 
 import { useEffect, useState } from 'react';
@@ -54,7 +53,7 @@ export function QuickConvertAlerts() {
     );
 
     if (bonApproId) {
-      console.debug('Created urgent procurement order:', bonApproId);
+      console.log('Created urgent procurement order:', bonApproId);
     }
   };
 
@@ -89,7 +88,7 @@ export function AutomatedWorkflow() {
           criticalAlerts.map(a => a.id),
           'urgent'
         );
-        console.debug(`Auto-converted ${criticalAlerts.length} critical alerts`);
+        console.log(`Auto-converted ${criticalAlerts.length} critical alerts`);
       }
     }, 30 * 60 * 1000);
 
@@ -102,7 +101,6 @@ export function AutomatedWorkflow() {
 // Example 4: Batch processing with status tracking
 export function BatchProcessWorkflow() {
   const { currentTenant: tenant } = useTenant();
-  const { user } = useAuth();
   const { orders, refetch } = useBonApprovisionnement(tenant?.id || null);
   const { generatePurchaseOrders, isLoading } = useStockAlertsWorkflow();
   const [status, setStatus] = useState<string>('');
@@ -198,10 +196,10 @@ export function WorkflowNotifications() {
 }
 
 // Example 7: Export workflow data
-export async function exportWorkflowData() {
+export async function exportWorkflowData(tenantId: string) {
   const response = await fetch('/api/workflow/audit-log', {
     headers: {
-      'x-tenant-id': tenant?.id || '',
+      'x-tenant-id': tenantId,
     },
   });
 

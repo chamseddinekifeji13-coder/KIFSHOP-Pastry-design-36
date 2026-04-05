@@ -153,13 +153,14 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
   if (error || !data) return null
 
   const client = mapClient(data)
+  const normalizedPhone = (client.phone || "").trim()
 
   // Fetch Best Delivery shipments for this client
   const { data: shipments } = await supabase
     .from("best_delivery_shipments")
     .select("status, cod_amount")
     .eq("tenant_id", client.tenantId)
-    .eq("customer_phone", client.phone)
+    .eq("customer_phone", normalizedPhone)
 
   // Calculate stats from Best Delivery
   let bdCount = 0
@@ -186,7 +187,7 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
     .from("orders")
     .select("total")
     .eq("tenant_id", client.tenantId)
-    .eq("customer_phone", client.phone)
+    .eq("customer_phone", normalizedPhone)
 
   const orderCount = orderData?.length || 0
   const orderTotal = (orderData || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0)

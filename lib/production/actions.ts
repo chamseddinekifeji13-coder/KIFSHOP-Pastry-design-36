@@ -370,12 +370,13 @@ export async function completeProduction(
   notes?: string,
   planId?: string
 ): Promise<ConsumeResult> {
+  const supabase = createClient()
+
   // 1. Atomic consume + stock deduction + production_run
   const result = await consumeRecipeIngredients(recipeId, quantity, producedBy, notes)
 
   // 2. If linked to a production plan, update its status
   if (result.success && planId) {
-    const supabase = createClient()
     const { error } = await supabase
       .from("production_plans")
       .update({ status: "completed", completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -388,22 +389,34 @@ export async function completeProduction(
   // 3. Auto-create a production batch for conditioning
   if (result.success) {
     try {
-      const supabase = createClient()
       const { data: recipe } = await supabase
         .from("recipes")
         .select("tenant_id")
         .eq("id", recipeId)
         .single()
       if (recipe) {
-        await supabase.from("production_batches").insert({
-          tenant_id: recipe.tenant_id,
-          recipe_id: recipeId,
-          recipe_name: result.recipe_name,
-          produced_quantity: result.finished_product_units || quantity,
-          produced_unit: "unites",
-          remaining_quantity: result.finished_product_units || quantity,
-          notes: notes || `Genere automatiquement depuis le plan de production`,
-        })
+        // Avoid duplicate auto-batch if a recent one was already created.
+        const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+        const { data: recentBatch } = await supabase
+          .from("production_batches")
+          .select("id")
+          .eq("tenant_id", recipe.tenant_id)
+          .eq("recipe_id", recipeId)
+          .gte("created_at", twoMinAgo)
+          .limit(1)
+          .maybeSingle()
+
+        if (!recentBatch) {
+          await supabase.from("production_batches").insert({
+            tenant_id: recipe.tenant_id,
+            recipe_id: recipeId,
+            recipe_name: result.recipe_name,
+            produced_quantity: result.finished_product_units || quantity,
+            produced_unit: "unites",
+            remaining_quantity: result.finished_product_units || quantity,
+            notes: notes || `Genere automatiquement depuis le plan de production`,
+          })
+        }
       }
     } catch (err) {
       console.error("Auto-batch creation failed:", err)
@@ -453,10 +466,16 @@ export async function createProductionBatch(tenantId: string, data: {
       .select("id")
       .eq("recipe_id", data.recipeId)
       .eq("tenant_id", tenantId)
-      .in("status", ["en_cours", "partiellement_conditionne"])
       .gte("created_at", twoMinAgo)
       .limit(1)
-    if (recentBatches && recentBatches.length > 0) {
+    const { data: recentRuns } = await supabase
+      .from("production_runs")
+      .select("id")
+      .eq("recipe_id", data.recipeId)
+      .eq("tenant_id", tenantId)
+      .gte("created_at", twoMinAgo)
+      .limit(1)
+    if ((recentBatches && recentBatches.length > 0) || (recentRuns && recentRuns.length > 0)) {
       throw new Error("Un lot pour cette recette a deja ete cree il y a moins de 2 minutes. Veuillez patienter avant de relancer.")
     }
   }
@@ -525,32 +544,58 @@ export async function addPackagingSession(tenantId: string, batchId: string, dat
   
   // 2. Ajouter les produits finis au stock (si finishedProductId fourni) — optimistic locking
   if (data.finishedProductId) {
-    const { data: product } = await supabase
+    const { data: product, error: productReadError } = await supabase
       .from("finished_products")
       .select("current_stock")
       .eq("id", data.finishedProductId)
-      .single()
+      .maybeSingle()
 
-    if (product) {
-      const oldStock = Number(product.current_stock)
-      const { error: updateError } = await supabase
+    if (productReadError) {
+      throw new Error(`Echec lecture produit fini: ${productReadError.message}`)
+    }
+    if (!product) {
+      throw new Error("Produit fini introuvable: il a ete supprime avant la mise a jour de stock")
+    }
+
+    const oldStock = Number(product.current_stock)
+    const { data: updatedRow, error: updateError } = await supabase
+      .from("finished_products")
+      .update({ current_stock: oldStock + data.quantity })
+      .eq("id", data.finishedProductId)
+      .eq("current_stock", oldStock) // optimistic lock
+      .select("id")
+      .maybeSingle()
+    if (updateError) {
+      throw new Error(`Echec mise a jour stock: ${updateError.message}`)
+    }
+
+    // No row updated => likely lock conflict, retry once with fresh stock.
+    if (!updatedRow) {
+      console.error("Stock update conflict, retrying...")
+      const { data: fresh, error: freshReadError } = await supabase
         .from("finished_products")
-        .update({ current_stock: oldStock + data.quantity })
+        .select("current_stock")
         .eq("id", data.finishedProductId)
-        .eq("current_stock", oldStock) // optimistic lock
-      if (updateError) {
-        console.error("Stock update conflict, retrying...")
-        const { data: fresh } = await supabase
-          .from("finished_products")
-          .select("current_stock")
-          .eq("id", data.finishedProductId)
-          .single()
-        if (fresh) {
-          await supabase
-            .from("finished_products")
-            .update({ current_stock: Number(fresh.current_stock) + data.quantity })
-            .eq("id", data.finishedProductId)
-        }
+        .maybeSingle()
+      if (freshReadError) {
+        throw new Error(`Echec relecture stock apres conflit: ${freshReadError.message}`)
+      }
+      if (!fresh) {
+        throw new Error("Produit fini introuvable apres conflit: il a ete supprime pendant le retry")
+      }
+
+      const { data: retriedRow, error: retryError } = await supabase
+        .from("finished_products")
+        .update({ current_stock: Number(fresh.current_stock) + data.quantity })
+        .eq("id", data.finishedProductId)
+        .eq("current_stock", Number(fresh.current_stock))
+        .select("id")
+        .maybeSingle()
+      if (retryError) {
+        throw new Error(`Echec mise a jour stock apres retry: ${retryError.message}`)
+      }
+      if (!retriedRow) {
+        throw new Error("Conflit de stock persistant: impossible d'appliquer la mise a jour apres retry")
       }
     }
   }

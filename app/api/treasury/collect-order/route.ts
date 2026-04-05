@@ -200,7 +200,10 @@ export async function POST(request: Request) {
     }).format(new Date())
     const windowStart = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
 
-    const [{ data: orderCollections }, { data: paymentCollections }] = await Promise.all([
+    const [
+      { data: orderCollections, error: orderCollectionsError },
+      { data: paymentCollections, error: paymentCollectionsError },
+    ] = await Promise.all([
       supabase
         .from("order_collections")
         .select("amount, collected_at")
@@ -212,6 +215,30 @@ export async function POST(request: Request) {
         .eq("tenant_id", session.tenantId)
         .gte("collected_at", windowStart),
     ])
+
+    if (orderCollectionsError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Erreur lecture order_collections du jour",
+          details: orderCollectionsError.message,
+          code: orderCollectionsError.code,
+        },
+        { status: 500 }
+      )
+    }
+
+    if (paymentCollectionsError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Erreur lecture payment_collections du jour",
+          details: paymentCollectionsError.message,
+          code: paymentCollectionsError.code,
+        },
+        { status: 500 }
+      )
+    }
 
     const isTodayInTunis = (value: string | null | undefined): boolean => {
       if (!value) return false
