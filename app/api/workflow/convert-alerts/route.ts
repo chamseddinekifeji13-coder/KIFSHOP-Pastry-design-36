@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/server"
+import { formatWorkflowDbError } from "@/lib/workflow/db-errors"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -34,7 +35,7 @@ async function convertFromRawMaterials(
   if (materialsError) {
     console.error("[convert-alerts] raw_materials lookup:", materialsError)
     return {
-      error: materialsError.message,
+      error: formatWorkflowDbError(materialsError.message),
       status: 500,
     }
   }
@@ -81,7 +82,9 @@ async function convertFromRawMaterials(
   if (bonError || !bon) {
     console.error("[convert-alerts] bon insert:", bonError)
     return {
-      error: bonError?.message || "Impossible de créer le bon d'approvisionnement",
+      error: formatWorkflowDbError(
+        bonError?.message || "Impossible de créer le bon d'approvisionnement"
+      ),
       status: 500,
     }
   }
@@ -109,7 +112,7 @@ async function convertFromRawMaterials(
     console.error("[convert-alerts] items insert:", itemsError)
     await supabase.from("bon_approvisionnement").delete().eq("id", bonId)
     return {
-      error: itemsError.message,
+      error: formatWorkflowDbError(itemsError.message),
       status: 500,
     }
   }
@@ -196,9 +199,10 @@ export async function POST(request: NextRequest) {
     if ("error" in fallback) {
       return NextResponse.json(
         {
-          error:
+          error: formatWorkflowDbError(
             fallback.error ||
-            "Impossible de convertir les alertes en bon d'approvisionnement",
+              "Impossible de convertir les alertes en bon d'approvisionnement"
+          ),
         },
         { status: fallback.status }
       )

@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import {
+  formatWorkflowDbError,
+  getErrorMessage,
+} from "@/lib/workflow/db-errors";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -79,9 +83,11 @@ export function useStockAlerts(tenantId: string | null) {
       const payload = (await response.json()) as { alerts?: StockAlert[] };
       setAlerts(Array.isArray(payload.alerts) ? payload.alerts : []);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Impossible de recuperer les alertes";
-      setError(errorMessage);
+      setError(
+        formatWorkflowDbError(
+          getErrorMessage(err) || "Impossible de recuperer les alertes"
+        )
+      );
     } finally {
       setIsLoading(false);
     }
@@ -149,9 +155,12 @@ export function useBonApprovisionnement(tenantId: string | null) {
 
       setOrders(data || []);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Impossible de recuperer les bons d'approvisionnement";
-      setError(errorMessage);
+      setError(
+        formatWorkflowDbError(
+          getErrorMessage(err) ||
+            "Impossible de recuperer les bons d'approvisionnement"
+        )
+      );
     } finally {
       setIsLoading(false);
     }
