@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,14 +15,32 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Get tenant_id from user metadata or header
+    const tenantId = user.user_metadata?.tenant_id || 
+      request.headers.get('x-tenant-id')
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant ID required' },
+        { status: 400 }
+      )
+    }
+
     // Get query params for filtering
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
 
-    let query = supabase
-      .from('procurement_orders')
-      .select('*')
-      .eq('tenant_id', user.user_metadata?.tenant_id)
+    // Use admin client to bypass RLS for fetching
+    const adminSupabase = createAdminClient()
+
+    // Query bon_approvisionnement table (not procurement_orders)
+    let query = adminSupabase
+      .from('bon_approvisionnement')
+      .select(`
+        *,
+        items:bon_approvisionnement_items(*)
+      `)
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (status) {
@@ -31,10 +50,11 @@ export async function GET(request: NextRequest) {
     const { data: orders, error } = await query
 
     if (error) {
+      console.error('[Procurement Orders] Query error:', error.message)
       throw new Error(error.message)
     }
 
-    return NextResponse.json(orders, { status: 200 })
+    return NextResponse.json(orders || [], { status: 200 })
   } catch (error) {
     console.error('[Procurement Orders API Error]', error)
     return NextResponse.json(
@@ -58,30 +78,46 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    const tenantId = user.user_metadata?.tenant_id || request.headers.get('x-tenant-id')
 
-    const order = {
-      tenant_id: user.user_metadata?.tenant_id,
-      material_id: body.material_id,
-      material_name: body.material_name,
-      quantity: body.quantity,
-      unit: body.unit,
-      supplier_id: body.supplier_id || null,
-      status: 'DRAFT',
-      created_by: user.id,
-      audit_trail: JSON.stringify([{
-        action: 'created',
-        timestamp: new Date().toISOString(),
-        user_id: user.id,
-        changes: { status: 'DRAFT' }
-      }])
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant ID required' },
+        { status: 400 }
+      )
     }
 
-    const { data, error } = await supabase
-      .from('procurement_orders')
+    const adminSupabase = createAdminClient()
+
+    // Generate reference number
+    const { data: refData, error: rpcError } = await adminSupabase.rpc('generate_appro_reference', {
+      p_tenant_id: tenantId
+    })
+
+    let referenceNumber = refData
+    if (rpcError) {
+      console.warn('[Generate Reference] RPC error:', rpcError.message)
+      referenceNumber = `BA-${Date.now()}`
+    }
+
+    const order = {
+      tenant_id: tenantId,
+      reference: referenceNumber,
+      status: 'draft',
+      priority: body.priority || 'normal',
+      notes: body.notes || null,
+      total_items: 0,
+      estimated_total: 0,
+      created_by: user.id
+    }
+
+    const { data, error } = await adminSupabase
+      .from('bon_approvisionnement')
       .insert([order])
       .select()
 
     if (error) {
+      console.error('[Create Bon Approvisionnement] Error:', error.message)
       throw new Error(error.message)
     }
 
