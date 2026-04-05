@@ -10,7 +10,7 @@ async function logWorkflowAction(
   details: Record<string, any>,
   tenantId: string,
   userId: string,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: ReturnType<typeof createClient>
 ): Promise<void> {
   try {
     await supabase
