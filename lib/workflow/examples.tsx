@@ -220,12 +220,21 @@ export async function exportWorkflowData(tenantId: string) {
     },
   });
 
-  const { auditLog } = await response.json();
+  type WorkflowAuditLogRow = {
+    performed_at: string;
+    entity_type: string;
+    action: string;
+    old_status?: string | null;
+    new_status?: string | null;
+    performed_by?: string | null;
+  };
+
+  const { auditLog } = (await response.json()) as { auditLog: WorkflowAuditLogRow[] };
 
   // Convert to CSV
   const csv = [
     ['Date', 'Entity Type', 'Action', 'Old Status', 'New Status', 'User'],
-    ...auditLog.map(log => [
+    ...auditLog.map((log: WorkflowAuditLogRow) => [
       new Date(log.performed_at).toISOString(),
       log.entity_type,
       log.action,
