@@ -29,17 +29,6 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAdminClient()
 
-    // Sync stock alerts from raw_materials before fetching
-    // This automatically creates/updates alerts for items below min_stock
-    const { error: syncError } = await supabase.rpc("sync_stock_alerts", {
-      p_tenant_id: tenantId,
-    })
-
-    if (syncError) {
-      console.warn("[Stock Alerts] sync_stock_alerts failed:", syncError.message)
-      // Continue anyway - the function might not exist yet
-    }
-
     // Prefer persisted workflow alerts when the table exists.
     const { data: alerts, error: alertsError } = await supabase
       .from("stock_alerts")
