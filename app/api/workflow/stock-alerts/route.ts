@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       // Fallback: derive alerts from raw_materials for tenants without stock_alerts table.
       const { data: materials, error: materialsError } = await supabase
         .from("raw_materials")
-        .select("id, name, current_stock, min_stock, unit, preferred_supplier_name, tenant_id, updated_at")
+        .select("id, name, current_stock, min_stock, unit, tenant_id, updated_at")
         .eq("tenant_id", tenantId)
 
       if (materialsError) {
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
           suggested_quantity: Math.max(Number(m.min_stock || 0) - Number(m.current_stock || 0), 0),
           severity: Number(m.current_stock || 0) <= 0 ? "critical" : "warning",
           status: "pending",
-          preferred_supplier_name: m.preferred_supplier_name || undefined,
+          preferred_supplier_name: undefined,
           estimated_unit_price: undefined,
           created_at: m.updated_at || new Date().toISOString(),
         }))
