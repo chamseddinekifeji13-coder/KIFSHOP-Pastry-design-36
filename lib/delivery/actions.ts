@@ -1261,8 +1261,8 @@ export async function parseXMLContent(content: string): Promise<{
         }
 
         const status = statusMap[statusStr.toLowerCase()] || "pending"
-        const price = priceStr ? parseFloat(priceStr) : undefined
-        const fees = feesStr ? parseFloat(feesStr) : undefined
+        const price = parseLocalizedNumber(priceStr)
+        const fees = parseLocalizedNumber(feesStr)
 
         // Parse delivery date
         let deliveryDate: string | undefined
@@ -1349,6 +1349,7 @@ export async function importDeliveryReport(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
+    const normalizedCustomerPhone = row.customerPhone?.trim() || ""
 
     // Skip if this row is a duplicate within the file
     if (duplicatesInFile.has(i)) {
@@ -1360,7 +1361,7 @@ export async function importDeliveryReport(
       continue
     }
 
-    if (!row.customerPhone?.trim()) {
+    if (!normalizedCustomerPhone) {
       result.errors.push({ row: i + 2, error: "Telephone client manquant" })
       result.failed++
       continue
@@ -1394,7 +1395,7 @@ export async function importDeliveryReport(
 
       // Priority 3: Check by customer name + phone + EXACT delivery date (same day only)
       // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
-      if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
+      if (!existingShipment && row.customerName && normalizedCustomerPhone && row.deliveryDate) {
         // Only match if exact same delivery date (same day)
         // deliveryDate is an ISO string from parseAndValidateDate(); guard invalid strings
         const deliveryIso = row.deliveryDate.trim()
@@ -1414,7 +1415,7 @@ export async function importDeliveryReport(
             .select("id")
             .eq("tenant_id", tenantId)
             .ilike("customer_name", row.customerName)
-            .eq("customer_phone", row.customerPhone)
+            .eq("customer_phone", normalizedCustomerPhone)
             .gte("exported_at", deliveryDateStr)
             .lt("exported_at", nextDayStr)
             .single()
@@ -1428,7 +1429,7 @@ export async function importDeliveryReport(
           .from("best_delivery_shipments")
           .update({
             customer_name: row.customerName,
-            customer_phone: row.customerPhone || null,
+            customer_phone: normalizedCustomerPhone || null,
             customer_address: row.customerAddress,
             status: row.status,
             cod_amount: row.price || 0,
@@ -1486,7 +1487,7 @@ export async function importDeliveryReport(
             .insert({
               tenant_id: tenantId,
               customer_name: row.customerName,
-              customer_phone: row.customerPhone || null,
+              customer_phone: normalizedCustomerPhone || null,
               customer_address: row.customerAddress,
               total: row.price || 0,
               deposit: row.status === "delivered" ? (row.price || 0) : 0,

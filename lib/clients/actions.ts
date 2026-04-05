@@ -123,11 +123,17 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     // Use orders table stats as well so campaigns audience filtering works correctly
     const orderStats = orderStatsMap.get(normalizedPhone) || { count: 0, total: 0 }
 
+    const computedTotalOrders = bdStats.deliveredCount + orderStats.count
+    const computedTotalSpent = bdStats.deliveredTotal + orderStats.total
+    const computedReturnCount = bdStats.returnedCount
+
     return {
       ...client,
-      totalOrders: bdStats.deliveredCount + orderStats.count,
-      totalSpent: bdStats.deliveredTotal + orderStats.total,
-      returnCount: bdStats.returnedCount,
+      // Preserve persisted counters from clients table to avoid losing
+      // data coming from non-Best-Delivery flows.
+      totalOrders: Math.max(Number(client.totalOrders) || 0, computedTotalOrders),
+      totalSpent: Math.max(Number(client.totalSpent) || 0, computedTotalSpent),
+      returnCount: Math.max(Number(client.returnCount) || 0, computedReturnCount),
     }
   })
 
@@ -186,11 +192,17 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
   const orderTotal = (orderData || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0)
 
   // Combine Best Delivery + orders table stats
+  const computedTotalOrders = bdCount + orderCount
+  const computedTotalSpent = bdTotal + orderTotal
+  const computedReturnCount = bdReturned
+
   return {
     ...client,
-    totalOrders: bdCount + orderCount,
-    totalSpent: bdTotal + orderTotal,
-    returnCount: bdReturned,
+    // Preserve persisted counters from clients table to avoid losing
+    // data coming from non-Best-Delivery flows.
+    totalOrders: Math.max(Number(client.totalOrders) || 0, computedTotalOrders),
+    totalSpent: Math.max(Number(client.totalSpent) || 0, computedTotalSpent),
+    returnCount: Math.max(Number(client.returnCount) || 0, computedReturnCount),
   }
 }
 
