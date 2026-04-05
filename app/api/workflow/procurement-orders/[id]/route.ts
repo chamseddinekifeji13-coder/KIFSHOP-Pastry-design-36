@@ -1,18 +1,56 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+async function logWorkflowAction(
+  entityType: string,
+  entityId: string,
+  action: string,
+  oldStatus: string | undefined,
+  newStatus: string | undefined,
+  details: Record<string, unknown>,
+  tenantId: string,
+  userId: string,
+  supabase: SupabaseServerClient
+): Promise<void> {
+  try {
+    await supabase.from("workflow_audit_log").insert({
+      tenant_id: tenantId,
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      old_status: oldStatus,
+      new_status: newStatus,
+      details,
+      performed_by: userId,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("Error logging workflow action:", msg)
+  }
+}
 
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient()
-    
-    // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tenantId =
+      typeof user.user_metadata?.tenant_id === "string"
+        ? user.user_metadata.tenant_id.trim()
+        : ""
+    if (!tenantId) {
+      return NextResponse.json({ error: "Tenant ID not found" }, { status: 400 })
     }
 
     const body = await request.json()
@@ -21,76 +59,66 @@ export async function PUT(request: NextRequest) {
 
     if (!orderId || !status) {
       return NextResponse.json(
-        { error: 'orderId and status are required' },
+        { error: "orderId and status are required" },
         { status: 400 }
       )
     }
 
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant ID required' },
-        { status: 400 }
-      )
-    }
-
-    const adminSupabase = createAdminClient()
-
-    // Get the current order
-    const { data: order, error: getError } = await adminSupabase
-      .from('bon_approvisionnement')
-      .select('*')
-      .eq('id', orderId)
-      .eq('tenant_id', tenantId)
+    const { data: order, error: getError } = await supabase
+      .from("bon_approvisionnement")
+      .select("*")
+      .eq("id", orderId)
+      .eq("tenant_id", tenantId)
       .single()
 
     if (getError) {
       throw new Error(getError.message)
     }
 
-    // Update order status
-    const { data: updated, error: updateError } = await adminSupabase
-      .from('bon_approvisionnement')
-      .update({
-        status: status,
-        validated_by: status === 'validated' ? user.id : order.validated_by,
-        validated_at: status === 'validated' ? new Date().toISOString() : order.validated_at,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', orderId)
-      .eq('tenant_id', tenantId)
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    const updateData: Record<string, unknown> = {
+      status,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (status === "validated") {
+      updateData.validated_by = user.id
+      updateData.validated_at = new Date().toISOString()
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("bon_approvisionnement")
+      .update(updateData)
+      .eq("id", orderId)
       .select()
 
     if (updateError) {
       throw new Error(updateError.message)
     }
 
-    // Log the audit trail
-    const { error: auditError } = await adminSupabase
-      .from('workflow_audit_log')
-      .insert([{
-        tenant_id: tenantId,
-        entity_type: 'bon_approvisionnement',
-        entity_id: orderId,
-        action: status === 'validated' ? 'validated' : 'updated',
-        old_status: order.status,
-        new_status: status,
-        performed_by: user.id,
-        details: { 
-          changes: { status: status },
-          updated_at: new Date().toISOString()
-        }
-      }])
-
-    if (auditError) {
-      console.warn('[Audit Log Error]', auditError.message)
-      // Don't throw - the update was successful, just log the warning
-    }
+    await logWorkflowAction(
+      "bon_approvisionnement",
+      orderId,
+      String(status).toLowerCase(),
+      order.status as string | undefined,
+      String(status),
+      { changed_fields: Object.keys(updateData) },
+      tenantId,
+      user.id,
+      supabase
+    )
 
     return NextResponse.json(updated?.[0], { status: 200 })
   } catch (error) {
-    console.error('[Update Procurement Order API Error]', error)
+    console.error("[Update Bon Approvisionnement API Error]", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      {
+        error:
+          error instanceof Error ? error.message : "Internal server error",
+      },
       { status: 500 }
     )
   }
