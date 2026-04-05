@@ -23,6 +23,7 @@ export function ServiceWorkerRegister() {
     if (!("serviceWorker" in navigator)) return
 
     let intervalId: ReturnType<typeof setInterval> | null = null
+    let visibilityChangeHandler: (() => void) | null = null
 
     const registerSW = async () => {
       try {
@@ -80,12 +81,12 @@ export function ServiceWorkerRegister() {
           reg.update().catch(() => {})
         }, 30 * 1000)
 
-        const handleVisibilityChange = () => {
+        visibilityChangeHandler = () => {
           if (document.visibilityState === "visible") {
             reg.update().catch(() => {})
           }
         }
-        document.addEventListener("visibilitychange", handleVisibilityChange)
+        document.addEventListener("visibilitychange", visibilityChangeHandler)
 
       } catch (err) {
         // Service Worker registration failures are not critical
@@ -108,6 +109,9 @@ export function ServiceWorkerRegister() {
 
     return () => {
       if (intervalId) clearInterval(intervalId)
+      if (visibilityChangeHandler) {
+        document.removeEventListener("visibilitychange", visibilityChangeHandler)
+      }
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange)
     }
   }, [onUpdate])

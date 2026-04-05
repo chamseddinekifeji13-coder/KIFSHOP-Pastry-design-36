@@ -25,8 +25,8 @@ export default function ProcurementOrdersPage() {
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Initializing tenant information</CardDescription>
+            <CardTitle>Chargement...</CardTitle>
+            <CardDescription>Initialisation des informations du tenant</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -46,9 +46,9 @@ export default function ProcurementOrdersPage() {
     <div className="flex-1 space-y-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Procurement Orders</h1>
+        <h1 className="text-3xl font-bold mb-2">Bons d'approvisionnement</h1>
         <p className="text-gray-600">
-          Manage procurement orders and generate supplier purchase orders
+          Gérez les bons d'approvisionnement et générez les commandes fournisseurs
         </p>
       </div>
 
@@ -57,7 +57,7 @@ export default function ProcurementOrdersPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Total Orders
+              Total bons
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -68,7 +68,7 @@ export default function ProcurementOrdersPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-blue-600">
-              Draft
+              Brouillon
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -81,7 +81,7 @@ export default function ProcurementOrdersPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-purple-600">
-              Validated
+              Validé
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -94,7 +94,7 @@ export default function ProcurementOrdersPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-green-600">
-              Sent to Suppliers
+              Envoyé aux fournisseurs
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -108,7 +108,7 @@ export default function ProcurementOrdersPage() {
       {/* Total value card */}
       <Card className="bg-gradient-to-r from-amber-50 to-orange-50 border-orange-200">
         <CardHeader>
-          <CardTitle className="text-lg">Total Value of All Orders</CardTitle>
+          <CardTitle className="text-lg">Valeur totale de tous les bons</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-4xl font-bold text-orange-600">
@@ -121,13 +121,13 @@ export default function ProcurementOrdersPage() {
       <Tabs defaultValue="draft" className="space-y-4">
         <TabsList>
           <TabsTrigger value="draft">
-            Draft ({draftOrders.length})
+            Brouillon ({draftOrders.length})
           </TabsTrigger>
           <TabsTrigger value="validated">
-            Validated ({validatedOrders.length})
+            Validé ({validatedOrders.length})
           </TabsTrigger>
           <TabsTrigger value="sent">
-            Sent to Suppliers ({sentOrders.length})
+            Envoyé aux fournisseurs ({sentOrders.length})
           </TabsTrigger>
         </TabsList>
 
@@ -144,13 +144,13 @@ export default function ProcurementOrdersPage() {
           {isLoading ? (
             <Card>
               <CardContent className="pt-6 text-center text-gray-500">
-                Loading procurement orders...
+                Chargement des bons d'approvisionnement...
               </CardContent>
             </Card>
           ) : draftOrders.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-gray-500">
-                No draft procurement orders
+                Aucun bon d'approvisionnement en brouillon
               </CardContent>
             </Card>
           ) : (
@@ -170,7 +170,7 @@ export default function ProcurementOrdersPage() {
           {validatedOrders.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-gray-500">
-                No validated procurement orders
+                Aucun bon d'approvisionnement validé
               </CardContent>
             </Card>
           ) : (
@@ -190,7 +190,7 @@ export default function ProcurementOrdersPage() {
           {sentOrders.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-gray-500">
-                No procurement orders sent to suppliers yet
+                Aucun bon d'approvisionnement envoyé aux fournisseurs pour le moment
               </CardContent>
             </Card>
           ) : (
@@ -203,7 +203,7 @@ export default function ProcurementOrdersPage() {
                         <div>
                           <CardTitle>{order.reference}</CardTitle>
                           <CardDescription>
-                            {order.total_items} items
+                            {order.total_items} article(s)
                           </CardDescription>
                         </div>
                         <Badge variant="outline">{order.status}</Badge>
@@ -213,7 +213,7 @@ export default function ProcurementOrdersPage() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-xs text-gray-600 uppercase">
-                            Estimated Total
+                            Total estimé
                           </p>
                           <p className="text-lg font-bold mt-1">
                             {order.estimated_total.toFixed(2)} TND
@@ -221,7 +221,7 @@ export default function ProcurementOrdersPage() {
                         </div>
                         <div>
                           <p className="text-xs text-gray-600 uppercase">
-                            Priority
+                            Priorité
                           </p>
                           <p className="text-lg font-bold mt-1 capitalize">
                             {order.priority}
@@ -242,7 +242,7 @@ export default function ProcurementOrdersPage() {
           <CardContent className="flex items-center gap-2 pt-6">
             <div className="w-2 h-2 bg-green-600 rounded-full"></div>
             <span className="text-green-700 font-medium">
-              {generatedOrderCount} purchase order(s) generated successfully
+              {generatedOrderCount} commande(s) fournisseur générée(s) avec succès
             </span>
           </CardContent>
         </Card>

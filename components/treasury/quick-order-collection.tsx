@@ -109,10 +109,43 @@ export function QuickOrderCollection() {
         }),
       })
 
-      const result = await response.json().catch(() => ({
-        success: false,
-        error: "Reponse serveur invalide",
-      }))
+      const contentType = response.headers.get('content-type') || ''
+      let result: any = null
+
+      if (contentType.includes('application/json')) {
+        result = await response.json().catch(() => null)
+      } else {
+        const rawBody = await response.text().catch(() => '')
+        result = {
+          success: false,
+          error: rawBody?.trim() || `HTTP ${response.status}`,
+        }
+      }
+
+      if (!response.ok) {
+        const errorMessage =
+          result?.error ||
+          result?.details ||
+          `Erreur serveur (HTTP ${response.status})`
+        setError(errorMessage)
+        toast({
+          title: "Erreur lors de l'encaissement",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        return
+      }
+
+      if (!result || typeof result !== 'object') {
+        const errorMessage = "Reponse serveur invalide"
+        setError(errorMessage)
+        toast({
+          title: "Erreur lors de l'encaissement",
+          description: errorMessage,
+          variant: "destructive"
+        })
+        return
+      }
 
       if (!result?.success) {
         const errorMessage = result?.error || result?.details || "Erreur lors de l'encaissement"

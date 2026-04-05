@@ -64,7 +64,7 @@ export function useStockAlerts(tenantId: string | null) {
       setAlerts(data || []);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch alerts";
+        err instanceof Error ? err.message : "Impossible de recuperer les alertes";
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -134,7 +134,7 @@ export function useBonApprovisionnement(tenantId: string | null) {
       setOrders(data || []);
     } catch (err) {
       const errorMessage =
-        err instanceof Error ? err.message : "Failed to fetch procurement orders";
+        err instanceof Error ? err.message : "Impossible de recuperer les bons d'approvisionnement";
       setError(errorMessage);
     } finally {
       setIsLoading(false);

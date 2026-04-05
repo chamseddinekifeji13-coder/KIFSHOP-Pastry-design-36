@@ -85,7 +85,7 @@ export function StockAlertsList({
         <CardContent className="pt-6">
           <div className="text-center py-12">
             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-            <p className="text-gray-600">No stock alerts at the moment</p>
+            <p className="text-gray-600">Aucune alerte de stock pour le moment</p>
           </div>
         </CardContent>
       </Card>
@@ -96,9 +96,9 @@ export function StockAlertsList({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Stock Alerts ({alerts.length})</CardTitle>
+          <CardTitle>Alertes de stock ({alerts.length})</CardTitle>
           <CardDescription>
-            Convert stock alerts to procurement orders
+            Convertir les alertes de stock en bons d'approvisionnement
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -116,7 +116,7 @@ export function StockAlertsList({
                 onCheckedChange={handleSelectAll}
               />
               <span className="text-sm text-gray-600">
-                {selectedAlerts.length} of {alerts.length} selected
+                {selectedAlerts.length} sur {alerts.length} sélectionnée(s)
               </span>
             </div>
 
@@ -127,10 +127,10 @@ export function StockAlertsList({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="normal">Normal</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="low">Faible</SelectItem>
+                    <SelectItem value="normal">Normale</SelectItem>
+                    <SelectItem value="high">Élevée</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -142,10 +142,10 @@ export function StockAlertsList({
                   {isLoading ? (
                     <>
                       <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      Converting...
+                      Conversion...
                     </>
                   ) : (
-                    "Convert to Procurement Order"
+                    "Convertir en bon d'approvisionnement"
                   )}
                 </Button>
               </div>
@@ -183,13 +183,13 @@ export function StockAlertsList({
                     </span>
                   </div>
                   <div className="text-sm text-gray-600 mt-1">
-                    Current: {alert.current_stock} {alert.item_unit} | Min:{" "}
-                    {alert.min_stock} {alert.item_unit} | Suggest:{" "}
+                    Actuel : {alert.current_stock} {alert.item_unit} | Min :{" "}
+                    {alert.min_stock} {alert.item_unit} | Suggestion :{" "}
                     {alert.suggested_quantity} {alert.item_unit}
                   </div>
                   {alert.preferred_supplier_name && (
                     <div className="text-xs text-gray-500 mt-1">
-                      Preferred supplier: {alert.preferred_supplier_name}
+                      Fournisseur préféré : {alert.preferred_supplier_name}
                     </div>
                   )}
                 </div>

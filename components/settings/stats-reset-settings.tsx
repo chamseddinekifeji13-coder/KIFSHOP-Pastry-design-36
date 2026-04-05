@@ -18,12 +18,12 @@ export function StatsResetSettings() {
 
   const checkResetDate = useCallback(async () => {
     const tenantId = currentTenant?.id
-    if (!tenantId) {
+    if (typeof tenantId !== "string" || tenantId.trim() === "") {
       setChecking(false)
       return
     }
     try {
-      const date = await getStatsResetDate(tenantId)
+      const date = await getStatsResetDate(tenantId.trim())
       setResetDate(date)
     } catch (error) {
       console.error("Error checking reset date:", error)

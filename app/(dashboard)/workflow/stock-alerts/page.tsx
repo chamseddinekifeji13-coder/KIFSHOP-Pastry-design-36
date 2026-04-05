@@ -27,8 +27,8 @@ export default function StockAlertsPage() {
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Initializing tenant information</CardDescription>
+            <CardTitle>Chargement...</CardTitle>
+            <CardDescription>Initialisation des informations du tenant</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -43,9 +43,9 @@ export default function StockAlertsPage() {
     <div className="flex-1 space-y-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Stock Alerts Management</h1>
+        <h1 className="text-3xl font-bold mb-2">Gestion des alertes de stock</h1>
         <p className="text-gray-600">
-          Monitor and convert stock alerts to procurement orders
+          Surveillez et convertissez les alertes de stock en bons d'approvisionnement
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export default function StockAlertsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Total Alerts
+              Total alertes
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -65,7 +65,7 @@ export default function StockAlertsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-red-600">
-              Critical
+              Critique
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -78,7 +78,7 @@ export default function StockAlertsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-yellow-600">
-              Warning
+              Avertissement
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -91,7 +91,7 @@ export default function StockAlertsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-blue-600">
-              Info
+              Information
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -105,9 +105,9 @@ export default function StockAlertsPage() {
       {/* Main content */}
       <Tabs defaultValue="alerts" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="alerts">Stock Alerts</TabsTrigger>
+          <TabsTrigger value="alerts">Alertes de stock</TabsTrigger>
           <TabsTrigger value="converted">
-            Converted {convertedApproId && "✓"}
+            Convertis {convertedApproId && "✓"}
           </TabsTrigger>
         </TabsList>
 
@@ -124,7 +124,7 @@ export default function StockAlertsPage() {
           {isLoading ? (
             <Card>
               <CardContent className="pt-6 text-center text-gray-500">
-                Loading stock alerts...
+                Chargement des alertes de stock...
               </CardContent>
             </Card>
           ) : (
@@ -144,19 +144,19 @@ export default function StockAlertsPage() {
                 <CardContent className="flex items-center gap-2 pt-6">
                   <div className="w-2 h-2 bg-green-600 rounded-full"></div>
                   <span className="text-green-700 font-medium">
-                    Procurement order created: {convertedApproId.slice(0, 8)}...
+                    Bon d'approvisionnement créé : {convertedApproId.slice(0, 8)}...
                   </span>
                 </CardContent>
               </Card>
 
               <div className="text-center py-8 text-gray-600">
-                <p>Navigate to the Procurement Orders page to manage</p>
+                <p>Accédez à la page des bons d'approvisionnement pour la gestion</p>
               </div>
             </div>
           ) : (
             <Card>
               <CardContent className="pt-6 text-center text-gray-500">
-                No procurement orders created yet. Convert stock alerts first.
+                Aucun bon d'approvisionnement créé pour le moment. Convertissez d'abord les alertes.
               </CardContent>
             </Card>
           )}

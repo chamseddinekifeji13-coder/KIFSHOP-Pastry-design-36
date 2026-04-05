@@ -204,9 +204,9 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
         
         // Revalidate SWR cache for dashboard
         globalMutate((key) => typeof key === "string" && (
-          key.includes("raw_materials") || 
-          key.includes("finished_products") || 
-          key.includes("critical_stock") ||
+          key.includes("raw-materials") || 
+          key.includes("finished-products") || 
+          key.includes("critical-stock") ||
           (tenantId ? key.includes(tenantId) : false)
         ), undefined, { revalidate: true })
         
