@@ -1,6 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+async function logWorkflowAction(
+  entityType: string,
+  entityId: string,
+  action: string,
+  oldStatus: string | undefined,
+  newStatus: string | undefined,
+  details: Record<string, any>,
+  tenantId: string,
+  userId: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<void> {
+  try {
+    await supabase
+      .from("workflow_audit_log")
+      .insert({
+        tenant_id: tenantId,
+        entity_type: entityType,
+        entity_id: entityId,
+        action,
+        old_status: oldStatus,
+        new_status: newStatus,
+        details,
+        performed_by: userId,
+      })
+  } catch (err: any) {
+    console.error("Error logging workflow action:", err.message)
+  }
+}
+
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -24,37 +53,49 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Get the current order
+    const tenantId = user.user_metadata?.tenant_id
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant ID not found' },
+        { status: 400 }
+      )
+    }
+
+    // Get the current bon approvisionnement
     const { data: order, error: getError } = await supabase
-      .from('procurement_orders')
-      .select('audit_trail')
+      .from('bon_approvisionnement')
+      .select('*')
       .eq('id', orderId)
-      .eq('tenant_id', user.user_metadata?.tenant_id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (getError) {
       throw new Error(getError.message)
     }
 
-    // Parse existing audit trail
-    const auditTrail = order?.audit_trail ? JSON.parse(order.audit_trail) : []
+    if (!order) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      )
+    }
 
-    // Add new entry
-    auditTrail.push({
-      action: status.toLowerCase(),
-      timestamp: new Date().toISOString(),
-      user_id: user.id,
-      changes: { status: status }
-    })
+    // Prepare update data
+    const updateData: Record<string, any> = {
+      status: status,
+      updated_at: new Date().toISOString()
+    }
 
-    // Update order
+    // If validating, set validated_by and validated_at
+    if (status === 'validated') {
+      updateData.validated_by = user.id
+      updateData.validated_at = new Date().toISOString()
+    }
+
+    // Update bon approvisionnement
     const { data: updated, error: updateError } = await supabase
-      .from('procurement_orders')
-      .update({
-        status: status,
-        audit_trail: JSON.stringify(auditTrail),
-        updated_at: new Date().toISOString()
-      })
+      .from('bon_approvisionnement')
+      .update(updateData)
       .eq('id', orderId)
       .select()
 
@@ -62,9 +103,22 @@ export async function PUT(request: NextRequest) {
       throw new Error(updateError.message)
     }
 
+    // Log the action in workflow audit log
+    await logWorkflowAction(
+      'bon_approvisionnement',
+      orderId,
+      status.toLowerCase(),
+      order.status,
+      status,
+      { changed_fields: Object.keys(updateData) },
+      tenantId,
+      user.id,
+      supabase
+    )
+
     return NextResponse.json(updated?.[0], { status: 200 })
   } catch (error) {
-    console.error('[Update Procurement Order API Error]', error)
+    console.error('[Update Bon Approvisionnement API Error]', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
