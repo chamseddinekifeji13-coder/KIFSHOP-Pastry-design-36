@@ -1,5 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
 async function logWorkflowAction(
   entityType: string,
@@ -7,40 +12,45 @@ async function logWorkflowAction(
   action: string,
   oldStatus: string | undefined,
   newStatus: string | undefined,
-  details: Record<string, any>,
+  details: Record<string, unknown>,
   tenantId: string,
   userId: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: SupabaseServerClient
 ): Promise<void> {
   try {
-    await supabase
-      .from("workflow_audit_log")
-      .insert({
-        tenant_id: tenantId,
-        entity_type: entityType,
-        entity_id: entityId,
-        action,
-        old_status: oldStatus,
-        new_status: newStatus,
-        details,
-        performed_by: userId,
-      })
-  } catch (err: any) {
-    console.error("Error logging workflow action:", err.message)
+    await supabase.from("workflow_audit_log").insert({
+      tenant_id: tenantId,
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      old_status: oldStatus,
+      new_status: newStatus,
+      details,
+      performed_by: userId,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("Error logging workflow action:", msg)
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient()
-    
-    // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tenantId =
+      typeof user.user_metadata?.tenant_id === "string"
+        ? user.user_metadata.tenant_id.trim()
+        : ""
+    if (!tenantId) {
+      return NextResponse.json({ error: "Tenant ID not found" }, { status: 400 })
     }
 
     const body = await request.json()
@@ -48,25 +58,16 @@ export async function PUT(request: NextRequest) {
 
     if (!orderId || !status) {
       return NextResponse.json(
-        { error: 'orderId and status are required' },
+        { error: "orderId and status are required" },
         { status: 400 }
       )
     }
 
-    const tenantId = user.user_metadata?.tenant_id
-    if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant ID not found' },
-        { status: 400 }
-      )
-    }
-
-    // Get the current bon approvisionnement
     const { data: order, error: getError } = await supabase
-      .from('bon_approvisionnement')
-      .select('*')
-      .eq('id', orderId)
-      .eq('tenant_id', tenantId)
+      .from("bon_approvisionnement")
+      .select("*")
+      .eq("id", orderId)
+      .eq("tenant_id", tenantId)
       .single()
 
     if (getError) {
@@ -74,42 +75,35 @@ export async function PUT(request: NextRequest) {
     }
 
     if (!order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    // Prepare update data
-    const updateData: Record<string, any> = {
-      status: status,
-      updated_at: new Date().toISOString()
+    const updateData: Record<string, unknown> = {
+      status,
+      updated_at: new Date().toISOString(),
     }
 
-    // If validating, set validated_by and validated_at
-    if (status === 'validated') {
+    if (status === "validated") {
       updateData.validated_by = user.id
       updateData.validated_at = new Date().toISOString()
     }
 
-    // Update bon approvisionnement
     const { data: updated, error: updateError } = await supabase
-      .from('bon_approvisionnement')
+      .from("bon_approvisionnement")
       .update(updateData)
-      .eq('id', orderId)
+      .eq("id", orderId)
       .select()
 
     if (updateError) {
       throw new Error(updateError.message)
     }
 
-    // Log the action in workflow audit log
     await logWorkflowAction(
-      'bon_approvisionnement',
+      "bon_approvisionnement",
       orderId,
-      status.toLowerCase(),
-      order.status,
-      status,
+      String(status).toLowerCase(),
+      order.status as string | undefined,
+      String(status),
       { changed_fields: Object.keys(updateData) },
       tenantId,
       user.id,
@@ -118,9 +112,12 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json(updated?.[0], { status: 200 })
   } catch (error) {
-    console.error('[Update Bon Approvisionnement API Error]', error)
+    console.error("[Update Bon Approvisionnement API Error]", error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Internal server error' },
+      {
+        error:
+          error instanceof Error ? error.message : "Internal server error",
+      },
       { status: 500 }
     )
   }
