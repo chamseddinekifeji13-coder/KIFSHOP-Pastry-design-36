@@ -1051,9 +1051,14 @@ export async function adminCorrectPrice(
   }
 
   // Get current data
-  const { data: rawItem } = await adminClient.from(table).select(`name, ${column}`).eq("id", itemId).single()
-  if (!rawItem) throw new Error("Produit introuvable")
-  const item = rawItem as unknown as Record<string, unknown>
+  const { data: rawItem, error: itemError } = await adminClient
+    .from(table)
+    .select(`name, ${column}`)
+    .eq("id", itemId)
+    .single()
+  if (itemError) throw new Error(itemError.message)
+  if (!rawItem || typeof rawItem !== "object") throw new Error("Produit introuvable")
+  const item = rawItem as Record<string, unknown>
 
   const oldPrice = Number(item[column])
 
