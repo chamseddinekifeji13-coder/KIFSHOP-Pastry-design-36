@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
       .eq('tenant_id', user.user_metadata?.tenant_id)
       .single()
 
-    if (orderError) {
-      throw new Error(orderError.message)
+    if (orderError || !order) {
+      throw new Error(orderError?.message || 'Order not found')
     }
 
     // Get audit trail from workflow_audit_log table
