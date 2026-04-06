@@ -102,16 +102,19 @@ export function CourierCollectionsView() {
   const handleApproveDriver = async () => {
     if (!tenantId || !selectedDriver) return
     setApprovingIds((prev) => new Set([...prev, selectedDriver]))
-    const success = await approveCourierCollectionsByDriver(tenantId, selectedDriver)
-    if (success) {
-      await loadData()
-      setSelectedDriver("")
+    try {
+      const success = await approveCourierCollectionsByDriver(tenantId, selectedDriver)
+      if (success) {
+        await loadData()
+        setSelectedDriver("")
+      }
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(selectedDriver)
+        return next
+      })
     }
-    setApprovingIds((prev) => {
-      const next = new Set(prev)
-      next.delete(selectedDriver)
-      return next
-    })
   }
 
   const paymentMethodLabels: Record<string, string> = {

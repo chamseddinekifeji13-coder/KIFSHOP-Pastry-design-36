@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Wallet, Plus, Loader2, Lock } from "lucide-react"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +52,11 @@ export function TreasuryDesktopView() {
           <p className="text-muted-foreground">{t("treasury.subtitle")}</p>
         </div>
         <div className="flex gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href="/tresorerie/courier-collections">
+              Encaissements livreurs
+            </Link>
+          </Button>
           <Button variant="outline" onClick={() => setClosureOpen(true)} className="gap-2">
             <Lock className="h-4 w-4" />
             Clôture Journée

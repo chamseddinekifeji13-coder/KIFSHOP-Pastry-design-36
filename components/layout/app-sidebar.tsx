@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   FileText,
   Eye,
+  HandCoins,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -101,6 +102,7 @@ const navigation = [
     fallback: "Finance",
     items: [
       { titleKey: "nav.treasury", fallback: "Tresorerie", href: "/tresorerie", icon: Wallet },
+      { titleKey: "nav.courier_collections", fallback: "Encaissements livreurs", href: "/tresorerie/courier-collections", icon: HandCoins },
       { titleKey: "nav.pos80", fallback: "POS80", href: "/pos80", icon: Zap },
     ],
   },
