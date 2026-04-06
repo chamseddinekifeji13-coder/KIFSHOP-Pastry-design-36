@@ -183,7 +183,7 @@ export function ApprovisionnementView() {
                   <TableRow>
                     <TableHead>Fournisseur</TableHead>
                     <TableHead>Articles</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Total Calcule</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Date</TableHead>
                   </TableRow>
@@ -191,19 +191,28 @@ export function ApprovisionnementView() {
                 <TableBody>
                   {allOrders.map((order) => {
                     const config = statusConfig[order.status] || { label: order.status, variant: "outline" as const }
+                    // Recalculate total from items to ensure accuracy
+                    const calculatedTotal = order.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
                     return (
                       <TableRow key={order.id}>
                         <TableCell className="font-medium">{order.supplierName}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-col gap-0.5 text-sm">
                             {order.items.map((item, i) => (
-                              <span key={i} className="text-sm">{item.quantity} {item.unit} {item.name}</span>
+                              <span key={i} className="text-xs">
+                                {item.quantity} {item.unit} {item.name} @ {item.unitPrice} TND
+                              </span>
                             ))}
+                            {order.items.length === 0 && (
+                              <span className="text-xs text-muted-foreground italic">Aucun article</span>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-medium">{order.total.toFixed(0)} TND</TableCell>
+                        <TableCell className="text-right font-bold text-green-600">
+                          {calculatedTotal.toFixed(2)} TND
+                        </TableCell>
                         <TableCell><Badge variant={config.variant} className={order.status === "livree" ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100" : ""}>{config.label}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(order.createdAt)}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{formatDate(order.createdAt)}</TableCell>
                       </TableRow>
                     )
                   })}

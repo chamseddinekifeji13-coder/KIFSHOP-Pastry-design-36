@@ -180,6 +180,38 @@ export async function createPurchaseOrder(tenantId: string, data: {
     items: data.items.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
 }
 
+export async function syncPurchaseOrderTotal(orderId: string, tenantId: string): Promise<boolean> {
+  const supabase = createClient()
+  
+  // Fetch all items for this order
+  const { data: items, error: itemsError } = await supabase
+    .from("purchase_order_items")
+    .select("quantity, unit_price")
+    .eq("purchase_order_id", orderId)
+  
+  if (itemsError || !items) {
+    console.error("Error fetching items:", itemsError?.message)
+    return false
+  }
+  
+  // Recalculate total
+  const newTotal = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+  
+  // Update the order total
+  const { error: updateError } = await supabase
+    .from("purchase_orders")
+    .update({ total: newTotal })
+    .eq("id", orderId)
+    .eq("tenant_id", tenantId)
+  
+  if (updateError) {
+    console.error("Error updating order total:", updateError.message)
+    return false
+  }
+  
+  return true
+}
+
 // ─── Supplier Price History (RPC) ─────────────────────────────
 
 export interface PriceHistoryEntry {
