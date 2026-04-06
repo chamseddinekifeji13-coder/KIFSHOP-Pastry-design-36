@@ -862,45 +862,321 @@ export function OrdersView() {
           </TabsContent>
 
           <TabsContent value="list" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Toutes les commandes ({orders.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {orders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Aucune commande pour le moment
-                  </div>
-                ) : (
-                  orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleOrderClick(order)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {order.orderNumberDisplay && (
-                              <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
-                            )}
-                            <p className="font-medium text-sm">{order.customerName}</p>
+            <Tabs defaultValue="nouveau" className="w-full">
+              <TabsList className="grid w-full grid-cols-6 mb-6">
+                <TabsTrigger value="nouveau">
+                  Nouveau
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus.nouveau.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="en-preparation">
+                  En préparation
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus["en-preparation"].length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="pret">
+                  Prêt
+                  {ordersByStatus.pret.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                      {ordersByStatus.pret.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="en-livraison">
+                  En livraison
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus["en-livraison"].length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="livre">
+                  Livré / Vendu
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus.livre.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="annule">
+                  Annulé
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus.annule.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Nouveau Tab */}
+              <TabsContent value="nouveau" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">Nouvelles commandes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.nouveau.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune nouvelle commande
+                      </div>
+                    ) : (
+                      ordersByStatus.nouveau.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
-                          </p>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
                         </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* En préparation Tab */}
+              <TabsContent value="en-preparation" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">En préparation</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus["en-preparation"].length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande en préparation
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
-                        {getPaymentBadge(order.paymentStatus)}
-                      </div>
+                    ) : (
+                      ordersByStatus["en-preparation"].map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Prêt Tab */}
+              <TabsContent value="pret" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <div>
+                      <CardTitle className="text-base">Commandes prêtes pour livraison</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">{ordersByStatus.pret.length} commande(s)</p>
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                    <Button 
+                      onClick={handleExportOrders}
+                      disabled={ordersByStatus.pret.length === 0 || isExporting}
+                      size="sm"
+                    >
+                      {isExporting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      Export CSV
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.pret.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande prête pour livraison
+                      </div>
+                    ) : (
+                      ordersByStatus.pret.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* En livraison Tab */}
+              <TabsContent value="en-livraison" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">En livraison</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus["en-livraison"].length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande en livraison
+                      </div>
+                    ) : (
+                      ordersByStatus["en-livraison"].map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Livré / Vendu Tab */}
+              <TabsContent value="livre" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">Livré / Vendu</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.livre.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande livrée
+                      </div>
+                    ) : (
+                      ordersByStatus.livre.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Annulé Tab */}
+              <TabsContent value="annule" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">Annulé</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.annule.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande annulée
+                      </div>
+                    ) : (
+                      ordersByStatus.annule.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* Retours Tab */}
