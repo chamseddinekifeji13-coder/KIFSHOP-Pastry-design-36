@@ -8,11 +8,35 @@ export type DeliveryExportStatusFilter = "pret" | "en-livraison"
 export function filterOrdersForDeliveryExport(
   orders: Order[],
   statuses: DeliveryExportStatusFilter[],
+  options?: {
+    onlyToday?: boolean
+    timeZone?: string
+  },
 ): Order[] {
   const set = new Set(statuses)
-  return orders.filter(
-    (o) => o.deliveryType === "delivery" && set.has(o.status as DeliveryExportStatusFilter),
-  )
+  const onlyToday = options?.onlyToday ?? true
+  const timeZone = options?.timeZone || "Africa/Tunis"
+  const todayKey = getDayKey(new Date(), timeZone)
+
+  return orders.filter((o) => {
+    if (!(o.deliveryType === "delivery" && set.has(o.status as DeliveryExportStatusFilter))) {
+      return false
+    }
+    if (!onlyToday) return true
+    const eventDate = o.readyAt || o.deliveryDate || o.createdAt
+    return getDayKey(eventDate, timeZone) === todayKey
+  })
+}
+
+function getDayKey(value: string | Date, timeZone: string): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date)
 }
 
 /** Libellés alignés sur le parseur d'import Best Delivery (`lib/delivery/actions.ts` statusMap). */

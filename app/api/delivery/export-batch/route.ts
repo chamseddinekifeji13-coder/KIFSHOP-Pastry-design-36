@@ -7,6 +7,18 @@ type ExportBatchBody = {
   /** Si absent, toutes les commandes livraison correspondant aux statuts. */
   orderIds?: string[]
   statuses?: Array<"pret" | "en-livraison">
+  onlyToday?: boolean
+}
+
+function getTunisDayKey(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Tunis",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date)
 }
 
 export async function POST(request: Request) {
@@ -27,6 +39,8 @@ export async function POST(request: Request) {
   const statuses = body.statuses?.length
     ? body.statuses
     : (["pret"] as const)
+  const onlyToday = body.onlyToday ?? true
+  const todayKey = getTunisDayKey(new Date())
 
   const apiBase = process.env.BEST_DELIVERY_API_URL
   if (!apiBase) {
@@ -64,7 +78,7 @@ export async function POST(request: Request) {
     if (body.orderIds && body.orderIds.length > 0) {
       const { data: rows, error: qErr } = await supabase
         .from("orders")
-        .select("id, delivery_type, status")
+        .select("id, delivery_type, status, ready_at, delivery_date, created_at")
         .eq("tenant_id", session.tenantId)
         .in("id", body.orderIds)
 
@@ -81,13 +95,14 @@ export async function POST(request: Request) {
           (r) =>
             r.delivery_type === "delivery" &&
             r.status &&
-            statusSet.has(r.status as "pret" | "en-livraison"),
+            statusSet.has(r.status as "pret" | "en-livraison") &&
+            (!onlyToday || getTunisDayKey(r.ready_at || r.delivery_date || r.created_at) === todayKey),
         )
         .map((r) => r.id)
     } else {
       const { data: rows, error: qErr } = await supabase
         .from("orders")
-        .select("id")
+        .select("id, ready_at, delivery_date, created_at")
         .eq("tenant_id", session.tenantId)
         .eq("delivery_type", "delivery")
         .in("status", statuses)
@@ -99,7 +114,9 @@ export async function POST(request: Request) {
         )
       }
 
-      candidateIds = (rows || []).map((r) => r.id)
+      candidateIds = (rows || [])
+        .filter((r) => !onlyToday || getTunisDayKey(r.ready_at || r.delivery_date || r.created_at) === todayKey)
+        .map((r) => r.id)
     }
 
     if (candidateIds.length === 0) {

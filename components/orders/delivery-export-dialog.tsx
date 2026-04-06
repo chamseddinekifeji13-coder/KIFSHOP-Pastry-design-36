@@ -39,6 +39,7 @@ export function DeliveryExportDialog({
   const { currentTenant } = useTenant()
   const [includePret, setIncludePret] = useState(true)
   const [includeEnLivraison, setIncludeEnLivraison] = useState(false)
+  const [onlyToday, setOnlyToday] = useState(true)
   const [includeAddress, setIncludeAddress] = useState(true)
   const [loadingCsv, setLoadingCsv] = useState(false)
   const [loadingApi, setLoadingApi] = useState(false)
@@ -48,6 +49,7 @@ export function DeliveryExportDialog({
     if (!open) return
     setIncludePret(true)
     setIncludeEnLivraison(false)
+    setOnlyToday(true)
     setLastApiSummary(null)
   }, [open])
 
@@ -59,8 +61,12 @@ export function DeliveryExportDialog({
   }, [includePret, includeEnLivraison])
 
   const matchingCount = useMemo(
-    () => filterOrdersForDeliveryExport(orders, statuses).length,
-    [orders, statuses],
+    () =>
+      filterOrdersForDeliveryExport(orders, statuses, {
+        onlyToday,
+        timeZone: "Africa/Tunis",
+      }).length,
+    [orders, statuses, onlyToday],
   )
 
   const handleDownloadCsv = async () => {
@@ -78,6 +84,7 @@ export function DeliveryExportDialog({
       const { headers, data } = await exportDeliveryOrdersToBestDeliveryCSV(currentTenant.id, {
         statuses,
         includeAddress,
+        onlyToday,
       })
       exportSemicolonCSV({
         filename: "livraison-best-delivery",
@@ -106,7 +113,7 @@ export function DeliveryExportDialog({
       const res = await fetch("/api/delivery/export-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statuses }),
+        body: JSON.stringify({ statuses, onlyToday }),
       })
       const j = (await res.json().catch(() => ({}))) as {
         success?: boolean
@@ -155,7 +162,7 @@ export function DeliveryExportDialog({
             Export livraison (transporteur)
           </DialogTitle>
           <DialogDescription>
-            Par défaut, seules les commandes <strong>prêtes</strong> (statut Prêt), en{" "}
+            Par défaut, seules les commandes <strong>prêtes du jour</strong> (statut Prêt), en{" "}
             <strong>livraison à domicile</strong>, sont exportées — pas l&apos;ensemble des commandes
             du magasin. Cochez « En livraison » si vous devez aussi renvoyer ce lot vers le
             transporteur.
@@ -190,6 +197,14 @@ export function DeliveryExportDialog({
               </label>
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={onlyToday}
+              onCheckedChange={(v) => setOnlyToday(v === true)}
+            />
+            Exporter seulement les commandes du jour (Tunis)
+          </label>
 
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <Checkbox

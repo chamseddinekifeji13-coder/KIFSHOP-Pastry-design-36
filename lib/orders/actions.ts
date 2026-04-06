@@ -37,6 +37,7 @@ export interface Order {
   deliveryDate?: string
   estimatedDeliveryAt?: string
   deliveredAt?: string
+  readyAt?: string
   deliveryAddress?: string
   notes?: string
   // Offer fields
@@ -48,6 +49,8 @@ export interface Order {
   // Order numbering
   orderNumber?: number
   orderNumberDisplay?: string
+  isArchived?: boolean
+  archivedAt?: string
 }
 
 export interface StatusHistoryEntry {
@@ -154,16 +157,26 @@ function mapDeliveryStatus(status: string): string {
   return statusMap[normalized] || "en-livraison"
 }
 
-export async function fetchOrders(tenantId: string): Promise<Order[]> {
+export async function fetchOrders(
+  tenantId: string,
+  options?: { includeArchived?: boolean },
+): Promise<Order[]> {
   const supabase = createClient()
   const orders: Order[] = []
+  const includeArchived = options?.includeArchived ?? false
 
   // Fetch from orders (unique source of truth)
-  const { data: quickOrders } = await supabase
+  let query = supabase
     .from("orders")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
+
+  if (!includeArchived) {
+    query = query.or("is_archived.is.null,is_archived.eq.false")
+  }
+
+  const { data: quickOrders } = await query
 
   if (quickOrders && quickOrders.length > 0) {
     quickOrders.forEach((o) => {
@@ -196,6 +209,7 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         deliveryDate: o.delivery_date || undefined,
         estimatedDeliveryAt: o.estimated_delivery_at || undefined,
         deliveredAt: o.delivered_at || undefined,
+        readyAt: o.ready_at || undefined,
         deliveryAddress: o.customer_address || undefined,
         notes: o.notes || undefined,
         // Offer fields
@@ -207,6 +221,8 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         // Order numbering
         orderNumber: o.order_number || undefined,
         orderNumberDisplay: o.order_number_display || undefined,
+        isArchived: Boolean(o.is_archived),
+        archivedAt: o.archived_at || undefined,
       })
     })
   }
@@ -218,6 +234,48 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
     const dateB = new Date(b.createdAt).getTime()
     return dateB - dateA
   })
+}
+
+export async function archiveCompletedOrders(
+  tenantId: string,
+  options?: { olderThanDays?: number },
+): Promise<{ archived: number }> {
+  const supabase = createClient()
+  const olderThanDays = Math.max(1, Math.floor(options?.olderThanDays ?? 14))
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: rows, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .in("status", ["livre", "annule"])
+    .lte("updated_at", cutoff)
+    .or("is_archived.is.null,is_archived.eq.false")
+
+  if (error) {
+    throw new Error(error.message || "Erreur lecture commandes a archiver")
+  }
+
+  const ids = (rows || []).map((r: any) => r.id).filter(Boolean)
+  if (ids.length === 0) {
+    return { archived: 0 }
+  }
+
+  const { error: updateError } = await supabase
+    .from("orders")
+    .update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", tenantId)
+    .in("id", ids)
+
+  if (updateError) {
+    throw new Error(updateError.message || "Erreur archivage commandes")
+  }
+
+  return { archived: ids.length }
 }
 
 // ─── Create Order ─────────────────────────────────────────────
@@ -394,6 +452,10 @@ export async function updateOrderStatus(
   const updates: Record<string, unknown> = {
     status: newStatus,
     updated_at: new Date().toISOString(),
+  }
+
+  if (newStatus === "pret") {
+    updates.ready_at = new Date().toISOString()
   }
 
   if (newStatus === "livre") {
@@ -818,10 +880,14 @@ export async function exportDeliveryOrdersToBestDeliveryCSV(
   options: {
     statuses: DeliveryExportStatusFilter[]
     includeAddress: boolean
+    onlyToday?: boolean
   },
 ): Promise<{ headers: string[]; data: string[][] }> {
   const orders = await fetchOrders(tenantId)
-  const filtered = filterOrdersForDeliveryExport(orders, options.statuses)
+  const filtered = filterOrdersForDeliveryExport(orders, options.statuses, {
+    onlyToday: options.onlyToday ?? true,
+    timeZone: "Africa/Tunis",
+  })
   return buildBestDeliveryExportRows(filtered, options.includeAddress)
 }
 
