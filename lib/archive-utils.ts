@@ -26,11 +26,14 @@ export async function archiveOrders(olderThanDays: number) {
       const tenantId = String((t as { id: string }).id || "")
       if (!tenantId) continue
 
+      // Archive only completed & paid orders
+      // Status must be 'livre' (delivered/sold) AND payment must be collected/paid
       const { data: rows, error: listError } = await supabase
         .from("orders")
         .select("id")
         .eq("tenant_id", tenantId)
-        .in("status", ["livre", "annule"])
+        .eq("status", "livre")
+        .in("payment_status", ["paid", "collected"])
         .lte("updated_at", cutoff)
         .or("is_archived.is.null,is_archived.eq.false")
 

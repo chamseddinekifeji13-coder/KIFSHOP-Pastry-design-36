@@ -3,7 +3,8 @@ import { archiveOrders } from "@/lib/archive-utils"
 
 /**
  * GET /api/cron/archive-orders
- * Archive automatiquement les commandes terminees (livre/annule) anciennes.
+ * Archive automatiquement les commandes complètement traitées (livrées ET payées) anciennes.
+ * Critères: status='livre' AND payment_status IN ('paid','collected') AND updated_at < cutoff
  */
 export async function GET(req: NextRequest) {
   try {

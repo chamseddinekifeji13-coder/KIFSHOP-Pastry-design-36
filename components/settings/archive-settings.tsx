@@ -115,9 +115,12 @@ export function ArchiveSettings() {
           onChange={(e) => handleDaysChange(Number(e.target.value))}
           className="w-32"
         />
-        <p className="text-xs text-muted-foreground">
-          Les commandes terminées (livrées/vendues ou annulées) plus anciennes que cette période seront archivées automatiquement
-        </p>
+        <p className="text-xs text-muted-foreground font-medium">Archivage automatique des commandes complétées:</p>
+        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+          <li>Statut: <span className="font-semibold">Livrée/Vendue</span></li>
+          <li>Paiement: <span className="font-semibold">Payée ou Collectée</span></li>
+          <li>Âge: Plus anciennes que <span className="font-semibold">{archiveDays} jour(s)</span></li>
+        </ul>
       </div>
 
       {/* Manual Archive Button */}
