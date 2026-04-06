@@ -123,20 +123,6 @@ async function getCurrentActor(
   let actorId = authUser?.id || null
   let actorName = authUser?.user_metadata?.display_name || authUser?.email || null
 
-  // Prefer active profile label selected on lock screen for audit logs.
-  if (typeof window !== "undefined") {
-    try {
-      const res = await fetch("/api/active-profile", { cache: "no-store" })
-      if (res.ok) {
-        const profile = await res.json()
-        const displayName = typeof profile?.displayName === "string" ? profile.displayName.trim() : ""
-        if (displayName) actorName = displayName
-      }
-    } catch {
-      // Keep auth fallback when API is unavailable.
-    }
-  }
-
   return { actorId, actorName }
 }
 
@@ -519,16 +505,17 @@ export async function updatePaymentStatus(
   // Record as note in history
   const actor = await getCurrentActor(supabase)
   
+  // Map payment status to a descriptive history note
+  const statusDescription = paymentStatus === "paid" ? "Paiement complet" : paymentStatus === "partial" ? "Paiement partiel" : "Non payé"
+  
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: null,
-    to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
+    to_status: `payment_${paymentStatus}`,
     changed_by: actor.actorId,
     changed_by_name: actor.actorName,
-    note: paymentStatus === "paid"
-      ? "Paiement complet enregistre"
-      : `Acompte de ${newDeposit} TND enregistre`,
+    note: `${statusDescription}${newDeposit !== undefined ? ` - ${newDeposit} TND` : ""}`,
   })
 
   return true
@@ -634,6 +621,36 @@ export async function recordPaymentCollection(
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Validation: amount must be positive
+  if (!data.amount || data.amount <= 0) {
+    throw new Error("Le montant du paiement doit être supérieur à 0")
+  }
+
+  // Validation: orderId required
+  if (!data.orderId) {
+    throw new Error("Identifiant de commande manquant")
+  }
+
+  // Get order to check if payment won't exceed total due
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("total, deposit")
+    .eq("id", data.orderId)
+    .single()
+
+  if (orderError || !order) {
+    throw new Error("Commande non trouvée")
+  }
+
+  const orderTotal = Number(order.total || 0)
+  const currentDeposit = Number(order.deposit || 0)
+  const amountDue = orderTotal - currentDeposit
+
+  // Check that payment doesn't exceed amount due
+  if (data.amount > amountDue && amountDue > 0) {
+    throw new Error(`Le montant ne peut pas dépasser le solde dû (${amountDue} TND)`)
+  }
+
   // Insert payment collection record
   const { error } = await supabase.from("payment_collections").insert({
     order_id: data.orderId,
@@ -661,15 +678,6 @@ export async function recordPaymentCollection(
     .eq("order_id", data.orderId)
 
   const totalCollected = (allCollections || []).reduce((sum, p) => sum + Number(p.amount), 0)
-
-  // Get order total to determine payment status
-  const { data: order } = await supabase
-    .from("orders")
-    .select("total")
-    .eq("id", data.orderId)
-    .single()
-
-  const orderTotal = Number(order?.total || 0)
 
   let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
   if (totalCollected >= orderTotal) paymentStatus = "paid"
@@ -707,18 +715,18 @@ export async function recordPaymentCollection(
     data.reference ? `(Ref: ${data.reference})` : null,
   ].filter(Boolean).join(" - ")
 
-  // Record in status history
-  const activeProfile = null // Profile tracking removed to avoid server-only imports in client contexts
+  // Record in status history with proper status prefix
   const recorderName = user?.user_metadata?.display_name || user?.email || null
+  const statusDescription = paymentStatus === "paid" ? "Paiement complet" : "Paiement partiel"
   
   await supabase.from("order_status_history").insert({
     order_id: data.orderId,
     tenant_id: data.tenantId,
     from_status: null,
-    to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
+    to_status: `payment_${paymentStatus}`,
     changed_by: user?.id || null,
     changed_by_name: recorderName,
-    note: noteText,
+    note: `${statusDescription} - ${noteText}`,
   })
 
   return true
