@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Gift, Users, User, Zap,
+  FileText, Download, Printer, Eye, Gift, Users, User, Zap, Archive, TrendingUp,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,7 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
-  exportOrdersToCSV, resetOrderCounter, getOrderCounter,
+  exportOrdersToCSV, resetOrderCounter, getOrderCounter, archiveOrders,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -825,6 +825,14 @@ export function OrdersView() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="archives">
+              Archives
+              {orders.filter(o => o.archived).length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {orders.filter(o => o.archived).length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
@@ -1313,6 +1321,141 @@ export function OrdersView() {
                             {offersOrders.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")} TND
                           </p>
                         </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Archives Tab */}
+          <TabsContent value="archives" className="mt-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Archive className="h-5 w-5" />
+                    Commandes Archivées
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Les commandes exportées et archivées
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const archivedOrders = orders.filter(o => o.archived)
+                  if (archivedOrders.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Archive className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Aucune commande archivée</p>
+                        <p className="text-sm mt-1">
+                          Les commandes archivées après export apparaitront ici
+                        </p>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="space-y-4">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <Card className="bg-muted/50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Archive className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Total Archivées</p>
+                                <p className="text-2xl font-bold">{archivedOrders.length}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-green-500/5 border-green-500/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Commandes Prêtes</p>
+                                <p className="text-2xl font-bold">
+                                  {archivedOrders.filter(o => o.status === "pret").length}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-blue-500/5 border-blue-500/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <TrendingUp className="h-5 w-5 text-blue-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Total TND</p>
+                                <p className="text-2xl font-bold">
+                                  {archivedOrders.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Archives List */}
+                      <div className="rounded-lg border">
+                        <div className="grid grid-cols-12 gap-4 p-3 bg-muted/50 text-sm font-medium border-b">
+                          <div className="col-span-1">N°</div>
+                          <div className="col-span-3">Client</div>
+                          <div className="col-span-2">Articles</div>
+                          <div className="col-span-2">Total</div>
+                          <div className="col-span-2">Date</div>
+                          <div className="col-span-2">Statut</div>
+                        </div>
+                        {archivedOrders.map((order) => (
+                          <div
+                            key={order.id}
+                            className="grid grid-cols-12 gap-4 p-3 border-b last:border-0 items-center hover:bg-muted/30 cursor-pointer transition-colors"
+                            onClick={() => handleOrderClick(order)}
+                          >
+                            <div className="col-span-1">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {order.orderNumberDisplay || order.id.substring(0, 8)}
+                              </span>
+                            </div>
+                            <div className="col-span-3">
+                              <p className="font-medium text-sm">{order.customerName}</p>
+                              <p className="text-xs text-muted-foreground">{order.customerPhone}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-sm">
+                                {order.items.slice(0, 1).map(item => item.name).join(", ")}
+                                {order.items.length > 1 && ` +${order.items.length - 1}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.reduce((sum, item) => sum + item.quantity, 0)} article(s)
+                              </p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-sm">
+                                {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(order.createdAt).toLocaleTimeString("fr-TN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <div className="col-span-2">
+                              <Badge variant="outline" className="text-xs">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archivée
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )
