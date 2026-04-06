@@ -84,7 +84,7 @@ function DashboardIllustration() {
       </div>
 
       {/* Floating card - stock alert */}
-      <div className="absolute -left-6 bottom-16 animate-float rounded-xl border border-primary/30 bg-card p-3 shadow-xl shadow-primary/20 backdrop-blur-md">
+      <div className="absolute left-0 sm:-left-6 bottom-16 animate-float rounded-xl border border-primary/30 bg-card p-3 shadow-xl shadow-primary/20 backdrop-blur-md w-fit mx-2 sm:mx-0">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/20">
             <svg className="h-4 w-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -99,7 +99,7 @@ function DashboardIllustration() {
       </div>
 
       {/* Floating card - new order */}
-      <div className="absolute -right-4 top-24 animate-float rounded-xl border border-success/30 bg-card p-3 shadow-xl shadow-success/20 backdrop-blur-md" style={{ animationDelay: "1s" }}>
+      <div className="absolute right-0 sm:-right-4 top-24 animate-float rounded-xl border border-success/30 bg-card p-3 shadow-xl shadow-success/20 backdrop-blur-md w-fit mx-2 sm:mx-0" style={{ animationDelay: "1s" }}>
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/20">
             <svg className="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
