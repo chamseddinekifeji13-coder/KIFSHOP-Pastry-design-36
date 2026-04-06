@@ -57,7 +57,6 @@ import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { exportToCSV } from "@/lib/csv-export"
 import { FastSalesView } from "./fast-sales-view"
 import { SendToDeliveryDialog } from "./send-to-delivery-dialog"
-import { DeliveryExportDialog } from "./delivery-export-dialog"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -145,7 +144,6 @@ export function OrdersView() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [deliveryExportOpen, setDeliveryExportOpen] = useState(false)
   const [isApiExporting, setIsApiExporting] = useState(false)
 
   // Payment collection state
@@ -773,11 +771,6 @@ export function OrdersView() {
           >
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => setDeliveryExportOpen(true)}>
-            <Truck className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Export livraison</span>
-            <span className="sm:hidden">Livraison</span>
           </Button>
           {(currentUser.role === "gerant" || currentUser.role === "owner") && (
             <Button
@@ -2308,13 +2301,6 @@ export function OrdersView() {
             mutate()
             setSendToDeliveryOpen(false)
           }}
-        />
-
-        <DeliveryExportDialog
-          open={deliveryExportOpen}
-          onOpenChange={setDeliveryExportOpen}
-          orders={orders}
-          onSuccess={() => mutate()}
         />
       </div>
     </>
