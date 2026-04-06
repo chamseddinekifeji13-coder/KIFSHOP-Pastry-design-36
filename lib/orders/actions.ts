@@ -43,6 +43,8 @@ export interface Order {
   // Order numbering
   orderNumber?: number
   orderNumberDisplay?: string
+  // Archive field
+  archived?: boolean
 }
 
 export interface StatusHistoryEntry {
@@ -202,6 +204,8 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         // Order numbering
         orderNumber: o.order_number || undefined,
         orderNumberDisplay: o.order_number_display || undefined,
+        // Archive field
+        archived: o.archived || false,
       })
     })
   }
@@ -766,8 +770,11 @@ export async function resetOrderCounter(tenantId: string): Promise<boolean> {
 
 // ─── CSV Export Functions ────────────────────────────────────────
 
-export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: string[]; data: any[][] }> {
+export async function exportOrdersToCSV(tenantId: string, shouldArchive: boolean = false): Promise<{ headers: string[]; data: any[][]; ordersToArchive: string[] }> {
   const orders = await fetchOrders(tenantId)
+  
+  // Filter orders with status "pret" (ready for delivery)
+  const readyOrders = orders.filter(order => order.status === "pret" && !order.archived)
 
   const headers = [
     "N° Commande",
@@ -787,7 +794,7 @@ export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: st
     "Articles",
   ]
 
-  const data: any[][] = orders.map((order) => [
+  const data: any[][] = readyOrders.map((order) => [
     order.orderNumberDisplay || order.id.substring(0, 8),
     order.customerName,
     order.customerPhone,
@@ -805,7 +812,30 @@ export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: st
     order.items.map((item) => `${item.name} (x${item.quantity})`).join("; "),
   ])
 
-  return { headers, data }
+  // Archive orders if requested
+  const ordersToArchive = readyOrders.map(order => order.id)
+  if (shouldArchive && ordersToArchive.length > 0) {
+    await archiveOrders(ordersToArchive)
+  }
+
+  return { headers, data, ordersToArchive }
+}
+
+export async function archiveOrders(orderIds: string[]): Promise<void> {
+  if (orderIds.length === 0) return
+
+  const supabase = createClient()
+  
+  // Update orders to set archived = true
+  const { error } = await supabase
+    .from("orders")
+    .update({ archived: true })
+    .in("id", orderIds)
+
+  if (error) {
+    console.error("Error archiving orders:", error)
+    throw new Error("Failed to archive orders")
+  }
 }
 
 function translateStatus(status: string): string {
