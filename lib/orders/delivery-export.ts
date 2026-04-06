@@ -19,7 +19,9 @@ export function filterOrdersForDeliveryExport(
 function orderEtatForPartner(status: Order["status"]): string {
   if (status === "pret") return "En attente"
   if (status === "en-livraison") return "En cours"
-  return ""
+  // Only "pret" and "en-livraison" should reach this function due to filterOrdersForDeliveryExport.
+  // This fallback prevents silent failures with empty "Etat" field in CSV export.
+  throw new Error(`Unexpected order status for delivery export: "${status}". Only "pret" and "en-livraison" are supported.`)
 }
 
 function formatCod(order: Order): string {
