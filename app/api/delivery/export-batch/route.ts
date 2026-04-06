@@ -23,9 +23,10 @@ export async function POST(request: Request) {
     return badRequestResponse("Corps JSON invalide")
   }
 
+  /** Sans statuts explicites : uniquement « Prêt », pour ne pas traiter toute la base. */
   const statuses = body.statuses?.length
     ? body.statuses
-    : (["pret", "en-livraison"] as const)
+    : (["pret"] as const)
 
   const apiBase = process.env.BEST_DELIVERY_API_URL
   if (!apiBase) {
