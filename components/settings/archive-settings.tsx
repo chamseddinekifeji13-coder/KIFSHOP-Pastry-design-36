@@ -39,11 +39,12 @@ export function ArchiveSettings() {
   const handleManualArchive = async () => {
     setIsArchiving(true)
     try {
-      const response = await fetch(`/api/cron/archive-orders?days=${archiveDays}`, {
-        method: 'GET',
+      const response = await fetch('/api/archive/manual', {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}`
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ days: archiveDays })
       })
 
       if (!response.ok) {
