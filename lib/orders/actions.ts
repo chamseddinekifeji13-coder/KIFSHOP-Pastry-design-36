@@ -1,4 +1,9 @@
 import { createClient } from "@/lib/supabase/client"
+import {
+  buildBestDeliveryExportRows,
+  filterOrdersForDeliveryExport,
+  type DeliveryExportStatusFilter,
+} from "./delivery-export"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -806,6 +811,18 @@ export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: st
   ])
 
   return { headers, data }
+}
+
+export async function exportDeliveryOrdersToBestDeliveryCSV(
+  tenantId: string,
+  options: {
+    statuses: DeliveryExportStatusFilter[]
+    includeAddress: boolean
+  },
+): Promise<{ headers: string[]; data: string[][] }> {
+  const orders = await fetchOrders(tenantId)
+  const filtered = filterOrdersForDeliveryExport(orders, options.statuses)
+  return buildBestDeliveryExportRows(filtered, options.includeAddress)
 }
 
 function translateStatus(status: string): string {

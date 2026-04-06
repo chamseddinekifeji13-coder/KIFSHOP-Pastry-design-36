@@ -33,6 +33,42 @@ export function exportToCSV({ filename, headers, data }: CSVExportOptions) {
 }
 
 /**
+ * Export CSV avec séparateur point-virgule (format Best Delivery / portails tunisiens).
+ */
+export function exportSemicolonCSV({
+  filename,
+  headers,
+  data,
+}: {
+  filename: string
+  headers: string[]
+  data: string[][]
+}) {
+  const csvContent = [
+    headers.map((h) => escapeSemicolonField(h)).join(";"),
+    ...data.map((row) => row.map((cell) => escapeSemicolonField(cell)).join(";")),
+  ].join("\n")
+
+  const BOM = "\uFEFF"
+  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" })
+  const link = document.createElement("a")
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function escapeSemicolonField(field: unknown): string {
+  if (field === null || field === undefined) return ""
+  const stringField = String(field)
+  if (stringField.includes(";") || stringField.includes('"') || stringField.includes("\n")) {
+    return `"${stringField.replace(/"/g, '""')}"`
+  }
+  return stringField
+}
+
+/**
  * Échappe les champs CSV contenant des caractères spéciaux
  */
 function escapeCSVField(field: any): string {
