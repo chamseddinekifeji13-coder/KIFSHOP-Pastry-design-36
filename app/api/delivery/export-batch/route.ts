@@ -54,7 +54,14 @@ async function exportOrderToBestDeliveryApi({
       .single()
 
     if (orderError || !order) {
-      return { ok: false, orderId: orderId, error: `Order not found: ${orderError?.message || 'Unknown error'}` }
+      return { 
+        ok: false, 
+        orderId: orderId, 
+        error: `Order not found: ${orderError?.message || 'Unknown error'}`,
+        responseData: null,
+        rawText: `Order not found: ${orderError?.message || 'Unknown error'}`,
+        httpStatus: 404
+      }
     }
 
     // Use UnifiedDeliveryService to send order
@@ -90,14 +97,24 @@ async function exportOrderToBestDeliveryApi({
         ok: true,
         orderId: orderId,
         shipmentId: result.provider_shipment_id,
-        trackingNumber: result.tracking_number
+        trackingNumber: result.tracking_number,
+        responseData: result.raw_response,
+        rawText: JSON.stringify(result.raw_response || {}),
+        httpStatus: 200
       }
     } else {
       return { ok: false, error: result.message }
     }
   } catch (error) {
     console.error('[Export Order API]', error)
-    return { ok: false, orderId: orderId, error: error instanceof Error ? error.message : 'Unknown error' }
+    return { 
+      ok: false, 
+      orderId: orderId, 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      responseData: null,
+      rawText: error instanceof Error ? error.message : 'Unknown error',
+      httpStatus: 500
+    }
   }
 }
 
@@ -229,13 +246,13 @@ export async function POST(request: Request) {
 
         if (result.ok) {
           results.push({
-            orderId: result.orderId,
+            orderId: oid,
             ok: true,
             shipmentId: result.shipmentId,
           })
         } else {
           results.push({
-            orderId: result.orderId,
+            orderId: oid,
             ok: false,
             error:
               (result.responseData && JSON.stringify(result.responseData)) ||
