@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/server"
+import { archiveOrders } from "@/lib/archive-utils"
 
 /**
  * POST /api/archive/manual
@@ -22,26 +22,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Appeler l'API cron interne avec le CRON_SECRET
-    const cronResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/cron/archive-orders?days=${archiveDays}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-        'Content-Type': 'application/json'
-      }
-    })
+    // Utiliser la fonction d'archivage directement (pas d'appel HTTP)
+    const result = await archiveOrders(archiveDays)
 
-    if (!cronResponse.ok) {
-      const errorData = await cronResponse.json().catch(() => ({}))
-      throw new Error(errorData.error || `Erreur HTTP ${cronResponse.status}`)
-    }
-
-    const result = await cronResponse.json()
-
-    return NextResponse.json({
-      success: true,
-      ...result
-    })
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error("Manual archive error:", error)
