@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2, UploadCloud } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2, UploadCloud, Archive } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import { UsersDrawer } from "./users-drawer"
 import { DeliveryCompaniesSettings } from "./delivery-companies-settings"
 import { DeliveryProviderCredentialsSettings } from "./delivery-provider-credentials-settings"
 import { StatsResetSettings } from "./stats-reset-settings"
+import { ArchiveSettings } from "./archive-settings"
 import { ROLE_LABELS } from "@/lib/tenant-context"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -400,6 +401,24 @@ export function SettingsView() {
         {/* Delivery Provider API Settings - Owner & Gerant */}
         {(currentRole === "owner" || currentRole === "gerant") && (
           <DeliveryProviderCredentialsSettings />
+        )}
+
+        {/* Archive Management - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Archivage des Commandes</CardTitle>
+              </div>
+              <CardDescription>
+                Gestion automatique et manuelle de l'archivage des commandes terminées
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ArchiveSettings />
+            </CardContent>
+          </Card>
         )}
 
         {/* Users Management - Owner & Gerant */}
