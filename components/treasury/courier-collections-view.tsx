@@ -84,16 +84,19 @@ export function CourierCollectionsView() {
   const handleApprove = async (id: string) => {
     if (!tenantId) return
     setApprovingIds((prev) => new Set([...prev, id]))
-    const success = await approveCourierCollection(id, tenantId)
-    if (success) {
-      setUnverified((prev) => prev.filter((c) => c.id !== id))
-      await loadData()
+    try {
+      const success = await approveCourierCollection(id, tenantId)
+      if (success) {
+        setUnverified((prev) => prev.filter((c) => c.id !== id))
+        await loadData()
+      }
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
-    setApprovingIds((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
   }
 
   const handleApproveDriver = async () => {

@@ -87,11 +87,11 @@ export async function POST(request: NextRequest) {
     const totalItems =
       Number.isFinite(Number(body.total_items)) && Number(body.total_items) >= 0
         ? Number(body.total_items)
-        : 0
+        : undefined
     const estimatedTotal =
       Number.isFinite(Number(body.estimated_total)) && Number(body.estimated_total) >= 0
         ? Number(body.estimated_total)
-        : 0
+        : undefined
 
     const reference =
       typeof body.reference === "string" && body.reference.trim()
@@ -117,9 +117,9 @@ export async function POST(request: NextRequest) {
       status: safeStatus,
       priority: safePriority,
       notes: typeof body.notes === "string" ? body.notes : null,
-      total_items: totalItems || (isLegacySingleItemPayload ? 1 : 0),
+      total_items: totalItems ?? (isLegacySingleItemPayload ? 1 : 0),
       estimated_total:
-        estimatedTotal ||
+        estimatedTotal ??
         (isLegacySingleItemPayload ? legacyQty * legacyUnitPrice : 0),
       created_by: user.id,
     }
