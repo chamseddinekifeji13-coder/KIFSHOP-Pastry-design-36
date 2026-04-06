@@ -80,24 +80,24 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-border bg-card/95 backdrop-blur-xl shadow-sm px-3 sm:px-4 lg:px-6">
-      <div className="flex items-center gap-4">
-        <SidebarTrigger className="-ml-1 lg:hidden" />
+    <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-2 sm:gap-4 border-b border-border bg-card/95 backdrop-blur-xl shadow-sm px-2 sm:px-4 lg:px-6">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        <SidebarTrigger className="-ml-1 lg:hidden flex-shrink-0" />
 
         {/* Tenant Switcher */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-muted/50 transition-colors">
+            <Button variant="ghost" className="flex items-center gap-2 px-1 sm:px-2 hover:bg-muted/50 transition-colors flex-shrink-0">
               <div
-                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-background shadow-md transition-all"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-xs font-bold text-background shadow-md transition-all flex-shrink-0"
                 style={{ backgroundColor: currentTenant.primaryColor }}
               >
                 {currentTenant.logo}
               </div>
-              <span className="hidden font-medium sm:inline-block">
+              <span className="hidden font-medium sm:inline-block truncate max-w-[100px]">
                 {currentTenant.name}
               </span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:inline flex-shrink-0" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
