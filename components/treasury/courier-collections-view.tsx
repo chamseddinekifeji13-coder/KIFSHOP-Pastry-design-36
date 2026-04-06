@@ -84,31 +84,37 @@ export function CourierCollectionsView() {
   const handleApprove = async (id: string) => {
     if (!tenantId) return
     setApprovingIds((prev) => new Set([...prev, id]))
-    const success = await approveCourierCollection(id, tenantId)
-    if (success) {
-      setUnverified((prev) => prev.filter((c) => c.id !== id))
-      await loadData()
+    try {
+      const success = await approveCourierCollection(id, tenantId)
+      if (success) {
+        setUnverified((prev) => prev.filter((c) => c.id !== id))
+        await loadData()
+      }
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
-    setApprovingIds((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
   }
 
   const handleApproveDriver = async () => {
     if (!tenantId || !selectedDriver) return
     setApprovingIds((prev) => new Set([...prev, selectedDriver]))
-    const success = await approveCourierCollectionsByDriver(tenantId, selectedDriver)
-    if (success) {
-      await loadData()
-      setSelectedDriver("")
+    try {
+      const success = await approveCourierCollectionsByDriver(tenantId, selectedDriver)
+      if (success) {
+        await loadData()
+        setSelectedDriver("")
+      }
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(selectedDriver)
+        return next
+      })
     }
-    setApprovingIds((prev) => {
-      const next = new Set(prev)
-      next.delete(selectedDriver)
-      return next
-    })
   }
 
   const paymentMethodLabels: Record<string, string> = {

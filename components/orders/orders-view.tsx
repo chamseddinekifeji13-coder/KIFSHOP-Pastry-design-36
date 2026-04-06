@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Gift, Users, User, Zap,
+  FileText, Download, Printer, Eye, Gift, Users, User, Zap, Archive,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,7 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
-  exportOrdersToCSV, resetOrderCounter, getOrderCounter,
+  exportOrdersToCSV, resetOrderCounter, getOrderCounter, archiveCompletedOrders,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -57,6 +57,7 @@ import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { exportToCSV } from "@/lib/csv-export"
 import { FastSalesView } from "./fast-sales-view"
 import { SendToDeliveryDialog } from "./send-to-delivery-dialog"
+import { DeliveryExportDialog } from "./delivery-export-dialog"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -144,6 +145,8 @@ export function OrdersView() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [deliveryExportOpen, setDeliveryExportOpen] = useState(false)
+  const [isArchivingCompleted, setIsArchivingCompleted] = useState(false)
   const [isApiExporting, setIsApiExporting] = useState(false)
 
   // Payment collection state
@@ -322,6 +325,25 @@ export function OrdersView() {
       toast.error("Erreur lors de l'export des commandes")
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  const handleArchiveCompletedOrders = async () => {
+    if (!currentTenant?.id) return
+    setIsArchivingCompleted(true)
+    try {
+      const { archived } = await archiveCompletedOrders(currentTenant.id, { olderThanDays: 14 })
+      if (archived === 0) {
+        toast.message("Aucune commande terminee a archiver")
+      } else {
+        toast.success(`${archived} commande(s) terminee(s) archivee(s)`)
+      }
+      mutate()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erreur archivage"
+      toast.error(msg)
+    } finally {
+      setIsArchivingCompleted(false)
     }
   }
 
@@ -771,6 +793,24 @@ export function OrdersView() {
           >
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
+          </Button>
+          <Button variant="outline" onClick={() => setDeliveryExportOpen(true)}>
+            <Truck className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Export livraison</span>
+            <span className="sm:hidden">Livraison</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleArchiveCompletedOrders}
+            disabled={isArchivingCompleted}
+          >
+            {isArchivingCompleted ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="mr-2 h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Archiver terminées</span>
+            <span className="sm:hidden">Archiver</span>
           </Button>
           {(currentUser.role === "gerant" || currentUser.role === "owner") && (
             <Button
@@ -2241,6 +2281,13 @@ export function OrdersView() {
 
         {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
         <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+
+        <DeliveryExportDialog
+          open={deliveryExportOpen}
+          onOpenChange={setDeliveryExportOpen}
+          orders={orders}
+          onSuccess={() => mutate()}
+        />
 
         {/* Reset Counter Confirmation Dialog */}
         <Dialog open={resetCounterDialogOpen} onOpenChange={setResetCounterDialogOpen}>

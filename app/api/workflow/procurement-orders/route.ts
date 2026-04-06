@@ -14,31 +14,21 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get tenant_id from user metadata or header
-    const tenantId = user.user_metadata?.tenant_id || 
-      request.headers.get('x-tenant-id')
-
+    const tenantId =
+      typeof user.user_metadata?.tenant_id === "string"
+        ? user.user_metadata.tenant_id.trim()
+        : ""
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant ID required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Tenant ID not found" }, { status: 400 })
     }
 
     // Get query params for filtering
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
 
-    // Use admin client to bypass RLS for fetching
-    const adminSupabase = createAdminClient()
-
-    // Query bon_approvisionnement table (not procurement_orders)
-    let query = adminSupabase
+    let query = supabase
       .from('bon_approvisionnement')
-      .select(`
-        *,
-        items:bon_approvisionnement_items(*)
-      `)
+      .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
@@ -76,41 +66,66 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const tenantId = user.user_metadata?.tenant_id || request.headers.get('x-tenant-id')
-
+    const tenantId =
+      typeof user.user_metadata?.tenant_id === "string"
+        ? user.user_metadata.tenant_id.trim()
+        : ""
     if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant ID required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "Tenant ID not found" }, { status: 400 })
     }
 
-    const adminSupabase = createAdminClient()
+    const body = await request.json()
+    const safePriority =
+      typeof body.priority === "string" &&
+      ["low", "normal", "high", "urgent"].includes(body.priority)
+        ? body.priority
+        : "normal"
+    const normalizedStatus = typeof body.status === "string" ? body.status.toLowerCase().trim() : ""
+    const safeStatus =
+      ["draft", "validated", "sent_to_suppliers", "partially_ordered", "fully_ordered", "cancelled"].includes(normalizedStatus)
+        ? normalizedStatus
+        : "draft"
+    const totalItems =
+      Number.isFinite(Number(body.total_items)) && Number(body.total_items) >= 0
+        ? Number(body.total_items)
+        : undefined
+    const estimatedTotal =
+      Number.isFinite(Number(body.estimated_total)) && Number(body.estimated_total) >= 0
+        ? Number(body.estimated_total)
+        : undefined
 
-    // Generate reference number
-    const { data: refData, error: rpcError } = await adminSupabase.rpc('generate_appro_reference', {
-      p_tenant_id: tenantId
-    })
+    const reference =
+      typeof body.reference === "string" && body.reference.trim()
+        ? body.reference.trim()
+        : `BA-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 
-    let referenceNumber = refData
-    if (rpcError) {
-      console.warn('[Generate Reference] RPC error:', rpcError.message)
-      referenceNumber = `BA-${Date.now()}`
-    }
+    const legacyQty =
+      Number.isFinite(Number(body.quantity)) && Number(body.quantity) > 0
+        ? Number(body.quantity)
+        : 0
+    const legacyUnitPrice =
+      Number.isFinite(Number(body.estimated_unit_price ?? body.unit_price))
+        ? Number(body.estimated_unit_price ?? body.unit_price)
+        : 0
+    const isLegacySingleItemPayload =
+      typeof body.material_name === "string" &&
+      body.material_name.trim().length > 0 &&
+      legacyQty > 0
 
     const order = {
       tenant_id: tenantId,
-      reference: referenceNumber,
-      status: 'draft',
-      priority: body.priority || 'normal',
-      notes: body.notes || null,
-      total_items: 0,
-      estimated_total: 0,
-      created_by: user.id
+      reference,
+      status: safeStatus,
+      priority: safePriority,
+      notes: typeof body.notes === "string" ? body.notes : null,
+      total_items: totalItems ?? (isLegacySingleItemPayload ? 1 : 0),
+      estimated_total:
+        estimatedTotal ??
+        (isLegacySingleItemPayload ? legacyQty * legacyUnitPrice : 0),
+      created_by: user.id,
     }
 
-    const { data, error } = await adminSupabase
+    const { data, error } = await supabase
       .from('bon_approvisionnement')
       .insert([order])
       .select()
@@ -120,7 +135,49 @@ export async function POST(request: NextRequest) {
       throw new Error(error.message)
     }
 
-    return NextResponse.json(data?.[0], { status: 201 })
+    const created = data?.[0]
+    if (!created) {
+      throw new Error("Creation du bon d'approvisionnement echouee")
+    }
+
+    if (isLegacySingleItemPayload) {
+      const itemPayload = {
+        bon_appro_id: created.id,
+        item_type:
+          typeof body.item_type === "string" &&
+          ["raw_material", "packaging", "consumable"].includes(body.item_type)
+            ? body.item_type
+            : "raw_material",
+        raw_material_id: body.material_id || null,
+        item_name: body.material_name.trim(),
+        item_unit: typeof body.unit === "string" && body.unit.trim() ? body.unit.trim() : "unite",
+        requested_quantity: legacyQty,
+        estimated_unit_price: legacyUnitPrice || null,
+        estimated_total: legacyQty * legacyUnitPrice,
+        assigned_supplier_id: body.supplier_id || null,
+        assigned_supplier_name:
+          typeof body.supplier_name === "string" ? body.supplier_name.trim() || null : null,
+        status: "pending",
+      }
+
+      const { error: itemError } = await supabase
+        .from("bon_approvisionnement_items")
+        .insert(itemPayload)
+
+      if (itemError) {
+        await supabase.from("bon_approvisionnement").delete().eq("id", created.id)
+        throw new Error(`Creation item legacy echouee: ${itemError.message}`)
+      }
+
+      const { data: refreshed } = await supabase
+        .from("bon_approvisionnement")
+        .select("*")
+        .eq("id", created.id)
+        .single()
+      return NextResponse.json(refreshed || created, { status: 201 })
+    }
+
+    return NextResponse.json(created, { status: 201 })
   } catch (error) {
     console.error('[Create Procurement Order API Error]', error)
     return NextResponse.json(

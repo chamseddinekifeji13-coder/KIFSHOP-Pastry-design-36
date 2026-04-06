@@ -118,77 +118,71 @@ export async function POST(request: Request) {
       )
     }
 
-    const { data: collection, error: collectionError } = await supabase
-      .from("order_collections")
-      .insert({
-        tenant_id: session.tenantId,
-        order_id: orderId,
-        cash_session_id: activeSession.id,
-        amount,
-        payment_method: paymentMethod,
-        collected_by: session.activeProfileId,
-        collected_by_name: session.displayName,
-        collected_at: new Date().toISOString(),
-        notes,
-      })
-      .select()
-      .single()
+    // Atomic DB-side operation: create collection + transaction + update order in one transaction.
+    const { data: atomicResult, error: atomicError } = await supabase.rpc(
+      "collect_order_payment_atomic",
+      {
+        p_tenant_id: session.tenantId,
+        p_order_id: orderId,
+        p_cash_session_id: activeSession.id,
+        p_amount: amount,
+        p_payment_method: paymentMethod,
+        p_collected_by: session.activeProfileId,
+        p_collected_by_name: session.displayName,
+        p_notes: notes,
+      }
+    )
 
-    if (collectionError) {
+    if (atomicError) {
+      const details = atomicError.message || atomicError.details || "Erreur RPC d'encaissement"
+      const low = details.toLowerCase()
+      const status =
+        low.includes("deja encaissee") || low.includes("introuvable")
+          ? 409
+          : low.includes("montant invalide")
+            ? 400
+            : 500
+
       return NextResponse.json(
         {
           success: false,
-          error: "Erreur lors de l'enregistrement du paiement",
-          details: collectionError.message || collectionError.details,
-          code: collectionError.code,
+          error: "Erreur lors de l'encaissement atomique",
+          details,
+          code: atomicError.code,
+        },
+        { status }
+      )
+    }
+
+    const atomicRow = Array.isArray(atomicResult) ? atomicResult[0] : atomicResult
+    const collectionId = atomicRow?.collection_id as string | undefined
+    if (!collectionId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Encaissement atomique incomplet",
+          details: "collection_id absent dans la reponse RPC",
         },
         { status: 500 }
       )
     }
 
-    // Keep treasury journal in sync: record this collection in transactions.
-    const { error: transactionInsertError } = await supabase
-      .from("transactions")
-      .insert({
-        tenant_id: session.tenantId,
-        type: "income",
-        category: "encaissement-commande",
-        amount,
-        payment_method: paymentMethod,
-        description: `Encaissement commande #${orderId}`,
-        order_id: orderId,
-        cash_session_id: activeSession.id,
-        is_collection: true,
-        created_by_name: session.displayName,
-        created_at: new Date().toISOString(),
-      })
-
-    if (transactionInsertError) {
-      // Do not fail the collection response if journal write fails.
-      console.error("[collect-order] transaction insert failed:", transactionInsertError)
-    }
-
-    // Mark order as paid so it disappears from "to collect" lists.
-    const nextDeposit = currentDeposit + amount
-    const nextPaymentStatus =
-      nextDeposit >= totalAmount
-        ? "paid"
-        : nextDeposit > 0
-          ? "partial"
-          : "unpaid"
-
-    const { error: orderUpdateError } = await supabase
-      .from("orders")
-      .update({
-        deposit: nextDeposit,
-        payment_status: nextPaymentStatus,
-        updated_at: new Date().toISOString(),
-      })
+    const { data: collection, error: collectionReadError } = await supabase
+      .from("order_collections")
+      .select("*")
       .eq("tenant_id", session.tenantId)
-      .eq("id", orderId)
+      .eq("id", collectionId)
+      .single()
 
-    if (orderUpdateError) {
-      console.error("[collect-order] order payment_status update failed:", orderUpdateError)
+    if (collectionReadError || !collection) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Encaissement effectue mais lecture de confirmation impossible",
+          details: collectionReadError?.message || "Collection introuvable apres RPC",
+        },
+        { status: 500 }
+      )
     }
 
     // Return fresh "today" totals from the same request to avoid client-side flicker.

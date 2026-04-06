@@ -55,7 +55,7 @@ export default function CashierDashboard() {
       label: "Encaisser",
       description: "Recevoir paiement",
       icon: Banknote,
-      href: "/treasury?tab=collection",
+      href: "/tresorerie?tab=collection",
       shortcut: "E"
     },
     {
@@ -63,7 +63,7 @@ export default function CashierDashboard() {
       label: "Transactions",
       description: "Historique",
       icon: Receipt,
-      href: "/treasury?tab=overview",
+      href: "/tresorerie?tab=overview",
       shortcut: "T"
     },
     {
@@ -79,7 +79,7 @@ export default function CashierDashboard() {
       label: "Session Caisse",
       description: "Ouvrir / Fermer",
       icon: Lock,
-      href: "/treasury?tab=session",
+      href: "/tresorerie?tab=session",
       shortcut: "S"
     },
     {
@@ -87,7 +87,7 @@ export default function CashierDashboard() {
       label: "Rapports",
       description: "Statistiques",
       icon: BarChart3,
-      href: "/treasury?tab=reports",
+      href: "/tresorerie?tab=reports",
       shortcut: "R"
     },
   ]
@@ -269,7 +269,7 @@ export default function CashierDashboard() {
               variant="ghost" 
               size="sm" 
               className="text-primary hover:text-primary hover:bg-primary/10"
-              onClick={() => router.push("/treasury?tab=overview")}
+              onClick={() => router.push("/tresorerie?tab=overview")}
             >
               Voir tout
               <ChevronRight className="h-4 w-4 ml-1" />
