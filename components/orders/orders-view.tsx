@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Gift, Users, User, Zap,
+  FileText, Download, Printer, Eye, Gift, Users, User, Zap, Archive, TrendingUp,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,7 +33,7 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
-  exportOrdersToCSV, resetOrderCounter, getOrderCounter,
+  exportOrdersToCSV, resetOrderCounter, getOrderCounter, archiveOrders,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -825,6 +825,14 @@ export function OrdersView() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="archives">
+              Archives
+              {orders.filter(o => o.archived).length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                  {orders.filter(o => o.archived).length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
@@ -854,45 +862,321 @@ export function OrdersView() {
           </TabsContent>
 
           <TabsContent value="list" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Toutes les commandes ({orders.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {orders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Aucune commande pour le moment
-                  </div>
-                ) : (
-                  orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleOrderClick(order)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            {order.orderNumberDisplay && (
-                              <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
-                            )}
-                            <p className="font-medium text-sm">{order.customerName}</p>
+            <Tabs defaultValue="nouveau" className="w-full">
+              <TabsList className="grid w-full grid-cols-6 mb-6">
+                <TabsTrigger value="nouveau">
+                  Nouveau
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus.nouveau.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="en-preparation">
+                  En préparation
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus["en-preparation"].length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="pret">
+                  Prêt
+                  {ordersByStatus.pret.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                      {ordersByStatus.pret.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="en-livraison">
+                  En livraison
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus["en-livraison"].length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="livre">
+                  Livré / Vendu
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus.livre.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="annule">
+                  Annulé
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                    {ordersByStatus.annule.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Nouveau Tab */}
+              <TabsContent value="nouveau" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">Nouvelles commandes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.nouveau.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune nouvelle commande
+                      </div>
+                    ) : (
+                      ordersByStatus.nouveau.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
-                          </p>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
                         </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* En préparation Tab */}
+              <TabsContent value="en-preparation" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">En préparation</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus["en-preparation"].length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande en préparation
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
-                        {getPaymentBadge(order.paymentStatus)}
-                      </div>
+                    ) : (
+                      ordersByStatus["en-preparation"].map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Prêt Tab */}
+              <TabsContent value="pret" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <div>
+                      <CardTitle className="text-base">Commandes prêtes pour livraison</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">{ordersByStatus.pret.length} commande(s)</p>
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                    <Button 
+                      onClick={handleExportOrders}
+                      disabled={ordersByStatus.pret.length === 0 || isExporting}
+                      size="sm"
+                    >
+                      {isExporting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      Export CSV
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.pret.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande prête pour livraison
+                      </div>
+                    ) : (
+                      ordersByStatus.pret.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* En livraison Tab */}
+              <TabsContent value="en-livraison" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">En livraison</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus["en-livraison"].length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande en livraison
+                      </div>
+                    ) : (
+                      ordersByStatus["en-livraison"].map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Livré / Vendu Tab */}
+              <TabsContent value="livre" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">Livré / Vendu</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.livre.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande livrée
+                      </div>
+                    ) : (
+                      ordersByStatus.livre.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Annulé Tab */}
+              <TabsContent value="annule" className="mt-0">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-3">
+                    <CardTitle className="text-base">Annulé</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {ordersByStatus.annule.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        Aucune commande annulée
+                      </div>
+                    ) : (
+                      ordersByStatus.annule.map((order) => (
+                        <div
+                          key={order.id}
+                          className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleOrderClick(order)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                {order.orderNumberDisplay && (
+                                  <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                                )}
+                                <p className="font-medium text-sm">{order.customerName}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            {getPaymentBadge(order.paymentStatus)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
 
           {/* Retours Tab */}
@@ -1313,6 +1597,141 @@ export function OrdersView() {
                             {offersOrders.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")} TND
                           </p>
                         </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Archives Tab */}
+          <TabsContent value="archives" className="mt-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Archive className="h-5 w-5" />
+                    Commandes Archivées
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Les commandes exportées et archivées
+                  </p>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const archivedOrders = orders.filter(o => o.archived)
+                  if (archivedOrders.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <Archive className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>Aucune commande archivée</p>
+                        <p className="text-sm mt-1">
+                          Les commandes archivées après export apparaitront ici
+                        </p>
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="space-y-4">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <Card className="bg-muted/50">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Archive className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Total Archivées</p>
+                                <p className="text-2xl font-bold">{archivedOrders.length}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-green-500/5 border-green-500/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Commandes Prêtes</p>
+                                <p className="text-2xl font-bold">
+                                  {archivedOrders.filter(o => o.status === "pret").length}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="bg-blue-500/5 border-blue-500/20">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <TrendingUp className="h-5 w-5 text-blue-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Total TND</p>
+                                <p className="text-2xl font-bold">
+                                  {archivedOrders.reduce((sum, o) => sum + o.total, 0).toLocaleString("fr-TN")}
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Archives List */}
+                      <div className="rounded-lg border">
+                        <div className="grid grid-cols-12 gap-4 p-3 bg-muted/50 text-sm font-medium border-b">
+                          <div className="col-span-1">N°</div>
+                          <div className="col-span-3">Client</div>
+                          <div className="col-span-2">Articles</div>
+                          <div className="col-span-2">Total</div>
+                          <div className="col-span-2">Date</div>
+                          <div className="col-span-2">Statut</div>
+                        </div>
+                        {archivedOrders.map((order) => (
+                          <div
+                            key={order.id}
+                            className="grid grid-cols-12 gap-4 p-3 border-b last:border-0 items-center hover:bg-muted/30 cursor-pointer transition-colors"
+                            onClick={() => handleOrderClick(order)}
+                          >
+                            <div className="col-span-1">
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {order.orderNumberDisplay || order.id.substring(0, 8)}
+                              </span>
+                            </div>
+                            <div className="col-span-3">
+                              <p className="font-medium text-sm">{order.customerName}</p>
+                              <p className="text-xs text-muted-foreground">{order.customerPhone}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-sm">
+                                {order.items.slice(0, 1).map(item => item.name).join(", ")}
+                                {order.items.length > 1 && ` +${order.items.length - 1}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {order.items.reduce((sum, item) => sum + item.quantity, 0)} article(s)
+                              </p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="font-semibold">{order.total.toLocaleString("fr-TN")} TND</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-sm">
+                                {new Date(order.createdAt).toLocaleDateString("fr-TN")}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(order.createdAt).toLocaleTimeString("fr-TN", {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <div className="col-span-2">
+                              <Badge variant="outline" className="text-xs">
+                                <Archive className="h-3 w-3 mr-1" />
+                                Archivée
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )
