@@ -145,6 +145,9 @@ export function OrdersView() {
   const [actionLoading, setActionLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isApiExporting, setIsApiExporting] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [shouldArchiveAfterExport, setShouldArchiveAfterExport] = useState(false)
+  const [readyOrdersCount, setReadyOrdersCount] = useState(0)
 
   // Payment collection state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -289,12 +292,12 @@ export function OrdersView() {
   // The early return was causing hooks to be called conditionally which violates React rules
   
   const ordersByStatus = {
-    nouveau: orders.filter((o) => o.status === "nouveau"),
-    "en-preparation": orders.filter((o) => o.status === "en-preparation"),
-    pret: orders.filter((o) => o.status === "pret"),
-    "en-livraison": orders.filter((o) => o.status === "en-livraison"),
-    livre: orders.filter((o) => o.status === "livre"),
-    annule: orders.filter((o) => o.status === "annule"),
+    nouveau: orders.filter((o) => o.status === "nouveau" && !o.archived),
+    "en-preparation": orders.filter((o) => o.status === "en-preparation" && !o.archived),
+    pret: orders.filter((o) => o.status === "pret" && !o.archived),
+    "en-livraison": orders.filter((o) => o.status === "en-livraison" && !o.archived),
+    livre: orders.filter((o) => o.status === "livre" && !o.archived),
+    annule: orders.filter((o) => o.status === "annule" && !o.archived),
   }
 
   const handleOrderClick = (order: Order) => {
@@ -307,16 +310,33 @@ export function OrdersView() {
   }
 
   const handleExportOrders = async () => {
-    if (orders.length === 0) {
-      toast.error("Aucune commande à exporter")
+    // Count orders ready for export (status = "pret")
+    const readyCount = orders.filter(o => o.status === "pret" && !o.archived).length
+    if (readyCount === 0) {
+      toast.error("Aucune commande avec le statut 'Prêt' à exporter")
       return
     }
+    
+    setReadyOrdersCount(readyCount)
+    setExportDialogOpen(true)
+  }
 
+  const handleConfirmExport = async () => {
     setIsExporting(true)
     try {
-      const { headers, data } = await exportOrdersToCSV(currentTenant.id)
+      const { headers, data } = await exportOrdersToCSV(currentTenant.id, shouldArchiveAfterExport)
       exportToCSV({ filename: "commandes", headers, data })
-      toast.success("Commandes exportées avec succès")
+      
+      // Refresh orders if we archived them
+      if (shouldArchiveAfterExport) {
+        mutate()
+        toast.success(`${data.length} commandes exportées et archivées avec succès`)
+      } else {
+        toast.success(`${data.length} commandes exportées avec succès`)
+      }
+      
+      setExportDialogOpen(false)
+      setShouldArchiveAfterExport(false)
     } catch (error) {
       console.error("Error exporting orders:", error)
       toast.error("Erreur lors de l'export des commandes")
@@ -2270,6 +2290,56 @@ export function OrdersView() {
                   <RotateCcw className="mr-2 h-4 w-4" />
                 )}
                 Confirmer la remise a zero
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Export Orders Dialog */}
+        <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Exporter les commandes</DialogTitle>
+              <DialogDescription>
+                {readyOrdersCount} commande(s) avec le statut "Prêt" sera/seront exportée(s) au format CSV.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="archive-after-export"
+                  checked={shouldArchiveAfterExport}
+                  onCheckedChange={(checked) => setShouldArchiveAfterExport(checked as boolean)}
+                  disabled={isExporting}
+                />
+                <Label htmlFor="archive-after-export" className="font-normal cursor-pointer">
+                  Archiver les commandes après l&apos;export
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {shouldArchiveAfterExport 
+                  ? "Les commandes exportées seront masquées de la vue principale mais resteront disponibles en archives."
+                  : "Les commandes resteront visibles après l'export."}
+              </p>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setExportDialogOpen(false)}
+                disabled={isExporting}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleConfirmExport}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Exporter
               </Button>
             </DialogFooter>
           </DialogContent>
