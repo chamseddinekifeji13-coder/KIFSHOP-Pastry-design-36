@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
@@ -39,10 +39,11 @@ export async function GET(request: NextRequest) {
     const { data: orders, error } = await query
 
     if (error) {
+      console.error('[Procurement Orders] Query error:', error.message)
       throw new Error(error.message)
     }
 
-    return NextResponse.json(orders, { status: 200 })
+    return NextResponse.json(orders || [], { status: 200 })
   } catch (error) {
     console.error('[Procurement Orders API Error]', error)
     return NextResponse.json(
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (error) {
+      console.error('[Create Bon Approvisionnement] Error:', error.message)
       throw new Error(error.message)
     }
 

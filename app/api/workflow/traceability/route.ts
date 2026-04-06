@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get the bon approvisionnement
+    // Get the bon d'approvisionnement
     const { data: order, error: orderError } = await supabase
       .from('bon_approvisionnement')
       .select('*')
@@ -32,33 +32,25 @@ export async function GET(request: NextRequest) {
       .eq('tenant_id', user.user_metadata?.tenant_id)
       .single()
 
-    if (orderError) {
-      throw new Error(orderError.message)
+    if (orderError || !order) {
+      throw new Error(orderError?.message || 'Order not found')
     }
 
-    // Get audit trail from workflow_audit_log
-    const { data: auditTrail, error: auditError } = await supabase
+    // Get audit trail from workflow_audit_log table
+    const { data: auditEntries, error: auditError } = await supabase
       .from('workflow_audit_log')
-      .select(`
-        id,
-        action,
-        old_status,
-        new_status,
-        details,
-        performed_by,
-        performed_at
-      `)
+      .select('*')
       .eq('entity_id', orderId)
       .eq('entity_type', 'bon_approvisionnement')
       .eq('tenant_id', user.user_metadata?.tenant_id)
-      .order('performed_at', { ascending: false })
+      .order('performed_at', { ascending: true })
 
     if (auditError) {
-      console.warn('Error fetching audit log:', auditError.message)
+      console.warn('[Traceability] Error fetching audit log:', auditError.message)
     }
 
     // Format for timeline
-    const timeline = (auditTrail || []).map((entry: any) => ({
+    const timeline = (auditEntries || []).map((entry: any) => ({
       id: entry.id,
       action: entry.action,
       timestamp: new Date(entry.performed_at),
@@ -66,7 +58,7 @@ export async function GET(request: NextRequest) {
       old_status: entry.old_status,
       new_status: entry.new_status,
       details: entry.details,
-      description: getActionDescription(entry.action, entry.old_status, entry.new_status)
+      description: getActionDescription(entry.action, entry.details)
     }))
 
     return NextResponse.json(
@@ -79,9 +71,9 @@ export async function GET(request: NextRequest) {
           total_items: order.total_items,
           estimated_total: order.estimated_total,
           created_at: order.created_at,
-          created_by: order.created_by
+          validated_at: order.validated_at
         },
-        timeline: timeline
+        timeline: timeline.reverse()
       },
       { status: 200 }
     )
@@ -94,12 +86,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function getActionDescription(action: string, oldStatus?: string, newStatus?: string): string {
+function getActionDescription(action: string, changes: any): string {
   const descriptions: Record<string, string> = {
     'created': 'Bon créé',
     'validated': 'Bon validé',
-    'sent_to_supplier': 'Commande envoyée au fournisseur',
-    'sent_to_suppliers': 'Commande envoyée au fournisseur',
+    'sent': 'Commande envoyée au fournisseur',
     'received': 'Commande reçue',
     'cancelled': 'Bon annulé',
     'updated': 'Bon mis à jour'
