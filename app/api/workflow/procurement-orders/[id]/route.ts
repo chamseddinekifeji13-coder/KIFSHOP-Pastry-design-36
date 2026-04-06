@@ -55,7 +55,6 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json()
     const { orderId, status } = body
-    const tenantId = user.user_metadata?.tenant_id
 
     if (!orderId || !status) {
       return NextResponse.json(
