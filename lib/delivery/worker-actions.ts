@@ -8,7 +8,7 @@ export async function fetchDeliveryOrders(tenantId: string) {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("*")
+    .select("id, customer_name, customer_phone, customer_address, total, status, courier, created_at, delivery_type, items, notes, delivered_at")
     .eq("tenant_id", tenantId)
     .eq("delivery_type", "delivery")
     .in("status", ["pret", "en-livraison", "livre"])

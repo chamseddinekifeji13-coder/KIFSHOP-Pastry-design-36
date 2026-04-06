@@ -273,6 +273,8 @@ function OrderCard({
   formatAmount: (n: number) => string
   children: React.ReactNode
 }) {
+  const items = Array.isArray(order.items) ? order.items : []
+
   return (
     <Card className="py-4 gap-3">
       <CardContent className="flex flex-col gap-3 px-4">
@@ -284,7 +286,7 @@ function OrderCard({
               #{order.id?.substring(0, 8)}
             </span>
           </div>
-          <span className="font-bold text-sm">
+          <span className="font-bold text-sm text-green-600">
             {formatAmount(order.total)}
           </span>
         </div>
@@ -311,10 +313,41 @@ function OrderCard({
           )}
         </div>
 
+        {/* Items list */}
+        {items.length > 0 && (
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
+            <div className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+              Commande ({items.length} article{items.length > 1 ? 's' : ''})
+            </div>
+            <div className="space-y-1">
+              {items.map((item: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex items-start justify-between gap-2 text-xs"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{item.name}</div>
+                    {item.description && (
+                      <div className="text-muted-foreground truncate text-[11px]">
+                        {item.description}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                      ×{item.quantity}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Notes */}
         {order.notes && (
-          <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1.5">
-            {order.notes}
+          <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1.5 border border-amber-200/50 dark:border-amber-900/30">
+            📝 {order.notes}
           </p>
         )}
 
