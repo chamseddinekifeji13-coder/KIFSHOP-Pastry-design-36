@@ -51,6 +51,25 @@ export function BonApproView({ order, onOrdersGenerated }: BonApproViewProps) {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "draft":
+        return "Brouillon";
+      case "validated":
+        return "Validé";
+      case "sent_to_suppliers":
+        return "Envoyé";
+      case "partially_ordered":
+        return "Partiellement commandé";
+      case "fully_ordered":
+        return "Commande complète";
+      case "cancelled":
+        return "Annulé";
+      default:
+        return status;
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "urgent":
@@ -74,10 +93,10 @@ export function BonApproView({ order, onOrdersGenerated }: BonApproViewProps) {
             <CardTitle className="flex items-center gap-2">
               {order.reference}
               <Badge variant={getStatusColor(order.status)}>
-                {order.status}
+                {getStatusLabel(order.status)}
               </Badge>
             </CardTitle>
-            <CardDescription>Procurement Order</CardDescription>
+            <CardDescription>Bon d'approvisionnement</CardDescription>
           </div>
           <div className={`text-lg font-semibold ${getPriorityColor(order.priority)}`}>
             {order.priority.charAt(0).toUpperCase() + order.priority.slice(1)}
@@ -89,7 +108,7 @@ export function BonApproView({ order, onOrdersGenerated }: BonApproViewProps) {
         {success && (
           <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700 text-sm">
             <CheckCircle className="w-4 h-4" />
-            Purchase orders generated successfully!
+            Commandes fournisseurs générées avec succès !
           </div>
         )}
 
@@ -100,17 +119,17 @@ export function BonApproView({ order, onOrdersGenerated }: BonApproViewProps) {
           </div>
         )}
 
-        {/* Order summary */}
+        {/* Résumé du bon */}
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-gray-600 uppercase tracking-wide">
-              Items
+              Articles
             </div>
             <div className="text-2xl font-bold mt-1">{order.total_items}</div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg">
             <div className="text-xs text-gray-600 uppercase tracking-wide">
-              Estimated Total
+              Total estimé
             </div>
             <div className="text-2xl font-bold mt-1">
               {order.estimated_total.toFixed(2)} TND
@@ -129,12 +148,12 @@ export function BonApproView({ order, onOrdersGenerated }: BonApproViewProps) {
               {isLoading ? (
                 <>
                   <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
+                  Génération...
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Generate Supplier Orders
+                  Générer commandes fournisseurs
                 </>
               )}
             </Button>
@@ -149,12 +168,12 @@ export function BonApproView({ order, onOrdersGenerated }: BonApproViewProps) {
               {isLoading ? (
                 <>
                   <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
+                  Génération...
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4 mr-2" />
-                  Send to Suppliers
+                  Envoyer aux fournisseurs
                 </>
               )}
             </Button>

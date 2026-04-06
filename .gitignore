@@ -69,3 +69,4 @@ logs/
 # Temporary
 tmp/
 temp/
+.env*.local

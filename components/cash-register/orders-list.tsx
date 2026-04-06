@@ -7,12 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Trash2, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { deleteOrder, fetchOrders } from '@/lib/orders/actions'
-import { useTenantStore } from '@/hooks/use-tenant-store'
-import { Order } from '@/lib/types'
+import { useTenant } from '@/lib/tenant-context'
+import { Order } from '@/lib/orders/actions'
 
 export function OrdersList() {
   const router = useRouter()
-  const { tenantId } = useTenantStore()
+  const { currentTenant } = useTenant()
+  const tenantId = currentTenant?.id
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

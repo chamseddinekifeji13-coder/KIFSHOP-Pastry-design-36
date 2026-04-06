@@ -17,7 +17,9 @@ import { AlertCircle } from "lucide-react";
 
 export default function ProcurementOrdersPage() {
   const { currentTenant: tenant } = useTenant();
-  const { orders, isLoading, error } = useBonApprovisionnement(tenant?.id || null);
+  const { orders, isLoading, error, refetch } = useBonApprovisionnement(
+    tenant?.id || null
+  );
   const [generatedOrderCount, setGeneratedOrderCount] = useState(0);
 
   if (!tenant) {
@@ -159,7 +161,10 @@ export default function ProcurementOrdersPage() {
                 <BonApproView
                   key={order.id}
                   order={order}
-                  onOrdersGenerated={(count) => setGeneratedOrderCount(count)}
+                  onOrdersGenerated={(count) => {
+                    setGeneratedOrderCount(count);
+                    refetch();
+                  }}
                 />
               ))}
             </div>
@@ -179,7 +184,10 @@ export default function ProcurementOrdersPage() {
                 <BonApproView
                   key={order.id}
                   order={order}
-                  onOrdersGenerated={(count) => setGeneratedOrderCount(count)}
+                  onOrdersGenerated={(count) => {
+                    setGeneratedOrderCount(count);
+                    refetch();
+                  }}
                 />
               ))}
             </div>

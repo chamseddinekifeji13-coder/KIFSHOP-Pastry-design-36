@@ -162,8 +162,11 @@ BEGIN
       bai.assigned_supplier_name
     FROM public.bon_approvisionnement_items bai
     WHERE bai.bon_appro_id = p_appro_id
-      AND bai.status = 'validated'
-      AND bai.assigned_supplier_id IS NOT NULL
+      AND bai.status IN ('pending', 'validated')
+      AND (
+        bai.assigned_supplier_id IS NOT NULL
+        OR bai.assigned_supplier_name IS NOT NULL
+      )
   LOOP
     v_supplier_id := v_supplier.assigned_supplier_id;
     v_supplier_name := v_supplier.assigned_supplier_name;
@@ -193,8 +196,14 @@ BEGIN
     FROM public.bon_approvisionnement_items bai
     JOIN public.bon_approvisionnement ba ON ba.id = bai.bon_appro_id
     WHERE bai.bon_appro_id = p_appro_id
-      AND bai.assigned_supplier_id = v_supplier_id
-      AND bai.status = 'validated'
+      AND bai.status IN ('pending', 'validated')
+      AND (
+        bai.assigned_supplier_id = v_supplier_id
+        OR (
+          bai.assigned_supplier_id IS NULL
+          AND bai.assigned_supplier_name = v_supplier_name
+        )
+      )
     GROUP BY ba.reference
     RETURNING id INTO v_order_id;
     
@@ -206,8 +215,14 @@ BEGIN
         status = 'ordered',
         updated_at = now()
     WHERE bon_appro_id = p_appro_id
-      AND assigned_supplier_id = v_supplier_id
-      AND status = 'validated';
+      AND status IN ('pending', 'validated')
+      AND (
+        assigned_supplier_id = v_supplier_id
+        OR (
+          assigned_supplier_id IS NULL
+          AND assigned_supplier_name = v_supplier_name
+        )
+      );
     
     -- Log the order creation
     INSERT INTO public.workflow_audit_log (

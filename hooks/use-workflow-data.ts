@@ -145,15 +145,31 @@ export function useBonApprovisionnement(tenantId: string | null) {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("bon_approvisionnement")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/workflow/bon-approvisionnement", {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
 
-      if (fetchError) throw fetchError;
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok) {
+        const errorBody = contentType.includes("application/json")
+          ? await response.json().catch(() => null)
+          : null;
+        const message =
+          errorBody?.error ||
+          `Erreur HTTP ${response.status} lors du chargement des bons d'approvisionnement`;
+        throw new Error(message);
+      }
 
-      setOrders(data || []);
+      if (!contentType.includes("application/json")) {
+        throw new Error("Réponse invalide du serveur pour les bons d'approvisionnement");
+      }
+
+      const payload = (await response.json()) as { orders?: BonApprovisionnement[] };
+      setOrders(Array.isArray(payload.orders) ? payload.orders : []);
     } catch (err) {
       setError(
         formatWorkflowDbError(
@@ -168,38 +184,7 @@ export function useBonApprovisionnement(tenantId: string | null) {
 
   useEffect(() => {
     fetchOrders();
-
-    // Subscribe to real-time updates
-    const subscription = supabase
-      .channel(`bon_appro:${tenantId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bon_approvisionnement",
-          filter: `tenant_id=eq.${tenantId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setOrders((prev) => [payload.new as BonApprovisionnement, ...prev]);
-          } else if (payload.eventType === "UPDATE") {
-            setOrders((prev) =>
-              prev.map((order) =>
-                order.id === payload.new.id
-                  ? (payload.new as BonApprovisionnement)
-                  : order
-              )
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [fetchOrders, tenantId]);
+  }, [fetchOrders]);
 
   return { orders, isLoading, error, refetch: fetchOrders };
 }

@@ -56,3 +56,29 @@ export async function createClient() {
     },
   )
 }
+
+export async function getTenantIdFromUser() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const { data: tenantUser, error: tenantError } = await supabase
+    .from("tenant_users")
+    .select("tenant_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single()
+
+  if (tenantError || !tenantUser?.tenant_id) {
+    return null
+  }
+
+  return typeof tenantUser.tenant_id === "string"
+    ? tenantUser.tenant_id.trim()
+    : String(tenantUser.tenant_id)
+}
