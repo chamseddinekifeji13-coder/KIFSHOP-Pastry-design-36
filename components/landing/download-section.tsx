@@ -1,6 +1,6 @@
 'use client'
 
-import { Send, Check, Server, Cloud, ArrowRight, Download, Apple, Windows, Android, Globe, Linux } from "lucide-react"
+import { Send, Check, Server, Cloud, ArrowRight, Download, Apple, Monitor, Smartphone, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
@@ -144,7 +144,7 @@ export function DownloadSection() {
                       className="group flex flex-col items-center gap-4 rounded-xl border border-border p-6 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-blue-100 text-blue-600 group-hover:bg-blue-200">
-                        <Windows className="h-8 w-8" />
+                        <Monitor className="h-8 w-8" />
                       </div>
                       <div className="text-center">
                         <p className="font-semibold text-foreground">Windows</p>
@@ -178,7 +178,7 @@ export function DownloadSection() {
                       className="group flex flex-col items-center gap-4 rounded-xl border border-border p-6 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-orange-100 text-orange-600 group-hover:bg-orange-200">
-                        <Linux className="h-8 w-8" />
+                        <Monitor className="h-8 w-8" />
                       </div>
                       <div className="text-center">
                         <p className="font-semibold text-foreground">Linux</p>
@@ -221,7 +221,7 @@ export function DownloadSection() {
                       className="group flex flex-col items-center gap-4 rounded-xl border border-border p-6 hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-green-100 text-green-600 group-hover:bg-green-200">
-                        <Android className="h-8 w-8" />
+                        <Smartphone className="h-8 w-8" />
                       </div>
                       <div className="text-center">
                         <p className="font-semibold text-foreground">Android</p>
