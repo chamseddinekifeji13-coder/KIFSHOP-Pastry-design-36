@@ -94,6 +94,15 @@ export interface CreatePaymentCollectionData {
   collectedAt?: string
 }
 
+export interface DuplicateOrderWarning {
+  isDuplicate: boolean
+  existingOrderId?: string
+  existingOrderNumber?: string
+  customerName: string
+  total: number
+  createdAt: string
+}
+
 export interface CreateOrderData {
   tenantId: string
   customerName: string
@@ -266,13 +275,181 @@ export async function archiveCompletedOrders(
 
 // ─── Create Order ─────────────────────────────────────────────
 
-export interface DuplicateOrderWarning {
-  isDuplicate: boolean
-  existingOrderId?: string
-  existingOrderNumber?: string
-  customerName: string
-  total: number
-  createdAt: string
+export interface CreateOrderResult {
+  success: boolean
+  order?: Order
+  duplicateWarning?: DuplicateOrderWarning
+  error?: string
+}
+
+/**
+ * Crée une commande avec support pour les doublons
+ * Si un doublon est détecté, retourne un avertissement au lieu de lever une erreur
+ * L'UI peut alors afficher un dialogue pour confirmer
+ */
+export async function createOrderWithDuplicateCheck(
+  data: CreateOrderData,
+  skipDuplicateCheck?: boolean
+): Promise<CreateOrderResult> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  // Validation: nom client obligatoire
+  if (!data.customerName || data.customerName.trim() === "") {
+    return { success: false, error: "Le nom du client est obligatoire" }
+  }
+
+  // Validation: au moins un article
+  if (!data.items || data.items.length === 0) {
+    return { success: false, error: "La commande doit contenir au moins un article" }
+  }
+
+  const actor = await getCurrentActor(supabase, user)
+  const creatorName = actor.actorName
+
+  const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
+  const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
+  const total = subtotal + shipping
+
+  // Validation: total doit etre positif
+  if (total <= 0) {
+    return { success: false, error: "Le total de la commande doit etre superieur a 0" }
+  }
+
+  // NOUVELLE LOGIQUE : Vérifier les doublons SAUF si skipDuplicateCheck est true
+  if (!skipDuplicateCheck) {
+    const duplicateWarning = await checkDuplicateOrder(supabase, data.tenantId, data.customerName, total)
+    if (duplicateWarning?.isDuplicate) {
+      // Retourner l'avertissement pour que l'UI l'affiche
+      return {
+        success: false,
+        error: "DUPLICATE_ORDER_DETECTED",
+        duplicateWarning,
+      }
+    }
+  }
+
+  // Créer la commande (logique originale)
+  const deposit = data.deposit || 0
+  let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
+  if (deposit >= total) paymentStatus = "paid"
+  else if (deposit > 0) paymentStatus = "partial"
+
+  // Get next order number atomically
+  let orderNumber: number | null = null
+  let orderNumberDisplay: string | null = null
+  try {
+    const { data: counterData } = await supabase.rpc("get_next_order_number", {
+      p_tenant_id: data.tenantId,
+    })
+    if (counterData && counterData.length > 0) {
+      orderNumber = counterData[0].next_number
+      orderNumberDisplay = counterData[0].display_text
+    }
+  } catch (e) {
+    console.debug("Order numbering not available yet:", e)
+  }
+
+  // Insert order
+  const { data: order, error } = await supabase
+    .from("orders")
+    .insert({
+      tenant_id: data.tenantId,
+      customer_name: data.customerName,
+      customer_phone: data.customerPhone || null,
+      customer_address: data.customerAddress || null,
+      delivery_address: data.customerAddress || null,
+      total,
+      deposit,
+      shipping_cost: shipping,
+      status: "nouveau",
+      delivery_type: data.deliveryType,
+      courier: data.courier || null,
+      gouvernorat: data.gouvernorat || null,
+      source: data.source,
+      payment_status: paymentStatus,
+      delivery_date: data.deliveryDate || null,
+      notes: data.notes || null,
+      confirmed_by_name: creatorName,
+      // Offer fields
+      order_type: data.orderType || "normal",
+      offer_beneficiary: data.offerBeneficiary || null,
+      offer_reason: data.offerReason || null,
+      discount_percent: data.discountPercent || 0,
+      discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
+      // Order numbering
+      ...(orderNumber ? { order_number: orderNumber, order_number_display: orderNumberDisplay } : {}),
+    })
+    .select()
+    .single()
+
+  if (error || !order) {
+    console.error("Error creating order:", error?.message)
+    return { success: false, error: "Erreur lors de la création de la commande" }
+  }
+
+  // Insert order items
+  const itemRows = data.items.map((item) => ({
+    order_id: order.id,
+    finished_product_id: item.productId || null,
+    name: item.name,
+    quantity: item.quantity,
+    unit_price: item.price,
+  }))
+
+  const { error: itemsError } = await supabase
+    .from("order_items")
+    .insert(itemRows)
+
+  if (itemsError) {
+    console.error("Error creating order items:", itemsError.message)
+  }
+
+  // Record initial status history
+  try {
+    await supabase.from("order_status_history").insert({
+      order_id: order.id,
+      tenant_id: data.tenantId,
+      from_status: null,
+      to_status: "nouveau",
+      changed_by: actor.actorId,
+      changed_by_name: creatorName,
+      note: "Commande creee",
+    })
+  } catch (histError: any) {
+    console.debug("Could not record status history:", histError.message)
+  }
+
+  const resultOrder: Order = {
+    id: order.id,
+    tenantId: order.tenant_id,
+    customerName: order.customer_name,
+    customerPhone: order.customer_phone || "",
+    customerAddress: order.customer_address || undefined,
+    items: data.items.map((i) => ({ ...i, productId: i.productId })),
+    total,
+    deposit,
+    shippingCost: shipping,
+    status: "nouveau",
+    deliveryType: order.delivery_type,
+    courier: order.courier || undefined,
+    gouvernorat: order.gouvernorat || undefined,
+    source: order.source,
+    paymentStatus,
+    createdAt: order.created_at,
+    deliveryDate: order.delivery_date || undefined,
+    notes: order.notes || undefined,
+    orderType: order.order_type || "normal",
+    offerBeneficiary: order.offer_beneficiary || undefined,
+    offerReason: order.offer_reason || undefined,
+    discountPercent: order.discount_percent || 0,
+    discountAmount: order.discount_amount || 0,
+    orderNumber: order.order_number || undefined,
+    orderNumberDisplay: order.order_number_display || undefined,
+  }
+
+  return { success: true, order: resultOrder }
 }
 
 /**
@@ -1031,7 +1208,7 @@ function translateSource(source: string): string {
   return map[source] || source
 }
 
-// ─── Fetch All Payment Collections (pour dashboard et KPIs) ───────────
+// ──�� Fetch All Payment Collections (pour dashboard et KPIs) ───────────
 
 export interface PaymentCollectionWithOrder extends PaymentCollection {
   orderCustomerName?: string
