@@ -266,6 +266,54 @@ export async function archiveCompletedOrders(
 
 // ─── Create Order ─────────────────────────────────────────────
 
+export interface DuplicateOrderWarning {
+  isDuplicate: boolean
+  existingOrderId?: string
+  existingOrderNumber?: string
+  customerName: string
+  total: number
+  createdAt: string
+}
+
+/**
+ * Détecte si une commande est un doublon potentiel
+ * Critères : même client, même total, créée il y a moins de 5 minutes
+ */
+async function checkDuplicateOrder(
+  supabase: ReturnType<typeof createClient>,
+  tenantId: string,
+  customerName: string,
+  total: number
+): Promise<DuplicateOrderWarning | null> {
+  // Chercher une commande avec même client et même total créée récemment
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+  const { data: existing } = await supabase
+    .from("orders")
+    .select("id, customer_name, total, order_number_display, created_at, status")
+    .eq("tenant_id", tenantId)
+    .eq("customer_name", customerName)
+    .eq("total", total)
+    .gt("created_at", fiveMinutesAgo)
+    .eq("status", "nouveau") // Chercher seulement les commandes "nouveau"
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  if (existing && existing.length > 0) {
+    const dup = existing[0]
+    return {
+      isDuplicate: true,
+      existingOrderId: dup.id,
+      existingOrderNumber: dup.order_number_display,
+      customerName: dup.customer_name,
+      total: dup.total,
+      createdAt: dup.created_at,
+    }
+  }
+
+  return null
+}
+
 export async function createOrder(data: CreateOrderData): Promise<Order | null> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -297,6 +345,16 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
   let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
   if (deposit >= total) paymentStatus = "paid"
   else if (deposit > 0) paymentStatus = "partial"
+
+  // NOUVELLE LOGIQUE : Vérifier les doublons
+  const duplicateWarning = await checkDuplicateOrder(supabase, data.tenantId, data.customerName, total)
+  if (duplicateWarning?.isDuplicate) {
+    // Retourner un avertissement avec l'erreur pour que l'UI puisse l'afficher
+    const error = new Error("DUPLICATE_ORDER_WARNING") as any
+    error.code = "DUPLICATE_ORDER_WARNING"
+    error.duplicate = duplicateWarning
+    throw error
+  }
 
   // Get next order number atomically
   let orderNumber: number | null = null
@@ -784,20 +842,61 @@ export async function deletePaymentCollection(
 
 // ─── Delete Order ─────────────────────────────────────────────
 
-export async function deleteOrder(orderId: string): Promise<boolean> {
+export async function deleteOrder(orderId: string, tenantId?: string): Promise<{ success: boolean; message: string }> {
   const supabase = createClient()
 
-  const { error } = await supabase
+  // Vérifier le statut de la commande
+  const { data: order, error: fetchError } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .single()
+
+  if (fetchError || !order) {
+    return { success: false, message: "Commande non trouvée" }
+  }
+
+  // Vérifier que la commande est en statut "nouveau"
+  if (order.status !== "nouveau") {
+    return {
+      success: false,
+      message: `Impossible de supprimer. Statut actuel: ${order.status}. Seules les commandes en statut "nouveau" peuvent être supprimées.`
+    }
+  }
+
+  // Supprimer les articles de la commande d'abord
+  const { error: itemsError } = await supabase
+    .from("order_items")
+    .delete()
+    .eq("order_id", orderId)
+
+  if (itemsError) {
+    console.error("Error deleting order items:", itemsError.message)
+    return { success: false, message: "Erreur lors de la suppression des articles" }
+  }
+
+  // Supprimer l'historique de statut
+  try {
+    await supabase
+      .from("order_status_history")
+      .delete()
+      .eq("order_id", orderId)
+  } catch (e) {
+    console.debug("Could not delete status history:", e)
+  }
+
+  // Supprimer la commande
+  const { error: deleteError } = await supabase
     .from("orders")
     .delete()
     .eq("id", orderId)
 
-  if (error) {
-    console.error("Error deleting order:", error.message)
-    return false
+  if (deleteError) {
+    console.error("Error deleting order:", deleteError.message)
+    return { success: false, message: "Erreur lors de la suppression de la commande" }
   }
 
-  return true
+  return { success: true, message: "Commande supprimée avec succès" }
 }
 
 // ─── Order Counter Management ────────────────────────────────────
