@@ -34,6 +34,7 @@ import {
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
   exportOrdersToCSV, resetOrderCounter, getOrderCounter, archiveCompletedOrders,
+  deleteOrder,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
@@ -171,6 +172,11 @@ export function OrdersView() {
   const [returnRefundMethod, setReturnRefundMethod] = useState<RefundMethod>("cash_refund")
   const [returnNotes, setReturnNotes] = useState("")
   const [returnItems, setReturnItems] = useState<{ idx: number; qty: number }[]>([])
+
+  // Delete order state
+  const [deleteOrderDialogOpen, setDeleteOrderDialogOpen] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Invoice / Document state
   const [orderDocuments, setOrderDocuments] = useState<Invoice[]>([])
@@ -480,6 +486,35 @@ export function OrdersView() {
     setActionLoading(false)
   }
 
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete || isDeleting) return
+    
+    setIsDeleting(true)
+    
+    try {
+      const result = await deleteOrder(orderToDelete.id, currentTenant.id)
+      
+      if (result.success) {
+        toast.success("Commande supprimée", {
+          description: `${orderToDelete.orderNumberDisplay || orderToDelete.id} a été supprimée avec succès`,
+        })
+        setDeleteOrderDialogOpen(false)
+        setOrderToDelete(null)
+        if (sheetOpen) setSheetOpen(false)
+        mutate() // Refresh orders list
+      } else {
+        toast.error("Impossible de supprimer", {
+          description: result.message,
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting order:", error)
+      toast.error("Erreur lors de la suppression")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   // ─── Return Handlers ───────────────────────────────────────
 
   const openReturnDialog = () => {
@@ -705,6 +740,20 @@ export function OrdersView() {
                 </Badge>
               )}
               {getPaymentBadge(order.paymentStatus)}
+              {order.status === "nouveau" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-destructive/10"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setOrderToDelete(order)
+                    setDeleteOrderDialogOpen(true)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -2350,6 +2399,81 @@ export function OrdersView() {
             setSendToDeliveryOpen(false)
           }}
         />
+
+        {/* Delete Order Confirmation Dialog */}
+        <Dialog open={deleteOrderDialogOpen} onOpenChange={setDeleteOrderDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Supprimer la commande
+              </DialogTitle>
+              <DialogDescription>
+                Êtes-vous certain de vouloir supprimer cette commande ?
+              </DialogDescription>
+            </DialogHeader>
+            
+            {orderToDelete && (
+              <div className="space-y-3 py-4">
+                <div className="rounded-lg bg-muted p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Numéro :</span>
+                    <span className="font-mono font-semibold">{orderToDelete.orderNumberDisplay || orderToDelete.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Client :</span>
+                    <span className="font-medium">{orderToDelete.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total :</span>
+                    <span className="font-semibold">{orderToDelete.total.toLocaleString("fr-TN")} TND</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Statut :</span>
+                    <Badge variant="outline">{statusConfig[orderToDelete.status]?.label}</Badge>
+                  </div>
+                </div>
+                
+                {orderToDelete.status !== "nouveau" && (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+                    <p className="font-medium">⚠️ Cette commande ne peut pas être supprimée</p>
+                    <p className="text-xs mt-1">Seules les commandes en statut "Nouveau" peuvent être supprimées.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteOrderDialogOpen(false)
+                  setOrderToDelete(null)
+                }}
+                disabled={isDeleting}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteOrder}
+                disabled={isDeleting || !orderToDelete || orderToDelete.status !== "nouveau"}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   )
