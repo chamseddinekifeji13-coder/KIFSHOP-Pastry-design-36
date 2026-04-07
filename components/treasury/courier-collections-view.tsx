@@ -27,6 +27,7 @@ import { useTenant } from "@/lib/tenant-context"
 interface CourierCollection {
   id: string
   orderId: string
+  orderNumberDisplay?: string
   tenantId: string
   amount: number
   paymentMethod: string
@@ -38,6 +39,14 @@ interface CourierCollection {
   verifiedByName?: string
   reference?: string
   notes?: string
+}
+
+function formatOrderReference(orderId: string, orderNumberDisplay?: string): string {
+  const numberDisplay = String(orderNumberDisplay || "").trim()
+  if (numberDisplay) return numberDisplay
+  const id = String(orderId || "").trim()
+  if (!id) return "-"
+  return `#${id.slice(0, 8)}`
 }
 
 export function CourierCollectionsView() {
@@ -263,7 +272,9 @@ export function CourierCollectionsView() {
                     {unverified.map((collection) => (
                       <TableRow key={collection.id}>
                         <TableCell className="font-medium">{collection.collectorName}</TableCell>
-                        <TableCell className="font-mono text-sm">{collection.orderId}</TableCell>
+                        <TableCell className="font-mono text-sm" title={collection.orderId}>
+                          {formatOrderReference(collection.orderId, collection.orderNumberDisplay)}
+                        </TableCell>
                         <TableCell className="font-bold">
                           {collection.amount.toLocaleString("fr-TN")} TND
                         </TableCell>

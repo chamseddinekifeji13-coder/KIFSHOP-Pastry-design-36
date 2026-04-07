@@ -1255,6 +1255,7 @@ export async function fetchAllPaymentCollections(tenantId: string): Promise<Paym
 export interface CourierCollection {
   id: string
   orderId: string
+  orderNumberDisplay?: string
   tenantId: string
   amount: number
   paymentMethod: PaymentMethod
@@ -1290,7 +1291,7 @@ export async function getUnverifiedCourierCollections(tenantId: string): Promise
       verified,
       verified_at,
       verified_by_name,
-      orders!inner(customer_name, total)
+      orders!inner(customer_name, total, order_number_display)
     `)
     .eq("tenant_id", tenantId)
     .eq("collected_by", "courier")
@@ -1305,6 +1306,7 @@ export async function getUnverifiedCourierCollections(tenantId: string): Promise
   return (data || []).map((p: any) => ({
     id: p.id,
     orderId: p.order_id,
+    orderNumberDisplay: typeof p.orders?.order_number_display === "string" ? p.orders.order_number_display : undefined,
     tenantId: p.tenant_id,
     amount: Number(p.amount),
     paymentMethod: p.payment_method as PaymentMethod,

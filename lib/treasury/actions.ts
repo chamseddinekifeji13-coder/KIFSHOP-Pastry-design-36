@@ -78,7 +78,7 @@ export async function fetchRevenueReport(
   // Fetch transactions
   const { data: transactions, error } = await supabase
     .from('transactions')
-    .select('amount, type, category, payment_method, created_at')
+    .select('amount, type, category, payment_method, is_collection, created_at')
     .eq('tenant_id', tenantId)
     .gte('created_at', startDate)
     .order('created_at', { ascending: false })
@@ -90,6 +90,17 @@ export async function fetchRevenueReport(
 
   // Aggregate by period
   const aggregateMap = new Map<string, RevenueEntry>()
+  const isCollectionTransaction = (t: {
+    is_collection?: boolean | null
+    category?: string | null
+  }): boolean => {
+    const category = String(t.category || "").toLowerCase()
+    return (
+      t.is_collection === true ||
+      category.includes("encaissement") ||
+      category.includes("collection")
+    )
+  }
 
   const getKey = (dateStr: string): string => {
     const date = new Date(dateStr)
@@ -126,9 +137,13 @@ export async function fetchRevenueReport(
     entry.transactions_count++
 
     if (t.type === 'income' || t.type === 'entree') {
-      entry.total_sales += Number(t.amount) || 0
-      if (t.payment_method === 'cash') entry.total_cash_income += Number(t.amount) || 0
-      else entry.total_card_income += Number(t.amount) || 0
+      const amount = Number(t.amount) || 0
+      entry.total_sales += amount
+      if (isCollectionTransaction(t)) {
+        entry.total_collections += amount
+      }
+      if (t.payment_method === 'cash') entry.total_cash_income += amount
+      else entry.total_card_income += amount
     } else if (t.type === 'expense' || t.type === 'sortie') {
       entry.total_expenses += Number(t.amount) || 0
     }
@@ -209,6 +224,7 @@ export async function fetchCashierStats(
 export interface DailyClosureSummary {
   date: string
   totalSales: number
+  totalCollections: number
   totalExpenses: number
   totalCashIncome: number
   totalCardIncome: number
@@ -227,7 +243,7 @@ export async function fetchDailySummary(
 
   const { data: transactions, error } = await supabase
     .from('transactions')
-    .select('amount, type, payment_method, category')
+    .select('amount, type, payment_method, category, is_collection')
     .eq('tenant_id', tenantId)
     .gte('created_at', `${targetDate}T00:00:00`)
     .lte('created_at', `${targetDate}T23:59:59`)
@@ -235,22 +251,35 @@ export async function fetchDailySummary(
   if (error) {
     console.error('Error fetching daily summary:', error.message)
     return {
-      date: targetDate, totalSales: 0, totalExpenses: 0,
+      date: targetDate, totalSales: 0, totalCollections: 0, totalExpenses: 0,
       totalCashIncome: 0, totalCardIncome: 0, totalOtherIncome: 0,
       transactionsCount: 0, ordersCount: 0, netRevenue: 0,
     }
   }
 
   let totalSales = 0
+  let totalCollections = 0
   let totalExpenses = 0
   let totalCashIncome = 0
   let totalCardIncome = 0
   let totalOtherIncome = 0
+  const isCollectionTransaction = (t: {
+    is_collection?: boolean | null
+    category?: string | null
+  }): boolean => {
+    const category = String(t.category || "").toLowerCase()
+    return (
+      t.is_collection === true ||
+      category.includes("encaissement") ||
+      category.includes("collection")
+    )
+  }
 
   for (const t of transactions || []) {
     const amount = Number(t.amount) || 0
     if (t.type === 'income' || t.type === 'entree') {
       totalSales += amount
+      if (isCollectionTransaction(t)) totalCollections += amount
       if (t.payment_method === 'cash' || t.payment_method === 'especes') totalCashIncome += amount
       else if (t.payment_method === 'card' || t.payment_method === 'carte') totalCardIncome += amount
       else totalOtherIncome += amount
@@ -270,6 +299,7 @@ export async function fetchDailySummary(
   return {
     date: targetDate,
     totalSales,
+    totalCollections,
     totalExpenses,
     totalCashIncome,
     totalCardIncome,
@@ -304,7 +334,7 @@ export async function saveDailyClosure(
       .update({
         closed_by_name: closedByName,
         total_sales: summary.totalSales,
-        total_collections: summary.totalSales,
+        total_collections: summary.totalCollections,
         total_cash_income: summary.totalCashIncome,
         total_card_income: summary.totalCardIncome,
         total_other_income: summary.totalOtherIncome,
@@ -330,7 +360,7 @@ export async function saveDailyClosure(
       closure_date: summary.date,
       closed_by_name: closedByName,
       total_sales: summary.totalSales,
-      total_collections: summary.totalSales,
+      total_collections: summary.totalCollections,
       total_cash_income: summary.totalCashIncome,
       total_card_income: summary.totalCardIncome,
       total_other_income: summary.totalOtherIncome,
