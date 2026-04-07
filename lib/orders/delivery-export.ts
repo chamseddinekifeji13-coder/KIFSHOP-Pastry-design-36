@@ -52,6 +52,10 @@ function formatCod(order: Order): string {
   return Math.max(0, Number(order.total) - Number(order.deposit || 0)).toFixed(3)
 }
 
+function formatPartnerNumber(value: string): string {
+  return value.replace(".", ",")
+}
+
 function formatDateDdMmYyyy(iso?: string): string {
   if (!iso) return ""
   const d = new Date(iso)
@@ -76,6 +80,22 @@ function fullAddressLine(order: Order): string {
   return parts.length ? parts.join(", ") : (order.customerAddress || "").trim()
 }
 
+function designationLine(order: Order): string {
+  const names = (order.items || [])
+    .map((item) => String(item.name || "").trim())
+    .filter(Boolean)
+  if (names.length === 0) return "Commande"
+  const joined = names.join(" + ")
+  // Keep cell readable in partner UI.
+  return joined.length > 120 ? `${joined.slice(0, 117)}...` : joined
+}
+
+function totalItemsCount(order: Order): string {
+  const qty = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+  const safeQty = Number.isFinite(qty) && qty > 0 ? qty : 1
+  return String(Math.round(safeQty))
+}
+
 /**
  * Lignes CSV compatibles import Best Delivery (séparateur `;`, voir `delivery-import-dialog` template).
  * - `includeAddress: false` : 7 colonnes comme le modèle officiel.
@@ -85,12 +105,28 @@ export function buildBestDeliveryExportRows(
   orders: Order[],
   includeAddress: boolean,
 ): { headers: string[]; data: string[][] } {
+  // IMPORTANT:
+  // includeAddress=true now exports the full "Pickup/BL" template expected by Best Delivery.
+  // includeAddress=false keeps the compact legacy template for backward compatibility.
   const headers = includeAddress
-    ? ["Code", "Client", "Téléphone", "Adresse", "Etat", "Prix", "Frais", "Date"]
+    ? [
+        "Code à barre",
+        "Nom complet",
+        "Gouvernerat",
+        "Ville",
+        "Adresse complète et disponibilité",
+        "Téléphone",
+        "Téléphone 2",
+        "Désignation",
+        "Nombre d'article",
+        "Prix",
+        "Commentaire",
+        "Colis peut etre ouvert",
+      ]
     : ["Code", "Client", "Téléphone", "Etat", "Prix", "Frais", "Date"]
 
   const data: string[][] = orders.map((o) => {
-    const cod = formatCod(o)
+    const cod = formatPartnerNumber(formatCod(o))
     const frais = Number(o.shippingCost || 0).toFixed(3)
     const dateStr = formatDateDdMmYyyy(o.deliveryDate || o.createdAt)
     const etat = orderEtatForPartner(o.status)
@@ -99,12 +135,16 @@ export function buildBestDeliveryExportRows(
       return [
         pickupCode(o),
         o.customerName,
+        o.gouvernorat || "",
+        o.delegation || "",
+        (o.customerAddress || "").trim(),
         o.customerPhone || "",
-        fullAddressLine(o),
-        etat,
+        "",
+        designationLine(o),
+        totalItemsCount(o),
         cod,
-        frais,
-        dateStr,
+        o.notes || "",
+        "Non",
       ]
     }
 

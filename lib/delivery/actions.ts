@@ -1522,7 +1522,7 @@ export async function importDeliveryReport(
             order_id: orderId,
             order_number: row.orderNumber || null,
             customer_name: row.customerName,
-            customer_phone: row.customerPhone || null,
+            customer_phone: normalizedCustomerPhone || null,
             customer_address: row.customerAddress,
             tracking_number: row.trackingNumber || null,
             status: row.status,
