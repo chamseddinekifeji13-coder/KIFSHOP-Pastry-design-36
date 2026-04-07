@@ -12,6 +12,7 @@ const DOWNLOAD_LINKS = {
   linux: "https://kifshop.com/downloads/kifshop.AppImage",
   ios: "https://apps.apple.com/app/kifshop",
   android: "https://play.google.com/store/apps/details?id=com.kifshop",
+  androidTvWeb: "https://kifshop.tn/dashboard",
   web: "https://app.kifshop.com",
 }
 
@@ -198,7 +199,7 @@ export function DownloadSection() {
                     <Download className="h-5 w-5 text-[#4A7C59]" />
                     Applications Mobile
                   </h3>
-                  <div className="grid gap-4 sm:grid-cols-2 max-w-md">
+                  <div className="grid gap-4 sm:grid-cols-3">
                     <a
                       href={DOWNLOAD_LINKS.ios}
                       className="group flex flex-col items-center gap-4 rounded-xl border border-border p-6 hover:bg-muted/50 transition-colors"
@@ -230,6 +231,23 @@ export function DownloadSection() {
                       <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 text-white gap-2">
                         <Download className="h-4 w-4" />
                         Obtenir
+                      </Button>
+                    </a>
+
+                    <a
+                      href={DOWNLOAD_LINKS.androidTvWeb}
+                      className="group flex flex-col items-center gap-4 rounded-xl border border-border p-6 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                        <Monitor className="h-8 w-8" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-semibold text-foreground">Android TV</p>
+                        <p className="text-xs text-muted-foreground">PWA (navigateur TV)</p>
+                      </div>
+                      <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-700 text-white gap-2">
+                        <ArrowRight className="h-4 w-4" />
+                        Ouvrir
                       </Button>
                     </a>
                   </div>
