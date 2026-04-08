@@ -179,15 +179,15 @@ export function buildBestDeliveryExportRows(
       return [
         nameWithRef,
         addressValue,
-        String(o.gouvernorat || "").trim(),
-        String(o.delegation || "").trim(),
-        safePhone,
-        "",
+        String(o.gouvernorat || "").trim() || "-",
+        String(o.delegation || "").trim() || "-",
+        safePhone || "-",
+        "-",
+        "-",
         designationLine(o),
-        cod,
         totalItemsCount(o),
         cod,
-        o.notes || "",
+        o.notes || "-",
         "Non",
       ]
     }
