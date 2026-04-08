@@ -56,6 +56,12 @@ function formatPartnerNumber(value: string): string {
   return value.replace(".", ",")
 }
 
+function formatBlPrice(order: Order): string {
+  // For BL/Pickup template, partner expects the order amount displayed on the label.
+  // Use gross order total (not remaining COD) to avoid 0 values on prepaid orders.
+  return formatPartnerNumber(Math.max(0, Number(order.total || 0)).toFixed(3))
+}
+
 function formatDateDdMmYyyy(iso?: string): string {
   if (!iso) return ""
   const d = new Date(iso)
@@ -78,6 +84,28 @@ function fullAddressLine(order: Order): string {
     (p): p is string => Boolean(p && String(p).trim()),
   )
   return parts.length ? parts.join(", ") : (order.customerAddress || "").trim()
+}
+
+function inferPickupCustomerName(order: Order): string {
+  const rawName = String(order.customerName || "").trim()
+  if (!rawName) return ""
+  // Some legacy imports store order reference in name (e.g. CMD-094).
+  if (!/^cmd[-\s]?\d+$/i.test(rawName)) return rawName
+
+  const addr = String(order.customerAddress || "").trim()
+  if (!addr) return rawName
+  const firstSegment = addr.split(",")[0].trim()
+  const candidate = firstSegment.replace(/\d.*$/, "").trim()
+  return candidate || rawName
+}
+
+function pickupAddress(order: Order, customerName: string): string {
+  const address = String(order.customerAddress || "").trim()
+  if (!address) return ""
+  if (!customerName) return address
+  const escaped = customerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp(`^${escaped}[\\s,;-]*`, "i")
+  return address.replace(re, "").trim() || address
 }
 
 function designationLine(order: Order): string {
@@ -127,22 +155,24 @@ export function buildBestDeliveryExportRows(
 
   const data: string[][] = orders.map((o) => {
     const cod = formatPartnerNumber(formatCod(o))
+    const blPrice = formatBlPrice(o)
     const frais = Number(o.shippingCost || 0).toFixed(3)
     const dateStr = formatDateDdMmYyyy(o.deliveryDate || o.createdAt)
     const etat = orderEtatForPartner(o.status)
+    const pickupName = inferPickupCustomerName(o)
 
     if (includeAddress) {
       return [
         pickupCode(o),
-        o.customerName,
+        pickupName || o.customerName,
         o.gouvernorat || "",
         o.delegation || "",
-        (o.customerAddress || "").trim(),
+        pickupAddress(o, pickupName),
         o.customerPhone || "",
         "",
         designationLine(o),
         totalItemsCount(o),
-        cod,
+        blPrice,
         o.notes || "",
         "Non",
       ]
