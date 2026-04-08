@@ -138,15 +138,28 @@ function totalItemsCount(order: Order): string {
 
 /**
  * Lignes CSV compatibles import Best Delivery (séparateur `;`, voir `delivery-import-dialog` template).
- * - `includeAddress: false` : 7 colonnes comme le modèle officiel.
- * - `includeAddress: true` : colonne Adresse après Téléphone (réimport possible via en-tête « adresse »).
+ * - `includeAddress: false` : 7 colonnes compactes.
+ * - `includeAddress: true` : template BL complet en 12 colonnes (A/B/E/F/J).
  */
 export function buildBestDeliveryExportRows(
   orders: Order[],
   includeAddress: boolean,
 ): { headers: string[]; data: string[][] } {
   const headers = includeAddress
-    ? ["Code", "Client", "Téléphone", "Adresse", "Etat", "Prix", "Frais", "Date"]
+    ? [
+        "Code à barre",
+        "Nom complet",
+        "Gouvernerat",
+        "Ville",
+        "Adresse complète et disponibilité",
+        "Téléphone",
+        "Téléphone 2",
+        "Désignation",
+        "Nombre d'article",
+        "Prix",
+        "Commentaire",
+        "Colis peut etre ouvert",
+      ]
     : ["Code", "Client", "Téléphone", "Etat", "Prix", "Frais", "Date"]
 
   const data: string[][] = orders.map((o) => {
@@ -157,21 +170,28 @@ export function buildBestDeliveryExportRows(
     const pickupName = inferPickupCustomerName(o) || String(o.customerName || "").trim()
     const phoneValue = String(o.customerPhone || "").trim()
     const safePhone = looksLikePhone(phoneValue) ? phoneValue : ""
+    const codeValue = pickupCode(o)
+    const internalRef = String(o.orderNumberDisplay || "").trim()
 
     if (includeAddress) {
+      const nameWithRef = internalRef ? `${internalRef} ${pickupName}`.trim() : pickupName
       return [
-        pickupCode(o),
-        pickupName,
-        safePhone,
+        "",
+        nameWithRef,
+        String(o.gouvernorat || "").trim(),
+        String(o.delegation || "").trim(),
         pickupAddress(o, pickupName) || fullAddressLine(o),
-        etat,
+        safePhone,
+        "",
+        designationLine(o),
+        totalItemsCount(o),
         cod,
-        frais,
-        dateStr,
+        o.notes || "",
+        "Non",
       ]
     }
 
-    return [pickupCode(o), pickupName, safePhone, etat, cod, frais, dateStr]
+    return [codeValue, pickupName, safePhone, etat, cod, frais, dateStr]
   })
 
   return { headers, data }

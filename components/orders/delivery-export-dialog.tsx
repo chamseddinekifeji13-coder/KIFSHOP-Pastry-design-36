@@ -211,7 +211,7 @@ export function DeliveryExportDialog({
               checked={includeAddress}
               onCheckedChange={(v) => setIncludeAddress(v === true)}
             />
-            Inclure la colonne Adresse (recommandé pour BL ; 8 colonnes au lieu de 7)
+            Format BL Best Delivery complet (12 colonnes : A/B/E/F/J)
           </label>
 
           {lastApiSummary && (
