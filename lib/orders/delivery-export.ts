@@ -56,6 +56,10 @@ function formatPartnerNumber(value: string): string {
   return value.replace(".", ",")
 }
 
+function formatFixedNumber(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(3) : "0.000"
+}
+
 function formatDateDdMmYyyy(iso?: string): string {
   if (!iso) return ""
   const d = new Date(iso)
@@ -164,6 +168,7 @@ export function buildBestDeliveryExportRows(
 
   const data: string[][] = orders.map((o) => {
     const cod = formatPartnerNumber(formatCod(o))
+    const codFixed = formatFixedNumber(Number(formatCod(o)))
     const frais = formatPartnerNumber(Number(o.shippingCost || 0).toFixed(3))
     const dateStr = formatDateDdMmYyyy(o.deliveryDate || o.createdAt)
     const etat = orderEtatForPartner(o.status)
@@ -176,6 +181,8 @@ export function buildBestDeliveryExportRows(
     if (includeAddress) {
       const nameWithRef = internalRef ? `${internalRef} ${pickupName}`.trim() : pickupName
       const addressValue = pickupAddress(o, pickupName) || fullAddressLine(o)
+      const qtyValue = totalItemsCount(o)
+      const designationValue = designationLine(o)
       return [
         nameWithRef,
         addressValue,
@@ -184,10 +191,10 @@ export function buildBestDeliveryExportRows(
         safePhone || "-",
         "-",
         "-",
-        designationLine(o),
-        totalItemsCount(o),
-        cod,
-        o.notes || "-",
+        codFixed,
+        designationValue,
+        qtyValue,
+        codFixed,
         "Non",
       ]
     }
