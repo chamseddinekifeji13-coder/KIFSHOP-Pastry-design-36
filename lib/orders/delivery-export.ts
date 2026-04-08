@@ -80,6 +80,46 @@ function fullAddressLine(order: Order): string {
   return parts.length ? parts.join(", ") : (order.customerAddress || "").trim()
 }
 
+function looksLikeOrderRef(value: string): boolean {
+  return /^cmd[-\s]?\d+$/i.test(value.trim())
+}
+
+function looksLikePhone(value: string): boolean {
+  const digits = value.replace(/\D/g, "")
+  return digits.length >= 8
+}
+
+function inferPickupCustomerName(order: Order): string {
+  const rawName = String(order.customerName || "").trim()
+  if (!rawName) return ""
+  if (!looksLikeOrderRef(rawName)) return rawName
+
+  const rawAddress = String(order.customerAddress || "").trim()
+  if (!rawAddress) return rawName
+
+  const firstSegment = rawAddress.split(",")[0].trim()
+  const cleaned = firstSegment.replace(/\d.*$/, "").trim()
+  return cleaned || firstSegment || rawName
+}
+
+function pickupAddress(order: Order, customerName: string): string {
+  const rawAddress = String(order.customerAddress || "").trim()
+  const rawPhone = String(order.customerPhone || "").trim()
+
+  // Legacy imports may store street address in customerPhone.
+  const source =
+    rawPhone && !looksLikePhone(rawPhone)
+      ? rawPhone
+      : rawAddress
+
+  if (!source) return ""
+  if (!customerName) return source
+
+  const escaped = customerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const re = new RegExp(`^${escaped}[\\s,;-]*`, "i")
+  return source.replace(re, "").trim() || source
+}
+
 function designationLine(order: Order): string {
   const names = (order.items || [])
     .map((item) => String(item.name || "").trim())
@@ -114,13 +154,16 @@ export function buildBestDeliveryExportRows(
     const frais = formatPartnerNumber(Number(o.shippingCost || 0).toFixed(3))
     const dateStr = formatDateDdMmYyyy(o.deliveryDate || o.createdAt)
     const etat = orderEtatForPartner(o.status)
+    const pickupName = inferPickupCustomerName(o) || String(o.customerName || "").trim()
+    const phoneValue = String(o.customerPhone || "").trim()
+    const safePhone = looksLikePhone(phoneValue) ? phoneValue : ""
 
     if (includeAddress) {
       return [
         pickupCode(o),
-        o.customerName,
-        o.customerPhone || "",
-        fullAddressLine(o),
+        pickupName,
+        safePhone,
+        pickupAddress(o, pickupName) || fullAddressLine(o),
         etat,
         cod,
         frais,
@@ -128,7 +171,7 @@ export function buildBestDeliveryExportRows(
       ]
     }
 
-    return [pickupCode(o), o.customerName, o.customerPhone || "", etat, cod, frais, dateStr]
+    return [pickupCode(o), pickupName, safePhone, etat, cod, frais, dateStr]
   })
 
   return { headers, data }
