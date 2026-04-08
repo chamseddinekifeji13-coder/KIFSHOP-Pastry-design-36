@@ -175,15 +175,16 @@ export function buildBestDeliveryExportRows(
 
     if (includeAddress) {
       const nameWithRef = internalRef ? `${internalRef} ${pickupName}`.trim() : pickupName
+      const addressValue = pickupAddress(o, pickupName) || fullAddressLine(o)
       return [
-        "",
         nameWithRef,
+        addressValue,
         String(o.gouvernorat || "").trim(),
         String(o.delegation || "").trim(),
-        pickupAddress(o, pickupName) || fullAddressLine(o),
         safePhone,
         "",
         designationLine(o),
+        cod,
         totalItemsCount(o),
         cod,
         o.notes || "",

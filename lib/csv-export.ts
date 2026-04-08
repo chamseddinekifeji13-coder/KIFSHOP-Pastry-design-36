@@ -7,6 +7,7 @@ interface CSVExportOptions {
   filename: string
   headers: string[]
   data: any[][]
+  includeHeaders?: boolean
 }
 
 /**
@@ -24,12 +25,13 @@ function escapeCSVField(field: any): string {
 /**
  * Exporte des données en CSV
  */
-export function exportToCSV({ filename, headers, data }: CSVExportOptions) {
+export function exportToCSV({ filename, headers, data, includeHeaders = true }: CSVExportOptions) {
   // Préparer le contenu CSV avec BOM pour l'encodage UTF-8
-  const csvContent = [
-    headers.map(h => escapeCSVField(h)).join(","),
+  const csvRows = [
+    ...(includeHeaders ? [headers.map(h => escapeCSVField(h)).join(",")] : []),
     ...data.map(row => row.map(cell => escapeCSVField(cell)).join(",")),
-  ].join("\n")
+  ]
+  const csvContent = csvRows.join("\n")
 
   // Ajouter le BOM UTF-8 pour une meilleure compatibilité Excel
   const BOM = "\uFEFF"
@@ -47,12 +49,13 @@ export function exportToCSV({ filename, headers, data }: CSVExportOptions) {
 /**
  * Exporte des données en CSV avec point-virgule comme séparateur (format Best Delivery)
  */
-export function exportSemicolonCSV({ filename, headers, data }: CSVExportOptions) {
+export function exportSemicolonCSV({ filename, headers, data, includeHeaders = true }: CSVExportOptions) {
   // Préparer le contenu CSV avec BOM pour l'encodage UTF-8
-  const csvContent = [
-    headers.map(h => escapeCSVField(h)).join(";"),
+  const csvRows = [
+    ...(includeHeaders ? [headers.map(h => escapeCSVField(h)).join(";")] : []),
     ...data.map(row => row.map(cell => escapeCSVField(cell)).join(";")),
-  ].join("\n")
+  ]
+  const csvContent = csvRows.join("\n")
 
   // Ajouter le BOM UTF-8 pour une meilleure compatibilité Excel
   const BOM = "\uFEFF"

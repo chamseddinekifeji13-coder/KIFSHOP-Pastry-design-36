@@ -90,6 +90,8 @@ export function DeliveryExportDialog({
         filename: "livraison-best-delivery",
         headers,
         data,
+        // Best Delivery portal may import header as a real row in BL mode.
+        includeHeaders: !includeAddress,
       })
       toast.success("Fichier CSV téléchargé (format Best Delivery)")
       onSuccess?.()
