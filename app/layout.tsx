@@ -6,6 +6,7 @@ import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { InstallPrompt } from '@/components/pwa/install-prompt'
 import { OfflineIndicator } from '@/components/pwa/offline-indicator'
 import { AuthHashHandler } from '@/components/auth/auth-hash-handler'
+import { OrientationSync } from '@/components/layout/orientation-sync'
 import { ErrorBoundary } from "@/components/error-boundary"
 import './globals.css'
 
@@ -168,6 +169,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <ErrorBoundary>
+          <OrientationSync />
           <OfflineIndicator />
           <AuthHashHandler />
           {children}

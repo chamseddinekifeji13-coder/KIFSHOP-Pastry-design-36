@@ -82,6 +82,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    min-height: var(--app-vh, 100svh);
   }
   html,
   body {
@@ -99,6 +100,9 @@
   svg {
     max-width: 100%;
     height: auto;
+  }
+  html[data-orientation="landscape"] body {
+    min-height: var(--app-vh, 100vh);
   }
 }
 

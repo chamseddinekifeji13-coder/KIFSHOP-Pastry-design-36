@@ -35,7 +35,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   vendeur: ["/commandes", "/clients", "/canaux", "/prospects", "/support"],
   magasinier: ["/stocks", "/inventaire", "/workflow", "/support"],
   achat: ["/approvisionnement", "/workflow", "/support"],
-  caissier: ["/tresorerie", "/treasury", "/pos80", "/support"],
+  caissier: ["/tresorerie", "/treasury/courier-collections", "/treasury/pos80-sync", "/pos80", "/support"],
   patissier: ["/production", "/support"],
   emballeur: ["/packer", "/support"],
   livreur: ["/livraison", "/support"],
