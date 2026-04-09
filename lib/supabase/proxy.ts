@@ -6,6 +6,19 @@ export async function updateSession(request: NextRequest) {
   const response = NextResponse.next({ request })
 
   try {
+    const pathname = request.nextUrl.pathname
+    const isFreshSignup = pathname === "/auth/sign-up" && request.nextUrl.searchParams.get("fresh") === "1"
+    const isAuthRoute = pathname.startsWith('/auth')
+    const isSuperAdminRoute = pathname.startsWith('/super-admin')
+    const isApiRoute = pathname.startsWith('/api')
+    const isPublicRoute = pathname === '/' || isAuthRoute || isApiRoute || pathname.startsWith('/download') || pathname.startsWith('/store') || pathname === '/terms' || pathname === '/privacy' || pathname === '/demo'
+    const needsAuthCheck = isAuthRoute || !isPublicRoute || isSuperAdminRoute || pathname === "/dashboard"
+
+    // Fast-path public routes that do not need session/user checks.
+    if (!needsAuthCheck) {
+      return response
+    }
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,15 +37,8 @@ export async function updateSession(request: NextRequest) {
       },
     )
 
-    // Get user for auth checks
+    // Get user only when needed by route-guard logic.
     const { data: { user } } = await supabase.auth.getUser()
-
-    const pathname = request.nextUrl.pathname
-    const isFreshSignup = pathname === "/auth/sign-up" && request.nextUrl.searchParams.get("fresh") === "1"
-    const isAuthRoute = pathname.startsWith('/auth')
-    const isSuperAdminRoute = pathname.startsWith('/super-admin')
-    const isApiRoute = pathname.startsWith('/api')
-    const isPublicRoute = pathname === '/' || isAuthRoute || isApiRoute || pathname.startsWith('/download') || pathname.startsWith('/store') || pathname === '/terms' || pathname === '/privacy'
 
     // Redirect unauthenticated users to login
     if (!user && !isPublicRoute) {

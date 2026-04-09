@@ -35,7 +35,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   vendeur: ["/commandes", "/clients", "/canaux", "/prospects", "/support"],
   magasinier: ["/stocks", "/inventaire", "/workflow", "/support"],
   achat: ["/approvisionnement", "/workflow", "/support"],
-  caissier: ["/tresorerie", "/pos80", "/support"],
+  caissier: ["/tresorerie", "/treasury", "/pos80", "/support"],
   patissier: ["/production", "/support"],
   emballeur: ["/packer", "/support"],
   livreur: ["/livraison", "/support"],
@@ -181,12 +181,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        // Get tenant data
-        const { data: tenantData } = await supabase
-          .from("tenants")
-          .select("*")
-          .eq("id", tenantUser.tenant_id)
-          .single()
+        // Fetch tenant and team members in parallel to reduce initial load latency.
+        const [{ data: tenantData }, { data: teamMembers }] = await Promise.all([
+          supabase
+            .from("tenants")
+            .select("*")
+            .eq("id", tenantUser.tenant_id)
+            .single(),
+          supabase
+            .from("tenant_users")
+            .select("id, user_id, role, display_name, pin")
+            .eq("tenant_id", tenantUser.tenant_id)
+            .order("created_at", { ascending: true }),
+        ])
 
         if (tenantData) {
           // Get subscription with plan limits
@@ -244,13 +251,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         // Don't set currentUser here yet — we need to check the active profile cookie first
         // to avoid overwriting an employee's session with the owner profile
 
-        // Load all team members for this tenant BEFORE setting isLoading to false
-        const { data: teamMembers } = await supabase
-          .from("tenant_users")
-          .select("id, user_id, role, display_name, pin")
-          .eq("tenant_id", tenantUser.tenant_id)
-          .order("created_at", { ascending: true })
-
         if (teamMembers && teamMembers.length > 0) {
           const allUsers: AppUser[] = teamMembers.map((m) => {
             const name = m.display_name || "Utilisateur"
@@ -265,42 +265,44 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           })
           setUsers(allUsers)
 
-          // Check if there's an active profile cookie (set by PIN verification)
-          // This restores the correct employee profile after page reload
-          try {
-            const sessionRes = await fetch("/api/session")
-            if (sessionRes.ok) {
-              const sessionData = await sessionRes.json()
-              if (sessionData.activeProfileId) {
-                const activeUser = allUsers.find((u) => u.id === sessionData.activeProfileId)
-                if (activeUser) {
-                  setCurrentUser(activeUser)
-                } else {
-                  // Active profile not found in team, fall back to owner
-                  const ownerProfile = allUsers.find((u) => u.role === "owner")
-                  if (ownerProfile && appUser.role === "owner") {
-                    setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
-                  }
-                }
-              } else {
-                // No active profile cookie, set to owner
-                const ownerProfile = allUsers.find((u) => u.role === "owner")
-                if (ownerProfile && appUser.role === "owner") {
-                  setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
-                }
-              }
-            } else {
-              // Session API failed, fall back to owner
-              const ownerProfile = allUsers.find((u) => u.role === "owner")
-              if (ownerProfile && appUser.role === "owner") {
-                setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
-              }
-            }
-          } catch {
-            // Network error, fall back to owner
+          const setOwnerProfile = () => {
             const ownerProfile = allUsers.find((u) => u.role === "owner")
             if (ownerProfile && appUser.role === "owner") {
               setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+              return
+            }
+            // Fallback to first available profile when owner is not found.
+            setCurrentUser(allUsers[0])
+          }
+
+          // Avoid extra session API call for single-profile tenants.
+          const shouldTrySessionRestore =
+            allUsers.length > 1 || allUsers.some((u) => Boolean(u.pin))
+
+          if (!shouldTrySessionRestore) {
+            setOwnerProfile()
+          } else {
+            // Check if there's an active profile cookie (set by PIN verification)
+            // This restores the correct employee profile after page reload.
+            try {
+              const sessionRes = await fetch("/api/session")
+              if (sessionRes.ok) {
+                const sessionData = await sessionRes.json()
+                if (sessionData.activeProfileId) {
+                  const activeUser = allUsers.find((u) => u.id === sessionData.activeProfileId)
+                  if (activeUser) {
+                    setCurrentUser(activeUser)
+                  } else {
+                    setOwnerProfile()
+                  }
+                } else {
+                  setOwnerProfile()
+                }
+              } else {
+                setOwnerProfile()
+              }
+            } catch {
+              setOwnerProfile()
             }
           }
         } else {
