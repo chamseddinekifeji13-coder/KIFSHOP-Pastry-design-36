@@ -112,33 +112,6 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          {/* Section 4 */}
-          <section>
-            <h2 className="text-lg font-semibold text-foreground">
-              4. Hebergement et Securite
-            </h2>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              <li>
-                <strong>Hebergement applicatif :</strong> Vercel (reseau mondial
-                de CDN, chiffrement TLS).
-              </li>
-              <li>
-                <strong>Base de donnees :</strong> Supabase (PostgreSQL heberge,
-                chiffrement au repos et en transit, sauvegardes automatiques).
-              </li>
-              <li>
-                <strong>Authentification :</strong> Supabase Auth avec
-                chiffrement bcrypt des mots de passe. Les codes PIN sont
-                egalement chiffres.
-              </li>
-              <li>
-                <strong>Isolation des donnees :</strong> Architecture
-                multi-tenant avec Row Level Security (RLS) — chaque patisserie
-                ne peut acceder qu{"'"}a ses propres donnees.
-              </li>
-            </ul>
-          </section>
-
           {/* Section 5 */}
           <section>
             <h2 className="text-lg font-semibold text-foreground">
