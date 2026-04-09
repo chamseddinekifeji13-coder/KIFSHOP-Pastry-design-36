@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Loader2, ChefHat } from "lucide-react"
+import { Loader2, ChefHat, Info, Sparkles, ShieldCheck } from "lucide-react"
 
 export default function SignUpPage() {
   const [shopName, setShopName] = useState("")
@@ -188,11 +188,22 @@ export default function SignUpPage() {
         </div>
         <CardTitle className="text-xl font-bold text-balance">Creer un compte</CardTitle>
         <CardDescription>
-          Inscrivez votre patisserie sur KIFSHOP Pastry
+          Lancez votre patisserie sur KIFSHOP Pastry en quelques minutes.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSignUp}>
         <CardContent className="space-y-4">
+          <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+            <div className="mb-1 flex items-center gap-2 font-medium">
+              <Info className="h-4 w-4 text-[#4A7C59]" />
+              Pourquoi ces informations ?
+            </div>
+            <p className="text-muted-foreground">
+              Elles nous permettent de vous accompagner des le debut (configuration rapide,
+              conseils adaptes, support prioritaire) et de proteger la plateforme contre les faux comptes.
+            </p>
+          </div>
+
           {error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error}
@@ -343,14 +354,37 @@ export default function SignUpPage() {
               checked={acceptedTerms}
               onCheckedChange={(v) => setAcceptedTerms(v === true)}
             />
-            <span>J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialite.</span>
+            <span>
+              J&apos;accepte les{" "}
+              <Link href="/terms" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">
+                conditions d&apos;utilisation
+              </Link>{" "}
+              et la{" "}
+              <Link href="/privacy" target="_blank" className="text-primary underline underline-offset-2 hover:no-underline">
+                politique de confidentialite
+              </Link>
+              .
+            </span>
           </label>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
+          <div className="w-full rounded-lg bg-[#4A7C59]/10 border border-[#4A7C59]/20 p-3 text-sm">
+            <p className="flex items-center gap-2 font-medium text-[#355a41]">
+              <Sparkles className="h-4 w-4" />
+              Vous etes a 1 etape de digitaliser votre patisserie.
+            </p>
+            <p className="mt-1 text-[#355a41]/90">
+              Creez votre compte maintenant : vous pourrez commencer a suivre vos commandes et votre production des aujourd&apos;hui.
+            </p>
+          </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Creer mon compte
           </Button>
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Vos donnees restent confidentielles et securisees.
+          </p>
           <p className="text-center text-sm text-muted-foreground">
             {"Deja inscrit ? "}
             <Link href="/auth/login" className="text-primary underline-offset-4 hover:underline">
