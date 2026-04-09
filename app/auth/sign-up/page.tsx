@@ -7,6 +7,9 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Card,
   CardContent,
@@ -21,6 +24,16 @@ export default function SignUpPage() {
   const [shopName, setShopName] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [city, setCity] = useState("")
+  const [businessType, setBusinessType] = useState("atelier")
+  const [estimatedDailyOrders, setEstimatedDailyOrders] = useState("0-5")
+  const [teamSize, setTeamSize] = useState("1-2")
+  const [salesChannels, setSalesChannels] = useState("")
+  const [website, setWebsite] = useState("")
+  const [acceptedContact, setAcceptedContact] = useState(true)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [honeyPot, setHoneyPot] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -32,8 +45,21 @@ export default function SignUpPage() {
     setLoading(true)
     setError(null)
 
-    if (password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caracteres.")
+    if (password.length < 8) {
+      setError("Le mot de passe doit contenir au moins 8 caracteres.")
+      setLoading(false)
+      return
+    }
+
+    const normalizedPhone = phone.replace(/\s+/g, "").replace(/[^\d+]/g, "")
+    if (normalizedPhone.length < 8) {
+      setError("Numero WhatsApp/telephone invalide.")
+      setLoading(false)
+      return
+    }
+
+    if (!acceptedTerms) {
+      setError("Vous devez accepter les conditions d'utilisation.")
       setLoading(false)
       return
     }
@@ -51,6 +77,12 @@ export default function SignUpPage() {
           tenant_name: shopName,
           display_name: displayName,
           role: "owner",
+          signup_phone: normalizedPhone,
+          signup_city: city,
+          signup_business_type: businessType,
+          signup_estimated_daily_orders: estimatedDailyOrders,
+          signup_team_size: teamSize,
+          signup_sales_channels: salesChannels,
         },
       },
     })
@@ -71,12 +103,56 @@ export default function SignUpPage() {
 
     // If email confirmation is not required (auto-confirmed), redirect directly
     if (data.session) {
+      try {
+        await fetch("/api/platform-prospects/capture-signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shopName,
+            displayName,
+            email,
+            phone: normalizedPhone,
+            city,
+            businessType,
+            estimatedDailyOrders,
+            teamSize,
+            salesChannels,
+            acceptedContact,
+            website,
+            honeyPot,
+          }),
+        })
+      } catch (captureError) {
+        console.error("Prospect capture failed:", captureError)
+      }
       router.push("/dashboard")
       router.refresh()
       return
     }
 
     // If email confirmation is required, show success message
+    try {
+      await fetch("/api/platform-prospects/capture-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shopName,
+          displayName,
+          email,
+          phone: normalizedPhone,
+          city,
+          businessType,
+          estimatedDailyOrders,
+          teamSize,
+          salesChannels,
+          acceptedContact,
+          website,
+          honeyPot,
+        }),
+      })
+    } catch (captureError) {
+      console.error("Prospect capture failed:", captureError)
+    }
     setSuccess(true)
     setLoading(false)
   }
@@ -105,7 +181,7 @@ export default function SignUpPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm border-0 shadow-none lg:border lg:shadow-sm">
+    <Card className="w-full max-w-xl border-0 shadow-none lg:border lg:shadow-sm">
       <CardHeader className="text-center">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A7C59] text-white lg:hidden">
           <ChefHat className="h-6 w-6" />
@@ -142,6 +218,85 @@ export default function SignUpPage() {
               required
             />
           </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="phone">WhatsApp / Telephone</Label>
+              <Input
+                id="phone"
+                placeholder="54130433"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="city">Ville</Label>
+              <Input
+                id="city"
+                placeholder="Sousse"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Type de business</Label>
+              <Select value={businessType} onValueChange={setBusinessType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="atelier">Atelier</SelectItem>
+                  <SelectItem value="boutique">Boutique</SelectItem>
+                  <SelectItem value="maison">Travail a domicile</SelectItem>
+                  <SelectItem value="autre">Autre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Commandes/jour</Label>
+              <Select value={estimatedDailyOrders} onValueChange={setEstimatedDailyOrders}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0-5">0-5</SelectItem>
+                  <SelectItem value="6-15">6-15</SelectItem>
+                  <SelectItem value="16-30">16-30</SelectItem>
+                  <SelectItem value="30+">30+</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Taille equipe</Label>
+              <Select value={teamSize} onValueChange={setTeamSize}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1-2">1-2</SelectItem>
+                  <SelectItem value="3-5">3-5</SelectItem>
+                  <SelectItem value="6-10">6-10</SelectItem>
+                  <SelectItem value="10+">10+</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="salesChannels">Canaux de vente (optionnel)</Label>
+            <Textarea
+              id="salesChannels"
+              placeholder="Instagram, WhatsApp, boutique..."
+              value={salesChannels}
+              onChange={(e) => setSalesChannels(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="website">Page Facebook / Instagram / Site (optionnel)</Label>
+            <Input
+              id="website"
+              placeholder="https://..."
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -159,14 +314,37 @@ export default function SignUpPage() {
             <Input
               id="password"
               type="password"
-              placeholder="6 caracteres minimum"
+              placeholder="8 caracteres minimum"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={8}
               autoComplete="new-password"
             />
           </div>
+          <input
+            type="text"
+            name="company_website"
+            value={honeyPot}
+            onChange={(e) => setHoneyPot(e.target.value)}
+            className="hidden"
+            tabIndex={-1}
+            autoComplete="off"
+          />
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={acceptedContact}
+              onCheckedChange={(v) => setAcceptedContact(v === true)}
+            />
+            <span>J&apos;accepte d&apos;etre contacte pour la qualification et la demo KIFSHOP.</span>
+          </label>
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <Checkbox
+              checked={acceptedTerms}
+              onCheckedChange={(v) => setAcceptedTerms(v === true)}
+            />
+            <span>J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialite.</span>
+          </label>
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
