@@ -169,6 +169,7 @@ export function buildBestDeliveryExportRows(
   const data: string[][] = orders.map((o) => {
     const cod = formatPartnerNumber(formatCod(o))
     const codFixed = formatFixedNumber(Number(formatCod(o)))
+    const totalTtcFixed = formatFixedNumber(Math.max(0, Number(o.total || 0)))
     const frais = formatPartnerNumber(Number(o.shippingCost || 0).toFixed(3))
     const dateStr = formatDateDdMmYyyy(o.deliveryDate || o.createdAt)
     const etat = orderEtatForPartner(o.status)
@@ -181,7 +182,7 @@ export function buildBestDeliveryExportRows(
     if (includeAddress) {
       const nameWithRef = internalRef ? `${internalRef} ${pickupName}`.trim() : pickupName
       const addressValue = pickupAddress(o, pickupName) || fullAddressLine(o)
-      const qtyValue = totalItemsCount(o)
+      const qtyValue = "1"
       const designationValue = designationLine(o)
       return [
         nameWithRef,
@@ -190,12 +191,13 @@ export function buildBestDeliveryExportRows(
         String(o.delegation || "").trim() || "-",
         safePhone || "-",
         "-",
-        "-",
-        codFixed,
-        designationValue,
-        qtyValue,
-        codFixed,
         "Non",
+        totalTtcFixed,
+        designationValue,
+        totalTtcFixed,
+        qtyValue,
+        totalTtcFixed,
+        "-",
       ]
     }
 
