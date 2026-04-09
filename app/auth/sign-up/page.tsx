@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -39,18 +39,22 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const forceFreshSignup = searchParams.get("fresh") === "1"
-  const [isPreparingFreshSignup, setIsPreparingFreshSignup] = useState(forceFreshSignup)
+  const [isPreparingFreshSignup, setIsPreparingFreshSignup] = useState(false)
 
   useEffect(() => {
     let mounted = true
 
     async function prepareFreshSignup() {
+      const forceFreshSignup =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("fresh") === "1"
+
       if (!forceFreshSignup) {
         if (mounted) setIsPreparingFreshSignup(false)
         return
       }
+
+      if (mounted) setIsPreparingFreshSignup(true)
 
       try {
         // Ensures "Essai gratuit" always starts from a clean auth state.
@@ -68,7 +72,7 @@ export default function SignUpPage() {
     return () => {
       mounted = false
     }
-  }, [forceFreshSignup])
+  }, [])
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
