@@ -52,14 +52,14 @@
   --color-chart-5: hsl(28 73% 58%);
   
   /* Sidebar - Dark Luxury */
-  --color-sidebar: hsl(60 3% 15%);
-  --color-sidebar-foreground: hsl(90 2% 95%);
-  --color-sidebar-primary: hsl(42 68% 62%);
-  --color-sidebar-primary-foreground: hsl(60 3% 15%);
-  --color-sidebar-accent: hsl(90 4% 25%);
-  --color-sidebar-accent-foreground: hsl(90 2% 95%);
-  --color-sidebar-border: hsl(60 5% 22%);
-  --color-sidebar-ring: hsl(42 68% 62%);
+  --color-sidebar: hsl(222 32% 14%);
+  --color-sidebar-foreground: hsl(210 30% 96%);
+  --color-sidebar-primary: hsl(42 76% 62%);
+  --color-sidebar-primary-foreground: hsl(222 32% 14%);
+  --color-sidebar-accent: hsl(222 24% 22%);
+  --color-sidebar-accent-foreground: hsl(210 30% 98%);
+  --color-sidebar-border: hsl(222 22% 28%);
+  --color-sidebar-ring: hsl(42 76% 62%);
   
   /* Border Radius */
   --radius: 0.75rem;
@@ -82,6 +82,23 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  #__next {
+    width: 100%;
+    max-width: 100%;
+  }
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
   }
 }
 

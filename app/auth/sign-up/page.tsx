@@ -301,11 +301,15 @@ export default function SignUpPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Type de business</Label>
+          <div className="rounded-lg border bg-muted/20 p-3 sm:p-4">
+            <div className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Profil d'activite
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="min-w-0 space-y-2">
+              <Label className="text-sm">Type de business</Label>
               <Select value={businessType} onValueChange={setBusinessType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="atelier">Atelier</SelectItem>
                   <SelectItem value="boutique">Boutique</SelectItem>
@@ -314,10 +318,10 @@ export default function SignUpPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Commandes/jour</Label>
+            <div className="min-w-0 space-y-2">
+              <Label className="text-sm">Commandes / jour</Label>
               <Select value={estimatedDailyOrders} onValueChange={setEstimatedDailyOrders}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0-5">0-5</SelectItem>
                   <SelectItem value="6-15">6-15</SelectItem>
@@ -326,10 +330,10 @@ export default function SignUpPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Taille equipe</Label>
+            <div className="min-w-0 space-y-2">
+              <Label className="text-sm">Taille d'equipe</Label>
               <Select value={teamSize} onValueChange={setTeamSize}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1-2">1-2</SelectItem>
                   <SelectItem value="3-5">3-5</SelectItem>
@@ -337,6 +341,7 @@ export default function SignUpPage() {
                   <SelectItem value="10+">10+</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
             </div>
           </div>
           <div className="space-y-2">
