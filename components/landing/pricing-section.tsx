@@ -1,62 +1,107 @@
+"use client"
+
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { Check, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 
-const plans = [
-  {
-    name: "Decouverte",
-    price: "Gratuit",
-    period: "14 jours",
-    description: "Testez toutes les fonctionnalites sans engagement",
-    highlight: false,
-    features: [
-      "Toutes les fonctionnalites incluses",
-      "1 utilisateur",
-      "Assistance par email",
-      "Donnees conservees apres upgrade",
-    ],
-    cta: "Commencer gratuitement",
-    ctaHref: "/auth/sign-up",
-  },
-  {
-    name: "Pro",
-    price: "89",
+type DbPlan = {
+  id: string
+  name: string
+  display_name: string
+  price_monthly: number
+  max_sales_channels: number
+  max_warehouses: number
+  max_users: number
+  features: Record<string, string> | null
+  is_active: boolean
+}
+
+type UiPlan = {
+  id: string
+  name: string
+  price: string
+  currency?: string
+  period: string
+  description: string
+  highlight: boolean
+  badge?: string
+  features: string[]
+  cta: string
+  ctaHref: string
+}
+
+const trialPlan: UiPlan = {
+  id: "trial",
+  name: "Decouverte",
+  price: "Gratuit",
+  period: "14 jours",
+  description: "Testez toutes les fonctionnalites sans engagement",
+  highlight: false,
+  features: [
+    "Toutes les fonctionnalites incluses",
+    "1 utilisateur",
+    "Assistance par email",
+    "Donnees conservees apres upgrade",
+  ],
+  cta: "Commencer gratuitement",
+  ctaHref: "/auth/sign-up",
+}
+
+function toUiPlan(plan: DbPlan, highlight: boolean): UiPlan {
+  const featureValues = Object.values(plan.features || {}).filter(Boolean).slice(0, 3)
+  const features = [
+    "Toutes les fonctionnalites",
+    `Jusqu'a ${plan.max_users} utilisateurs`,
+    `${plan.max_sales_channels} point(s) de vente`,
+    `${plan.max_warehouses} depot(s)`,
+    ...featureValues,
+  ].slice(0, 6)
+
+  return {
+    id: plan.id,
+    name: plan.display_name || plan.name,
+    price: String(Number(plan.price_monthly || 0)),
     currency: "DT",
     period: "/mois",
-    description: "Pour les patisseries en croissance",
-    highlight: true,
-    badge: "Populaire",
-    features: [
-      "Toutes les fonctionnalites",
-      "Jusqu'a 5 utilisateurs",
-      "Support prioritaire 24/7",
-      "E-Boutique integree",
-      "Notifications inter-roles",
-      "Sauvegardes automatiques",
-    ],
-    cta: "Choisir Pro",
+    description: `Pour les patisseries avec ${plan.max_sales_channels} point(s) de vente`,
+    highlight,
+    badge: highlight ? "Populaire" : undefined,
+    features,
+    cta: `Choisir ${plan.display_name || plan.name}`,
     ctaHref: "/auth/sign-up",
-  },
-  {
-    name: "Enterprise",
-    price: "Sur mesure",
-    period: "",
-    description: "Pour les grandes enseignes et laboratoires",
-    highlight: false,
-    features: [
-      "Utilisateurs illimites",
-      "Multi-points de vente",
-      "API et integrations custom",
-      "Deploiement On-Premise possible",
-      "Formation et onboarding dedies",
-      "SLA et support dedie",
-    ],
-    cta: "Nous contacter",
-    ctaHref: "#contact",
-  },
-]
+  }
+}
 
 export function PricingSection() {
+  const [dbPlans, setDbPlans] = useState<DbPlan[]>([])
+
+  useEffect(() => {
+    async function loadPlans() {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from("subscription_plans")
+          .select("id, name, display_name, price_monthly, max_sales_channels, max_warehouses, max_users, features, is_active")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true })
+
+        setDbPlans((data || []) as DbPlan[])
+      } catch (error) {
+        console.error("Failed to load pricing plans:", error)
+      }
+    }
+    loadPlans()
+  }, [])
+
+  const plans = useMemo(() => {
+    const paid = dbPlans.filter((p) => Number(p.price_monthly || 0) > 0)
+    const highlightIndex = paid.length > 1 ? 1 : 0
+    const paidUi = paid.map((p, i) => toUiPlan(p, i === highlightIndex))
+    return [trialPlan, ...paidUi]
+  }, [dbPlans])
+
   return (
     <section id="pricing" className="bg-background py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-6">
