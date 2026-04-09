@@ -153,7 +153,7 @@ export function HeroSection() {
             {/* CTA buttons */}
             <div className="flex flex-col items-start gap-4 sm:flex-row">
               <Button size="lg" className="bg-primary hover:bg-primary/90 text-background gap-2 px-8 h-12 text-base shadow-lg shadow-primary/40 hover:shadow-primary/60 transition-all duration-300" asChild>
-                <Link href="/auth/sign-up">
+                <Link href="/auth/sign-up?fresh=1">
                   <Cloud className="h-4 w-4" />
                   Essai gratuit
                   <ArrowRight className="h-4 w-4" />

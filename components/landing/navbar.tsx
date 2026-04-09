@@ -60,7 +60,7 @@ export function Navbar() {
             <Link href="/auth/login">Connexion</Link>
           </Button>
           <Button className="bg-primary hover:bg-primary/90 text-background shadow-lg shadow-primary/30 hover:shadow-primary/50 transition-all duration-300" asChild>
-            <Link href="/auth/sign-up">Essai gratuit</Link>
+            <Link href="/auth/sign-up?fresh=1">Essai gratuit</Link>
           </Button>
         </div>
 
@@ -94,7 +94,7 @@ export function Navbar() {
               <Link href="/auth/login">Connexion</Link>
             </Button>
             <Button className="justify-start bg-primary hover:bg-primary/90 text-background" asChild>
-              <Link href="/auth/sign-up">Essai gratuit</Link>
+              <Link href="/auth/sign-up?fresh=1">Essai gratuit</Link>
             </Button>
           </div>
         </div>

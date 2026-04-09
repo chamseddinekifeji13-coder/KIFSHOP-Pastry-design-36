@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,36 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const forceFreshSignup = searchParams.get("fresh") === "1"
+  const [isPreparingFreshSignup, setIsPreparingFreshSignup] = useState(forceFreshSignup)
+
+  useEffect(() => {
+    let mounted = true
+
+    async function prepareFreshSignup() {
+      if (!forceFreshSignup) {
+        if (mounted) setIsPreparingFreshSignup(false)
+        return
+      }
+
+      try {
+        // Ensures "Essai gratuit" always starts from a clean auth state.
+        const supabase = createClient()
+        await supabase.auth.signOut()
+      } catch (signOutError) {
+        console.error("Fresh signup sign-out failed:", signOutError)
+      } finally {
+        if (mounted) setIsPreparingFreshSignup(false)
+      }
+    }
+
+    prepareFreshSignup()
+
+    return () => {
+      mounted = false
+    }
+  }, [forceFreshSignup])
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault()
@@ -176,6 +206,22 @@ export default function SignUpPage() {
             </Button>
           </Link>
         </CardFooter>
+      </Card>
+    )
+  }
+
+  if (isPreparingFreshSignup) {
+    return (
+      <Card className="w-full max-w-sm border-0 shadow-none lg:border lg:shadow-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl font-bold text-balance">Preparation de votre essai...</CardTitle>
+          <CardDescription>
+            Nous securisons une nouvelle inscription independante de toute session deja ouverte.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center pb-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </CardContent>
       </Card>
     )
   }

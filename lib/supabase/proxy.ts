@@ -28,6 +28,7 @@ export async function updateSession(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     const pathname = request.nextUrl.pathname
+    const isFreshSignup = pathname === "/auth/sign-up" && request.nextUrl.searchParams.get("fresh") === "1"
     const isAuthRoute = pathname.startsWith('/auth')
     const isSuperAdminRoute = pathname.startsWith('/super-admin')
     const isApiRoute = pathname.startsWith('/api')
@@ -41,7 +42,7 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Redirect authenticated users away from auth pages
-    if (user && isAuthRoute && pathname !== '/auth/reset-password') {
+    if (user && isAuthRoute && pathname !== '/auth/reset-password' && !isFreshSignup) {
       const isSuperAdmin = user.user_metadata?.is_super_admin === true
       const url = request.nextUrl.clone()
       url.pathname = isSuperAdmin ? '/super-admin' : '/dashboard'

@@ -46,7 +46,7 @@ const trialPlan: UiPlan = {
     "Donnees conservees apres upgrade",
   ],
   cta: "Commencer gratuitement",
-  ctaHref: "/auth/sign-up",
+  ctaHref: "/auth/sign-up?fresh=1",
 }
 
 function toUiPlan(plan: DbPlan, highlight: boolean): UiPlan {
@@ -70,7 +70,7 @@ function toUiPlan(plan: DbPlan, highlight: boolean): UiPlan {
     badge: highlight ? "Populaire" : undefined,
     features,
     cta: `Choisir ${plan.display_name || plan.name}`,
-    ctaHref: "/auth/sign-up",
+    ctaHref: "/auth/sign-up?fresh=1",
   }
 }
 

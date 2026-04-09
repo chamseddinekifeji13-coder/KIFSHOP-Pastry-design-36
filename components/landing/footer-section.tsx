@@ -27,7 +27,7 @@ export function FooterSection() {
               <li><Link href="#features" className="transition-colors hover:text-primary">Fonctionnalites</Link></li>
               <li><Link href="#pricing" className="transition-colors hover:text-primary">Tarifs</Link></li>
               <li><Link href="#download" className="transition-colors hover:text-primary">Telechargement</Link></li>
-              <li><Link href="/auth/sign-up" className="transition-colors hover:text-primary">Essai gratuit</Link></li>
+              <li><Link href="/auth/sign-up?fresh=1" className="transition-colors hover:text-primary">Essai gratuit</Link></li>
             </ul>
           </div>
 
@@ -36,7 +36,7 @@ export function FooterSection() {
             <h4 className="text-sm font-semibold text-foreground">Ressources</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li><Link href="/auth/login" className="transition-colors hover:text-primary">Connexion</Link></li>
-              <li><Link href="/auth/sign-up" className="transition-colors hover:text-primary">Creer un compte</Link></li>
+              <li><Link href="/auth/sign-up?fresh=1" className="transition-colors hover:text-primary">Creer un compte</Link></li>
               <li><Link href="#contact" className="transition-colors hover:text-primary">Nous contacter</Link></li>
             </ul>
           </div>

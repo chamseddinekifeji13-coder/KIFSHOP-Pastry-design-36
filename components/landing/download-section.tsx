@@ -81,7 +81,7 @@ export function DownloadSection() {
                   </ul>
                   <div className="mt-8">
                     <Button className="w-full bg-[#4A7C59] hover:bg-[#3d6a4b] text-white h-11 gap-2" asChild>
-                      <Link href="/auth/sign-up">
+                      <Link href="/auth/sign-up?fresh=1">
                         Commencer gratuitement
                         <ArrowRight className="h-4 w-4" />
                       </Link>
