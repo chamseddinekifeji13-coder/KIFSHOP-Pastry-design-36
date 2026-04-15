@@ -37,6 +37,10 @@ export function PlatformProspectsView() {
     const [p, s] = await Promise.all([fetchPlatformProspects(), fetchProspectStats()])
     setProspects(p)
     setStats(s)
+    setDetailProspect((current) => {
+      if (!current) return null
+      return p.find((item) => item.id === current.id) || current
+    })
     setLoading(false)
   }
 
@@ -54,13 +58,16 @@ export function PlatformProspectsView() {
     })
   }, [prospects, search, filterCity, filterSource, filterStatus])
 
-  const handleStatusChange = async (id: string, status: ProspectStatus) => {
+  const handleStatusChange = async (id: string, status: ProspectStatus): Promise<boolean> => {
     const ok = await updatePlatformProspect(id, { status })
     if (ok) {
+      setDetailProspect((current) => (current && current.id === id ? { ...current, status } : current))
       toast.success(`Statut mis a jour: ${STATUS_LABELS[status]}`)
-      loadData()
+      await loadData()
+      return true
     } else {
       toast.error("Erreur lors de la mise a jour")
+      return false
     }
   }
 

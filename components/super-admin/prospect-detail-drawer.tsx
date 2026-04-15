@@ -23,13 +23,14 @@ interface ProspectDetailDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdated: () => void
-  onStatusChange: (id: string, status: ProspectStatus) => void
+  onStatusChange: (id: string, status: ProspectStatus) => Promise<boolean>
 }
 
 export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, onStatusChange }: ProspectDetailDrawerProps) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [statusUpdating, setStatusUpdating] = useState<ProspectStatus | null>(null)
 
   // Edit fields
   const [businessName, setBusinessName] = useState(prospect.businessName)
@@ -88,13 +89,24 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
     }
   }
 
-  const handleAdvance = () => {
+  const handleAdvance = async () => {
     const ns = nextStatus()
-    if (ns) onStatusChange(prospect.id, ns)
+    if (!ns) return
+    setStatusUpdating(ns)
+    try {
+      await onStatusChange(prospect.id, ns)
+    } finally {
+      setStatusUpdating(null)
+    }
   }
 
-  const handleMarkLost = () => {
-    onStatusChange(prospect.id, "perdu")
+  const handleMarkLost = async () => {
+    setStatusUpdating("perdu")
+    try {
+      await onStatusChange(prospect.id, "perdu")
+    } finally {
+      setStatusUpdating(null)
+    }
   }
 
   return (
@@ -123,15 +135,32 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
           {prospect.status !== "converti" && prospect.status !== "perdu" && (
             <div className="flex flex-wrap gap-2">
               {nextStatus() && (
-                <Button size="sm" className="bg-[#4A7C59] hover:bg-[#3d6649] text-white" onClick={handleAdvance}>
-                  <ArrowRight className="h-4 w-4 mr-1" /> Avancer a &quot;{STATUS_LABELS[nextStatus()!]}&quot;
+                <Button
+                  size="sm"
+                  className="bg-[#4A7C59] hover:bg-[#3d6649] text-white"
+                  onClick={handleAdvance}
+                  disabled={!!statusUpdating}
+                >
+                  {statusUpdating === nextStatus()
+                    ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Mise a jour...</>
+                    : <><ArrowRight className="h-4 w-4 mr-1" /> Avancer a &quot;{STATUS_LABELS[nextStatus()!]}&quot;</>
+                  }
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => setEditing(!editing)}>
                 <Edit2 className="h-4 w-4 mr-1" /> {editing ? "Annuler" : "Modifier"}
               </Button>
-              <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={handleMarkLost}>
-                Marquer comme perdu
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={handleMarkLost}
+                disabled={!!statusUpdating}
+              >
+                {statusUpdating === "perdu"
+                  ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Mise a jour...</>
+                  : "Marquer comme perdu"
+                }
               </Button>
             </div>
           )}
@@ -242,12 +271,24 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                     return (
                       <div key={s} className="flex items-center gap-1">
                         <button
-                          onClick={() => onStatusChange(prospect.id, s)}
+                          onClick={async () => {
+                            if (statusUpdating) return
+                            setStatusUpdating(s)
+                            try {
+                              await onStatusChange(prospect.id, s)
+                            } finally {
+                              setStatusUpdating(null)
+                            }
+                          }}
+                          disabled={!!statusUpdating}
                           className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                             isCurrent ? STATUS_COLORS[s] : isPast ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                          }`}
+                          } ${statusUpdating ? "opacity-70 cursor-not-allowed" : ""}`}
                         >
-                          {STATUS_LABELS[s]}
+                          <span className="inline-flex items-center gap-1">
+                            {statusUpdating === s && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {STATUS_LABELS[s]}
+                          </span>
                         </button>
                         {i < PIPELINE_ORDER.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                       </div>
