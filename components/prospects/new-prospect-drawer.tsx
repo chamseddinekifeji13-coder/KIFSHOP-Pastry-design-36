@@ -15,6 +15,9 @@ import { useTenant } from "@/lib/tenant-context"
 import { createProspect, createProspectsBulk, extractPhonesFromText } from "@/lib/prospects/actions"
 import { toast } from "sonner"
 
+type EventType = "fete" | "mariage"
+type QuoteStatus = "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+
 interface NewProspectDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -33,6 +36,11 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   const [message, setMessage] = useState("")
   const [notes, setNotes] = useState("")
   const [reminderDate, setReminderDate] = useState("")
+  const [eventType, setEventType] = useState<EventType | "none">("none")
+  const [eventDate, setEventDate] = useState("")
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("non_demande")
+  const [quoteAmount, setQuoteAmount] = useState("")
+  const [quoteNotes, setQuoteNotes] = useState("")
 
   // Bulk extraction
   const [rawText, setRawText] = useState("")
@@ -42,6 +50,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   function resetForm() {
     setName(""); setPhone(""); setSource("instagram"); setMessage("")
     setNotes(""); setReminderDate(""); setRawText(""); setExtracted([])
+    setEventType("none"); setEventDate(""); setQuoteStatus("non_demande"); setQuoteAmount(""); setQuoteNotes("")
   }
 
   async function handleManualSubmit() {
@@ -53,6 +62,11 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
       source,
       message: message.trim() || undefined,
       notes: notes.trim() || undefined,
+      eventType: eventType === "none" ? undefined : eventType,
+      eventDate: eventDate || undefined,
+      quoteStatus: quoteStatus || undefined,
+      quoteAmount: quoteAmount ? parseFloat(quoteAmount) : undefined,
+      quoteNotes: quoteNotes.trim() || undefined,
       reminderAt: reminderDate ? new Date(reminderDate).toISOString() : undefined,
     })
     setSubmitting(false)
@@ -155,6 +169,46 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                   <div className="space-y-2">
                     <Label className="text-xs">Notes internes</Label>
                     <Textarea placeholder="Ex: Interesse par les gateaux de mariage..." className="min-h-[60px] resize-none" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Type evenement</Label>
+                      <Select value={eventType} onValueChange={(v) => setEventType(v as EventType | "none")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Aucun</SelectItem>
+                          <SelectItem value="fete">Fete</SelectItem>
+                          <SelectItem value="mariage">Mariage</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Date evenement</Label>
+                      <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Statut devis</Label>
+                      <Select value={quoteStatus} onValueChange={(v) => setQuoteStatus(v as QuoteStatus)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="non_demande">Non demande</SelectItem>
+                          <SelectItem value="a_preparer">A preparer</SelectItem>
+                          <SelectItem value="envoye">Envoye</SelectItem>
+                          <SelectItem value="accepte">Accepte</SelectItem>
+                          <SelectItem value="refuse">Refuse</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Montant devis (TND)</Label>
+                      <Input type="number" min="0" step="0.001" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Notes devis</Label>
+                    <Textarea placeholder="Details du devis mariage/fete..." className="min-h-[60px] resize-none" value={quoteNotes} onChange={(e) => setQuoteNotes(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Rappel de relance</Label>

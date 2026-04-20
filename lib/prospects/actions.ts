@@ -11,6 +11,11 @@ export interface Prospect {
   status: "nouveau" | "contacte" | "en-discussion" | "converti" | "perdu"
   message: string | null
   notes: string | null
+  eventType: "fete" | "mariage" | null
+  eventDate: string | null
+  quoteStatus: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+  quoteAmount: number | null
+  quoteNotes: string | null
   reminderAt: string | null
   reminderDismissed: boolean
   convertedOrderId: string | null
@@ -28,6 +33,11 @@ function mapRow(r: any): Prospect {
     status: r.status,
     message: r.message,
     notes: r.notes,
+    eventType: r.event_type,
+    eventDate: r.event_date,
+    quoteStatus: r.quote_status || "non_demande",
+    quoteAmount: r.quote_amount,
+    quoteNotes: r.quote_notes,
     reminderAt: r.reminder_at,
     reminderDismissed: r.reminder_dismissed,
     convertedOrderId: r.converted_order_id,
@@ -69,6 +79,11 @@ export async function createProspect(tenantId: string, data: {
   source: string
   message?: string
   notes?: string
+  eventType?: "fete" | "mariage"
+  eventDate?: string
+  quoteStatus?: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+  quoteAmount?: number
+  quoteNotes?: string
   reminderAt?: string
 }): Promise<Prospect | null> {
   const supabase = createClient()
@@ -79,6 +94,11 @@ export async function createProspect(tenantId: string, data: {
     source: data.source,
     message: data.message || null,
     notes: data.notes || null,
+    event_type: data.eventType || null,
+    event_date: data.eventDate || null,
+    quote_status: data.quoteStatus || "non_demande",
+    quote_amount: data.quoteAmount ?? null,
+    quote_notes: data.quoteNotes || null,
     reminder_at: data.reminderAt || null,
   }).select().single()
   if (error || !row) { console.error("Error creating prospect:", error?.message); return null }
@@ -116,6 +136,28 @@ export async function updateProspectNotes(id: string, notes: string): Promise<bo
     notes, updated_at: new Date().toISOString(),
   }).eq("id", id)
   if (error) { console.error("Error updating notes:", error.message); return false }
+  return true
+}
+
+export async function updateProspectCommercialDetails(id: string, data: {
+  eventType?: "fete" | "mariage" | null
+  eventDate?: string | null
+  quoteStatus?: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+  quoteAmount?: number | null
+  quoteNotes?: string | null
+}): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+  if (data.eventType !== undefined) updates.event_type = data.eventType
+  if (data.eventDate !== undefined) updates.event_date = data.eventDate
+  if (data.quoteStatus !== undefined) updates.quote_status = data.quoteStatus
+  if (data.quoteAmount !== undefined) updates.quote_amount = data.quoteAmount
+  if (data.quoteNotes !== undefined) updates.quote_notes = data.quoteNotes
+
+  const { error } = await supabase.from("prospects").update(updates).eq("id", id)
+  if (error) { console.error("Error updating prospect commercial details:", error.message); return false }
   return true
 }
 

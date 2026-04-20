@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Loader2, Trash2, Phone, MessageCircle, Instagram, Globe, Users, Bell, BellOff, ShoppingCart, ArrowRight, Calendar, StickyNote, CheckCircle2, XCircle, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,12 +10,13 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
-  updateProspectStatus, updateProspectNotes, setProspectReminder,
+  updateProspectStatus, updateProspectNotes, setProspectReminder, updateProspectCommercialDetails,
   dismissReminder, convertProspectToOrder, type Prospect,
 } from "@/lib/prospects/actions"
 import { toast } from "sonner"
@@ -54,6 +55,11 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   const router = useRouter()
   const [notes, setNotes] = useState(prospect.notes || "")
   const [reminderDate, setReminderDate] = useState("")
+  const [eventType, setEventType] = useState<"none" | "fete" | "mariage">(prospect.eventType || "none")
+  const [eventDate, setEventDate] = useState(prospect.eventDate ? prospect.eventDate.split("T")[0] : "")
+  const [quoteStatus, setQuoteStatus] = useState<Prospect["quoteStatus"]>(prospect.quoteStatus || "non_demande")
+  const [quoteAmount, setQuoteAmount] = useState(prospect.quoteAmount ? String(prospect.quoteAmount) : "")
+  const [quoteNotes, setQuoteNotes] = useState(prospect.quoteNotes || "")
   const [saving, setSaving] = useState(false)
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
   const SourceIcon = sourceIcons[prospect.source] || Users
@@ -61,6 +67,15 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   const hasActiveReminder = prospect.reminderAt && !prospect.reminderDismissed
   const reminderPast = hasActiveReminder && new Date(prospect.reminderAt!) <= new Date()
   const currentStepIndex = statusSteps.findIndex(s => s.key === prospect.status)
+
+  useEffect(() => {
+    setNotes(prospect.notes || "")
+    setEventType(prospect.eventType || "none")
+    setEventDate(prospect.eventDate ? prospect.eventDate.split("T")[0] : "")
+    setQuoteStatus(prospect.quoteStatus || "non_demande")
+    setQuoteAmount(prospect.quoteAmount ? String(prospect.quoteAmount) : "")
+    setQuoteNotes(prospect.quoteNotes || "")
+  }, [prospect])
 
   async function handleStatusChange(status: Prospect["status"]) {
     setSaving(true)
@@ -75,6 +90,20 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
     const ok = await updateProspectNotes(prospect.id, notes)
     setSaving(false)
     if (ok) { toast.success("Notes enregistrees"); onUpdate() }
+    else toast.error("Erreur")
+  }
+
+  async function handleSaveCommercial() {
+    setSaving(true)
+    const ok = await updateProspectCommercialDetails(prospect.id, {
+      eventType: eventType === "none" ? null : eventType,
+      eventDate: eventDate || null,
+      quoteStatus,
+      quoteAmount: quoteAmount ? parseFloat(quoteAmount) : null,
+      quoteNotes: quoteNotes.trim() || null,
+    })
+    setSaving(false)
+    if (ok) { toast.success("Devis et suivi enregistres"); onUpdate() }
     else toast.error("Erreur")
   }
 
@@ -189,6 +218,66 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                 </CardContent>
               </Card>
             )}
+
+            {/* Notes */}
+            <Card className="rounded-xl border shadow-sm">
+              <CardContent className="p-4 space-y-3">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3 w-3" /> Evenement & devis
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Type evenement</Label>
+                    <Select value={eventType} onValueChange={(v) => setEventType(v as "none" | "fete" | "mariage")}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Aucun</SelectItem>
+                        <SelectItem value="fete">Fete</SelectItem>
+                        <SelectItem value="mariage">Mariage</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Date evenement</Label>
+                    <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Statut devis</Label>
+                    <Select value={quoteStatus} onValueChange={(v) => setQuoteStatus(v as Prospect["quoteStatus"])}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="non_demande">Non demande</SelectItem>
+                        <SelectItem value="a_preparer">A preparer</SelectItem>
+                        <SelectItem value="envoye">Envoye</SelectItem>
+                        <SelectItem value="accepte">Accepte</SelectItem>
+                        <SelectItem value="refuse">Refuse</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Montant devis (TND)</Label>
+                    <Input type="number" min="0" step="0.001" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px]">Notes devis</Label>
+                  <Textarea
+                    placeholder="Besoins, theme, nombre de pieces, conditions..."
+                    className="min-h-[70px] resize-none text-sm"
+                    value={quoteNotes}
+                    onChange={(e) => setQuoteNotes(e.target.value)}
+                  />
+                </div>
+                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleSaveCommercial} disabled={saving}>
+                  {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                  Enregistrer devis/suivi
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Notes */}
             <Card className="rounded-xl border shadow-sm">
