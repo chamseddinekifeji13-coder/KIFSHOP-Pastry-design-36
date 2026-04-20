@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS platform_prospects (
   notes text,
   next_action text,
   next_action_date timestamptz,
+  demo_scheduled_at timestamptz,
+  demo_contact_person text,
   converted_tenant_id uuid REFERENCES tenants(id),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -38,3 +40,4 @@ CREATE INDEX IF NOT EXISTS idx_platform_prospects_status ON platform_prospects(s
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_city ON platform_prospects(city);
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_source ON platform_prospects(source);
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_next_action_date ON platform_prospects(next_action_date);
+CREATE INDEX IF NOT EXISTS idx_platform_prospects_demo_scheduled_at ON platform_prospects(demo_scheduled_at);

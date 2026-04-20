@@ -16,6 +16,8 @@ export interface PlatformProspect {
   notes: string | null
   nextAction: string | null
   nextActionDate: string | null
+  demoScheduledAt: string | null
+  demoContactPerson: string | null
   convertedTenantId: string | null
   createdAt: string
   updatedAt: string

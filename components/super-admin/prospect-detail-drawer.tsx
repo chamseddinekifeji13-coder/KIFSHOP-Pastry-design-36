@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -43,6 +43,23 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
   const [notes, setNotes] = useState(prospect.notes || "")
   const [nextAction, setNextAction] = useState(prospect.nextAction || "")
   const [nextActionDate, setNextActionDate] = useState(prospect.nextActionDate ? prospect.nextActionDate.split("T")[0] : "")
+  const [demoScheduledAt, setDemoScheduledAt] = useState(prospect.demoScheduledAt ? prospect.demoScheduledAt.slice(0, 16) : "")
+  const [demoContactPerson, setDemoContactPerson] = useState(prospect.demoContactPerson || "")
+
+  useEffect(() => {
+    setBusinessName(prospect.businessName)
+    setOwnerName(prospect.ownerName || "")
+    setPhone(prospect.phone || "")
+    setEmail(prospect.email || "")
+    setCity(prospect.city || "")
+    setAddress(prospect.address || "")
+    setSource(prospect.source)
+    setNotes(prospect.notes || "")
+    setNextAction(prospect.nextAction || "")
+    setNextActionDate(prospect.nextActionDate ? prospect.nextActionDate.split("T")[0] : "")
+    setDemoScheduledAt(prospect.demoScheduledAt ? prospect.demoScheduledAt.slice(0, 16) : "")
+    setDemoContactPerson(prospect.demoContactPerson || "")
+  }, [prospect])
 
   const nextStatus = (): ProspectStatus | null => {
     const idx = PIPELINE_ORDER.indexOf(prospect.status)
@@ -64,6 +81,8 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
       notes: notes.trim(),
       nextAction: nextAction.trim(),
       nextActionDate: nextActionDate || "",
+      demoScheduledAt: demoScheduledAt || "",
+      demoContactPerson: demoContactPerson.trim(),
     })
     setSaving(false)
     if (ok) {
@@ -212,6 +231,26 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                   <Label>Prochaine action</Label>
                   <Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
                 </div>
+                {prospect.status === "demo_planifiee" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Jour/heure demo</Label>
+                      <Input
+                        type="datetime-local"
+                        value={demoScheduledAt}
+                        onChange={(e) => setDemoScheduledAt(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Personne pour la demo</Label>
+                      <Input
+                        placeholder="Ex: Mme Ben Ali"
+                        value={demoContactPerson}
+                        onChange={(e) => setDemoContactPerson(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-2 md:col-span-2">
                   <Label>Notes</Label>
                   <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -316,6 +355,36 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                           )}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
+              {(prospect.demoScheduledAt || prospect.demoContactPerson) && (
+                <>
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Demo planifiee</h3>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-1">
+                      {prospect.demoScheduledAt && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Jour/heure: </span>
+                          {new Date(prospect.demoScheduledAt).toLocaleString("fr-FR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                      {prospect.demoContactPerson && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Personne: </span>
+                          <strong>{prospect.demoContactPerson}</strong>
+                        </p>
+                      )}
                     </div>
                   </div>
                   <Separator />

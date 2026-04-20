@@ -3,6 +3,7 @@
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { SuperAdminSidebar } from "@/components/super-admin/super-admin-sidebar"
 import { Separator } from "@/components/ui/separator"
+import { Toaster } from "@/components/ui/sonner"
 import { Shield } from "lucide-react"
 
 export default function SuperAdminLayout({
@@ -30,6 +31,7 @@ export default function SuperAdminLayout({
           </div>
         </header>
         <div className="flex-1 overflow-auto">{children}</div>
+        <Toaster position="top-right" />
       </SidebarInset>
     </SidebarProvider>
   )
