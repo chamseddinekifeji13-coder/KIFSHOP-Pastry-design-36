@@ -36,6 +36,77 @@ export interface Prospect {
   updatedAt: string
 }
 
+function normalizePhone(phone?: string | null): string | null {
+  if (!phone) return null
+  const trimmed = phone.trim()
+  if (!trimmed) return null
+
+  const cleaned = trimmed.replace(/[^\d+]/g, "")
+  if (!cleaned) return null
+
+  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`
+  return cleaned
+}
+
+async function findOrCreateClientFromProspect(
+  supabase: ReturnType<typeof createClient>,
+  prospect: { tenant_id: string; name: string; phone: string | null }
+): Promise<string | null> {
+  const normalizedPhone = normalizePhone(prospect.phone)
+  if (!normalizedPhone) return null
+
+  // 1) Try exact normalized phone first
+  const { data: byNormalized } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("tenant_id", prospect.tenant_id)
+    .eq("phone", normalizedPhone)
+    .maybeSingle()
+
+  if (byNormalized?.id) return byNormalized.id
+
+  // 2) Compatibility fallback for legacy values (stored without '+')
+  if (normalizedPhone.startsWith("+")) {
+    const { data: byLegacy } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", prospect.tenant_id)
+      .eq("phone", normalizedPhone.slice(1))
+      .maybeSingle()
+
+    if (byLegacy?.id) return byLegacy.id
+  }
+
+  // 3) Create a new client from prospect
+  const { data: created, error: createError } = await supabase
+    .from("clients")
+    .insert({
+      tenant_id: prospect.tenant_id,
+      name: prospect.name || null,
+      phone: normalizedPhone,
+      status: "normal",
+      return_count: 0,
+      total_orders: 0,
+      total_spent: 0,
+      notes: null,
+      updated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single()
+
+  if (!createError && created?.id) return created.id
+
+  // Race-condition safety: if another request created the same client in parallel.
+  const { data: afterConflict } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("tenant_id", prospect.tenant_id)
+    .eq("phone", normalizedPhone)
+    .maybeSingle()
+
+  return afterConflict?.id || null
+}
+
 function mapRow(r: any): Prospect {
   return {
     id: r.id,
@@ -159,6 +230,19 @@ export async function createProspectsBulk(tenantId: string, prospects: {
 
 export async function updateProspectStatus(id: string, status: Prospect["status"]): Promise<boolean> {
   const supabase = createClient()
+
+  if (status === "converti") {
+    const { data: p } = await supabase
+      .from("prospects")
+      .select("tenant_id, name, phone")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (p) {
+      await findOrCreateClientFromProspect(supabase, p)
+    }
+  }
+
   const { error } = await supabase.from("prospects").update({
     status, updated_at: new Date().toISOString(),
   }).eq("id", id)
@@ -235,6 +319,33 @@ export async function dismissReminder(id: string): Promise<boolean> {
 
 export async function convertProspectToOrder(id: string, orderId: string): Promise<boolean> {
   const supabase = createClient()
+
+  const { data: p } = await supabase
+    .from("prospects")
+    .select("tenant_id, name, phone")
+    .eq("id", id)
+    .maybeSingle()
+
+  let linkedClientId: string | null = null
+  if (p) {
+    linkedClientId = await findOrCreateClientFromProspect(supabase, p)
+  }
+
+  if (linkedClientId) {
+    const { error: orderLinkError } = await supabase
+      .from("orders")
+      .update({
+        client_id: linkedClientId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
+
+    // Keep compatibility with schemas where orders.client_id is still missing.
+    if (orderLinkError && !String(orderLinkError.message || "").includes("client_id")) {
+      console.error("Error linking order to client:", orderLinkError.message)
+    }
+  }
+
   const { error } = await supabase.from("prospects").update({
     status: "converti", converted_order_id: orderId, updated_at: new Date().toISOString(),
   }).eq("id", id)
