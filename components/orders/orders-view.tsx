@@ -59,6 +59,7 @@ import { exportToCSV } from "@/lib/csv-export"
 import { FastSalesView } from "./fast-sales-view"
 import { SendToDeliveryDialog } from "./send-to-delivery-dialog"
 import { DeliveryExportDialog } from "./delivery-export-dialog"
+import { convertProspectToOrder } from "@/lib/prospects/actions"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -123,6 +124,15 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
   bank_transfer: Building2,
   check: Wallet,
   cod_courier: Truck,
+}
+
+interface NewOrderPrefillData {
+  fromProspectId?: string
+  customerName?: string
+  customerPhone?: string
+  source?: string
+  deliveryAt?: string
+  autoDocumentType?: "none" | "invoice" | "delivery_note"
 }
 
 export function OrdersView() {
@@ -191,6 +201,7 @@ export function OrdersView() {
 
   // Send to delivery provider state
   const [sendToDeliveryOpen, setSendToDeliveryOpen] = useState(false)
+  const [newOrderPrefill, setNewOrderPrefill] = useState<NewOrderPrefillData | null>(null)
 
   const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
@@ -230,8 +241,27 @@ export function OrdersView() {
   )
 
   useEffect(() => {
-    if (searchParams.get("action") === "new") {
+    const action = searchParams.get("action")
+    const fromProspect = searchParams.get("fromProspect")
+
+    if (action === "new" || fromProspect) {
       setNewOrderOpen(true)
+    }
+
+    if (fromProspect) {
+      const safeSource = searchParams.get("source")
+      const safeDocType = searchParams.get("autoDocumentType")
+      const parsed: NewOrderPrefillData = {
+        fromProspectId: fromProspect,
+        customerName: searchParams.get("customerName") || "",
+        customerPhone: searchParams.get("customerPhone") || "",
+        source: ["phone", "comptoir", "web", "facebook"].includes(safeSource || "") ? (safeSource as string) : "phone",
+        deliveryAt: searchParams.get("deliveryAt") || "",
+        autoDocumentType: safeDocType === "invoice" || safeDocType === "delivery_note" ? safeDocType : "none",
+      }
+      setNewOrderPrefill(parsed)
+    } else {
+      setNewOrderPrefill(null)
     }
   }, [searchParams])
 
@@ -271,6 +301,59 @@ export function OrdersView() {
     const docs = await getOrderInvoices(orderId)
     setOrderDocuments(docs)
     setDocumentsLoading(false)
+  }, [])
+
+  const handleNewOrderCreated = useCallback(async (result?: {
+    orderId?: string
+    fromProspectId?: string
+    autoDocumentType?: "none" | "invoice" | "delivery_note"
+  }) => {
+    await mutate()
+
+    if (!result?.orderId) {
+      return
+    }
+
+    if (result.fromProspectId) {
+      const converted = await convertProspectToOrder(result.fromProspectId, result.orderId)
+      if (converted) {
+        toast.success("Prospect converti en commande")
+      } else {
+        toast.error("Commande creee mais conversion du prospect non finalisee")
+      }
+    }
+
+    if (result.autoDocumentType && result.autoDocumentType !== "none") {
+      const refreshedOrders = await fetchOrders(currentTenant.id)
+      const createdOrder = refreshedOrders.find((o) => o.id === result.orderId)
+      if (!createdOrder) {
+        toast.error("Commande creee, mais introuvable pour generer le document")
+        return
+      }
+
+      const doc = await generateDocument(createdOrder, currentTenant.id, result.autoDocumentType)
+      if (!doc) {
+        toast.error("Commande creee, mais generation du document echouee")
+        return
+      }
+
+      setSelectedOrder(createdOrder)
+      setSheetOpen(true)
+      void loadDocuments(createdOrder.id)
+      mutateDocuments()
+      setPreviewInvoice(doc)
+      setPreviewOpen(true)
+      toast.success(result.autoDocumentType === "invoice" ? "Facture generee automatiquement" : "BL genere automatiquement")
+    }
+
+    setNewOrderPrefill(null)
+  }, [mutate, currentTenant.id, loadDocuments, mutateDocuments])
+
+  const handleNewOrderOpenChange = useCallback((open: boolean) => {
+    setNewOrderOpen(open)
+    if (!open) {
+      setNewOrderPrefill(null)
+    }
   }, [])
 
   // Toggle view mode function
@@ -2330,7 +2413,12 @@ export function OrdersView() {
       </Dialog>
 
         {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
-        <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+        <UnifiedOrderDialog
+          open={newOrderOpen}
+          onOpenChange={handleNewOrderOpenChange}
+          initialData={newOrderPrefill}
+          onOrderCreated={handleNewOrderCreated}
+        />
 
         <DeliveryExportDialog
           open={deliveryExportOpen}

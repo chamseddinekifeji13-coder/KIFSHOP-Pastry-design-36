@@ -82,15 +82,29 @@ interface OrderItemLocal {
   price: number
 }
 
+interface UnifiedOrderDialogInitialData {
+  fromProspectId?: string
+  customerName?: string
+  customerPhone?: string
+  source?: string
+  deliveryAt?: string
+  autoDocumentType?: "none" | "invoice" | "delivery_note"
+}
+
 interface UnifiedOrderDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onOrderCreated?: () => void
+  initialData?: UnifiedOrderDialogInitialData | null
+  onOrderCreated?: (result?: {
+    orderId?: string
+    fromProspectId?: string
+    autoDocumentType?: "none" | "invoice" | "delivery_note"
+  }) => void
 }
 
 
 
-export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: UnifiedOrderDialogProps) {
+export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initialData }: UnifiedOrderDialogProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
   const {
     client,
@@ -152,6 +166,9 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const [discountPercent, setDiscountPercent] = useState("")
 
   const phoneRef = useRef<HTMLInputElement>(null)
+  const normalizeSource = useCallback((value?: string) => {
+    return ["phone", "comptoir", "web", "facebook"].includes(value || "") ? (value as string) : "phone"
+  }, [])
 
   // Auto-focus phone input when dialog opens
   useEffect(() => {
@@ -255,6 +272,38 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
       handlePhoneLookup()
     }
   }
+
+  useEffect(() => {
+    if (!open || !initialData) return
+
+    const normalizedPhone = (initialData.customerPhone || "").replace(/\D/g, "").slice(-8)
+    const normalizedSource = normalizeSource(initialData.source)
+
+    if (normalizedPhone) setPhone(normalizedPhone)
+    if (initialData.customerName) {
+      setClientName(initialData.customerName)
+      setClientNameEdit(initialData.customerName)
+    }
+    setSource(normalizedSource)
+
+    if (initialData.deliveryAt) {
+      setDeliveryType("delivery")
+      setDeliveryDate(initialData.deliveryAt)
+      setOrderMode("full")
+    }
+  }, [open, initialData, normalizeSource])
+
+  useEffect(() => {
+    if (!open || !initialData?.customerPhone) return
+    const normalizedPhone = initialData.customerPhone.replace(/\D/g, "").slice(-8)
+    if (!/^\d{8}$/.test(normalizedPhone) || currentTenant.id === "__fallback__") return
+
+    const timer = setTimeout(() => {
+      void lookupClient(normalizedPhone, currentTenant.id)
+    }, 120)
+
+    return () => clearTimeout(timer)
+  }, [open, initialData?.customerPhone, lookupClient, currentTenant.id])
 
   // Edit client name
   const handleEditClientName = async () => {
@@ -417,10 +466,15 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         const data = await res.json()
         throw new Error(data.error || "Erreur creation commande")
       }
+      const data = await res.json()
 
       setSuccess(true)
       toast.success("Commande enregistrée !")
-      onOrderCreated?.()
+      onOrderCreated?.({
+        orderId: data?.orderId,
+        fromProspectId: initialData?.fromProspectId,
+        autoDocumentType: initialData?.autoDocumentType || "none",
+      })
       // Close after delay
       setTimeout(() => {
         setPhone("")
@@ -454,7 +508,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     } finally {
       setSubmitting(false)
     }
-  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, clearClient, onOpenChange])
+  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, clearClient, onOpenChange, initialData?.fromProspectId, initialData?.autoDocumentType])
 
   // Close handler
   const handleClose = useCallback(() => {
@@ -1076,9 +1130,9 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
 
                       {/* Delivery date */}
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">Date de livraison</Label>
+                        <Label className="text-xs font-medium">Date et heure de livraison</Label>
                         <Input
-                          type="date"
+                          type="datetime-local"
                           value={deliveryDate}
                           onChange={(e) => setDeliveryDate(e.target.value)}
                           className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"

@@ -88,6 +88,8 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   const [quotePaymentReceived, setQuotePaymentReceived] = useState(!!prospect.quotePaymentReceived)
   const [quoteNotes, setQuoteNotes] = useState(prospect.quoteNotes || "")
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(prospect.quoteItems || [])
+  const [deliveryDateTime, setDeliveryDateTime] = useState("")
+  const [convertDocumentType, setConvertDocumentType] = useState<"none" | "invoice" | "delivery_note">("none")
   const [saving, setSaving] = useState(false)
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
   const SourceIcon = sourceIcons[prospect.source] || Users
@@ -108,6 +110,8 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
     setQuotePaymentReceived(!!prospect.quotePaymentReceived)
     setQuoteNotes(prospect.quoteNotes || "")
     setQuoteItems(prospect.quoteItems || [])
+    setDeliveryDateTime("")
+    setConvertDocumentType("none")
   }, [prospect])
 
   useEffect(() => {
@@ -211,13 +215,19 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
       toast.error("Le paiement exige n'est pas encore marque comme recu")
       return
     }
+    if (!deliveryDateTime) {
+      toast.error("Veuillez renseigner la date et l'heure de livraison")
+      return
+    }
 
     // Navigate to commandes with prospect data pre-filled via query params
     const params = new URLSearchParams({
       fromProspect: prospect.id,
       customerName: prospect.name,
       customerPhone: prospect.phone || "",
-      source: prospect.source === "phone" ? "phone" : prospect.source,
+      source: ["phone", "comptoir", "web", "facebook"].includes(prospect.source) ? prospect.source : "phone",
+      deliveryAt: deliveryDateTime,
+      autoDocumentType: convertDocumentType,
     })
     onOpenChange(false)
     router.push(`/commandes?${params.toString()}`)
@@ -629,11 +639,40 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
             {/* Actions */}
             <div className="space-y-2">
               {prospect.status !== "converti" && prospect.status !== "perdu" && (
-                <Button className="w-full bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" onClick={handleConvertToOrder}>
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  Convertir en commande
-                  <ArrowRight className="ml-auto h-4 w-4" />
-                </Button>
+                <>
+                  <Card className="rounded-xl border shadow-sm">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Date et heure de livraison</Label>
+                        <Input
+                          type="datetime-local"
+                          className="text-sm"
+                          value={deliveryDateTime}
+                          onChange={(e) => setDeliveryDateTime(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Document a generer apres conversion</Label>
+                        <Select value={convertDocumentType} onValueChange={(v) => setConvertDocumentType(v as "none" | "invoice" | "delivery_note")}>
+                          <SelectTrigger className="text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Aucun document automatique</SelectItem>
+                            <SelectItem value="invoice">Facture</SelectItem>
+                            <SelectItem value="delivery_note">Bon de livraison (BL)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Button className="w-full bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" onClick={handleConvertToOrder}>
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Convertir en commande
+                    <ArrowRight className="ml-auto h-4 w-4" />
+                  </Button>
+                </>
               )}
 
               {prospect.status === "converti" && (
