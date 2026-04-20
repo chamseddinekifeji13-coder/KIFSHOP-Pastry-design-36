@@ -105,28 +105,31 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
 
   return (
     <Sheet open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 bg-background">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#4A7C59]/10 to-[#D4A373]/10 p-6 border-b">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#4A7C59]/15">
-              <UserPlus className="h-5 w-5 text-[#4A7C59]" />
+        <div className="bg-gradient-to-r from-[#4A7C59]/15 via-[#4A7C59]/5 to-[#D4A373]/15 p-6 border-b">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#4A7C59]/15 ring-1 ring-[#4A7C59]/20">
+                <UserPlus className="h-5 w-5 text-[#4A7C59]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight">Nouveau prospect</h2>
+                <p className="text-xs text-muted-foreground">Ajoutez un contact ou importez en lot depuis vos messages</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold">Nouveau prospect</h2>
-              <p className="text-xs text-muted-foreground">Ajoutez un contact ou importez depuis un texte</p>
-            </div>
+            <Badge className="bg-[#4A7C59]/10 text-[#4A7C59] border border-[#4A7C59]/20">CRM</Badge>
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-5">
           <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="manual" className="text-xs">
+            <TabsList className="grid grid-cols-2 w-full h-10 p-1 rounded-xl bg-muted/70">
+              <TabsTrigger value="manual" className="text-xs rounded-lg">
                 <UserPlus className="mr-1.5 h-3.5 w-3.5" />
                 Saisie manuelle
               </TabsTrigger>
-              <TabsTrigger value="extract" className="text-xs">
+              <TabsTrigger value="extract" className="text-xs rounded-lg">
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                 Extraction auto
               </TabsTrigger>
@@ -136,6 +139,10 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
             <TabsContent value="manual" className="mt-4 space-y-4">
               <Card className="rounded-xl border shadow-sm">
                 <CardContent className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact principal</p>
+                    <p className="text-[11px] text-muted-foreground">* Champ obligatoire</p>
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Nom du prospect *</Label>
                     <Input placeholder="Ex: Sami Ben Ali" value={name} onChange={(e) => setName(e.target.value)} />
@@ -164,6 +171,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
 
               <Card className="rounded-xl border shadow-sm">
                 <CardContent className="p-4 space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contexte commercial</p>
                   <div className="space-y-2">
                     <Label className="text-xs">Message du client</Label>
                     <Textarea placeholder="Copiez le message du client ici..." className="min-h-[80px] resize-none" value={message} onChange={(e) => setMessage(e.target.value)} />
@@ -232,6 +240,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
             <TabsContent value="extract" className="mt-4 space-y-4">
               <Card className="rounded-xl border shadow-sm">
                 <CardContent className="p-4 space-y-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Import intelligent</p>
                   <div className="space-y-2">
                     <Label className="text-xs">Source des messages</Label>
                     <Select value={bulkSource} onValueChange={setBulkSource}>
@@ -254,7 +263,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                       onChange={(e) => setRawText(e.target.value)}
                     />
                   </div>
-                  <Button variant="outline" className="w-full" onClick={handleExtract}>
+                  <Button variant="outline" className="w-full rounded-lg" onClick={handleExtract}>
                     <Sparkles className="mr-2 h-4 w-4" />
                     Extraire les numeros
                   </Button>
@@ -285,17 +294,22 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t p-4">
-          {tab === "manual" ? (
-            <Button className="w-full bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" disabled={submitting} onClick={handleManualSubmit}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-              Ajouter le prospect
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={submitting}>
+              Annuler
             </Button>
-          ) : (
-            <Button className="w-full bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" disabled={submitting || extracted.length === 0} onClick={handleBulkSubmit}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Importer {extracted.length} prospect(s)
-            </Button>
-          )}
+            {tab === "manual" ? (
+              <Button className="flex-1 bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" disabled={submitting} onClick={handleManualSubmit}>
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                Ajouter
+              </Button>
+            ) : (
+              <Button className="flex-1 bg-[#4A7C59] hover:bg-[#3d6b4a] text-white" disabled={submitting || extracted.length === 0} onClick={handleBulkSubmit}>
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                Importer ({extracted.length})
+              </Button>
+            )}
+          </div>
         </div>
       </SheetContent>
     </Sheet>
