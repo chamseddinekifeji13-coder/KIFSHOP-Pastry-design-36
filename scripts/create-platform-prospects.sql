@@ -29,9 +29,9 @@ ALTER TABLE platform_prospects ADD CONSTRAINT platform_prospects_source_check
 ALTER TABLE platform_prospects ENABLE ROW LEVEL SECURITY;
 
 -- Only super admins (service role) can access this table
--- Since super admin uses the service role client, we allow all for service_role
+-- Restrict access explicitly to service_role requests.
 CREATE POLICY "Service role full access" ON platform_prospects
-  FOR ALL USING (true) WITH CHECK (true);
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
 
 -- Create index for common queries
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_status ON platform_prospects(status);

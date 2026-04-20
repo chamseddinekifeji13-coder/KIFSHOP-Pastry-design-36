@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import {
   CrmInteraction,
   CrmReminder,
@@ -15,12 +16,25 @@ import {
   QuoteStatus
 } from "./crm-types"
 
+async function requireSuperAdmin() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user || user.user_metadata?.is_super_admin !== true) {
+    redirect("/dashboard")
+  }
+
+  return { supabase, user }
+}
+
 // =====================================================
 // INTERACTIONS
 // =====================================================
 
 export async function fetchInteractions(prospectId?: string): Promise<CrmInteraction[]> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   let query = supabase
     .from("crm_interactions")
@@ -66,9 +80,7 @@ export async function createInteraction(data: {
   nextAction?: string
   nextActionDate?: string
 }): Promise<CrmInteraction | null> {
-  const supabase = await createClient()
-  
-  const { data: user } = await supabase.auth.getUser()
+  const { supabase, user } = await requireSuperAdmin()
   
   const { data: result, error } = await supabase
     .from("crm_interactions")
@@ -82,7 +94,7 @@ export async function createInteraction(data: {
       outcome: data.outcome,
       next_action: data.nextAction,
       next_action_date: data.nextActionDate,
-      created_by: user?.user?.id
+      created_by: user.id
     })
     .select()
     .single()
@@ -122,7 +134,7 @@ export async function fetchReminders(options?: {
   upcoming?: boolean
   overdue?: boolean
 }): Promise<CrmReminder[]> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   let query = supabase
     .from("crm_reminders")
@@ -184,9 +196,7 @@ export async function createReminder(data: {
   priority?: ReminderPriority
   interactionId?: string
 }): Promise<CrmReminder | null> {
-  const supabase = await createClient()
-  
-  const { data: user } = await supabase.auth.getUser()
+  const { supabase, user } = await requireSuperAdmin()
   
   const { data: result, error } = await supabase
     .from("crm_reminders")
@@ -198,8 +208,8 @@ export async function createReminder(data: {
       reminder_type: data.reminderType,
       priority: data.priority || "medium",
       interaction_id: data.interactionId,
-      created_by: user?.user?.id,
-      assigned_to: user?.user?.id
+      created_by: user.id,
+      assigned_to: user.id
     })
     .select()
     .single()
@@ -229,7 +239,7 @@ export async function createReminder(data: {
 }
 
 export async function updateReminderStatus(id: string, status: string, snoozedUntil?: string): Promise<boolean> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   const updateData: any = { status }
   
@@ -259,7 +269,7 @@ export async function updateReminderStatus(id: string, status: string, snoozedUn
 // =====================================================
 
 export async function fetchQuotes(prospectId?: string): Promise<CrmQuote[]> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   let query = supabase
     .from("crm_quotes")
@@ -338,9 +348,7 @@ export async function createQuote(data: {
     discountPercent?: number
   }[]
 }): Promise<CrmQuote | null> {
-  const supabase = await createClient()
-  
-  const { data: user } = await supabase.auth.getUser()
+  const { supabase, user } = await requireSuperAdmin()
   
   // Generate quote number
   const { count } = await supabase
@@ -378,7 +386,7 @@ export async function createQuote(data: {
       total,
       payment_terms: data.paymentTerms,
       notes: data.notes,
-      created_by: user?.user?.id
+      created_by: user.id
     })
     .select()
     .single()
@@ -439,7 +447,7 @@ export async function createQuote(data: {
 }
 
 export async function updateQuoteStatus(id: string, status: QuoteStatus, rejectionReason?: string): Promise<boolean> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   const updateData: any = { status }
   
@@ -477,8 +485,7 @@ export async function logActivity(
   description: string,
   metadata?: Record<string, any>
 ): Promise<void> {
-  const supabase = await createClient()
-  const { data: user } = await supabase.auth.getUser()
+  const { supabase, user } = await requireSuperAdmin()
   
   await supabase
     .from("crm_activity_log")
@@ -487,12 +494,12 @@ export async function logActivity(
       activity_type: activityType,
       description,
       metadata,
-      created_by: user?.user?.id
+      created_by: user.id
     })
 }
 
 export async function fetchActivityLog(prospectId?: string, limit = 50): Promise<CrmActivityLog[]> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   let query = supabase
     .from("crm_activity_log")
@@ -527,7 +534,7 @@ export async function fetchActivityLog(prospectId?: string, limit = 50): Promise
 // =====================================================
 
 export async function fetchCrmStats(): Promise<CrmStats> {
-  const supabase = await createClient()
+  const { supabase } = await requireSuperAdmin()
   
   // Fetch all data in parallel
   const now = new Date()
