@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Loader2, UserPlus, Instagram, Globe, MessageCircle, Phone, Users, Sparkles, Upload } from "lucide-react"
+import { useState } from "react"
+import { Loader2, UserPlus, Sparkles, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -28,7 +27,6 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   const { currentTenant } = useTenant()
   const [tab, setTab] = useState<string>("manual")
   const [submitting, setSubmitting] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(false)
 
   // Manual form
   const [name, setName] = useState("")
@@ -48,15 +46,6 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   const [rawText, setRawText] = useState("")
   const [bulkSource, setBulkSource] = useState("instagram")
   const [extracted, setExtracted] = useState<{ name: string; phone: string }[]>([])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const media = window.matchMedia("(min-width: 1024px)")
-    const sync = () => setIsDesktop(media.matches)
-    sync()
-    media.addEventListener("change", sync)
-    return () => media.removeEventListener("change", sync)
-  }, [])
 
   function resetForm() {
     setName(""); setPhone(""); setSource("instagram"); setMessage("")
@@ -163,18 +152,19 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Source</Label>
-                      <Select value={source} onValueChange={setSource}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent noPortal={isDesktop}>
-                        <SelectItem value="instagram"><span className="flex items-center gap-2"><Instagram className="h-3.5 w-3.5" />Instagram</span></SelectItem>
-                        <SelectItem value="tiktok"><span className="flex items-center gap-2"><Globe className="h-3.5 w-3.5" />TikTok</span></SelectItem>
-                        <SelectItem value="whatsapp"><span className="flex items-center gap-2"><MessageCircle className="h-3.5 w-3.5" />WhatsApp</span></SelectItem>
-                        <SelectItem value="messenger"><span className="flex items-center gap-2"><MessageCircle className="h-3.5 w-3.5" />Messenger</span></SelectItem>
-                        <SelectItem value="facebook"><span className="flex items-center gap-2"><Globe className="h-3.5 w-3.5" />Facebook</span></SelectItem>
-                        <SelectItem value="phone"><span className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" />Telephone</span></SelectItem>
-                        <SelectItem value="autre"><span className="flex items-center gap-2"><Users className="h-3.5 w-3.5" />Autre</span></SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                    >
+                      <option value="instagram">Instagram</option>
+                      <option value="tiktok">TikTok</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="messenger">Messenger</option>
+                      <option value="facebook">Facebook</option>
+                      <option value="phone">Telephone</option>
+                      <option value="autre">Autre</option>
+                    </select>
                   </div>
                 </CardContent>
               </Card>
@@ -193,14 +183,15 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="text-xs">Type evenement</Label>
-                      <Select value={eventType} onValueChange={(v) => setEventType(v as EventType | "none")}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent noPortal={isDesktop}>
-                          <SelectItem value="none">Aucun</SelectItem>
-                          <SelectItem value="fete">Fete</SelectItem>
-                          <SelectItem value="mariage">Mariage</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select
+                        value={eventType}
+                        onChange={(e) => setEventType(e.target.value as EventType | "none")}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                      >
+                        <option value="none">Aucun</option>
+                        <option value="fete">Fete</option>
+                        <option value="mariage">Mariage</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Date evenement</Label>
@@ -210,16 +201,17 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="text-xs">Statut devis</Label>
-                      <Select value={quoteStatus} onValueChange={(v) => setQuoteStatus(v as QuoteStatus)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent noPortal={isDesktop}>
-                          <SelectItem value="non_demande">Non demande</SelectItem>
-                          <SelectItem value="a_preparer">A preparer</SelectItem>
-                          <SelectItem value="envoye">Envoye</SelectItem>
-                          <SelectItem value="accepte">Accepte</SelectItem>
-                          <SelectItem value="refuse">Refuse</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select
+                        value={quoteStatus}
+                        onChange={(e) => setQuoteStatus(e.target.value as QuoteStatus)}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                      >
+                        <option value="non_demande">Non demande</option>
+                        <option value="a_preparer">A preparer</option>
+                        <option value="envoye">Envoye</option>
+                        <option value="accepte">Accepte</option>
+                        <option value="refuse">Refuse</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">Budget client (TND)</Label>
@@ -253,16 +245,17 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Import intelligent</p>
                   <div className="space-y-2">
                     <Label className="text-xs">Source des messages</Label>
-                    <Select value={bulkSource} onValueChange={setBulkSource}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent noPortal={isDesktop}>
-                        <SelectItem value="instagram">Instagram</SelectItem>
-                        <SelectItem value="tiktok">TikTok</SelectItem>
-                        <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                        <SelectItem value="messenger">Messenger</SelectItem>
-                        <SelectItem value="facebook">Facebook</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={bulkSource}
+                      onChange={(e) => setBulkSource(e.target.value)}
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                    >
+                      <option value="instagram">Instagram</option>
+                      <option value="tiktok">TikTok</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="messenger">Messenger</option>
+                      <option value="facebook">Facebook</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Collez vos messages ici</Label>
