@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -399,16 +398,15 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="space-y-1.5">
                     <Label className="text-[11px]">Type evenement</Label>
-                    <Select value={eventType} onValueChange={(v) => setEventType(v as "none" | "fete" | "mariage")}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Aucun</SelectItem>
-                        <SelectItem value="fete">Fete</SelectItem>
-                        <SelectItem value="mariage">Mariage</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={eventType}
+                      onChange={(e) => setEventType(e.target.value as "none" | "fete" | "mariage")}
+                    >
+                      <option value="none">Aucun</option>
+                      <option value="fete">Fete</option>
+                      <option value="mariage">Mariage</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[11px]">Date evenement</Label>
@@ -416,18 +414,17 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[11px]">Statut devis</Label>
-                    <Select value={quoteStatus} onValueChange={(v) => setQuoteStatus(v as Prospect["quoteStatus"])}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="non_demande">Non demande</SelectItem>
-                        <SelectItem value="a_preparer">A preparer</SelectItem>
-                        <SelectItem value="envoye">Envoye</SelectItem>
-                        <SelectItem value="accepte">Accepte</SelectItem>
-                        <SelectItem value="refuse">Refuse</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={quoteStatus}
+                      onChange={(e) => setQuoteStatus(e.target.value as Prospect["quoteStatus"])}
+                    >
+                      <option value="non_demande">Non demande</option>
+                      <option value="a_preparer">A preparer</option>
+                      <option value="envoye">Envoye</option>
+                      <option value="accepte">Accepte</option>
+                      <option value="refuse">Refuse</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[11px]">Budget client (TND)</Label>
@@ -441,16 +438,15 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="space-y-1.5">
                     <Label className="text-[11px]">Condition de paiement</Label>
-                    <Select value={quotePaymentMode} onValueChange={(v) => setQuotePaymentMode(v as Prospect["quotePaymentMode"])}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Non definie</SelectItem>
-                        <SelectItem value="acompte">Acompte exige</SelectItem>
-                        <SelectItem value="paiement_commande">Paiement a la commande</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={quotePaymentMode}
+                      onChange={(e) => setQuotePaymentMode(e.target.value as Prospect["quotePaymentMode"])}
+                    >
+                      <option value="none">Non definie</option>
+                      <option value="acompte">Acompte exige</option>
+                      <option value="paiement_commande">Paiement a la commande</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[11px]">Montant exige (TND)</Label>
@@ -489,16 +485,15 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                       {quoteItems.map((item) => (
                         <div key={item.id} className="rounded-lg border p-2 space-y-2">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <Select value={item.category} onValueChange={(v) => updateQuoteItem(item.id, { category: v as QuoteCategory })}>
-                              <SelectTrigger className="h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pf">{categoryLabels.pf}</SelectItem>
-                                <SelectItem value="boisson">{categoryLabels.boisson}</SelectItem>
-                                <SelectItem value="autre">{categoryLabels.autre}</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <select
+                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                              value={item.category}
+                              onChange={(e) => updateQuoteItem(item.id, { category: e.target.value as QuoteCategory })}
+                            >
+                              <option value="pf">{categoryLabels.pf}</option>
+                              <option value="boisson">{categoryLabels.boisson}</option>
+                              <option value="autre">{categoryLabels.autre}</option>
+                            </select>
                             <Input
                               className="h-8"
                               placeholder="Article (ex: Entremet framboise)"
@@ -507,17 +502,16 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                             />
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                            <Select value={item.unit} onValueChange={(v) => updateQuoteItem(item.id, { unit: v as QuoteUnit })}>
-                              <SelectTrigger className="h-8">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pieces">{unitLabels.pieces}</SelectItem>
-                                <SelectItem value="kg">{unitLabels.kg}</SelectItem>
-                                <SelectItem value="litres">{unitLabels.litres}</SelectItem>
-                                <SelectItem value="bouteilles">{unitLabels.bouteilles}</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <select
+                              className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                              value={item.unit}
+                              onChange={(e) => updateQuoteItem(item.id, { unit: e.target.value as QuoteUnit })}
+                            >
+                              <option value="pieces">{unitLabels.pieces}</option>
+                              <option value="kg">{unitLabels.kg}</option>
+                              <option value="litres">{unitLabels.litres}</option>
+                              <option value="bouteilles">{unitLabels.bouteilles}</option>
+                            </select>
                             <Input
                               className="h-8"
                               type="number"
@@ -653,16 +647,15 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs text-muted-foreground">Document a generer apres conversion</Label>
-                        <Select value={convertDocumentType} onValueChange={(v) => setConvertDocumentType(v as "none" | "invoice" | "delivery_note")}>
-                          <SelectTrigger className="text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Aucun document automatique</SelectItem>
-                            <SelectItem value="invoice">Facture</SelectItem>
-                            <SelectItem value="delivery_note">Bon de livraison (BL)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <select
+                          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                          value={convertDocumentType}
+                          onChange={(e) => setConvertDocumentType(e.target.value as "none" | "invoice" | "delivery_note")}
+                        >
+                          <option value="none">Aucun document automatique</option>
+                          <option value="invoice">Facture</option>
+                          <option value="delivery_note">Bon de livraison (BL)</option>
+                        </select>
                       </div>
                     </CardContent>
                   </Card>
