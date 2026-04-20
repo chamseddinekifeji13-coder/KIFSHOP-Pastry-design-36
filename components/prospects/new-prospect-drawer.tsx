@@ -5,7 +5,7 @@ import { Loader2, UserPlus, Instagram, Globe, MessageCircle, Phone, Users, Spark
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -104,8 +104,8 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 bg-background">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
+      <DialogContent className="w-full sm:max-w-3xl h-[90vh] max-h-[900px] overflow-y-auto p-0 bg-background">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#4A7C59]/15 via-[#4A7C59]/5 to-[#D4A373]/15 p-6 border-b">
           <div className="flex items-start justify-between gap-3">
@@ -311,7 +311,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
             )}
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
