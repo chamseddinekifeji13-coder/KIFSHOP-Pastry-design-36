@@ -251,7 +251,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setSaving(true)
     try {
       // Find categoryId from category name
-      const categoryObj = categories.find((c: Category) => c.name === category)
+      const categoryObj = categories.find((c: any) => c.name === category)
       const product = await addFinishedProduct(currentTenant.id, {
         name: name.trim(),
         categoryId: categoryObj?.id,
@@ -271,7 +271,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           category,
           yieldQuantity: validateNumber(yieldQty, 1),
           yieldUnit: yieldUnit || unit,
-          ingredients: ingredients.map(ing => ({
+          ingredients: ingredients.map((ing: any) => ({
             rawMaterialId: ing.materialId,
             quantity: validateNumber(ing.quantity),
             unit: ing.unit,
@@ -292,8 +292,8 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           ? `"${name}" avec sa fiche technique (${ingredients.length} ingrédients)`
           : `"${name}" sans recette`,
       })
-      mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
-      mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+      mutate((key: any) => typeof key === "string" && key.includes("finished-products"))
+      mutate((key: any) => typeof key === "string" && key.includes("recipes"))
       resetForm()
       onOpenChange(false)
     } catch (err: unknown) {
@@ -313,7 +313,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     }
   }
 
-  const availableMaterials = rawMaterials.filter((m: RawMaterial) => !ingredients.some(i => i.materialId === m.id))
+  const availableMaterials = rawMaterials.filter((m: any) => !ingredients.some((i: any) => i.materialId === m.id))
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>

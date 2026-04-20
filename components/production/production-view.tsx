@@ -344,7 +344,7 @@ export function ProductionView() {
             )}
           </div>
 
-          <RecipeDrawer open={recipeDrawerOpen} onOpenChange={setRecipeDrawerOpen} recipe={editingRecipe} onSuccess={() => mutateRecipes()} />
+          <RecipeDrawer open={recipeDrawerOpen} onOpenChange={setRecipeDrawerOpen} recipe={editingRecipe} />
         </TabsContent>
       </Tabs>
       

@@ -228,12 +228,13 @@ export function OrdersView() {
     }
   }, [searchParams])
 
-  const ordersByStatus = {
+  const ordersByStatus: Record<Order["status"], Order[]> = {
     nouveau: orders.filter((o) => o.status === "nouveau"),
     "en-preparation": orders.filter((o) => o.status === "en-preparation"),
     pret: orders.filter((o) => o.status === "pret"),
     "en-livraison": orders.filter((o) => o.status === "en-livraison"),
     livre: orders.filter((o) => o.status === "livre"),
+    annule: orders.filter((o) => o.status === "annule"),
   }
 
   const loadHistory = useCallback(async (orderId: string) => {

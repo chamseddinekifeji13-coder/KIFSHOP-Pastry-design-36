@@ -66,10 +66,10 @@ export async function POST(request: Request) {
       source: source || "phone",
       delivery_date: deliveryDate || null,
       notes: itemsDescription ? `${itemsDescription}${notes ? ` | ${notes}` : ""}` : (notes || null),
-      confirmed_by: session.id, // Use session.id instead of activeProfileId
+      confirmed_by: session.authUserId, // Use session.authUserId instead of activeProfileId
       confirmed_by_name: session.displayName,
       truecaller_verified: truecallerVerified || false,
-      created_by: session.id, // Use session.id for foreign key reference
+      created_by: session.authUserId, // Use session.authUserId for foreign key reference
     }
 
     // Add offer fields if they exist in the table

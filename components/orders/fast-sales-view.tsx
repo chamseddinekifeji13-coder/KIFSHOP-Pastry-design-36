@@ -400,16 +400,16 @@ export function FastSalesView() {
                   {!isNewClient && (
                     <div className="grid grid-cols-3 gap-2 mt-3">
                       <div className="bg-background rounded-lg p-2 text-center">
-                        <p className="text-lg font-bold">{client.totalOrders}</p>
+                        <p className="text-lg font-bold">{client.total_orders}</p>
                         <p className="text-xs text-muted-foreground">Commandes</p>
                       </div>
                       <div className="bg-background rounded-lg p-2 text-center">
-                        <p className="text-lg font-bold">{(client.totalSpent ?? 0).toFixed(0)}</p>
+                        <p className="text-lg font-bold">{(client.total_spent ?? 0).toFixed(0)}</p>
                         <p className="text-xs text-muted-foreground">TND</p>
                       </div>
                       <div className="bg-background rounded-lg p-2 text-center">
-                        <p className={`text-lg font-bold ${client.returnCount > 0 ? "text-red-600" : ""}`}>
-                          {client.returnCount}
+                        <p className={`text-lg font-bold ${client.return_count > 0 ? "text-red-600" : ""}`}>
+                          {client.return_count}
                         </p>
                         <p className="text-xs text-muted-foreground">Retours</p>
                       </div>

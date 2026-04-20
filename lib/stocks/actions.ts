@@ -137,7 +137,7 @@ export async function fetchRawMaterials(tenantId: string): Promise<RawMaterial[]
     .order("name")
 
   if (error) { console.error("Error fetching raw materials:", error.message); return [] }
-  return (data || []).map((r) => ({
+  return (data || []).map((r: any) => ({
     id: r.id, tenantId: r.tenant_id, name: r.name, unit: r.unit,
     currentStock: Number(r.current_stock), minStock: Number(r.min_stock),
     pricePerUnit: Number(r.price_per_unit), supplier: r.supplier,
@@ -168,13 +168,13 @@ export async function createRawMaterial(tenantId: string, data: {
     const inputNormalized = normalizeString(data.name)
     
     // Check for exact match
-    const exactMatch = allMaterials.find(m => normalizeString(m.name) === inputNormalized)
+    const exactMatch = allMaterials.find((m: any) => normalizeString(m.name) === inputNormalized)
     if (exactMatch) {
       throw new Error(`DUPLICATE:La matiere premiere "${exactMatch.name}" existe deja`)
     }
     
     // Check for very similar names (95%+ similarity) - more strict threshold
-    const similarMatch = allMaterials.find(m => calculateSimilarity(data.name, m.name) >= 0.95)
+    const similarMatch = allMaterials.find((m: any) => calculateSimilarity(data.name, m.name) >= 0.95)
     if (similarMatch) {
       throw new Error(`SIMILAR:Une matiere premiere tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
     }
@@ -314,7 +314,7 @@ export async function loadDraftCounts(sessionId: string): Promise<{
   const { data, error } = await supabase
     .from("inventory_counts").select("*").eq("session_id", sessionId)
   if (error) { console.error("Error loading draft counts:", error.message); return { counts: [], notes: null } }
-  const counts = (data || []).map(c => ({
+  const counts = (data || []).map((c: any) => ({
     id: c.raw_material_id || c.finished_product_id || c.id,
     name: c.item_name,
     type: (c.item_type === "raw_material" ? "mp" : "pf") as "mp" | "pf",
@@ -330,7 +330,7 @@ export async function fetchInventoryCounts(sessionId: string) {
   const supabase = createClient()
   const { data, error } = await supabase.from("inventory_counts").select("*").eq("session_id", sessionId)
   if (error) { console.error("Error fetching inventory counts:", error.message); return [] }
-  return (data || []).map(c => ({
+  return (data || []).map((c: any) => ({
     id: c.id, sessionId: c.session_id, itemType: c.item_type,
     rawMaterialId: c.raw_material_id, finishedProductId: c.finished_product_id,
     itemName: c.item_name, theoreticalQty: Number(c.theoretical_qty),
@@ -401,7 +401,8 @@ export async function fetchFinishedProducts(tenantId: string): Promise<FinishedP
 
 export async function createFinishedProduct(tenantId: string, data: {
   name: string; categoryId?: string; unit: string; currentStock: number; minStock: number;
-  sellingPrice: number; costPrice: number; description?: string; weight?: string
+  sellingPrice: number; costPrice: number; description?: string; weight?: string;
+  imageUrl?: string;
 }): Promise<FinishedProduct | null> {
   // Validate required fields - prevent null/empty names
   const trimmedName = data.name?.trim()
@@ -422,13 +423,13 @@ export async function createFinishedProduct(tenantId: string, data: {
     const inputNormalized = normalizeString(data.name)
     
     // Check for exact match
-    const exactMatch = allProducts.find(p => normalizeString(p.name) === inputNormalized)
+    const exactMatch = allProducts.find((p: any) => normalizeString(p.name) === inputNormalized)
     if (exactMatch) {
       throw new Error(`DUPLICATE:Le produit fini "${exactMatch.name}" existe deja`)
     }
     
     // Check for very similar names (95%+ similarity) - more strict threshold
-    const similarMatch = allProducts.find(p => calculateSimilarity(data.name, p.name) >= 0.95)
+    const similarMatch = allProducts.find((p: any) => calculateSimilarity(data.name, p.name) >= 0.95)
     if (similarMatch) {
       throw new Error(`SIMILAR:Un produit tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
     }
@@ -439,14 +440,18 @@ export async function createFinishedProduct(tenantId: string, data: {
     unit: data.unit, current_stock: data.currentStock, min_stock: data.minStock,
     selling_price: data.sellingPrice, cost_price: data.costPrice,
     description: data.description || null, weight: data.weight || null,
+    image_url: data.imageUrl || null,
   }).select().single()
   if (error) { throw new Error(error.message) }
   if (!row) { throw new Error("Aucune donnee retournee apres insertion") }
-  return { id: row.id, tenantId: row.tenant_id, categoryId: row.category_id, name: row.name,
+  return { 
+    id: row.id, tenantId: row.tenant_id, categoryId: row.category_id, name: row.name,
     description: row.description, unit: row.unit, currentStock: Number(row.current_stock),
     minStock: Number(row.min_stock), sellingPrice: Number(row.selling_price),
     costPrice: Number(row.cost_price), imageUrl: row.image_url, weight: row.weight,
-    isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at }
+    isPublished: row.is_published, minOrder: row.min_order, tags: row.tags || [], createdAt: row.created_at,
+    category: null, packagingCost: 0, ingredientCost: 0, storageLocationId: null 
+  }
 }
 
 export async function updateProductImage(productId: string, imageUrl: string): Promise<boolean> {
@@ -633,7 +638,7 @@ export async function fetchCategories(tenantId: string): Promise<Category[]> {
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching categories:", error.message); return [] }
-  return (data || []).map((c) => ({ id: c.id, tenantId: c.tenant_id, name: c.name, color: c.color }))
+  return (data || []).map((c: any) => ({ id: c.id, tenantId: c.tenant_id, name: c.name, color: c.color }))
 }
 
 export async function createCategory(tenantId: string, name: string, color?: string): Promise<Category | null> {
@@ -676,9 +681,9 @@ export async function saveCategories(tenantId: string, categories: Array<{ id: s
     const existingIds = (existing || []).map(c => c.id)
 
     // Determine which categories to create, update, or delete
-    const newCategories = categories.filter(c => c.isNew)
-    const updatedCategories = categories.filter(c => !c.isNew)
-    const deletedCategoryIds = existingIds.filter(id => !categories.some(c => c.id === id))
+    const newCategories = categories.filter((c: any) => c.isNew)
+    const updatedCategories = categories.filter((c: any) => !c.isNew)
+    const deletedCategoryIds = existingIds.filter((id: any) => !categories.some((c: any) => c.id === id))
 
     // Create new categories
     if (newCategories.length > 0) {
@@ -739,7 +744,7 @@ export async function fetchPackaging(tenantId: string): Promise<Packaging[]> {
     .eq("tenant_id", tenantId)
     .order("name")
   if (error) { console.error("Error fetching packaging:", error.message); return [] }
-  return (data || []).map((p) => ({
+  return (data || []).map((p: any) => ({
     id: p.id, tenantId: p.tenant_id, name: p.name, type: p.type,
     description: p.description, unit: p.unit,
     currentStock: Number(p.current_stock), minStock: Number(p.min_stock),
@@ -771,13 +776,13 @@ export async function createPackaging(tenantId: string, data: {
     const inputNormalized = normalizeString(data.name)
     
     // Check for exact match
-    const exactMatch = allPackaging.find(p => normalizeString(p.name) === inputNormalized)
+    const exactMatch = allPackaging.find((p: any) => normalizeString(p.name) === inputNormalized)
     if (exactMatch) {
       throw new Error(`DUPLICATE:L'emballage "${exactMatch.name}" existe deja`)
     }
     
     // Check for very similar names (95%+ similarity) - more strict threshold
-    const similarMatch = allPackaging.find(p => calculateSimilarity(data.name, p.name) >= 0.95)
+    const similarMatch = allPackaging.find((p: any) => calculateSimilarity(data.name, p.name) >= 0.95)
     if (similarMatch) {
       throw new Error(`SIMILAR:Un emballage tres similaire existe deja: "${similarMatch.name}". Voulez-vous vraiment continuer?`)
     }
@@ -1093,7 +1098,7 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
   const data: any[][] = []
 
   // Add raw materials
-  rawMaterials.forEach((rm) => {
+  rawMaterials.forEach((rm: any) => {
     data.push([
       "Matière Première",
       rm.name || "N/A",
@@ -1123,7 +1128,7 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
   })
 
   // Add packaging
-  packaging.forEach((pkg) => {
+  packaging.forEach((pkg: any) => {
     data.push([
       "Emballage",
       pkg.name || "N/A",
@@ -1131,7 +1136,7 @@ export async function exportStocksToCSV(tenantId: string): Promise<{ headers: st
       pkg.currentStock ?? 0,
       pkg.unit || "unité",
       pkg.minStock ?? 0,
-      (pkg.pricePerUnit ?? 0).toFixed(2),
+      (pkg.price ?? 0).toFixed(2),
       "",
       new Date(pkg.createdAt).toLocaleDateString("fr-FR"),
     ])
@@ -1190,7 +1195,7 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
     })
 
     // Add finished products
-    finishedProducts.forEach((fp) => {
+    finishedProducts.forEach((fp: any) => {
       const price = fp.sellingPrice ?? 0
       const value = (fp.currentStock ?? 0) * price
       totalValue += value
@@ -1210,8 +1215,8 @@ export async function getPrintableStocksReport(tenantId: string): Promise<{
     })
 
     // Add packaging
-    packaging.forEach((pkg) => {
-      const price = pkg.pricePerUnit ?? 0
+    packaging.forEach((pkg: any) => {
+      const price = pkg.price ?? 0
       const value = (pkg.currentStock ?? 0) * price
       totalValue += value
       const isLowStock = (pkg.currentStock ?? 0) <= (pkg.minStock ?? 0)
@@ -1257,7 +1262,7 @@ export async function fetchStockMovements(tenantId: string, limit = 50): Promise
     .order("created_at", { ascending: false })
     .limit(limit)
   if (error) { console.error("Error fetching stock movements:", error.message); return [] }
-  return (data || []).map((m) => ({
+  return (data || []).map((m: any) => ({
     id: m.id, tenantId: m.tenant_id, itemType: m.item_type,
     rawMaterialId: m.raw_material_id, finishedProductId: m.finished_product_id,
     movementType: m.movement_type, quantity: Number(m.quantity), unit: m.unit,
