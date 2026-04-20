@@ -245,8 +245,41 @@ export async function fetchClientOrders(clientId: string): Promise<OrderRecord[]
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
 
-  if (error) { console.error("Error fetching client orders:", error); return [] }
-  return (data || []).map(mapOrder)
+  if (!error) {
+    return (data || []).map(mapOrder)
+  }
+
+  // Compatibility fallback: some production schemas still do not have orders.client_id
+  const errMsg = String(error.message || "")
+  if (!errMsg.includes("client_id")) {
+    console.error("Error fetching client orders:", error)
+    return []
+  }
+
+  const { data: clientRow, error: clientError } = await supabase
+    .from("clients")
+    .select("phone, tenant_id")
+    .eq("id", clientId)
+    .single()
+
+  if (clientError || !clientRow?.phone) {
+    console.error("Error fetching client for orders fallback:", clientError)
+    return []
+  }
+
+  const { data: fallbackData, error: fallbackError } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("tenant_id", clientRow.tenant_id)
+    .eq("customer_phone", clientRow.phone)
+    .order("created_at", { ascending: false })
+
+  if (fallbackError) {
+    console.error("Error fetching client orders (phone fallback):", fallbackError)
+    return []
+  }
+
+  return (fallbackData || []).map(mapOrder)
 }
 
 // ─── Fetch All Orders (for stats) ─────────────────────────────
@@ -281,16 +314,28 @@ export async function markOrderReturned(
       updated_at: new Date().toISOString(),
     })
     .eq("id", orderId)
-    .select("client_id")
+    .select("client_id, customer_phone, tenant_id")
     .single()
 
   if (orderError || !order) { console.error("Error marking returned:", orderError); return false }
 
-  if (order.client_id) {
+  let linkedClientId: string | null = order.client_id || null
+
+  if (!linkedClientId && order.customer_phone && order.tenant_id) {
+    const { data: linkedClient } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", order.tenant_id)
+      .eq("phone", order.customer_phone)
+      .maybeSingle()
+    linkedClientId = linkedClient?.id || null
+  }
+
+  if (linkedClientId) {
     const { data: client } = await supabase
       .from("clients")
       .select("return_count")
-      .eq("id", order.client_id)
+      .eq("id", linkedClientId)
       .single()
 
     if (client) {
@@ -300,7 +345,7 @@ export async function markOrderReturned(
           return_count: (client.return_count || 0) + 1,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", order.client_id)
+        .eq("id", linkedClientId)
     }
   }
 
