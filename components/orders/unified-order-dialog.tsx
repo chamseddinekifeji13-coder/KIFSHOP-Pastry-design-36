@@ -991,7 +991,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                           <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent noPortal={false}>
                             <SelectItem value="pickup">Retrait au comptoir</SelectItem>
                             <SelectItem value="delivery">Livraison</SelectItem>
                           </SelectContent>
@@ -1101,7 +1101,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                                 <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                                   <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Selectionner..."} />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent noPortal={false}>
                                   {couriers.length === 0 && !loadingCouriers && (
                                     <SelectItem value="__none" disabled>
                                       Aucun livreur configure
@@ -1158,7 +1158,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                           <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent noPortal={false}>
                             <SelectItem value="phone">Telephone</SelectItem>
                             <SelectItem value="comptoir">Comptoir</SelectItem>
                             <SelectItem value="web">Web</SelectItem>
@@ -1197,7 +1197,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                           <SelectTrigger className="bg-white border-0 focus:ring-1 focus:ring-amber-300">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent noPortal={false}>
                             <SelectItem value="normal">Commande normale</SelectItem>
                             <SelectItem value="offre_client">
                               <span className="flex items-center gap-2">
