@@ -112,41 +112,55 @@ export function CrmInteractionsPanel({ prospectId, prospectName }: CrmInteractio
     }
 
     setSaving(true)
-    
-    const interaction = await createInteraction({
-      prospectId,
-      type,
-      direction: type !== "note" ? direction : undefined,
-      subject: subject.trim() || undefined,
-      content: content.trim() || undefined,
-      durationMinutes: duration ? parseInt(duration) : undefined,
-      outcome: outcome.trim() || undefined,
-      nextAction: nextAction.trim() || undefined,
-      nextActionDate: nextActionDate || undefined
-    })
 
-    if (interaction) {
-      // Create reminder if checked
-      if (createReminderChecked && nextAction && nextActionDate) {
-        await createReminder({
-          prospectId,
-          title: nextAction,
-          description: `Suite a: ${subject || type}`,
-          reminderDate: new Date(nextActionDate).toISOString(),
-          reminderType: type === "call" ? "call" : type === "email" ? "email" : type === "meeting" ? "meeting" : "follow_up" as ReminderType,
-          interactionId: interaction.id
-        })
+    try {
+      const interaction = await createInteraction({
+        prospectId,
+        type,
+        direction: type !== "note" ? direction : undefined,
+        subject: subject.trim() || undefined,
+        content: content.trim() || undefined,
+        durationMinutes: duration ? parseInt(duration) : undefined,
+        outcome: outcome.trim() || undefined,
+        nextAction: nextAction.trim() || undefined,
+        nextActionDate: nextActionDate || undefined
+      })
+
+      if (!interaction) {
+        toast.error("Erreur lors de l'enregistrement")
+        return
       }
 
-      toast.success("Interaction enregistree")
+      // Keep reminder creation non-blocking for interaction success UX.
+      if (createReminderChecked && nextAction && nextActionDate) {
+        try {
+          await createReminder({
+            prospectId,
+            title: nextAction,
+            description: `Suite a: ${subject || type}`,
+            reminderDate: new Date(nextActionDate).toISOString(),
+            reminderType: type === "call" ? "call" : type === "email" ? "email" : type === "meeting" ? "meeting" : "follow_up" as ReminderType,
+            interactionId: interaction.id
+          })
+          toast.success("Interaction et rappel enregistres")
+        } catch {
+          toast.success("Interaction enregistree")
+          toast.warning("Rappel non cree, veuillez reessayer")
+        }
+      } else {
+        toast.success("Interaction enregistree")
+      }
+
+      // Update local history immediately for instant UI feedback.
+      setInteractions((prev) => [interaction, ...prev])
       resetForm()
       setShowNewDialog(false)
-      loadInteractions()
-    } else {
+      await loadInteractions()
+    } catch {
       toast.error("Erreur lors de l'enregistrement")
+    } finally {
+      setSaving(false)
     }
-
-    setSaving(false)
   }
 
   return (
