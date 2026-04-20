@@ -69,7 +69,6 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/client"
 import { fetchActiveDeliveryCompanies, fetchDefaultDeliveryCompany } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
 import { tunisiaLocations, gouvernorats, getDelegations } from "@/lib/tunisia-locations"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { ChevronDown } from "lucide-react"
 
