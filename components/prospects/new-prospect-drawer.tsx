@@ -16,6 +16,7 @@ import { toast } from "sonner"
 
 type EventType = "fete" | "mariage"
 type QuoteStatus = "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+type QuotePaymentMode = "none" | "acompte" | "paiement_commande"
 
 interface NewProspectDrawerProps {
   open: boolean
@@ -40,6 +41,9 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("non_demande")
   const [quoteBudget, setQuoteBudget] = useState("")
   const [quoteAmount, setQuoteAmount] = useState("")
+  const [quotePaymentMode, setQuotePaymentMode] = useState<QuotePaymentMode>("none")
+  const [quotePaymentAmount, setQuotePaymentAmount] = useState("")
+  const [quotePaymentReceived, setQuotePaymentReceived] = useState(false)
   const [quoteNotes, setQuoteNotes] = useState("")
 
   // Bulk extraction
@@ -50,7 +54,8 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   function resetForm() {
     setName(""); setPhone(""); setSource("instagram"); setMessage("")
     setNotes(""); setReminderDate(""); setRawText(""); setExtracted([])
-    setEventType("none"); setEventDate(""); setQuoteStatus("non_demande"); setQuoteBudget(""); setQuoteAmount(""); setQuoteNotes("")
+    setEventType("none"); setEventDate(""); setQuoteStatus("non_demande"); setQuoteBudget(""); setQuoteAmount("")
+    setQuotePaymentMode("none"); setQuotePaymentAmount(""); setQuotePaymentReceived(false); setQuoteNotes("")
   }
 
   async function handleManualSubmit() {
@@ -67,6 +72,9 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
       quoteStatus: quoteStatus || undefined,
       quoteBudget: quoteBudget ? parseFloat(quoteBudget) : undefined,
       quoteAmount: quoteAmount ? parseFloat(quoteAmount) : undefined,
+      quotePaymentMode,
+      quotePaymentAmount: quotePaymentAmount ? parseFloat(quotePaymentAmount) : undefined,
+      quotePaymentReceived,
       quoteNotes: quoteNotes.trim() || undefined,
       reminderAt: reminderDate ? new Date(reminderDate).toISOString() : undefined,
     })
@@ -198,6 +206,41 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                       <Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Condition de paiement</Label>
+                      <select
+                        value={quotePaymentMode}
+                        onChange={(e) => setQuotePaymentMode(e.target.value as QuotePaymentMode)}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                      >
+                        <option value="none">Non definie</option>
+                        <option value="acompte">Acompte exige</option>
+                        <option value="paiement_commande">Paiement a la commande</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Montant exige (TND)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        value={quotePaymentAmount}
+                        onChange={(e) => setQuotePaymentAmount(e.target.value)}
+                        disabled={quotePaymentMode === "none"}
+                      />
+                    </div>
+                  </div>
+                  {quotePaymentMode !== "none" && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={quotePaymentReceived}
+                        onChange={(e) => setQuotePaymentReceived(e.target.checked)}
+                      />
+                      Paiement/acompte deja recu
+                    </label>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="text-xs">Statut devis</Label>

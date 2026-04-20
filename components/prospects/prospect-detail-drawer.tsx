@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Loader2, Trash2, Phone, MessageCircle, Instagram, Globe, Users, Bell, BellOff, ShoppingCart, ArrowRight, Calendar, StickyNote, CheckCircle2, XCircle, Clock, Plus, Minus } from "lucide-react"
+import { Loader2, Trash2, Phone, MessageCircle, Instagram, Globe, Users, Bell, BellOff, ShoppingCart, ArrowRight, Calendar, StickyNote, CheckCircle2, XCircle, Clock, Plus, Minus, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,6 +60,12 @@ const unitLabels: Record<QuoteUnit, string> = {
   bouteilles: "Bouteilles",
 }
 
+const paymentLabels: Record<Prospect["quotePaymentMode"], string> = {
+  none: "Non definie",
+  acompte: "Acompte exige",
+  paiement_commande: "Paiement a la commande",
+}
+
 interface Props {
   prospect: Prospect
   open: boolean
@@ -77,6 +83,9 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   const [quoteStatus, setQuoteStatus] = useState<Prospect["quoteStatus"]>(prospect.quoteStatus || "non_demande")
   const [quoteBudget, setQuoteBudget] = useState(prospect.quoteBudget ? String(prospect.quoteBudget) : "")
   const [quoteAmount, setQuoteAmount] = useState(prospect.quoteAmount ? String(prospect.quoteAmount) : "")
+  const [quotePaymentMode, setQuotePaymentMode] = useState<Prospect["quotePaymentMode"]>(prospect.quotePaymentMode || "none")
+  const [quotePaymentAmount, setQuotePaymentAmount] = useState(prospect.quotePaymentAmount ? String(prospect.quotePaymentAmount) : "")
+  const [quotePaymentReceived, setQuotePaymentReceived] = useState(!!prospect.quotePaymentReceived)
   const [quoteNotes, setQuoteNotes] = useState(prospect.quoteNotes || "")
   const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(prospect.quoteItems || [])
   const [saving, setSaving] = useState(false)
@@ -94,6 +103,9 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
     setQuoteStatus(prospect.quoteStatus || "non_demande")
     setQuoteBudget(prospect.quoteBudget ? String(prospect.quoteBudget) : "")
     setQuoteAmount(prospect.quoteAmount ? String(prospect.quoteAmount) : "")
+    setQuotePaymentMode(prospect.quotePaymentMode || "none")
+    setQuotePaymentAmount(prospect.quotePaymentAmount ? String(prospect.quotePaymentAmount) : "")
+    setQuotePaymentReceived(!!prospect.quotePaymentReceived)
     setQuoteNotes(prospect.quoteNotes || "")
     setQuoteItems(prospect.quoteItems || [])
   }, [prospect])
@@ -151,6 +163,17 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   }
 
   async function handleSaveCommercial() {
+    if (quoteStatus === "envoye" || quoteStatus === "accepte") {
+      if (quotePaymentMode === "none") {
+        toast.error("Definissez une condition de paiement (acompte ou paiement a la commande)")
+        return
+      }
+      if (!quotePaymentAmount || parseFloat(quotePaymentAmount) <= 0) {
+        toast.error("Renseignez le montant exige")
+        return
+      }
+    }
+
     setSaving(true)
     const ok = await updateProspectCommercialDetails(prospect.id, {
       eventType: eventType === "none" ? null : eventType,
@@ -158,6 +181,9 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
       quoteStatus,
       quoteBudget: quoteBudget ? parseFloat(quoteBudget) : null,
       quoteAmount: quoteAmount ? parseFloat(quoteAmount) : null,
+      quotePaymentMode,
+      quotePaymentAmount: quotePaymentAmount ? parseFloat(quotePaymentAmount) : null,
+      quotePaymentReceived,
       quoteNotes: quoteNotes.trim() || null,
       quoteItems,
     })
@@ -181,6 +207,11 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   }
 
   function handleConvertToOrder() {
+    if (quotePaymentMode !== "none" && !quotePaymentReceived) {
+      toast.error("Le paiement exige n'est pas encore marque comme recu")
+      return
+    }
+
     // Navigate to commandes with prospect data pre-filled via query params
     const params = new URLSearchParams({
       fromProspect: prospect.id,
@@ -190,6 +221,77 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
     })
     onOpenChange(false)
     router.push(`/commandes?${params.toString()}`)
+  }
+
+  function handlePrintQuote() {
+    const total = quoteItems.reduce((sum, item) => sum + (item.lineTotal || 0), 0)
+    const budget = parseFloat(quoteBudget || "0")
+    const paymentAmount = parseFloat(quotePaymentAmount || "0")
+    const safe = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const rows = quoteItems.map((item, idx) => `
+      <tr>
+        <td>${idx + 1}</td>
+        <td>${safe(item.label || "-")}</td>
+        <td>${safe(categoryLabels[item.category])}</td>
+        <td>${safe(unitLabels[item.unit])}</td>
+        <td>${item.quantity}</td>
+        <td>${item.unitPrice.toFixed(3)}</td>
+        <td>${item.lineTotal.toFixed(3)}</td>
+      </tr>
+    `).join("")
+
+    const html = `
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Devis - ${safe(prospect.name)}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #1f2937; }
+            h1 { margin: 0 0 8px; }
+            .muted { color: #6b7280; font-size: 12px; }
+            .block { margin: 14px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; text-align: left; }
+            th { background: #f9fafb; }
+            .totals { margin-top: 14px; width: 340px; margin-left: auto; font-size: 13px; }
+            .totals div { display: flex; justify-content: space-between; margin: 4px 0; }
+            .strong { font-weight: 700; }
+          </style>
+        </head>
+        <body>
+          <h1>Devis evenementiel</h1>
+          <div class="muted">Client: ${safe(prospect.name)} | Telephone: ${safe(prospect.phone || "-")}</div>
+          <div class="muted">Type: ${eventType === "none" ? "-" : safe(eventType === "mariage" ? "Mariage" : "Fete")} | Date: ${safe(eventDate || "-")}</div>
+          <div class="block"><strong>Statut devis:</strong> ${safe(quoteStatus)}</div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Article</th><th>Categorie</th><th>Unite</th><th>Quantite</th><th>P.U</th><th>Total</th>
+              </tr>
+            </thead>
+            <tbody>${rows || '<tr><td colspan="7">Aucune ligne</td></tr>'}</tbody>
+          </table>
+          <div class="totals">
+            <div><span>Budget client</span><span>${budget ? budget.toFixed(3) : "0.000"} TND</span></div>
+            <div><span>Condition paiement</span><span>${safe(paymentLabels[quotePaymentMode])}</span></div>
+            <div><span>Montant exige</span><span>${paymentAmount ? paymentAmount.toFixed(3) : "0.000"} TND</span></div>
+            <div><span>Paiement recu</span><span>${quotePaymentReceived ? "Oui" : "Non"}</span></div>
+            <div class="strong"><span>Total devis</span><span>${total.toFixed(3)} TND</span></div>
+          </div>
+          <div class="block"><strong>Notes:</strong><br/>${safe(quoteNotes || "-")}</div>
+          <script>window.onload=function(){window.print();}</script>
+        </body>
+      </html>
+    `
+
+    const printWindow = window.open("", "_blank", "width=1000,height=800")
+    if (!printWindow) {
+      toast.error("Impossible d'ouvrir la fenetre d'impression")
+      return
+    }
+    printWindow.document.open()
+    printWindow.document.write(html)
+    printWindow.document.close()
   }
 
   return (
@@ -326,6 +428,42 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                     <Input type="number" min="0" step="0.001" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} readOnly />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Condition de paiement</Label>
+                    <Select value={quotePaymentMode} onValueChange={(v) => setQuotePaymentMode(v as Prospect["quotePaymentMode"])}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Non definie</SelectItem>
+                        <SelectItem value="acompte">Acompte exige</SelectItem>
+                        <SelectItem value="paiement_commande">Paiement a la commande</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Montant exige (TND)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      value={quotePaymentAmount}
+                      onChange={(e) => setQuotePaymentAmount(e.target.value)}
+                      disabled={quotePaymentMode === "none"}
+                    />
+                  </div>
+                </div>
+                {quotePaymentMode !== "none" && (
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={quotePaymentReceived}
+                      onChange={(e) => setQuotePaymentReceived(e.target.checked)}
+                    />
+                    Paiement/acompte recu
+                  </label>
+                )}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-[11px]">Composition du devis</Label>
@@ -424,10 +562,16 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                     onChange={(e) => setQuoteNotes(e.target.value)}
                   />
                 </div>
-                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleSaveCommercial} disabled={saving}>
-                  {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                  Enregistrer devis/suivi
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleSaveCommercial} disabled={saving}>
+                    {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                    Enregistrer devis/suivi
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handlePrintQuote}>
+                    <Printer className="mr-1 h-3 w-3" />
+                    Imprimer devis
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 

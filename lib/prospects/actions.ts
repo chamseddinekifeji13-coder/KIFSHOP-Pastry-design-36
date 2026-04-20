@@ -17,6 +17,9 @@ export interface Prospect {
   quoteAmount: number | null
   quoteNotes: string | null
   quoteBudget: number | null
+  quotePaymentMode: "none" | "acompte" | "paiement_commande"
+  quotePaymentAmount: number | null
+  quotePaymentReceived: boolean
   quoteItems: Array<{
     id: string
     category: "pf" | "boisson" | "autre"
@@ -49,6 +52,9 @@ function mapRow(r: any): Prospect {
     quoteAmount: r.quote_amount,
     quoteNotes: r.quote_notes,
     quoteBudget: r.quote_budget,
+    quotePaymentMode: r.quote_payment_mode || "none",
+    quotePaymentAmount: r.quote_payment_amount,
+    quotePaymentReceived: !!r.quote_payment_received,
     quoteItems: Array.isArray(r.quote_items) ? r.quote_items : [],
     reminderAt: r.reminder_at,
     reminderDismissed: r.reminder_dismissed,
@@ -97,6 +103,9 @@ export async function createProspect(tenantId: string, data: {
   quoteAmount?: number
   quoteNotes?: string
   quoteBudget?: number
+  quotePaymentMode?: "none" | "acompte" | "paiement_commande"
+  quotePaymentAmount?: number
+  quotePaymentReceived?: boolean
   quoteItems?: Array<{
     id: string
     category: "pf" | "boisson" | "autre"
@@ -122,6 +131,9 @@ export async function createProspect(tenantId: string, data: {
     quote_amount: data.quoteAmount ?? null,
     quote_notes: data.quoteNotes || null,
     quote_budget: data.quoteBudget ?? null,
+    quote_payment_mode: data.quotePaymentMode || "none",
+    quote_payment_amount: data.quotePaymentAmount ?? null,
+    quote_payment_received: data.quotePaymentReceived ?? false,
     quote_items: data.quoteItems ?? [],
     reminder_at: data.reminderAt || null,
   }).select().single()
@@ -170,6 +182,9 @@ export async function updateProspectCommercialDetails(id: string, data: {
   quoteAmount?: number | null
   quoteNotes?: string | null
   quoteBudget?: number | null
+  quotePaymentMode?: "none" | "acompte" | "paiement_commande"
+  quotePaymentAmount?: number | null
+  quotePaymentReceived?: boolean
   quoteItems?: Array<{
     id: string
     category: "pf" | "boisson" | "autre"
@@ -190,6 +205,9 @@ export async function updateProspectCommercialDetails(id: string, data: {
   if (data.quoteAmount !== undefined) updates.quote_amount = data.quoteAmount
   if (data.quoteNotes !== undefined) updates.quote_notes = data.quoteNotes
   if (data.quoteBudget !== undefined) updates.quote_budget = data.quoteBudget
+  if (data.quotePaymentMode !== undefined) updates.quote_payment_mode = data.quotePaymentMode
+  if (data.quotePaymentAmount !== undefined) updates.quote_payment_amount = data.quotePaymentAmount
+  if (data.quotePaymentReceived !== undefined) updates.quote_payment_received = data.quotePaymentReceived
   if (data.quoteItems !== undefined) updates.quote_items = data.quoteItems ?? []
 
   const { error } = await supabase.from("prospects").update(updates).eq("id", id)

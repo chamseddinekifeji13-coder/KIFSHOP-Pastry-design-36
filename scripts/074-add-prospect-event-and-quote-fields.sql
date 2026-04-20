@@ -8,6 +8,9 @@ ALTER TABLE public.prospects
   ADD COLUMN IF NOT EXISTS quote_amount numeric(12,3),
   ADD COLUMN IF NOT EXISTS quote_notes text,
   ADD COLUMN IF NOT EXISTS quote_budget numeric(12,3),
+  ADD COLUMN IF NOT EXISTS quote_payment_mode text DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS quote_payment_amount numeric(12,3),
+  ADD COLUMN IF NOT EXISTS quote_payment_received boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS quote_items jsonb DEFAULT '[]'::jsonb;
 
 DO $$
@@ -20,6 +23,19 @@ BEGIN
     ALTER TABLE public.prospects
       ADD CONSTRAINT prospects_event_type_check
       CHECK (event_type IS NULL OR event_type IN ('fete', 'mariage'));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'prospects_quote_payment_mode_check'
+  ) THEN
+    ALTER TABLE public.prospects
+      ADD CONSTRAINT prospects_quote_payment_mode_check
+      CHECK (quote_payment_mode IN ('none', 'acompte', 'paiement_commande'));
   END IF;
 END $$;
 
