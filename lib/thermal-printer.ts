@@ -85,20 +85,22 @@ export class ThermalPrinter {
   
   // Request printer access (showAll = true to show all USB devices without filter)
   async connect(showAll: boolean = false): Promise<boolean> {
-    if (!ThermalPrinter.isSupported()) {
+    // Capture once to avoid any mismatch between multiple availability checks.
+    const usb = typeof navigator !== "undefined" ? navigator.usb : undefined
+    if (!usb) {
       throw new Error("WebUSB n'est pas supporté par ce navigateur. Utilisez Chrome ou Edge.")
     }
     
     try {
       // If showAll is true, show all USB devices (useful when printer is not in the filter list)
       if (showAll) {
-        this.device = await navigator.usb.requestDevice({
+        this.device = await usb.requestDevice({
           filters: []  // Empty filter shows all USB devices
         })
       } else {
         // Request USB device - filter for common thermal printer vendors
         // Including POS80 and other generic Chinese thermal printers
-        this.device = await navigator.usb.requestDevice({
+        this.device = await usb.requestDevice({
           filters: [
             // Epson
             { vendorId: 0x04B8 },
@@ -150,7 +152,9 @@ export class ThermalPrinter {
             if (ep.direction === "out" && ep.type === "bulk") {
               this.endpoint = ep.endpointNumber
               await this.device.claimInterface(iface.interfaceNumber)
-              console.log("[v0] Printer connected:", this.device.productName)
+              if (process.env.NODE_ENV === 'development') {
+                console.log("[v0] Printer connected:", this.device.productName)
+              }
               return true
             }
           }

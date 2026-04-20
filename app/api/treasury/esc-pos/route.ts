@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { getServerSession } from '@/lib/active-profile'
+import { withSession, serverErrorResponse } from '@/lib/api-helpers'
 import * as net from 'net'
 
 // ESC/POS Commands for cash drawer
@@ -50,6 +50,9 @@ function generateTestPrint(): Buffer {
 }
 
 function generateReceipt(data: {
+  storeName?: string
+  storeAddress?: string
+  storePhone?: string
   items: Array<{ name: string; qty: number; price: number }>
   total: number
   cashierName: string
@@ -64,8 +67,17 @@ function generateReceipt(data: {
   parts.push(ESC_COMMANDS.CENTER)
   parts.push(Buffer.from('================================\n'))
   parts.push(ESC_COMMANDS.BOLD_ON)
-  parts.push(Buffer.from('KIFSHOP PASTRY\n'))
+  parts.push(Buffer.from((data.storeName || 'KIFSHOP PASTRY') + '\n'))
   parts.push(ESC_COMMANDS.BOLD_OFF)
+  
+  // Store address and phone if configured
+  if (data.storeAddress) {
+    parts.push(Buffer.from(data.storeAddress + '\n'))
+  }
+  if (data.storePhone) {
+    parts.push(Buffer.from('Tel: ' + data.storePhone + '\n'))
+  }
+  
   parts.push(Buffer.from('================================\n'))
   
   // Info
@@ -175,14 +187,13 @@ function generateZReport(closure: {
 }
 
 export async function POST(request: NextRequest): Promise<Response> {
-  try {
-    const session = await getServerSession()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  // Get session with proper error handling
+  const [session, authError] = await withSession()
+  if (authError) return authError
 
+  try {
     const body = await request.json()
-    const { action, printerIp, printerPort = 9100, items, total, cashierName, paymentMethod, amountPaid, change, closure, managerName } = body
+    const { action, printerIp, printerPort = 9100, items, total, cashierName, paymentMethod, amountPaid, change, closure, managerName, storeName, storeAddress, storePhone } = body
 
     // Demo mode - no real printer
     if (!printerIp || printerIp === 'demo') {
@@ -216,7 +227,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                 dataToSend = ESC_COMMANDS.OPEN_DRAWER
                 break
               case 'print_receipt':
-                dataToSend = generateReceipt({ items, total, cashierName, paymentMethod, amountPaid, change })
+                dataToSend = generateReceipt({ storeName, storeAddress, storePhone, items, total, cashierName, paymentMethod, amountPaid, change })
                 break
               case 'print_z_report':
                 dataToSend = generateZReport(closure, managerName)
@@ -266,10 +277,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       })
     })
   } catch (error) {
-    console.error('[Treasury] ESC/POS Error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Erreur serveur' },
-      { status: 500 }
-    )
+    return serverErrorResponse(error)
   }
 }

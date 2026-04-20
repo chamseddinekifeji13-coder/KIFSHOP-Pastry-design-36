@@ -11,11 +11,100 @@ export interface Prospect {
   status: "nouveau" | "contacte" | "en-discussion" | "converti" | "perdu"
   message: string | null
   notes: string | null
+  eventType: "fete" | "mariage" | null
+  eventDate: string | null
+  quoteStatus: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+  quoteAmount: number | null
+  quoteNotes: string | null
+  quoteBudget: number | null
+  quotePaymentMode: "none" | "acompte" | "paiement_commande"
+  quotePaymentAmount: number | null
+  quotePaymentReceived: boolean
+  quoteItems: Array<{
+    id: string
+    category: "pf" | "boisson" | "autre"
+    label: string
+    unit: "pieces" | "kg" | "litres" | "bouteilles"
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
   reminderAt: string | null
   reminderDismissed: boolean
   convertedOrderId: string | null
   createdAt: string
   updatedAt: string
+}
+
+function normalizePhone(phone?: string | null): string | null {
+  if (!phone) return null
+  const trimmed = phone.trim()
+  if (!trimmed) return null
+
+  const cleaned = trimmed.replace(/[^\d+]/g, "")
+  if (!cleaned) return null
+
+  if (cleaned.startsWith("00")) return `+${cleaned.slice(2)}`
+  return cleaned
+}
+
+async function findOrCreateClientFromProspect(
+  supabase: ReturnType<typeof createClient>,
+  prospect: { tenant_id: string; name: string; phone: string | null }
+): Promise<string | null> {
+  const normalizedPhone = normalizePhone(prospect.phone)
+  if (!normalizedPhone) return null
+
+  // 1) Try exact normalized phone first
+  const { data: byNormalized } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("tenant_id", prospect.tenant_id)
+    .eq("phone", normalizedPhone)
+    .maybeSingle()
+
+  if (byNormalized?.id) return byNormalized.id
+
+  // 2) Compatibility fallback for legacy values (stored without '+')
+  if (normalizedPhone.startsWith("+")) {
+    const { data: byLegacy } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", prospect.tenant_id)
+      .eq("phone", normalizedPhone.slice(1))
+      .maybeSingle()
+
+    if (byLegacy?.id) return byLegacy.id
+  }
+
+  // 3) Create a new client from prospect
+  const { data: created, error: createError } = await supabase
+    .from("clients")
+    .insert({
+      tenant_id: prospect.tenant_id,
+      name: prospect.name || null,
+      phone: normalizedPhone,
+      status: "normal",
+      return_count: 0,
+      total_orders: 0,
+      total_spent: 0,
+      notes: null,
+      updated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single()
+
+  if (!createError && created?.id) return created.id
+
+  // Race-condition safety: if another request created the same client in parallel.
+  const { data: afterConflict } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("tenant_id", prospect.tenant_id)
+    .eq("phone", normalizedPhone)
+    .maybeSingle()
+
+  return afterConflict?.id || null
 }
 
 function mapRow(r: any): Prospect {
@@ -28,6 +117,16 @@ function mapRow(r: any): Prospect {
     status: r.status,
     message: r.message,
     notes: r.notes,
+    eventType: r.event_type,
+    eventDate: r.event_date,
+    quoteStatus: r.quote_status || "non_demande",
+    quoteAmount: r.quote_amount,
+    quoteNotes: r.quote_notes,
+    quoteBudget: r.quote_budget,
+    quotePaymentMode: r.quote_payment_mode || "none",
+    quotePaymentAmount: r.quote_payment_amount,
+    quotePaymentReceived: !!r.quote_payment_received,
+    quoteItems: Array.isArray(r.quote_items) ? r.quote_items : [],
     reminderAt: r.reminder_at,
     reminderDismissed: r.reminder_dismissed,
     convertedOrderId: r.converted_order_id,
@@ -69,6 +168,24 @@ export async function createProspect(tenantId: string, data: {
   source: string
   message?: string
   notes?: string
+  eventType?: "fete" | "mariage"
+  eventDate?: string
+  quoteStatus?: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+  quoteAmount?: number
+  quoteNotes?: string
+  quoteBudget?: number
+  quotePaymentMode?: "none" | "acompte" | "paiement_commande"
+  quotePaymentAmount?: number
+  quotePaymentReceived?: boolean
+  quoteItems?: Array<{
+    id: string
+    category: "pf" | "boisson" | "autre"
+    label: string
+    unit: "pieces" | "kg" | "litres" | "bouteilles"
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
   reminderAt?: string
 }): Promise<Prospect | null> {
   const supabase = createClient()
@@ -79,6 +196,16 @@ export async function createProspect(tenantId: string, data: {
     source: data.source,
     message: data.message || null,
     notes: data.notes || null,
+    event_type: data.eventType || null,
+    event_date: data.eventDate || null,
+    quote_status: data.quoteStatus || "non_demande",
+    quote_amount: data.quoteAmount ?? null,
+    quote_notes: data.quoteNotes || null,
+    quote_budget: data.quoteBudget ?? null,
+    quote_payment_mode: data.quotePaymentMode || "none",
+    quote_payment_amount: data.quotePaymentAmount ?? null,
+    quote_payment_received: data.quotePaymentReceived ?? false,
+    quote_items: data.quoteItems ?? [],
     reminder_at: data.reminderAt || null,
   }).select().single()
   if (error || !row) { console.error("Error creating prospect:", error?.message); return null }
@@ -103,6 +230,19 @@ export async function createProspectsBulk(tenantId: string, prospects: {
 
 export async function updateProspectStatus(id: string, status: Prospect["status"]): Promise<boolean> {
   const supabase = createClient()
+
+  if (status === "converti") {
+    const { data: p } = await supabase
+      .from("prospects")
+      .select("tenant_id, name, phone")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (p) {
+      await findOrCreateClientFromProspect(supabase, p)
+    }
+  }
+
   const { error } = await supabase.from("prospects").update({
     status, updated_at: new Date().toISOString(),
   }).eq("id", id)
@@ -116,6 +256,46 @@ export async function updateProspectNotes(id: string, notes: string): Promise<bo
     notes, updated_at: new Date().toISOString(),
   }).eq("id", id)
   if (error) { console.error("Error updating notes:", error.message); return false }
+  return true
+}
+
+export async function updateProspectCommercialDetails(id: string, data: {
+  eventType?: "fete" | "mariage" | null
+  eventDate?: string | null
+  quoteStatus?: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
+  quoteAmount?: number | null
+  quoteNotes?: string | null
+  quoteBudget?: number | null
+  quotePaymentMode?: "none" | "acompte" | "paiement_commande"
+  quotePaymentAmount?: number | null
+  quotePaymentReceived?: boolean
+  quoteItems?: Array<{
+    id: string
+    category: "pf" | "boisson" | "autre"
+    label: string
+    unit: "pieces" | "kg" | "litres" | "bouteilles"
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }> | null
+}): Promise<boolean> {
+  const supabase = createClient()
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  }
+  if (data.eventType !== undefined) updates.event_type = data.eventType
+  if (data.eventDate !== undefined) updates.event_date = data.eventDate
+  if (data.quoteStatus !== undefined) updates.quote_status = data.quoteStatus
+  if (data.quoteAmount !== undefined) updates.quote_amount = data.quoteAmount
+  if (data.quoteNotes !== undefined) updates.quote_notes = data.quoteNotes
+  if (data.quoteBudget !== undefined) updates.quote_budget = data.quoteBudget
+  if (data.quotePaymentMode !== undefined) updates.quote_payment_mode = data.quotePaymentMode
+  if (data.quotePaymentAmount !== undefined) updates.quote_payment_amount = data.quotePaymentAmount
+  if (data.quotePaymentReceived !== undefined) updates.quote_payment_received = data.quotePaymentReceived
+  if (data.quoteItems !== undefined) updates.quote_items = data.quoteItems ?? []
+
+  const { error } = await supabase.from("prospects").update(updates).eq("id", id)
+  if (error) { console.error("Error updating prospect commercial details:", error.message); return false }
   return true
 }
 
@@ -139,6 +319,33 @@ export async function dismissReminder(id: string): Promise<boolean> {
 
 export async function convertProspectToOrder(id: string, orderId: string): Promise<boolean> {
   const supabase = createClient()
+
+  const { data: p } = await supabase
+    .from("prospects")
+    .select("tenant_id, name, phone")
+    .eq("id", id)
+    .maybeSingle()
+
+  let linkedClientId: string | null = null
+  if (p) {
+    linkedClientId = await findOrCreateClientFromProspect(supabase, p)
+  }
+
+  if (linkedClientId) {
+    const { error: orderLinkError } = await supabase
+      .from("orders")
+      .update({
+        client_id: linkedClientId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId)
+
+    // Keep compatibility with schemas where orders.client_id is still missing.
+    if (orderLinkError && !String(orderLinkError.message || "").includes("client_id")) {
+      console.error("Error linking order to client:", orderLinkError.message)
+    }
+  }
+
   const { error } = await supabase.from("prospects").update({
     status: "converti", converted_order_id: orderId, updated_at: new Date().toISOString(),
   }).eq("id", id)

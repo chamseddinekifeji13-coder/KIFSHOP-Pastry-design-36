@@ -38,6 +38,20 @@ const statusColors: Record<string, string> = {
   "en-discussion": "bg-purple-100 text-purple-700", converti: "bg-green-100 text-green-700",
   perdu: "bg-red-100 text-red-700",
 }
+const quoteLabels: Record<string, string> = {
+  non_demande: "Pas de devis",
+  a_preparer: "Devis a preparer",
+  envoye: "Devis envoye",
+  accepte: "Devis accepte",
+  refuse: "Devis refuse",
+}
+const quoteColors: Record<string, string> = {
+  non_demande: "bg-gray-100 text-gray-700",
+  a_preparer: "bg-amber-100 text-amber-700",
+  envoye: "bg-blue-100 text-blue-700",
+  accepte: "bg-green-100 text-green-700",
+  refuse: "bg-red-100 text-red-700",
+}
 
 export function ProspectsView() {
   const { t } = useI18n()
@@ -204,6 +218,7 @@ export function ProspectsView() {
                     <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                       {prospect.phone && <span>{prospect.phone}</span>}
                       <span>{sourceLabels[prospect.source] || prospect.source}</span>
+                      {prospect.eventType && <span className="font-medium">{prospect.eventType === "mariage" ? "Mariage" : "Fete"}</span>}
                       <span>{new Date(prospect.createdAt).toLocaleDateString("fr-TN")}</span>
                     </div>
                     {prospect.message && (
@@ -212,9 +227,14 @@ export function ProspectsView() {
                   </div>
 
                   {/* Status Badge */}
-                  <Badge className={`shrink-0 text-[11px] ${statusColors[prospect.status] || ""}`}>
-                    {statusLabels[prospect.status] || prospect.status}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <Badge className={`text-[11px] ${statusColors[prospect.status] || ""}`}>
+                      {statusLabels[prospect.status] || prospect.status}
+                    </Badge>
+                    <Badge className={`text-[10px] ${quoteColors[prospect.quoteStatus] || "bg-gray-100 text-gray-700"}`}>
+                      {quoteLabels[prospect.quoteStatus] || prospect.quoteStatus}
+                    </Badge>
+                  </div>
 
                   {/* Quick Actions */}
                   <div className="hidden sm:flex gap-1 shrink-0">

@@ -135,8 +135,10 @@ export function ClientsView() {
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        toast.error(error.error || "Erreur lors de la suppression")
+        const errorData = await response.json()
+        // Ensure error is always a string to avoid React #310
+        const errMsg = typeof errorData.error === "string" ? errorData.error : "Erreur lors de la suppression"
+        toast.error(errMsg)
         return
       }
 

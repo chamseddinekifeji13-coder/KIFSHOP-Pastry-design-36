@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CONSUMABLE_CATEGORIES, type Consumable, updateConsumable } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 
@@ -181,17 +180,19 @@ export function ConsumablesTable({ items, onItemClick }: ConsumablesTableProps) 
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-unit">Unité</Label>
-            <Select value={editUnit} onValueChange={setEditUnit}>
-              <SelectTrigger id="edit-unit"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unité">unité</SelectItem>
-                <SelectItem value="pcs">pcs</SelectItem>
-                <SelectItem value="kg">kg</SelectItem>
-                <SelectItem value="L">L</SelectItem>
-                <SelectItem value="rouleau">rouleau</SelectItem>
-                <SelectItem value="boîte">boîte</SelectItem>
-              </SelectContent>
-            </Select>
+            <select
+              id="edit-unit"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={editUnit}
+              onChange={(e) => setEditUnit(e.target.value)}
+            >
+              <option value="unité">unité</option>
+              <option value="pcs">pcs</option>
+              <option value="kg">kg</option>
+              <option value="L">L</option>
+              <option value="rouleau">rouleau</option>
+              <option value="boîte">boîte</option>
+            </select>
           </div>
         </div>
         <DialogFooter>

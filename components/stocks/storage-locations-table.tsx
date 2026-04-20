@@ -10,9 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import {
@@ -210,14 +207,15 @@ export function StorageLocationsTable() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium">Type *</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(LOCATION_TYPE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+              >
+                {Object.entries(LOCATION_TYPE_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium">Description</Label>

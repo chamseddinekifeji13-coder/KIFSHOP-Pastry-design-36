@@ -1,7 +1,7 @@
 "use client"
 
-import React, { useState } from "react"
-import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle, Package, Trash2 } from "lucide-react"
+import React, { useState, useMemo } from "react"
+import { ChefHat, Plus, Play, CheckCircle, Edit, Loader2, ClipboardList, AlertTriangle, Package, Trash2, History, Search, BarChart3, Filter } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,16 +10,16 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useRecipes, useRawMaterials } from "@/hooks/use-tenant-data"
+import { useRecipes, useRawMaterials, useProductionPlans } from "@/hooks/use-tenant-data"
 import { useTenant } from "@/lib/tenant-context"
 import { RecipeDrawer } from "./recipe-drawer"
 import { ProductionBatchDrawer } from "./production-batch-drawer"
+import { BatchDetailDrawer } from "./batch-detail-drawer"
 import { RecipeCostPanel } from "./recipe-cost-panel"
 import { toast } from "sonner"
-import { consumeRecipeIngredients, deleteRecipe, type Recipe } from "@/lib/production/actions"
+import { consumeRecipeIngredients, deleteRecipe, fetchProductionBatches, countMonthlyProductionRuns, type Recipe, type ProductionBatch } from "@/lib/production/actions"
 import { useI18n } from "@/lib/i18n/context"
 import useSWR from "swr"
-import { fetchProductionBatches } from "@/lib/production/actions"
 
 // Error boundary to catch planner crashes
 class PlannerErrorBoundary extends React.Component<
@@ -50,9 +50,12 @@ class PlannerErrorBoundary extends React.Component<
   }
 }
 
-// Lazy load planner
+// Lazy load planner and history
 const ProductionPlanner = React.lazy(() =>
   import("./production-planner").then(mod => ({ default: mod.ProductionPlanner }))
+)
+const ProductionHistory = React.lazy(() =>
+  import("./production-history").then(mod => ({ default: mod.ProductionHistory }))
 )
 
 export function ProductionView() {
@@ -65,6 +68,12 @@ export function ProductionView() {
     ([_, tenantId]) => fetchProductionBatches(tenantId),
     { revalidateOnFocus: false, dedupingInterval: 10000 }
   )
+  const { data: plans = [] } = useProductionPlans()
+  const { data: monthlyRunsCount = 0 } = useSWR(
+    currentTenant ? ["monthly-runs", currentTenant.id] : null,
+    ([_, tenantId]) => countMonthlyProductionRuns(tenantId),
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
+  )
 
   const [activeTab, setActiveTab] = useState("planner")
   const [producing, setProducing] = useState(false)
@@ -75,6 +84,12 @@ export function ProductionView() {
   const [batchDrawerOpen, setBatchDrawerOpen] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
   const [deletingRecipeId, setDeletingRecipeId] = useState<string | null>(null)
+  const [selectedBatch, setSelectedBatch] = useState<ProductionBatch | null>(null)
+  const [batchDetailOpen, setBatchDetailOpen] = useState(false)
+
+  // Batch filters
+  const [batchSearch, setBatchSearch] = useState("")
+  const [batchStatusFilter, setBatchStatusFilter] = useState("all")
 
   const handleDeleteRecipe = async (recipeId: string, recipeName: string) => {
     if (!confirm(`Etes-vous sur de vouloir supprimer la recette "${recipeName}" ?`)) return
@@ -126,7 +141,6 @@ export function ProductionView() {
         toast.error("Erreur de production", { description: result.error })
         return
       }
-      // Build summary of consumed ingredients
       const consumed = result.ingredients_consumed || []
       const costLine = result.total_cost
         ? `Cout: ${result.total_cost.toFixed(3)} TND${result.cost_per_unit ? ` (${result.cost_per_unit.toFixed(3)} TND/u)` : ""}`
@@ -139,7 +153,6 @@ export function ProductionView() {
         const summary = consumed.map(c => `${c.name}: -${c.quantity}${c.unit} (${c.line_cost.toFixed(2)} TND)`).join("\n")
         toast.info("Stock deduit automatiquement", { description: summary, duration: 8000 })
       }
-      // Refresh data
       mutateRawMaterials()
       mutateRecipes()
       setDialogOpen(false); setSelectedRecipe(""); setQuantity("")
@@ -150,6 +163,20 @@ export function ProductionView() {
     }
   }
 
+  // KPI calculations
+  const activePlansCount = plans.filter(p => !["completed", "cancelled"].includes(p.status)).length
+  const activeBatchesCount = batches.filter(b => b.status === "en_cours" || b.status === "partiellement_conditionne").length
+  const recipesCount = allRecipes.length
+
+  // Filtered batches
+  const filteredBatches = useMemo(() => {
+    return batches.filter(b => {
+      const matchSearch = !batchSearch || b.recipeName.toLowerCase().includes(batchSearch.toLowerCase())
+      const matchStatus = batchStatusFilter === "all" || b.status === batchStatusFilter
+      return matchSearch && matchStatus
+    })
+  }, [batches, batchSearch, batchStatusFilter])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -159,11 +186,60 @@ export function ProductionView() {
         </div>
       </div>
 
+      {/* KPI Dashboard */}
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 shrink-0">
+              <ClipboardList className="h-5 w-5 text-blue-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{activePlansCount}</p>
+              <p className="text-xs text-muted-foreground">Plans actifs</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 shrink-0">
+              <Package className="h-5 w-5 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{activeBatchesCount}</p>
+              <p className="text-xs text-muted-foreground">Lots en cours</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 shrink-0">
+              <ChefHat className="h-5 w-5 text-green-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{recipesCount}</p>
+              <p className="text-xs text-muted-foreground">Recettes</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 shrink-0">
+              <BarChart3 className="h-5 w-5 text-purple-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{monthlyRunsCount}</p>
+              <p className="text-xs text-muted-foreground">Productions ce mois</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="planner" className="gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Planification</TabsTrigger>
           <TabsTrigger value="batches" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Lots de production</TabsTrigger>
           <TabsTrigger value="recipes" className="gap-1.5"><ChefHat className="h-3.5 w-3.5" /> Fiches techniques</TabsTrigger>
+          <TabsTrigger value="history" className="gap-1.5"><History className="h-3.5 w-3.5" /> Historique</TabsTrigger>
         </TabsList>
 
         <TabsContent value="planner">
@@ -180,21 +256,44 @@ export function ProductionView() {
         </TabsContent>
 
         <TabsContent value="batches" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 gap-2">
+              <div className="relative flex-1 sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher par recette..."
+                  value={batchSearch}
+                  onChange={(e) => setBatchSearch(e.target.value)}
+                  className="pl-9 bg-muted/50 border-0"
+                />
+              </div>
+              <Select value={batchStatusFilter} onValueChange={setBatchStatusFilter}>
+                <SelectTrigger className="w-44 bg-muted/50 border-0">
+                  <Filter className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="en_cours">En cours</SelectItem>
+                  <SelectItem value="partiellement_conditionne">Partiellement</SelectItem>
+                  <SelectItem value="termine">Termine</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={() => setBatchDrawerOpen(true)}><Plus className="mr-2 h-4 w-4" />Nouveau lot</Button>
           </div>
-          
-          {batches.length === 0 ? (
+
+          {filteredBatches.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-16">
                 <Package className="h-12 w-12 text-muted-foreground/40 mb-4" />
-                <p className="text-lg font-medium">Aucun lot de production</p>
-                <p className="text-sm text-muted-foreground">Creer un lot pour commencer a produire</p>
+                <p className="text-lg font-medium">{batchSearch || batchStatusFilter !== "all" ? "Aucun resultat" : "Aucun lot de production"}</p>
+                <p className="text-sm text-muted-foreground">{batchSearch || batchStatusFilter !== "all" ? "Essayez d'autres filtres" : "Creer un lot pour commencer a produire"}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4">
-              {batches.map((batch) => (
+              {filteredBatches.map((batch) => (
                 <Card key={batch.id} className="overflow-hidden">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
@@ -207,7 +306,7 @@ export function ProductionView() {
                         batch.status === "partiellement_conditionne" ? "secondary" :
                         "outline"
                       }>
-                        {batch.status === "en_cours" ? "En cours" : 
+                        {batch.status === "en_cours" ? "En cours" :
                          batch.status === "partiellement_conditionne" ? "Partiellement" :
                          "Termine"}
                       </Badge>
@@ -231,8 +330,17 @@ export function ProductionView() {
                       </div>
                     )}
                     <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="outline" className="flex-1">Ajouter emballage</Button>
-                      <Button size="sm" variant="outline" className="flex-1">Details</Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setSelectedBatch(batch)
+                          setBatchDetailOpen(true)
+                        }}
+                      >
+                        Details
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -246,9 +354,12 @@ export function ProductionView() {
             <Button variant="outline" onClick={() => { setEditingRecipe(null); setRecipeDrawerOpen(true) }} className="bg-transparent"><Plus className="mr-2 h-4 w-4" />Nouvelle recette</Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild><Button><Play className="mr-2 h-4 w-4" />Lancer production</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader><DialogTitle>Lancer une production</DialogTitle><DialogDescription>Selectionnez une recette et la quantite a produire</DialogDescription></DialogHeader>
-              <div className="space-y-4 py-4">
+            <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
+              <DialogHeader className="shrink-0">
+                <DialogTitle>Lancer une production</DialogTitle>
+                <DialogDescription>Selectionnez une recette et la quantite a produire</DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-2">
                 <div className="space-y-2">
                   <Label>Recette</Label>
                   <Select value={selectedRecipe} onValueChange={setSelectedRecipe}>
@@ -263,7 +374,7 @@ export function ProductionView() {
                       <div className="space-y-4">
                         <RecipeCostPanel recipeId={selectedRecipe} defaultQuantity={parseFloat(quantity) || 1} />
                         <Label>Matieres premieres requises</Label>
-                        <div className="rounded-lg border divide-y">
+                        <div className="rounded-lg border divide-y max-h-[200px] overflow-y-auto">
                           {requiredMaterials.map((m, idx) => (
                             <div key={idx} className={`flex items-center justify-between p-3 text-sm ${m.sufficient ? "" : "bg-destructive/5"}`}>
                               <div><span className="font-medium">{allMaterials.find(rm => rm.id === m.rawMaterialId)?.name || "?"}</span><span className="text-muted-foreground ml-2">{m.required.toFixed(2)} {m.unit}</span></div>
@@ -279,7 +390,7 @@ export function ProductionView() {
                   </>
                 )}
               </div>
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-end gap-3 pt-4 border-t shrink-0">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Annuler</Button>
                 <Button onClick={handleStartProduction} disabled={!canProduce || producing}>
                   {producing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Production en cours...</> : <><Play className="mr-2 h-4 w-4" />Lancer la production</>}
@@ -327,9 +438,9 @@ export function ProductionView() {
                       <div className="flex gap-2">
                         <Button variant="outline" size="sm" className="flex-1 bg-transparent" onClick={() => { setEditingRecipe(recipe); setRecipeDrawerOpen(true) }}><Edit className="mr-1.5 h-3.5 w-3.5" />Modifier</Button>
                         <Button size="sm" className="flex-1" onClick={() => { setSelectedRecipe(recipe.id); setBatchDrawerOpen(true) }}><Play className="mr-1.5 h-3.5 w-3.5" />Produire</Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => handleDeleteRecipe(recipe.id, recipe.name)}
                           disabled={deletingRecipeId === recipe.id}
@@ -346,10 +457,22 @@ export function ProductionView() {
 
           <RecipeDrawer open={recipeDrawerOpen} onOpenChange={setRecipeDrawerOpen} recipe={editingRecipe} />
         </TabsContent>
+
+        <TabsContent value="history">
+          <React.Suspense fallback={
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Chargement de l{"'"}historique...</span>
+            </div>
+          }>
+            <ProductionHistory />
+          </React.Suspense>
+        </TabsContent>
       </Tabs>
-      
-      {/* Drawer placé en dehors des Tabs pour être accessible depuis tous les onglets */}
+
+      {/* Drawers placés en dehors des Tabs pour être accessibles depuis tous les onglets */}
       <ProductionBatchDrawer open={batchDrawerOpen} onOpenChange={setBatchDrawerOpen} preselectedRecipeId={selectedRecipe} />
+      <BatchDetailDrawer open={batchDetailOpen} onOpenChange={setBatchDetailOpen} batch={selectedBatch} />
     </div>
   )
 }

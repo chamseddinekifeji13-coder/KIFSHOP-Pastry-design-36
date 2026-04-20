@@ -1,13 +1,19 @@
-const CACHE_VERSION = 'v5';
-const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION;
-const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION;
+// IMPORTANT: Increment version on each deployment to force cache invalidation
+// BUILD_ID is set at build time - change this string for each deployment
+const CACHE_VERSION = 'v13';
+const BUILD_ID = '20260406-treasury-courier-visibility';
+const STATIC_CACHE = 'kifshop-static-' + CACHE_VERSION + '-' + BUILD_ID;
+const DYNAMIC_CACHE = 'kifshop-dynamic-' + CACHE_VERSION + '-' + BUILD_ID;
 const OFFLINE_URL = '/offline.html';
+
+console.log('[SW] Version', CACHE_VERSION, 'Build:', BUILD_ID);
 
 // Static assets cached on install — use individual adds so one failure
 // doesn't block the whole SW installation (icon files may be missing).
 const PRECACHE_ASSETS = [
   '/offline.html',
   '/manifest.json',
+  '/qz-tray.js',  // QZ Tray library for thermal printing
 ];
 
 // App shell pages to cache after first visit
@@ -18,6 +24,12 @@ const APP_SHELL_ROUTES = [
   '/commandes',
   '/approvisionnement',
   '/tresorerie',
+];
+
+// API routes that should NOT be cached (always fetch fresh for sync)
+const DYNAMIC_API_ROUTES = [
+  '/api/treasury/',
+  '/api/pos80/sync',
 ];
 
 // ── Install ──
@@ -59,10 +71,14 @@ function isAppPage(url) {
   return APP_SHELL_ROUTES.some((r) => url.pathname === r || url.pathname.startsWith(r + '/'));
 }
 
+function isDynamicAPI(url) {
+  return DYNAMIC_API_ROUTES.some((r) => url.pathname.startsWith(r));
+}
+
 function shouldSkip(url) {
+  // Skip API routes, Supabase calls, and auth callback (not the login page)
   return (
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/auth/') ||
+    url.pathname === '/auth/callback' ||
     url.hostname.includes('supabase') ||
     url.hostname.includes('googleapis') ||
     !url.protocol.startsWith('http')
@@ -76,20 +92,66 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (shouldSkip(url)) return;
 
-  // Strategy 1: Cache-first for static assets (JS, CSS, fonts, images)
-  if (isStaticAsset(url)) {
+  // Strategy 0: Dynamic API routes MUST be network-first (for real-time sync)
+  if (isDynamicAPI(url)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return fetch(event.request).then((response) => {
+      fetch(event.request)
+        .then((response) => {
           if (response.status === 200) {
             const clone = response.clone();
-            caches.open(STATIC_CACHE).then((c) => c.put(event.request, clone));
+            caches.open(DYNAMIC_CACHE).then((c) => c.put(event.request, clone));
           }
           return response;
-        });
-      })
+        })
+        .catch(async () => {
+          // Fall back to cache for offline, but prioritize network
+          const cached = await caches.match(event.request);
+          return cached || new Response('API endpoint offline', { status: 503 });
+        })
     );
+    return;
+  }
+
+  // Skip API routes that aren't treasury/sync (let them fail fast)
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Strategy 1: Network-first for JS/CSS (to get latest deployed code), cache-first for fonts/images
+  if (isStaticAsset(url)) {
+    const isCodeFile = /\.(js|css)(\?|$)/.test(url.pathname);
+    
+    if (isCodeFile) {
+      // Network-first for JS/CSS to always get latest deployment
+      event.respondWith(
+        fetch(event.request)
+          .then((response) => {
+            if (response.status === 200) {
+              const clone = response.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(event.request, clone));
+            }
+            return response;
+          })
+          .catch(async () => {
+            const cached = await caches.match(event.request);
+            return cached || new Response('Offline', { status: 503 });
+          })
+      );
+    } else {
+      // Cache-first for fonts/images (they rarely change)
+      event.respondWith(
+        caches.match(event.request).then((cached) => {
+          if (cached) return cached;
+          return fetch(event.request).then((response) => {
+            if (response.status === 200) {
+              const clone = response.clone();
+              caches.open(STATIC_CACHE).then((c) => c.put(event.request, clone));
+            }
+            return response;
+          });
+        })
+      );
+    }
     return;
   }
 
@@ -141,3 +203,4 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+

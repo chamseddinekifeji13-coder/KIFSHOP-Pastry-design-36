@@ -13,6 +13,9 @@ import {
   TicketCheck,
   Package,
   Target,
+  PieChart,
+  Bell,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -40,10 +43,18 @@ const navigation = [
     ],
   },
   {
+    title: "CRM Commercial",
+    items: [
+      { title: "Dashboard CRM", href: "/super-admin/crm", icon: PieChart },
+      { title: "Prospection", href: "/super-admin/prospects", icon: Target },
+      { title: "Rappels", href: "/super-admin/crm/reminders", icon: Bell },
+      { title: "Devis", href: "/super-admin/crm/quotes", icon: FileText },
+    ],
+  },
+  {
     title: "Gestion",
     items: [
       { title: "Patisseries", href: "/super-admin/tenants", icon: Building2 },
-      { title: "Prospection", href: "/super-admin/prospects", icon: Target },
       { title: "Abonnements", href: "/super-admin/subscriptions", icon: CreditCard },
       { title: "Utilisateurs", href: "/super-admin/users", icon: Users },
       { title: "Articles", href: "/super-admin/articles", icon: Package },

@@ -51,8 +51,8 @@ export interface AgentStats {
   returnRate: number
 }
 
-// ─── Fetch Clients ────────────────────────────────────────────
-// Filtre les clients sans nom ET sans commandes (donnees inutiles)
+// ─── Fetch Clients with Best Delivery Stats ───────────────────
+// Enriches clients with stats from best_delivery_shipments during startup phase
 
 export async function fetchClients(tenantId: string): Promise<Client[]> {
   const supabase = createClient()
@@ -63,18 +63,84 @@ export async function fetchClients(tenantId: string): Promise<Client[]> {
     .order("created_at", { ascending: false })
 
   if (error) { console.error("Error fetching clients:", error); return [] }
-  
-  // Filtrer les clients invalides: sans nom ET sans commandes
-  const validClients = (data || []).filter(client => {
-    const hasName = client.name && client.name.trim() !== ""
-    const hasOrders = (client.total_orders || 0) > 0
-    return hasName || hasOrders
+
+  // Fetch all orders for this tenant in a single query (for stats enrichment)
+  const { data: allOrders } = await supabase
+    .from("orders")
+    .select("customer_phone, total, status")
+    .eq("tenant_id", tenantId)
+
+  // Build a map of phone -> order stats from the orders table
+  const orderStatsMap = new Map<string, { count: number; total: number }>()
+  if (allOrders) {
+    for (const o of allOrders) {
+      const phone = (o.customer_phone || "").trim()
+      if (!phone) continue
+      const existing = orderStatsMap.get(phone) || { count: 0, total: 0 }
+      existing.count++
+      existing.total += Number(o.total) || 0
+      orderStatsMap.set(phone, existing)
+    }
+  }
+
+  // Fetch all Best Delivery shipments in one query to avoid N+1.
+  const { data: allShipments, error: shipmentsError } = await supabase
+    .from("best_delivery_shipments")
+    .select("customer_phone, status, cod_amount")
+    .eq("tenant_id", tenantId)
+
+  if (shipmentsError) {
+    console.error("Error fetching best delivery shipments:", shipmentsError)
+  }
+
+  // Build a map of phone -> shipment stats from Best Delivery
+  const shipmentStatsMap = new Map<string, { deliveredCount: number; deliveredTotal: number; returnedCount: number }>()
+  for (const shipment of allShipments || []) {
+    const phone = (shipment.customer_phone || "").trim()
+    if (!phone) continue
+
+    const status = (shipment.status || "").toLowerCase()
+    const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
+    const isReturned = status === "returned" || status === "retour"
+
+    const existing = shipmentStatsMap.get(phone) || { deliveredCount: 0, deliveredTotal: 0, returnedCount: 0 }
+    if (isDelivered) {
+      existing.deliveredCount++
+      existing.deliveredTotal += Number(shipment.cod_amount) || 0
+    } else if (isReturned) {
+      existing.returnedCount++
+    }
+    shipmentStatsMap.set(phone, existing)
+  }
+
+  // Enrich each client with Best Delivery stats + orders table stats
+  const enrichedClients = (data || []).map((clientRow) => {
+    const client = mapClient(clientRow)
+    const normalizedPhone = (client.phone || "").trim()
+    const bdStats = shipmentStatsMap.get(normalizedPhone) || { deliveredCount: 0, deliveredTotal: 0, returnedCount: 0 }
+
+    // Combine stats: Best Delivery + orders table
+    // Use orders table stats as well so campaigns audience filtering works correctly
+    const orderStats = orderStatsMap.get(normalizedPhone) || { count: 0, total: 0 }
+
+    const computedTotalOrders = bdStats.deliveredCount + orderStats.count
+    const computedTotalSpent = bdStats.deliveredTotal + orderStats.total
+    const computedReturnCount = bdStats.returnedCount
+
+    return {
+      ...client,
+      // Preserve persisted counters from clients table to avoid losing
+      // data coming from non-Best-Delivery flows.
+      totalOrders: Math.max(Number(client.totalOrders) || 0, computedTotalOrders),
+      totalSpent: Math.max(Number(client.totalSpent) || 0, computedTotalSpent),
+      returnCount: Math.max(Number(client.returnCount) || 0, computedReturnCount),
+    }
   })
-  
-  return validClients.map(mapClient)
+
+  return enrichedClients
 }
 
-// ─── Fetch Single Client ──────────────────────────────────────
+// ─── Fetch Single Client with Best Delivery Stats ─────────────
 
 export async function fetchClientById(clientId: string): Promise<Client | null> {
   const supabase = createClient()
@@ -85,7 +151,60 @@ export async function fetchClientById(clientId: string): Promise<Client | null> 
     .single()
 
   if (error || !data) return null
-  return mapClient(data)
+
+  const client = mapClient(data)
+  const normalizedPhone = (client.phone || "").trim()
+
+  // Fetch Best Delivery shipments for this client
+  const { data: shipments } = await supabase
+    .from("best_delivery_shipments")
+    .select("status, cod_amount")
+    .eq("tenant_id", client.tenantId)
+    .eq("customer_phone", normalizedPhone)
+
+  // Calculate stats from Best Delivery
+  let bdCount = 0
+  let bdTotal = 0
+  let bdReturned = 0
+
+  if (shipments && shipments.length > 0) {
+    shipments.forEach((shipment) => {
+      const status = (shipment.status || "").toLowerCase()
+      const isDelivered = status === "delivered" || status === "livree" || status === "livré" || status.startsWith("livr")
+      const isReturned = status === "returned" || status === "retour"
+
+      if (isDelivered) {
+        bdCount++
+        bdTotal += Number(shipment.cod_amount) || 0
+      } else if (isReturned) {
+        bdReturned++
+      }
+    })
+  }
+
+  // Fetch order stats from orders table
+  const { data: orderData } = await supabase
+    .from("orders")
+    .select("total")
+    .eq("tenant_id", client.tenantId)
+    .eq("customer_phone", normalizedPhone)
+
+  const orderCount = orderData?.length || 0
+  const orderTotal = (orderData || []).reduce((sum, o) => sum + (Number(o.total) || 0), 0)
+
+  // Combine Best Delivery + orders table stats
+  const computedTotalOrders = bdCount + orderCount
+  const computedTotalSpent = bdTotal + orderTotal
+  const computedReturnCount = bdReturned
+
+  return {
+    ...client,
+    // Preserve persisted counters from clients table to avoid losing
+    // data coming from non-Best-Delivery flows.
+    totalOrders: Math.max(Number(client.totalOrders) || 0, computedTotalOrders),
+    totalSpent: Math.max(Number(client.totalSpent) || 0, computedTotalSpent),
+    returnCount: Math.max(Number(client.returnCount) || 0, computedReturnCount),
+  }
 }
 
 // ─── Update Client ────────────────────────────────────────────
@@ -126,8 +245,41 @@ export async function fetchClientOrders(clientId: string): Promise<OrderRecord[]
     .eq("client_id", clientId)
     .order("created_at", { ascending: false })
 
-  if (error) { console.error("Error fetching client orders:", error); return [] }
-  return (data || []).map(mapOrder)
+  if (!error) {
+    return (data || []).map(mapOrder)
+  }
+
+  // Compatibility fallback: some production schemas still do not have orders.client_id
+  const errMsg = String(error.message || "")
+  if (!errMsg.includes("client_id")) {
+    console.error("Error fetching client orders:", error)
+    return []
+  }
+
+  const { data: clientRow, error: clientError } = await supabase
+    .from("clients")
+    .select("phone, tenant_id")
+    .eq("id", clientId)
+    .single()
+
+  if (clientError || !clientRow?.phone) {
+    console.error("Error fetching client for orders fallback:", clientError)
+    return []
+  }
+
+  const { data: fallbackData, error: fallbackError } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("tenant_id", clientRow.tenant_id)
+    .eq("customer_phone", clientRow.phone)
+    .order("created_at", { ascending: false })
+
+  if (fallbackError) {
+    console.error("Error fetching client orders (phone fallback):", fallbackError)
+    return []
+  }
+
+  return (fallbackData || []).map(mapOrder)
 }
 
 // ─── Fetch All Orders (for stats) ─────────────────────────────
@@ -162,16 +314,28 @@ export async function markOrderReturned(
       updated_at: new Date().toISOString(),
     })
     .eq("id", orderId)
-    .select("client_id")
+    .select("client_id, customer_phone, tenant_id")
     .single()
 
   if (orderError || !order) { console.error("Error marking returned:", orderError); return false }
 
-  if (order.client_id) {
+  let linkedClientId: string | null = order.client_id || null
+
+  if (!linkedClientId && order.customer_phone && order.tenant_id) {
+    const { data: linkedClient } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", order.tenant_id)
+      .eq("phone", order.customer_phone)
+      .maybeSingle()
+    linkedClientId = linkedClient?.id || null
+  }
+
+  if (linkedClientId) {
     const { data: client } = await supabase
       .from("clients")
       .select("return_count")
-      .eq("id", order.client_id)
+      .eq("id", linkedClientId)
       .single()
 
     if (client) {
@@ -181,7 +345,7 @@ export async function markOrderReturned(
           return_count: (client.return_count || 0) + 1,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", order.client_id)
+        .eq("id", linkedClientId)
     }
   }
 
@@ -318,7 +482,8 @@ function mapOrder(row: any): OrderRecord {
     tenantId: row.tenant_id,
     clientId: row.client_id,
     phone: row.customer_phone,
-    clientName: row.customer_name,
+    // Compatibility fallback for legacy schemas that used `client_name`
+    clientName: row.customer_name || row.client_name || null,
     total: Number(row.total) || 0,
     status: row.status,
     notes: row.notes,

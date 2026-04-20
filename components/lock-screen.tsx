@@ -69,7 +69,20 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           setCountdown(data.remainingSeconds || 120)
           setError("")
         } else {
-          setError(data.error || "Erreur de verification")
+          // Ensure error is always a string to avoid React #310
+          let errMsg = typeof data.error === "string" 
+            ? data.error 
+            : (data.error?.message || "Erreur de verification")
+          
+          // Provide a more helpful message for auth errors
+          if (errMsg === "Non authentifie") {
+            errMsg = "Session expiree. Veuillez vous reconnecter."
+            // Redirect to login after a short delay
+            setTimeout(() => {
+              window.location.href = "/auth/login"
+            }, 2000)
+          }
+          setError(errMsg)
         }
 
         if (typeof data.attemptsLeft === "number") {
@@ -155,8 +168,9 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   // PIN entry screen
   if (selectedUser) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#f5f0e8]">
-        <div className="flex w-full max-w-sm flex-col items-center gap-6 p-6">
+      <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#f5f0e8]">
+        <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:items-center">
+        <div className="flex w-full max-w-sm flex-col items-center gap-6 py-4">
           {/* Back button */}
           <Button
             variant="ghost"
@@ -285,14 +299,16 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
             </Button>
           </div>
         </div>
+        </div>
       </div>
     )
   }
 
   // User selection screen
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#f5f0e8]">
-      <div className="flex w-full max-w-md flex-col items-center gap-8 p-6">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#f5f0e8]">
+      <div className="flex min-h-full items-start justify-center p-4 sm:p-6 md:items-center">
+      <div className="flex w-full max-w-md flex-col items-center gap-8 py-4">
         {/* Tenant header */}
         <div className="flex flex-col items-center gap-3">
           <div
@@ -350,6 +366,7 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
           <LogOut className="mr-2 h-4 w-4" />
           Deconnexion
         </Button>
+      </div>
       </div>
     </div>
   )

@@ -1,54 +1,100 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from '@/lib/active-profile'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import {
+  withSessionAndBody,
+  badRequestResponse,
+  serverErrorResponse
+} from '@/lib/api-helpers'
+import { rateLimit, getClientIP } from '@/lib/rate-limit'
+
+interface POSSaleBody {
+  items: Array<{ name: string; quantity: number; price: number }>
+  total: number
+  paymentMethod: 'cash' | 'card'
+  cashReceived?: number
+}
 
 export async function POST(request: Request) {
+  const ip = getClientIP(request)
+  const { limited } = rateLimit(`pos-sale:${ip}`, 60, 60000)
+  if (limited) {
+    return NextResponse.json({ error: "Trop de requêtes. Réessayez dans une minute." }, { status: 429 })
+  }
+
+  // 1. Get session and parse body with centralized error handling
+  const [data, error] = await withSessionAndBody<POSSaleBody>(request)
+  if (error) return error
+  
+  const { session, body } = data
+  const { items, total, paymentMethod, cashReceived } = body
+
+  // 2. Validate input
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return badRequestResponse("Panier vide")
+  }
+  if (!total || total <= 0) {
+    return badRequestResponse("Montant invalide")
+  }
+
   try {
-    const session = await getServerSession()
-    
-    if (!session) {
-      return NextResponse.json({ error: "Non authentifie" }, { status: 401 })
-    }
-    
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
-    const { items, total, paymentMethod, cashReceived } = await request.json()
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: "Panier vide" }, { status: 400 })
-    }
-
-    if (!total || total <= 0) {
-      return NextResponse.json({ error: "Montant invalide" }, { status: 400 })
-    }
-
-    // Generate transaction ID
+    // 3. Generate transaction ID
     const transactionId = `POS-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
 
-    // Create items description
-    const itemsDescription = items.map((item: any) => 
+    // 4. Create items description
+    const itemsDescription = items.map((item) => 
       `${item.name} x${item.quantity}`
     ).join(", ")
 
-    // Insert transaction - description includes all details since 'notes' column doesn't exist
     const fullDescription = `Vente POS #${transactionId}: ${itemsDescription}${cashReceived ? ` | Recu: ${cashReceived} TND` : ''}`
     
+    // 5. Build insert object
+    const insertData: Record<string, unknown> = {
+      tenant_id: session.tenantId,
+      type: "income",
+      amount: total,
+      category: "pos_sale",
+      description: fullDescription,
+      payment_method: paymentMethod === "card" ? "card" : "cash",
+    }
+    
+    if (session.activeProfileId) {
+      insertData.created_by = session.activeProfileId
+    }
+    
+    // 6. Insert transaction
     const { data: transaction, error: transactionError } = await supabase
       .from("transactions")
       .insert({
         tenant_id: session.tenantId,
-        type: "sale",
+        type: "income",
         amount: total,
+        category: "vente_pos",
         description: fullDescription,
         payment_method: paymentMethod === "card" ? "card" : "cash",
-        created_by: session.activeProfileId,
-        created_by_name: session.displayName
+        created_by_name: session.displayName || "Caissier",
       })
       .select()
 
     if (transactionError) {
-      console.error("Transaction error:", transactionError)
-      // Return detailed error information for debugging
+      console.error("[POS Sale] Supabase error:", transactionError)
+      
+      // Handle RLS policy error
+      if (transactionError.code === "PGRST301" || transactionError.message?.includes("policy")) {
+        return NextResponse.json({ 
+          success: false,
+          error: "Erreur de permission (RLS Policy)",
+          details: transactionError.message,
+          hint: "Verifiez que vous etes un membre actif du tenant"
+        }, { status: 403 })
+      }
+      
+      // Handle NOT NULL constraint
+      if (transactionError.message?.includes("NOT NULL")) {
+        return badRequestResponse("Donnees manquantes: " + transactionError.message)
+      }
+      
       return NextResponse.json({ 
         success: false,
         error: "Erreur lors de l'enregistrement",
@@ -57,16 +103,20 @@ export async function POST(request: Request) {
       }, { status: 500 })
     }
 
-    return NextResponse.json({ 
-      success: true,
-      transactionId,
-      transaction: Array.isArray(transaction) ? transaction[0] : transaction
-    })
+    if (!transaction || transaction.length === 0) {
+      return NextResponse.json({ 
+        success: false,
+        error: "Transaction non creee",
+        details: "L'insertion a reussi mais aucune donnee n'a ete retournee"
+      }, { status: 500 })
+    }
 
-  } catch (error: any) {
-    console.error("POS sale error:", error)
-    return NextResponse.json({ 
-      error: error.message || "Erreur serveur" 
-    }, { status: 500 })
+    return NextResponse.json({
+      success: true,
+      transaction: transaction[0],
+      transactionId: transaction[0].id
+    })
+  } catch (error) {
+    return serverErrorResponse(error)
   }
 }

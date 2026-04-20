@@ -1,68 +1,113 @@
+"use client"
+
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { Check, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 
-const plans = [
-  {
-    name: "Decouverte",
-    price: "Gratuit",
-    period: "14 jours",
-    description: "Testez toutes les fonctionnalites sans engagement",
-    highlight: false,
-    features: [
-      "Toutes les fonctionnalites incluses",
-      "1 utilisateur",
-      "Assistance par email",
-      "Donnees conservees apres upgrade",
-    ],
-    cta: "Commencer gratuitement",
-    ctaHref: "/auth/sign-up",
-  },
-  {
-    name: "Pro",
-    price: "89",
+type DbPlan = {
+  id: string
+  name: string
+  display_name: string
+  price_monthly: number
+  max_sales_channels: number
+  max_warehouses: number
+  max_users: number
+  features: Record<string, string> | null
+  is_active: boolean
+}
+
+type UiPlan = {
+  id: string
+  name: string
+  price: string
+  currency?: string
+  period: string
+  description: string
+  highlight: boolean
+  badge?: string
+  features: string[]
+  cta: string
+  ctaHref: string
+}
+
+const trialPlan: UiPlan = {
+  id: "trial",
+  name: "Decouverte",
+  price: "Gratuit",
+  period: "14 jours",
+  description: "Testez toutes les fonctionnalites sans engagement",
+  highlight: false,
+  features: [
+    "Toutes les fonctionnalites incluses",
+    "1 utilisateur",
+    "Assistance par email",
+    "Donnees conservees apres upgrade",
+  ],
+  cta: "Commencer gratuitement",
+  ctaHref: "/auth/sign-up?fresh=1",
+}
+
+function toUiPlan(plan: DbPlan, highlight: boolean): UiPlan {
+  const featureValues = Object.values(plan.features || {}).filter(Boolean).slice(0, 3)
+  const features = [
+    "Toutes les fonctionnalites",
+    `Jusqu'a ${plan.max_users} utilisateurs`,
+    `${plan.max_sales_channels} point(s) de vente`,
+    `${plan.max_warehouses} depot(s)`,
+    ...featureValues,
+  ].slice(0, 6)
+
+  return {
+    id: plan.id,
+    name: plan.display_name || plan.name,
+    price: String(Number(plan.price_monthly || 0)),
     currency: "DT",
     period: "/mois",
-    description: "Pour les patisseries en croissance",
-    highlight: true,
-    badge: "Populaire",
-    features: [
-      "Toutes les fonctionnalites",
-      "Jusqu'a 5 utilisateurs",
-      "Support prioritaire 24/7",
-      "E-Boutique integree",
-      "Notifications inter-roles",
-      "Sauvegardes automatiques",
-    ],
-    cta: "Choisir Pro",
-    ctaHref: "/auth/sign-up",
-  },
-  {
-    name: "Enterprise",
-    price: "Sur mesure",
-    period: "",
-    description: "Pour les grandes enseignes et laboratoires",
-    highlight: false,
-    features: [
-      "Utilisateurs illimites",
-      "Multi-points de vente",
-      "API et integrations custom",
-      "Deploiement On-Premise possible",
-      "Formation et onboarding dedies",
-      "SLA et support dedie",
-    ],
-    cta: "Nous contacter",
-    ctaHref: "#contact",
-  },
-]
+    description: `Pour les patisseries avec ${plan.max_sales_channels} point(s) de vente`,
+    highlight,
+    badge: highlight ? "Populaire" : undefined,
+    features,
+    cta: `Choisir ${plan.display_name || plan.name}`,
+    ctaHref: "/auth/sign-up?fresh=1",
+  }
+}
 
 export function PricingSection() {
+  const [dbPlans, setDbPlans] = useState<DbPlan[]>([])
+
+  useEffect(() => {
+    async function loadPlans() {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from("subscription_plans")
+          .select("id, name, display_name, price_monthly, max_sales_channels, max_warehouses, max_users, features, is_active")
+          .eq("is_active", true)
+          .order("price_monthly", { ascending: true })
+
+        setDbPlans((data || []) as DbPlan[])
+      } catch (error) {
+        console.error("Failed to load pricing plans:", error)
+      }
+    }
+    loadPlans()
+  }, [])
+
+  const plans = useMemo(() => {
+    const paid = dbPlans.filter((p) => Number(p.price_monthly || 0) > 0)
+    const highlightIndex = paid.length > 1 ? 1 : 0
+    const paidUi = paid.map((p, i) => toUiPlan(p, i === highlightIndex))
+    return [trialPlan, ...paidUi]
+  }, [dbPlans])
+
   return (
     <section id="pricing" className="bg-background py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[#4A7C59]">
+          <p className="text-sm font-semibold uppercase tracking-widest text-primary">
             Tarifs
           </p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground text-balance sm:text-4xl">
@@ -80,12 +125,12 @@ export function PricingSection() {
               key={plan.name}
               className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
                 plan.highlight
-                  ? "border-[#4A7C59]/40 bg-card shadow-md"
+                  ? "border-primary/40 bg-card shadow-md shadow-primary/20"
                   : "border-border bg-card shadow-sm"
               }`}
             >
               {plan.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#4A7C59] px-4 py-1 text-xs font-semibold text-white shadow-md">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-semibold text-background shadow-lg shadow-primary/30">
                   {plan.badge}
                 </div>
               )}
@@ -99,7 +144,7 @@ export function PricingSection() {
                 <div className="flex items-baseline gap-1">
                   {plan.currency ? (
                     <>
-                      <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                      <span className="text-4xl font-bold text-primary">{plan.price}</span>
                       <span className="text-lg font-medium text-muted-foreground">{plan.currency}</span>
                       <span className="text-sm text-muted-foreground">{plan.period}</span>
                     </>
@@ -117,7 +162,7 @@ export function PricingSection() {
               <ul className="mb-8 flex-1 space-y-3">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2.5 text-sm text-foreground">
-                    <Check className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlight ? "text-[#4A7C59]" : "text-muted-foreground"}`} />
+                    <Check className={`mt-0.5 h-4 w-4 shrink-0 ${plan.highlight ? "text-primary" : "text-muted-foreground"}`} />
                     {feature}
                   </li>
                 ))}
@@ -126,7 +171,7 @@ export function PricingSection() {
               <Button
                 className={`w-full h-11 gap-2 ${
                   plan.highlight
-                    ? "bg-[#4A7C59] hover:bg-[#3d6a4b] text-white"
+                    ? "bg-primary hover:bg-primary/90 text-background shadow-lg shadow-primary/40 hover:shadow-primary/60 transition-all duration-300"
                     : ""
                 }`}
                 variant={plan.highlight ? "default" : "outline"}

@@ -6,7 +6,7 @@ import {
   Trash2, Plus, Minus, Search, User, Clock, ShoppingBag,
   X, Check, Loader2, Package, Unlock, RefreshCw, ArrowLeft,
   TrendingUp, TrendingDown, Settings, FileText, Calculator,
-  Image as ImageIcon
+  Image as ImageIcon, Scale
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner"
 import { useSWRConfig } from "swr"
 import { useTenant } from "@/lib/tenant-context"
-import { useFinishedProducts, useTransactions } from "@/hooks/use-tenant-data"
+import { useFinishedProducts, useTransactions, useCategories } from "@/hooks/use-tenant-data"
 import { cn } from "@/lib/utils"
 import { PaymentNumpad } from "./payment-numpad"
 import { SalesHistoryPanel } from "./sales-history-panel"
@@ -32,7 +32,9 @@ import { DiscountManager } from "./discount-manager"
 import { ProductSearchAdvanced } from "./product-search-advanced"
 import { PrinterSettings } from "./printer-settings"
 import { getPrinter } from "@/lib/thermal-printer"
+import { getQZTrayService } from "@/lib/qz-tray-service"
 import { useSoundManager } from "@/lib/sound-manager"
+import { WeightInputDialog } from "@/components/orders/weight-input-dialog"
 
 // Types
 interface CartItem {
@@ -41,6 +43,8 @@ interface CartItem {
   price: number
   quantity: number
   image?: string
+  soldByWeight?: boolean
+  weightKg?: number
 }
 
 // Format currency
@@ -105,7 +109,7 @@ const generateReceiptHTML = (data: {
       ${data.items.map(item => `
         <div class="item">
           <span class="item-name">${item.name}</span>
-          <span class="item-qty">x${item.quantity}</span>
+          <span class="item-qty">${item.soldByWeight ? '' : 'x' + item.quantity}</span>
           <span class="item-price">${formatCurrency(item.price * item.quantity)}</span>
         </div>
       `).join('')}
@@ -144,6 +148,7 @@ export function TreasuryPosView() {
   const { currentTenant, currentUser } = useTenant()
   const { data: products, isLoading: productsLoading, mutate: refreshProducts } = useFinishedProducts()
   const { data: transactions, mutate: refreshTransactions } = useTransactions()
+  const { data: categoriesData } = useCategories()
   const { mutate: globalMutate } = useSWRConfig()
   const soundManager = useSoundManager()
 
@@ -178,6 +183,10 @@ export function TreasuryPosView() {
   const [paymentNumpadOpen, setPaymentNumpadOpen] = useState(false)
   const [searchMode, setSearchMode] = useState<"grid" | "search">("grid")
 
+  // Weight dialog state
+  const [weightDialogOpen, setWeightDialogOpen] = useState(false)
+  const [selectedProductForWeight, setSelectedProductForWeight] = useState<any>(null)
+
   // Clock
   useEffect(() => {
     const timer = setInterval(() => {
@@ -190,21 +199,60 @@ export function TreasuryPosView() {
     return () => clearInterval(timer)
   }, [])
 
-  // Get categories from products
+  // Auto-check QZ Tray on POS view mount
+  useEffect(() => {
+    const checkQZTray = async () => {
+      const savedMode = localStorage.getItem("printer-mode") || "qz-tray"
+      if (savedMode === "qz-tray" || savedMode === "bridge") {
+        try {
+          const qzService = getQZTrayService()
+          const connected = await qzService.connect()
+          if (connected) {
+            const savedPrinter = localStorage.getItem("qz-printer-name")
+            const state = qzService.getState()
+            if (savedPrinter && state.printers.includes(savedPrinter)) {
+              console.debug("[v0] QZ Tray ready with printer:", savedPrinter)
+            }
+          }
+        } catch (e) {
+          console.debug("[v0] QZ Tray not available")
+        }
+      }
+    }
+    // Slight delay to let the page render first
+    const timer = setTimeout(checkQZTray, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Build a map of categoryId -> categoryName for fast lookups
+  const categoryMap = new Map<string, string>(
+    (categoriesData as any[] || []).map((c: any) => [c.id, c.name])
+  )
+
+  // Get unique category names from products (resolved from categoryMap)
   const categories = products
-    ? [...new Set((products as any[]).map(p => p.category || p.categoryId || "Autre").filter(Boolean))]
+    ? [...new Set((products as any[])
+        .map(p => categoryMap.get(p.categoryId) || null)
+        .filter(Boolean) as string[])]
     : []
 
   // Filter products by search and category
   const filteredProducts = (products as any[] || []).filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-    const productCategory = p.category || p.categoryId || "Autre"
-    const matchesCategory = !selectedCategory || productCategory === selectedCategory
+    const productCategoryName = categoryMap.get(p.categoryId) || null
+    const matchesCategory = !selectedCategory || productCategoryName === selectedCategory
     return matchesSearch && matchesCategory
   })
 
   // Cart functions
   const addToCart = useCallback((product: any) => {
+    // Check if product is sold by weight
+    if (product.soldByWeight || product.sold_by_weight) {
+      setSelectedProductForWeight(product)
+      setWeightDialogOpen(true)
+      return
+    }
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id)
       if (existing) {
@@ -225,6 +273,31 @@ export function TreasuryPosView() {
     // Play sound when item added to cart
     soundManager.playAddToCart()
   }, [soundManager])
+
+  // Handle weight confirmation from dialog
+  const handleWeightConfirm = useCallback((weightInKg: number, totalPrice: number) => {
+    if (!selectedProductForWeight) return
+
+    const product = selectedProductForWeight
+    const pricePerKg = product.sellingPrice || product.selling_price || 0
+
+    setCart(prev => {
+      // For weight items, always add a new line (different weights = different lines)
+      return [...prev, {
+        id: `${product.id}-${Date.now()}`,
+        name: `${product.name} (${weightInKg.toFixed(3)} kg)`,
+        price: pricePerKg * weightInKg,
+        quantity: 1,
+        image: product.imageUrl || product.image_url,
+        soldByWeight: true,
+        weightKg: weightInKg,
+      }]
+    })
+
+    soundManager.playAddToCart()
+    setSelectedProductForWeight(null)
+    setWeightDialogOpen(false)
+  }, [selectedProductForWeight, soundManager])
 
   const updateQuantity = useCallback((id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -265,30 +338,29 @@ export function TreasuryPosView() {
   // Quick cash amounts
   const quickAmounts = [5, 10, 20, 50, 100]
 
-  // Open cash drawer - supports Bridge, USB, Network and Windows modes
+  // Open cash drawer - supports QZ Tray, USB, Network and Windows modes
   const openDrawer = async () => {
-    const printerModeStored = localStorage.getItem("printer-mode") || "bridge"
+    const printerModeStored = localStorage.getItem("printer-mode") || "qz-tray"
     
     try {
-      // Mode Bridge (recommended - direct Windows printing)
-      if (printerModeStored === "bridge") {
-        const printerName = localStorage.getItem("bridge-printer-name")
+      // Mode QZ Tray (recommended - direct printing via QZ Tray application)
+      if (printerModeStored === "qz-tray" || printerModeStored === "bridge") {
+        const printerName = localStorage.getItem("qz-printer-name") || localStorage.getItem("bridge-printer-name")
         if (!printerName) {
-          toast.info("Configurez l'imprimante dans le mode Bridge (bouton Imprimante)", { duration: 4000 })
+          toast.info("Configurez l'imprimante dans le mode QZ Tray (bouton Imprimante)", { duration: 4000 })
           return
         }
-        const res = await fetch("http://localhost:7731/print", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "open_drawer", printerName }),
-          signal: AbortSignal.timeout(5000),
-        })
-        const data = await res.json()
-        if (data.success) {
-          toast.success("Tiroir-caisse ouvert!")
-        } else {
-          toast.error("Erreur tiroir: " + data.error)
+        const qzService = getQZTrayService()
+        if (!qzService.isConnected()) {
+          const connected = await qzService.connect()
+          if (!connected) {
+            toast.error("QZ Tray non disponible. Lancez l'application QZ Tray.", { duration: 4000 })
+            return
+          }
         }
+        qzService.selectPrinter(printerName)
+        await qzService.openDrawer()
+        toast.success("Tiroir-caisse ouvert!")
         return
       }
 
@@ -333,54 +405,64 @@ export function TreasuryPosView() {
     }
   }
 
-  // Print receipt - checks printer mode (bridge/windows/usb/network)
+  // Print receipt - checks printer mode (qz-tray/windows/usb/network)
   const printReceipt = async (transactionData?: any) => {
     const data = transactionData || lastTransaction
     if (!data) return
 
-    const printerModeStored = localStorage.getItem("printer-mode") || "bridge"
+    const printerModeStored = localStorage.getItem("printer-mode") || "qz-tray"
     const printer = getPrinter()
 
-    // Mode Bridge (recommended) - sends raw ESC/POS + opens drawer for cash payments
-    if (printerModeStored === "bridge") {
-      const printerName = localStorage.getItem("bridge-printer-name")
+    // Mode QZ Tray (recommended) - sends raw ESC/POS + opens drawer for cash payments
+    if (printerModeStored === "qz-tray" || printerModeStored === "bridge") {
+      const printerName = localStorage.getItem("qz-printer-name") || localStorage.getItem("bridge-printer-name")
       if (printerName) {
         try {
-          const isCash = (data.paymentMethod || paymentMethod) === "cash"
-          const res = await fetch("http://localhost:7731/print", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: isCash ? "print_and_open_drawer" : "print_receipt",
-              printerName,
-              data: {
-                storeName: currentTenant?.name || "KIFSHOP PASTRY",
-                cashierName: currentUser?.name || "Caissier",
-                items: (data.items || cart).map((item: any) => ({
-                  name: item.name,
-                  qty: item.quantity,
-                  price: item.price,
-                })),
-                subtotal: data.subtotal || subtotal,
-                discount: discountAmount > 0 ? discountAmount : undefined,
-                total: data.total || total,
-                paymentMethod: isCash ? "Espèces" : "Carte bancaire",
-                amountPaid: data.cashReceived,
-                change: data.change,
-                transactionId: data.id || Date.now().toString().slice(-6),
-              },
-            }),
-            signal: AbortSignal.timeout(8000),
-          })
-          const result = await res.json()
-          if (result.success) {
-            toast.success(isCash ? "Ticket imprimé + tiroir ouvert!" : "Ticket imprimé!")
-          } else {
-            toast.error("Erreur bridge: " + result.error)
+          const qzService = getQZTrayService()
+          if (!qzService.isConnected()) {
+            const connected = await qzService.connect()
+            if (!connected) {
+              toast.error("QZ Tray non disponible - impression navigateur utilisée")
+              // Fall through to browser print
+            }
           }
-          return
+          
+          if (qzService.isConnected()) {
+            qzService.selectPrinter(printerName)
+            const isCash = (data.paymentMethod || paymentMethod) === "cash"
+            
+            const receiptData = {
+              storeName: currentTenant?.name || "KIFSHOP PASTRY",
+              storeAddress: currentTenant?.address || undefined,
+              storePhone: currentTenant?.phone || undefined,
+              cashierName: currentUser?.name || "Caissier",
+              items: (data.items || cart).map((item: any) => ({
+                name: item.name,
+                qty: item.quantity,
+                price: item.price,
+              })),
+              subtotal: data.subtotal || subtotal,
+              discount: discountAmount > 0 ? discountAmount : undefined,
+              total: data.total || total,
+              paymentMethod: isCash ? "Espèces" : "Carte bancaire",
+              amountPaid: data.cashReceived,
+              change: data.change,
+              transactionId: data.id || Date.now().toString().slice(-6),
+              date: new Date(),
+            }
+            
+            if (isCash) {
+              await qzService.printAndOpenDrawer(receiptData)
+              toast.success("Ticket imprimé + tiroir ouvert!")
+            } else {
+              await qzService.printReceipt(receiptData)
+              toast.success("Ticket imprimé!")
+            }
+            return
+          }
         } catch (err: any) {
-          toast.error("Bridge non disponible - impression navigateur utilisée")
+          console.error("[QZ Tray] Print error:", err)
+          toast.error("QZ Tray erreur - impression navigateur utilisée")
           // Fall through to browser print
         }
       }
@@ -391,6 +473,8 @@ export function TreasuryPosView() {
       try {
         const receiptData = {
           storeName: currentTenant?.name || "KIFSHOP",
+          storeAddress: currentTenant?.address || undefined,
+          storePhone: currentTenant?.phone || undefined,
           cashierName: currentUser?.name || "Caissier",
           items: (data.items || cart).map((item: any) => ({
             name: item.name,
@@ -407,13 +491,13 @@ export function TreasuryPosView() {
           date: new Date()
         }
         
-        console.log("[v0] Printing receipt with data:", receiptData)
+        console.debug("[v0] Printing receipt with data:", receiptData)
         
         await printer.printReceipt(receiptData)
         toast.success("Ticket imprime!")
         return
       } catch (error: any) {
-        console.log("[v0] USB print error:", error.message)
+        console.debug("[v0] USB print error:", error.message)
         toast.error("Erreur impression thermique, utilisation du navigateur")
       }
     }
@@ -432,6 +516,9 @@ export function TreasuryPosView() {
               action: "print_receipt",
               printerIp,
               printerPort: parseInt(printerPort),
+              storeName: currentTenant?.name || "KIFSHOP",
+              storeAddress: currentTenant?.address || undefined,
+              storePhone: currentTenant?.phone || undefined,
               items: (data.items || cart).map((item: any) => ({
                 name: item.name,
                 qty: item.quantity,
@@ -536,12 +623,12 @@ export function TreasuryPosView() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.log("[v0] API error response:", errorData)
+        console.debug("[v0] API error response:", errorData)
         throw new Error(errorData.details || errorData.error || "Erreur lors de l'enregistrement")
       }
 
       const result = await response.json()
-      console.log("[v0] Sale recorded successfully:", result)
+      console.debug("[v0] Sale recorded successfully:", result)
 
       // Save transaction for receipt
       const transactionData = {
@@ -568,6 +655,17 @@ export function TreasuryPosView() {
 
       // Success sound
       soundManager.playSuccess()
+
+      // Revalidate SWR cache to sync dashboard
+      await refreshTransactions()
+      // Also invalidate orders and dashboard-related caches
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("transactions") || 
+        key.includes("orders") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+      // Invalidate revenue reports cache for real-time sync
+      globalMutate((key) => typeof key === "string" && key.includes("/api/treasury/revenue"), undefined, { revalidate: true })
 
       // Success
       toast.success("Vente enregistree!")
@@ -598,24 +696,25 @@ export function TreasuryPosView() {
     .reduce((sum: number, t: any) => sum + (t.amount || 0), 0)
 
   return (
-    <div className="h-[calc(100vh-60px)] flex flex-col bg-amber-50/30">
-      {/* Header - Clean bakery theme */}
-      <div className="bg-white border-b border-amber-200 px-4 py-3 shadow-sm">
+    <div className="h-[calc(100vh-60px)] flex flex-col bg-[#1a1a1a]">
+      {/* Header - Premium dark theme */}
+      <div className="bg-[#0f0f0f] border-b border-[#2a2a2a] px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Left: Store info + Mode Bureau button */}
           <div className="flex items-center gap-4">
-            <div className="bg-amber-100 p-2 rounded-xl">
-              <ShoppingBag className="h-6 w-6 text-amber-700" />
+            <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-2.5 rounded-xl shadow-lg shadow-amber-500/20">
+              <ShoppingBag className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-amber-900">{currentTenant?.name || "KIFSHOP"}</h1>
-              <div className="flex items-center gap-2 text-sm text-amber-700">
+              <h1 className="font-bold text-lg text-white">{currentTenant?.name || "KIFSHOP"}</h1>
+              <div className="flex items-center gap-2 text-sm text-amber-400/80">
                 <User className="h-3.5 w-3.5" />
                 <span>{currentUser?.name || "Caissier"}</span>
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">Gerant</Badge>
               </div>
             </div>
 
-            {/* Mode Bureau button - in header left, far from payment buttons */}
+            {/* Mode Bureau button */}
             <Button
               onClick={() => {
                 localStorage.setItem("treasury-view-mode", "desktop")
@@ -623,49 +722,53 @@ export function TreasuryPosView() {
               }}
               variant="outline"
               size="sm"
-              className="gap-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              className="gap-2 border-[#3a3a3a] bg-[#2a2a2a] text-gray-300 hover:text-white hover:bg-[#3a3a3a] hover:border-[#4a4a4a]"
             >
               <Settings className="h-4 w-4" />
               <span>Mode Bureau</span>
             </Button>
           </div>
 
-          {/* Center: Modern Clock */}
-          <div className="flex items-center gap-1.5 bg-white border border-amber-200 px-4 py-2 rounded-2xl shadow-sm">
+          {/* Center: Premium Clock */}
+          <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#3a3a3a] px-5 py-2.5 rounded-2xl">
             {currentTime ? (() => {
               const parts = currentTime.split(":")
               return (
                 <>
-                  <span className="text-2xl font-bold tabular-nums text-amber-900 tracking-tight">{parts[0]}</span>
-                  <span className="text-xl font-light text-amber-400 animate-pulse">:</span>
-                  <span className="text-2xl font-bold tabular-nums text-amber-900 tracking-tight">{parts[1]}</span>
-                  <span className="text-xl font-light text-amber-400 animate-pulse">:</span>
-                  <span className="text-xl font-semibold tabular-nums text-amber-500 tracking-tight">{parts[2]}</span>
-                  <div className="ml-2 flex flex-col items-start leading-none">
-                    <span className="text-[10px] font-semibold text-amber-600 uppercase tracking-widest">
+                  <span className="text-3xl font-bold tabular-nums text-white tracking-tight">{parts[0]}</span>
+                  <span className="text-2xl font-light text-amber-500 animate-pulse">:</span>
+                  <span className="text-3xl font-bold tabular-nums text-white tracking-tight">{parts[1]}</span>
+                  <span className="text-2xl font-light text-amber-500 animate-pulse">:</span>
+                  <span className="text-2xl font-semibold tabular-nums text-gray-400 tracking-tight">{parts[2]}</span>
+                  <div className="ml-3 pl-3 border-l border-[#3a3a3a] flex flex-col items-start leading-none">
+                    <span className="text-xs font-semibold text-amber-500 uppercase tracking-widest">
                       {new Date().toLocaleDateString("fr-TN", { weekday: "short" })}
                     </span>
-                    <span className="text-[10px] text-amber-400">
+                    <span className="text-xs text-gray-500">
                       {new Date().toLocaleDateString("fr-TN", { day: "2-digit", month: "short" })}
                     </span>
                   </div>
                 </>
               )
-            })() : <span className="text-2xl font-bold text-amber-300">--:--:--</span>}
+            })() : <span className="text-2xl font-bold text-gray-600">--:--:--</span>}
           </div>
 
           {/* Right: Stats & Actions */}
           <div className="flex items-center gap-3">
             {/* Today's stats */}
-            <div className="flex items-center gap-4 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200">
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-                <span className="font-bold text-emerald-700">{formatCurrency(todayIncome)}</span>
+            <div className="flex items-center gap-4 bg-[#1a1a1a] px-4 py-2.5 rounded-xl border border-[#2a2a2a]">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-emerald-500/10 rounded-lg">
+                  <TrendingUp className="h-4 w-4 text-emerald-400" />
+                </div>
+                <span className="font-bold text-emerald-400">{formatCurrency(todayIncome)}</span>
               </div>
-              <div className="w-px h-6 bg-emerald-200" />
-              <div className="flex items-center gap-1.5">
-                <TrendingDown className="h-4 w-4 text-red-500" />
-                <span className="font-bold text-red-600">{formatCurrency(todayExpense)}</span>
+              <div className="w-px h-6 bg-[#3a3a3a]" />
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-red-500/10 rounded-lg">
+                  <TrendingDown className="h-4 w-4 text-red-400" />
+                </div>
+                <span className="font-bold text-red-400">{formatCurrency(todayExpense)}</span>
               </div>
             </div>
 
@@ -676,7 +779,7 @@ export function TreasuryPosView() {
             <Button 
               variant="outline"
               onClick={openDrawer}
-              className="h-11 px-4 border-amber-300 hover:bg-amber-100 text-amber-800"
+              className="h-11 px-4 border-[#3a3a3a] bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 hover:text-white"
             >
               <Unlock className="h-4 w-4 mr-2" />
               Tiroir
@@ -686,7 +789,7 @@ export function TreasuryPosView() {
             <Button 
               variant="outline"
               onClick={() => refreshProducts()}
-              className="h-11 w-11 p-0 border-amber-300 hover:bg-amber-100 text-amber-800"
+              className="h-11 w-11 p-0 border-[#3a3a3a] bg-[#2a2a2a] hover:bg-[#3a3a3a] text-gray-300 hover:text-white"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -701,12 +804,12 @@ export function TreasuryPosView() {
           {/* Search */}
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-amber-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
               <Input
                 placeholder="Rechercher un produit..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 h-14 text-lg bg-white border-amber-200 focus:border-amber-400 focus:ring-amber-400 rounded-xl"
+                className="pl-12 h-14 text-lg bg-[#252525] border-[#3a3a3a] text-white placeholder:text-gray-500 focus:border-amber-500 focus:ring-amber-500/20 rounded-xl"
               />
             </div>
           </div>
@@ -719,8 +822,8 @@ export function TreasuryPosView() {
               className={cn(
                 "h-11 px-5 rounded-full font-medium transition-all",
                 selectedCategory === null 
-                  ? "bg-amber-600 hover:bg-amber-700 text-white" 
-                  : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                  ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20" 
+                  : "border-[#3a3a3a] bg-[#252525] text-gray-300 hover:bg-[#3a3a3a] hover:text-white"
               )}
             >
               Tous
@@ -733,8 +836,8 @@ export function TreasuryPosView() {
                 className={cn(
                   "h-11 px-5 rounded-full font-medium transition-all",
                   selectedCategory === cat 
-                    ? "bg-amber-600 hover:bg-amber-700 text-white" 
-                    : "border-amber-300 text-amber-800 hover:bg-amber-100"
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20" 
+                    : "border-[#3a3a3a] bg-[#252525] text-gray-300 hover:bg-[#3a3a3a] hover:text-white"
                 )}
               >
                 {cat}
@@ -742,14 +845,14 @@ export function TreasuryPosView() {
             ))}
           </div>
 
-          {/* Products grid - with proper scrolling */}
+          {/* Products grid */}
           <div className="flex-1 overflow-y-auto pr-2 max-h-[calc(100vh-280px)]">
             {productsLoading ? (
               <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-amber-600">
+              <div className="flex flex-col items-center justify-center h-64 text-gray-500">
                 <Package className="h-16 w-16 mb-4 opacity-50" />
                 <p className="text-lg">Aucun produit trouve</p>
               </div>
@@ -758,29 +861,37 @@ export function TreasuryPosView() {
                 {filteredProducts.map((product: any) => {
                   const productPrice = product.sellingPrice || product.selling_price || 0
                   const productImage = product.imageUrl || product.image_url
-                  const inCart = cart.find(item => item.id === product.id)
+                  const isByWeight = product.soldByWeight || product.sold_by_weight
+                  const inCart = cart.find(item => item.id === product.id || (isByWeight && item.id.startsWith(product.id)))
                   
                   return (
                     <button
                       key={product.id}
                       onClick={() => addToCart(product)}
                       className={cn(
-                        "group relative bg-white rounded-2xl p-3 text-left transition-all duration-200",
-                        "border-2 hover:shadow-lg active:scale-[0.98]",
+                        "group relative bg-[#252525] rounded-2xl p-3 text-left transition-all duration-200",
+                        "border-2 hover:shadow-xl active:scale-[0.98]",
                         inCart 
-                          ? "border-amber-500 shadow-md ring-2 ring-amber-200" 
-                          : "border-amber-100 hover:border-amber-300"
+                          ? "border-amber-500 shadow-lg shadow-amber-500/20 ring-1 ring-amber-500/50" 
+                          : "border-[#3a3a3a] hover:border-[#4a4a4a] hover:shadow-lg hover:shadow-black/20"
                       )}
                     >
                       {/* Quantity badge */}
-                      {inCart && (
-                        <div className="absolute -top-2 -right-2 bg-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
+                      {inCart && !isByWeight && (
+                        <div className="absolute -top-2 -right-2 bg-gradient-to-br from-amber-500 to-amber-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shadow-lg z-10">
                           {inCart.quantity}
                         </div>
                       )}
 
+                      {/* Weight badge */}
+                      {isByWeight && (
+                        <div className="absolute -top-2 -left-2 bg-gradient-to-br from-blue-500 to-blue-600 text-white px-2 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-lg z-10 gap-1">
+                          <Scale className="h-3 w-3" /> kg
+                        </div>
+                      )}
+
                       {/* Product image */}
-                      <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-amber-50">
+                      <div className="aspect-square mb-2 rounded-xl overflow-hidden bg-[#1a1a1a]">
                         {productImage ? (
                           <img
                             src={productImage}
@@ -788,19 +899,19 @@ export function TreasuryPosView() {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                         ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center text-amber-300">
+                          <div className="w-full h-full flex flex-col items-center justify-center text-amber-500/50">
                             <ImageIcon className="h-10 w-10 mb-1" />
-                            <span className="text-xs">Pas d'image</span>
+                            <span className="text-xs text-gray-600">Pas d'image</span>
                           </div>
                         )}
                       </div>
 
                       {/* Product info */}
-                      <h3 className="font-semibold text-sm text-amber-900 line-clamp-2 min-h-[2.5rem]">
+                      <h3 className="font-semibold text-sm text-white line-clamp-2 min-h-[2.5rem]">
                         {product.name}
                       </h3>
-                      <p className="text-amber-700 font-bold text-base mt-1">
-                        {formatCurrency(productPrice)} <span className="text-xs font-normal">TND</span>
+                      <p className="text-amber-400 font-bold text-base mt-1">
+                        {formatCurrency(productPrice)} <span className="text-xs font-normal text-gray-500">{isByWeight ? "TND/kg" : "TND"}</span>
                       </p>
                     </button>
                   )
@@ -811,15 +922,15 @@ export function TreasuryPosView() {
         </div>
 
         {/* Cart section */}
-        <div className="w-[380px] bg-white border-l border-amber-200 flex flex-col">
+        <div className="w-[380px] bg-[#0f0f0f] border-l border-[#2a2a2a] flex flex-col h-full max-h-full overflow-hidden">
           {/* Cart header */}
-          <div className="p-4 border-b border-amber-100 bg-amber-50/50">
+          <div className="p-4 border-b border-[#2a2a2a] shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ShoppingBag className="h-5 w-5 text-amber-700" />
-                <h2 className="font-bold text-lg text-amber-900">Panier</h2>
+                <ShoppingBag className="h-5 w-5 text-amber-500" />
+                <h2 className="font-bold text-lg text-white">Panier</h2>
                 {cart.length > 0 && (
-                  <Badge className="bg-amber-600 text-white">{cart.length}</Badge>
+                  <Badge className="bg-amber-500 text-white">{cart.length}</Badge>
                 )}
               </div>
               {cart.length > 0 && (
@@ -827,7 +938,7 @@ export function TreasuryPosView() {
                   variant="ghost"
                   size="sm"
                   onClick={clearCart}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
                   Vider
@@ -836,28 +947,28 @@ export function TreasuryPosView() {
             </div>
           </div>
 
-          {/* Cart items */}
-          <ScrollArea className="flex-1 p-4">
+          {/* Cart items - scrollable area */}
+          <ScrollArea className="flex-1 min-h-0 p-4">
             {cart.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-amber-400">
-                <ShoppingBag className="h-16 w-16 mb-3 opacity-50" />
-                <p>Panier vide</p>
-                <p className="text-sm mt-1">Cliquez sur un produit pour l'ajouter</p>
+              <div className="flex flex-col items-center justify-center h-48 text-gray-500">
+                <ShoppingBag className="h-16 w-16 mb-3 opacity-30 text-amber-500" />
+                <p className="text-amber-500/80">Panier vide</p>
+                <p className="text-sm mt-1 text-gray-600">Cliquez sur un produit pour l'ajouter</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {cart.map(item => (
                   <div
                     key={item.id}
-                    className="bg-amber-50/50 rounded-xl p-3 border border-amber-100"
+                    className="bg-[#1a1a1a] rounded-xl p-3 border border-[#2a2a2a]"
                   >
                     <div className="flex items-start gap-3">
                       {/* Image */}
-                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-white flex-shrink-0">
+                      <div className="w-14 h-14 rounded-lg overflow-hidden bg-[#252525] flex-shrink-0">
                         {item.image ? (
                           <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-amber-300">
+                          <div className="w-full h-full flex items-center justify-center text-gray-600">
                             <Package className="h-6 w-6" />
                           </div>
                         )}
@@ -865,29 +976,38 @@ export function TreasuryPosView() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-amber-900 text-sm line-clamp-1">{item.name}</h4>
-                        <p className="text-amber-600 text-sm">{formatCurrency(item.price)} TND</p>
+                        <h4 className="font-medium text-white text-sm line-clamp-1">{item.name}</h4>
+                        <p className="text-gray-400 text-sm">{formatCurrency(item.price)} TND</p>
                         
-                        {/* Quantity controls */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg border-amber-300"
-                            onClick={() => updateQuantity(item.id, -1)}
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </Button>
-                          <span className="w-8 text-center font-bold text-amber-900">{item.quantity}</span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg border-amber-300"
-                            onClick={() => updateQuantity(item.id, 1)}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {/* Quantity controls - hide +/- for weight items */}
+                        {item.soldByWeight ? (
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <Scale className="h-3.5 w-3.5 text-blue-400" />
+                            <span className="text-xs text-blue-400 font-medium">
+                              {item.weightKg?.toFixed(3)} kg
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
+                              onClick={() => updateQuantity(item.id, -1)}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                            <span className="w-8 text-center font-bold text-white">{item.quantity}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
+                              onClick={() => updateQuantity(item.id, 1)}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Price & Delete */}
@@ -895,12 +1015,12 @@ export function TreasuryPosView() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-500/10"
                           onClick={() => removeFromCart(item.id)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
-                        <span className="font-bold text-amber-900">
+                        <span className="font-bold text-amber-400">
                           {formatCurrency(item.price * item.quantity)}
                         </span>
                       </div>
@@ -911,11 +1031,11 @@ export function TreasuryPosView() {
             )}
           </ScrollArea>
 
-          {/* Cart footer */}
-          <div className="border-t border-amber-200 p-4 bg-amber-50/30">
+          {/* Cart footer - fixed at bottom */}
+          <div className="border-t border-[#2a2a2a] p-4 bg-[#0a0a0a] shrink-0">
             {/* Totals */}
             <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-amber-700">
+              <div className="flex justify-between text-gray-400">
                 <span>Sous-total</span>
                 <span>{formatCurrency(subtotal)} TND</span>
               </div>
@@ -923,19 +1043,19 @@ export function TreasuryPosView() {
               {/* Discounts section */}
               {appliedDiscounts.length > 0 && (
                 <>
-                  <div className="bg-amber-50 rounded-lg p-2 space-y-1">
+                  <div className="bg-red-500/10 rounded-lg p-2 space-y-1 border border-red-500/20">
                     {appliedDiscounts.map(discount => (
-                      <div key={discount.id} className="flex justify-between text-sm text-red-600">
+                      <div key={discount.id} className="flex justify-between text-sm text-red-400">
                         <span>{discount.label}</span>
                         <button
                           onClick={() => setAppliedDiscounts(prev => prev.filter(d => d.id !== discount.id))}
-                          className="text-xs hover:text-red-800"
+                          className="text-xs hover:text-red-300"
                         >
-                          - {discount.type === "percentage" ? `${discount.value}%` : formatCurrency(discount.value)} ✕
+                          - {discount.type === "percentage" ? `${discount.value}%` : formatCurrency(discount.value)} x
                         </button>
                       </div>
                     ))}
-                    <div className="flex justify-between text-sm font-semibold text-red-700 pt-1 border-t border-amber-200">
+                    <div className="flex justify-between text-sm font-semibold text-red-400 pt-1 border-t border-red-500/20">
                       <span>Total remise</span>
                       <span>-{formatCurrency(discountAmount)} TND</span>
                     </div>
@@ -947,9 +1067,8 @@ export function TreasuryPosView() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full text-xs border-amber-300 text-amber-800 hover:bg-amber-100"
+                className="w-full text-xs border-[#3a3a3a] bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                 onClick={() => {
-                  // Simple preset discounts for quick access
                   const newDiscount = { id: Date.now().toString(), type: "percentage" as const, value: 5, label: "Remise 5%" }
                   setAppliedDiscounts([...appliedDiscounts, newDiscount])
                 }}
@@ -957,10 +1076,10 @@ export function TreasuryPosView() {
                 + Remise
               </Button>
 
-              <Separator className="bg-amber-200" />
-              <div className="flex justify-between text-xl font-bold text-amber-900">
+              <Separator className="bg-[#2a2a2a]" />
+              <div className="flex justify-between text-xl font-bold text-white">
                 <span>TOTAL</span>
-                <span>{formatCurrency(total)} TND</span>
+                <span className="text-amber-400">{formatCurrency(total)} TND</span>
               </div>
             </div>
 
@@ -968,7 +1087,7 @@ export function TreasuryPosView() {
             <div className="grid grid-cols-2 gap-3 mb-3">
               <Button
                 variant="outline"
-                className="h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+                className="h-12 border-[#3a3a3a] bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                 onClick={() => lastTransaction && setShowReceiptPreview(true)}
                 disabled={!lastTransaction}
               >
@@ -977,7 +1096,7 @@ export function TreasuryPosView() {
               </Button>
               <Button
                 variant="outline"
-                className="h-12 border-amber-300 text-amber-800 hover:bg-amber-100"
+                className="h-12 border-[#3a3a3a] bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a] hover:text-white"
                 onClick={openDrawer}
               >
                 <Unlock className="h-4 w-4 mr-2" />
@@ -993,7 +1112,7 @@ export function TreasuryPosView() {
                   setShowPaymentDialog(true)
                 }}
                 disabled={cart.length === 0}
-                className="h-14 text-base font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="h-14 text-base font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20 disabled:opacity-50"
               >
                 <Banknote className="h-5 w-5 mr-2" />
                 ESPECES
@@ -1004,7 +1123,7 @@ export function TreasuryPosView() {
                   setShowPaymentDialog(true)
                 }}
                 disabled={cart.length === 0}
-                className="h-14 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                className="h-14 text-base font-bold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg shadow-blue-500/20 disabled:opacity-50"
               >
                 <CreditCard className="h-5 w-5 mr-2" />
                 CARTE
@@ -1016,14 +1135,14 @@ export function TreasuryPosView() {
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-        <DialogContent className="sm:max-w-md bg-white flex flex-col max-h-[90dvh] p-0 gap-0">
+        <DialogContent className="sm:max-w-md bg-[#1a1a1a] border-[#2a2a2a] flex flex-col max-h-[90dvh] p-0 gap-0">
           {/* Header fixe */}
-          <div className="px-5 pt-5 pb-3 border-b border-amber-100 shrink-0">
-            <DialogTitle className="text-xl text-amber-900">
+          <div className="px-5 pt-5 pb-3 border-b border-[#2a2a2a] shrink-0">
+            <DialogTitle className="text-xl text-white">
               {paymentMethod === "cash" ? "Paiement en especes" : "Paiement par carte"}
             </DialogTitle>
-            <DialogDescription className="text-amber-600 mt-0.5">
-              Total a payer: <span className="font-bold text-amber-900">{formatCurrency(total)} TND</span>
+            <DialogDescription className="text-gray-400 mt-0.5">
+              Total a payer: <span className="font-bold text-amber-400">{formatCurrency(total)} TND</span>
             </DialogDescription>
           </div>
 
@@ -1032,9 +1151,9 @@ export function TreasuryPosView() {
             {paymentMethod === "cash" ? (
               <div className="space-y-3">
                 {/* Payment Numpad */}
-                <div className="bg-amber-50 rounded-xl p-3">
-                  <label className="block text-xs font-medium text-amber-700 mb-2">Montant recu</label>
-                  <div className="text-3xl font-bold text-amber-900 text-center mb-3 font-mono">
+                <div className="bg-[#252525] rounded-xl p-3 border border-[#3a3a3a]">
+                  <label className="block text-xs font-medium text-gray-400 mb-2">Montant recu</label>
+                  <div className="text-3xl font-bold text-amber-400 text-center mb-3 font-mono">
                     {cashReceived || "0.000"} TND
                   </div>
                   <PaymentNumpad
@@ -1052,7 +1171,7 @@ export function TreasuryPosView() {
                       key={amount}
                       variant="outline"
                       onClick={() => setCashReceived(amount.toString())}
-                      className="h-10 font-bold border-amber-300 text-amber-800 hover:bg-amber-100 text-sm"
+                      className="h-10 font-bold border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a] text-sm"
                     >
                       {amount}
                     </Button>
@@ -1063,7 +1182,7 @@ export function TreasuryPosView() {
                 <Button
                   variant="outline"
                   onClick={() => setCashReceived(total.toFixed(3))}
-                  className="w-full h-10 border-amber-300 text-amber-800 hover:bg-amber-100"
+                  className="w-full h-10 border-[#3a3a3a] bg-[#252525] text-white hover:bg-[#3a3a3a]"
                 >
                   <Calculator className="h-4 w-4 mr-2" />
                   Exact ({formatCurrency(total)})
@@ -1071,29 +1190,29 @@ export function TreasuryPosView() {
 
                 {/* Change display */}
                 {cashReceivedNum >= total && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
-                    <p className="text-xs text-emerald-600 mb-0.5">Monnaie</p>
-                    <p className="text-2xl font-bold text-emerald-700">{formatCurrency(change)} TND</p>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-center">
+                    <p className="text-xs text-emerald-400 mb-0.5">Monnaie</p>
+                    <p className="text-2xl font-bold text-emerald-400">{formatCurrency(change)} TND</p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="py-6 text-center">
-                <div className="bg-blue-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-                  <CreditCard className="h-10 w-10 text-blue-600" />
+                <div className="bg-blue-500/10 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 border border-blue-500/30">
+                  <CreditCard className="h-10 w-10 text-blue-400" />
                 </div>
-                <p className="text-lg text-amber-700">Presentez la carte au terminal</p>
-                <p className="text-3xl font-bold text-amber-900 mt-2">{formatCurrency(total)} TND</p>
+                <p className="text-lg text-gray-400">Presentez la carte au terminal</p>
+                <p className="text-3xl font-bold text-white mt-2">{formatCurrency(total)} TND</p>
               </div>
             )}
           </div>
 
           {/* Bouton validation toujours visible en bas */}
-          <div className="px-5 pb-5 pt-3 border-t border-amber-100 shrink-0">
+          <div className="px-5 pb-5 pt-3 border-t border-[#2a2a2a] shrink-0">
             <Button
               onClick={processPayment}
               disabled={isProcessing || (paymentMethod === "cash" && cashReceivedNum < total)}
-              className="w-full h-12 text-base font-bold bg-amber-600 hover:bg-amber-700 text-white"
+              className="w-full h-12 text-base font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20"
             >
               {isProcessing ? (
                 <>
@@ -1113,37 +1232,53 @@ export function TreasuryPosView() {
 
       {/* Receipt Preview Dialog */}
       <Dialog open={showReceiptPreview} onOpenChange={setShowReceiptPreview}>
-        <DialogContent className="sm:max-w-sm bg-white">
+        <DialogContent className="sm:max-w-sm bg-[#1a1a1a] border-[#2a2a2a]">
           <DialogHeader>
-            <DialogTitle>Dernier ticket</DialogTitle>
+            <DialogTitle className="text-white">Dernier ticket</DialogTitle>
           </DialogHeader>
           {lastTransaction && (
-            <div className="bg-amber-50 rounded-xl p-4 font-mono text-sm">
-              <div className="text-center border-b border-amber-200 pb-2 mb-2">
-                <p className="font-bold">{currentTenant?.name || "KIFSHOP"}</p>
-                <p className="text-xs text-amber-600">Ticket #{lastTransaction.id}</p>
+            <div className="bg-[#252525] rounded-xl p-4 font-mono text-sm border border-[#3a3a3a]">
+              <div className="text-center border-b border-[#3a3a3a] pb-2 mb-2">
+                <p className="font-bold text-white">{currentTenant?.name || "KIFSHOP"}</p>
+                <p className="text-xs text-gray-500">Ticket #{lastTransaction.id}</p>
               </div>
               {lastTransaction.items.map((item: CartItem) => (
-                <div key={item.id} className="flex justify-between py-1">
-                  <span className="truncate flex-1">{item.name} x{item.quantity}</span>
+                <div key={item.id} className="flex justify-between py-1 text-gray-300">
+                  <span className="truncate flex-1">
+                    {item.soldByWeight ? item.name : `${item.name} x${item.quantity}`}
+                  </span>
                   <span>{formatCurrency(item.price * item.quantity)}</span>
                 </div>
               ))}
-              <div className="border-t border-amber-200 mt-2 pt-2 font-bold text-lg flex justify-between">
-                <span>TOTAL</span>
-                <span>{formatCurrency(lastTransaction.total)} TND</span>
+              <div className="border-t border-[#3a3a3a] mt-2 pt-2 font-bold text-lg flex justify-between">
+                <span className="text-white">TOTAL</span>
+                <span className="text-amber-400">{formatCurrency(lastTransaction.total)} TND</span>
               </div>
             </div>
           )}
           <Button
             onClick={() => printReceipt()}
-            className="w-full h-12 bg-amber-600 hover:bg-amber-700 text-white"
+            className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/20"
           >
             <Printer className="h-4 w-4 mr-2" />
             Imprimer
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Weight Input Dialog for products sold by weight */}
+      {selectedProductForWeight && (
+        <WeightInputDialog
+          open={weightDialogOpen}
+          onOpenChange={(open) => {
+            setWeightDialogOpen(open)
+            if (!open) setSelectedProductForWeight(null)
+          }}
+          productName={selectedProductForWeight.name}
+          pricePerKg={selectedProductForWeight.sellingPrice || selectedProductForWeight.selling_price || 0}
+          onConfirm={handleWeightConfirm}
+        />
+      )}
     </div>
   )
 }

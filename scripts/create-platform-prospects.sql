@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS platform_prospects (
   notes text,
   next_action text,
   next_action_date timestamptz,
+  demo_scheduled_at timestamptz,
+  demo_contact_person text,
   converted_tenant_id uuid REFERENCES tenants(id),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
@@ -29,12 +31,13 @@ ALTER TABLE platform_prospects ADD CONSTRAINT platform_prospects_source_check
 ALTER TABLE platform_prospects ENABLE ROW LEVEL SECURITY;
 
 -- Only super admins (service role) can access this table
--- Since super admin uses the service role client, we allow all for service_role
+-- Restrict access explicitly to service_role requests.
 CREATE POLICY "Service role full access" ON platform_prospects
-  FOR ALL USING (true) WITH CHECK (true);
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
 
 -- Create index for common queries
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_status ON platform_prospects(status);
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_city ON platform_prospects(city);
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_source ON platform_prospects(source);
 CREATE INDEX IF NOT EXISTS idx_platform_prospects_next_action_date ON platform_prospects(next_action_date);
+CREATE INDEX IF NOT EXISTS idx_platform_prospects_demo_scheduled_at ON platform_prospects(demo_scheduled_at);

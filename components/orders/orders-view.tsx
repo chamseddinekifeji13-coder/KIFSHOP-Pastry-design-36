@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import useSWR from "swr"
 import {
@@ -8,7 +8,7 @@ import {
   Clock, Truck, MapPin, Package, Instagram, History, CheckCircle2,
   ArrowRight, AlertCircle, Loader2, Banknote, Wallet, Trash2,
   Building2, RotateCcw, FileWarning, Check, XCircle,
-  FileText, Download, Printer, Eye, Gift, Users, User, Zap,
+  FileText, Download, Printer, Eye, Gift, Users, User, Zap, Archive,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,12 +33,13 @@ import {
   fetchOrders, updateOrderStatus,
   getOrderStatusHistory, getPaymentCollections,
   recordPaymentCollection, deletePaymentCollection,
-  exportOrdersToCSV,
+  exportOrdersToCSV, resetOrderCounter, getOrderCounter, archiveCompletedOrders,
+  deleteOrder,
   type Order, type StatusHistoryEntry, type PaymentCollection,
   type PaymentMethod, type CollectedBy,
 } from "@/lib/orders/actions"
-import { QuickOrder } from "@/components/orders/quick-order"
-import { NewOrderDrawer } from "@/components/orders/new-order-drawer"
+import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
+// Note: QuickOrder and NewOrderDrawer are replaced by UnifiedOrderDialog
 import {
   createReturn, getOrderReturns, processReturn,
   fetchReturns, fetchCustomerCredits,
@@ -56,6 +57,9 @@ import { toast } from "sonner"
 import { UnifiedOrderDialog } from "./unified-order-dialog"
 import { exportToCSV } from "@/lib/csv-export"
 import { FastSalesView } from "./fast-sales-view"
+import { SendToDeliveryDialog } from "./send-to-delivery-dialog"
+import { DeliveryExportDialog } from "./delivery-export-dialog"
+import { convertProspectToOrder } from "@/lib/prospects/actions"
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   nouveau: { label: "Nouveau", color: "bg-blue-500" },
@@ -63,6 +67,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
   pret: { label: "Pret", color: "bg-primary" },
   "en-livraison": { label: "En livraison", color: "bg-orange-500" },
   livre: { label: "Livre / Vendu", color: "bg-muted" },
+  annule: { label: "Annule", color: "bg-destructive" },
 }
 
 const courierNames: Record<string, string> = {
@@ -89,8 +94,9 @@ const historyLabels: Record<string, string> = {
   pret: "Commande prete",
   "en-livraison": "Expediee",
   livre: "Livree / Vendue",
-  "paiement-complet": "Paiement complet",
-  "paiement-partiel": "Acompte enregistre",
+  "payment_paid": "Paiement complet",
+  "payment_partial": "Paiement partiel",
+  "payment_unpaid": "Non paye",
   "retour-total": "Retour total demande",
   "retour-partial": "Retour partiel demande",
   "retour-approved": "Retour approuve",
@@ -120,8 +126,17 @@ const paymentMethodIcons: Record<PaymentMethod, typeof Banknote> = {
   cod_courier: Truck,
 }
 
+interface NewOrderPrefillData {
+  fromProspectId?: string
+  customerName?: string
+  customerPhone?: string
+  source?: string
+  deliveryAt?: string
+  autoDocumentType?: "none" | "invoice" | "delivery_note"
+}
+
 export function OrdersView() {
-  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
   const { t } = useI18n()
   const searchParams = useSearchParams()
 
@@ -134,27 +149,7 @@ export function OrdersView() {
     return "standard"
   })
 
-  const toggleViewMode = () => {
-    const newMode = viewMode === "fast" ? "standard" : "fast"
-    setViewMode(newMode)
-    localStorage.setItem("orders-view-mode", newMode)
-  }
-
-  // If fast sales mode, render that view
-  if (viewMode === "fast") {
-    return (
-      <div className="relative">
-        <div className="absolute top-0 right-0 z-10">
-          <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
-            <Store className="h-4 w-4" />
-            <span className="hidden sm:inline">Mode Standard</span>
-          </Button>
-        </div>
-        <FastSalesView />
-      </div>
-    )
-  }
-
+  // ALL hooks must be declared before any conditional return
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [newOrderOpen, setNewOrderOpen] = useState(false)
@@ -162,6 +157,9 @@ export function OrdersView() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [deliveryExportOpen, setDeliveryExportOpen] = useState(false)
+  const [isArchivingCompleted, setIsArchivingCompleted] = useState(false)
+  const [isApiExporting, setIsApiExporting] = useState(false)
 
   // Payment collection state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
@@ -185,6 +183,11 @@ export function OrdersView() {
   const [returnNotes, setReturnNotes] = useState("")
   const [returnItems, setReturnItems] = useState<{ idx: number; qty: number }[]>([])
 
+  // Delete order state
+  const [deleteOrderDialogOpen, setDeleteOrderDialogOpen] = useState(false)
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Invoice / Document state
   const [orderDocuments, setOrderDocuments] = useState<Invoice[]>([])
   const [documentsLoading, setDocumentsLoading] = useState(false)
@@ -192,13 +195,21 @@ export function OrdersView() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [generatingDoc, setGeneratingDoc] = useState<DocumentType | null>(null)
 
+  // Order counter reset
+  const [resetCounterDialogOpen, setResetCounterDialogOpen] = useState(false)
+  const [resettingCounter, setResettingCounter] = useState(false)
+
+  // Send to delivery provider state
+  const [sendToDeliveryOpen, setSendToDeliveryOpen] = useState(false)
+  const [newOrderPrefill, setNewOrderPrefill] = useState<NewOrderPrefillData | null>(null)
+
   const isDemoTenant = !tenantLoading && currentTenant.id === "__fallback__"
 
   // SWR fetcher for orders
   const { data: orders = [], mutate, isLoading } = useSWR(
     isDemoTenant ? null : ["orders", currentTenant.id],
     () => fetchOrders(currentTenant.id),
-    { revalidateOnFocus: false }
+    { refreshInterval: 30000, revalidateOnFocus: false }
   )
 
   // SWR for all returns
@@ -222,21 +233,48 @@ export function OrdersView() {
     { revalidateOnFocus: false }
   )
 
+  // SWR for delivery companies (for name mapping)
+  const { data: deliveryCompanies = [] } = useSWR(
+    isDemoTenant ? null : ["deliveryCompanies", currentTenant.id],
+    () => fetchActiveDeliveryCompanies(currentTenant.id),
+    { revalidateOnFocus: false }
+  )
+
   useEffect(() => {
-    if (searchParams.get("action") === "new") {
+    const action = searchParams.get("action")
+    const fromProspect = searchParams.get("fromProspect")
+
+    if (action === "new" || fromProspect) {
       setNewOrderOpen(true)
+    }
+
+    if (fromProspect) {
+      const safeSource = searchParams.get("source")
+      const safeDocType = searchParams.get("autoDocumentType")
+      const parsed: NewOrderPrefillData = {
+        fromProspectId: fromProspect,
+        customerName: searchParams.get("customerName") || "",
+        customerPhone: searchParams.get("customerPhone") || "",
+        source: ["phone", "comptoir", "web", "facebook"].includes(safeSource || "") ? (safeSource as string) : "phone",
+        deliveryAt: searchParams.get("deliveryAt") || "",
+        autoDocumentType: safeDocType === "invoice" || safeDocType === "delivery_note" ? safeDocType : "none",
+      }
+      setNewOrderPrefill(parsed)
+    } else {
+      setNewOrderPrefill(null)
     }
   }, [searchParams])
 
-  const ordersByStatus: Record<Order["status"], Order[]> = {
-    nouveau: orders.filter((o) => o.status === "nouveau"),
-    "en-preparation": orders.filter((o) => o.status === "en-preparation"),
-    pret: orders.filter((o) => o.status === "pret"),
-    "en-livraison": orders.filter((o) => o.status === "en-livraison"),
-    livre: orders.filter((o) => o.status === "livre"),
-    annule: orders.filter((o) => o.status === "annule"),
-  }
+  // Create a mapping from delivery company UUID to name for display
+  const courierNameMap = useMemo(() => {
+    const map: Record<string, string> = { ...courierNames }
+    deliveryCompanies.forEach(company => {
+      map[company.id] = company.name
+    })
+    return map
+  }, [deliveryCompanies])
 
+  // ALL useCallback hooks MUST be before any conditional return (React rules of hooks)
   const loadHistory = useCallback(async (orderId: string) => {
     setHistoryLoading(true)
     const history = await getOrderStatusHistory(orderId)
@@ -264,6 +302,93 @@ export function OrdersView() {
     setOrderDocuments(docs)
     setDocumentsLoading(false)
   }, [])
+
+  const handleNewOrderCreated = useCallback(async (result?: {
+    orderId?: string
+    fromProspectId?: string
+    autoDocumentType?: "none" | "invoice" | "delivery_note"
+  }) => {
+    await mutate()
+
+    if (!result?.orderId) {
+      return
+    }
+
+    if (result.fromProspectId) {
+      const converted = await convertProspectToOrder(result.fromProspectId, result.orderId)
+      if (converted) {
+        toast.success("Prospect converti en commande")
+      } else {
+        toast.error("Commande creee mais conversion du prospect non finalisee")
+      }
+    }
+
+    if (result.autoDocumentType && result.autoDocumentType !== "none") {
+      const refreshedOrders = await fetchOrders(currentTenant.id)
+      const createdOrder = refreshedOrders.find((o) => o.id === result.orderId)
+      if (!createdOrder) {
+        toast.error("Commande creee, mais introuvable pour generer le document")
+        return
+      }
+
+      const doc = await generateDocument(createdOrder, currentTenant.id, result.autoDocumentType)
+      if (!doc) {
+        toast.error("Commande creee, mais generation du document echouee")
+        return
+      }
+
+      setSelectedOrder(createdOrder)
+      setSheetOpen(true)
+      void loadDocuments(createdOrder.id)
+      mutateDocuments()
+      setPreviewInvoice(doc)
+      setPreviewOpen(true)
+      toast.success(result.autoDocumentType === "invoice" ? "Facture generee automatiquement" : "BL genere automatiquement")
+    }
+
+    setNewOrderPrefill(null)
+  }, [mutate, currentTenant.id, loadDocuments, mutateDocuments])
+
+  const handleNewOrderOpenChange = useCallback((open: boolean) => {
+    setNewOrderOpen(open)
+    if (!open) {
+      setNewOrderPrefill(null)
+    }
+  }, [])
+
+  // Toggle view mode function
+  const toggleViewMode = useCallback(() => {
+    const newMode = viewMode === "fast" ? "standard" : "fast"
+    setViewMode(newMode)
+    localStorage.setItem("orders-view-mode", newMode)
+  }, [viewMode])
+
+  // Reset order counter
+  const handleResetCounter = useCallback(async () => {
+    setResettingCounter(true)
+    const ok = await resetOrderCounter(currentTenant.id)
+    if (ok) {
+      toast.success("Compteur remis a zero", {
+        description: "Le prochain numero de commande sera CMD-001",
+      })
+      setResetCounterDialogOpen(false)
+    } else {
+      toast.error("Erreur lors de la remise a zero du compteur")
+    }
+    setResettingCounter(false)
+  }, [currentTenant.id])
+
+  // Fast sales mode - rendered but hidden when not active (avoids React #300 hook order issues)
+  // The early return was causing hooks to be called conditionally which violates React rules
+  
+  const ordersByStatus = {
+    nouveau: orders.filter((o) => o.status === "nouveau"),
+    "en-preparation": orders.filter((o) => o.status === "en-preparation"),
+    pret: orders.filter((o) => o.status === "pret"),
+    "en-livraison": orders.filter((o) => o.status === "en-livraison"),
+    livre: orders.filter((o) => o.status === "livre"),
+    annule: orders.filter((o) => o.status === "annule"),
+  }
 
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order)
@@ -293,6 +418,25 @@ export function OrdersView() {
     }
   }
 
+  const handleArchiveCompletedOrders = async () => {
+    if (!currentTenant?.id) return
+    setIsArchivingCompleted(true)
+    try {
+      const { archived } = await archiveCompletedOrders(currentTenant.id, { olderThanDays: 14 })
+      if (archived === 0) {
+        toast.message("Aucune commande terminee a archiver")
+      } else {
+        toast.success(`${archived} commande(s) terminee(s) archivee(s)`)
+      }
+      mutate()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erreur archivage"
+      toast.error(msg)
+    } finally {
+      setIsArchivingCompleted(false)
+    }
+  }
+
   const handleStatusChange = async (newStatus: Order["status"], note?: string) => {
     if (!selectedOrder || actionLoading) return
     setActionLoading(true)
@@ -316,6 +460,40 @@ export function OrdersView() {
       toast.error("Erreur lors de la mise a jour")
     }
     setActionLoading(false)
+  }
+
+  const handleExportToDeliveryApi = async () => {
+    if (!selectedOrder || isApiExporting) return
+    if (selectedOrder.deliveryType !== "delivery") {
+      toast.error("Cette commande n'est pas en mode livraison")
+      return
+    }
+
+    setIsApiExporting(true)
+    try {
+      const res = await fetch("/api/delivery/export-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: selectedOrder.id }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        const details =
+          typeof data?.details === "string"
+            ? data.details
+            : data?.error || "Erreur export API"
+        throw new Error(details)
+      }
+
+      toast.success("Commande exportee vers l'API livraison")
+      mutate()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erreur export API"
+      toast.error(msg)
+    } finally {
+      setIsApiExporting(false)
+    }
   }
 
   const openPaymentDialog = () => {
@@ -389,6 +567,35 @@ export function OrdersView() {
       toast.error("Erreur lors de la suppression")
     }
     setActionLoading(false)
+  }
+
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete || isDeleting) return
+    
+    setIsDeleting(true)
+    
+    try {
+      const result = await deleteOrder(orderToDelete.id, currentTenant.id)
+      
+      if (result.success) {
+        toast.success("Commande supprimée", {
+          description: `${orderToDelete.orderNumberDisplay || orderToDelete.id} a été supprimée avec succès`,
+        })
+        setDeleteOrderDialogOpen(false)
+        setOrderToDelete(null)
+        if (sheetOpen) setSheetOpen(false)
+        mutate() // Refresh orders list
+      } else {
+        toast.error("Impossible de supprimer", {
+          description: result.message,
+        })
+      }
+    } catch (error) {
+      console.error("Error deleting order:", error)
+      toast.error("Erreur lors de la suppression")
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // ─── Return Handlers ───────────────────────────────────────
@@ -609,7 +816,28 @@ export function OrdersView() {
               <SourceIcon className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium text-sm">{order.customerName}</span>
             </div>
-            {getPaymentBadge(order.paymentStatus)}
+            <div className="flex items-center gap-1.5">
+              {order.orderNumberDisplay && (
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {order.orderNumberDisplay}
+                </Badge>
+              )}
+              {getPaymentBadge(order.paymentStatus)}
+              {order.status === "nouveau" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 hover:bg-destructive/10"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setOrderToDelete(order)
+                    setDeleteOrderDialogOpen(true)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-1 text-sm text-muted-foreground">
@@ -658,16 +886,32 @@ export function OrdersView() {
     )
   }
 
+  // Render both views - fast sales mode is shown/hidden with CSS to avoid hook order issues
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t("orders.title")}</h1>
-          <p className="text-muted-foreground">
-            {t("orders.subtitle")}
-          </p>
+    <>
+      {/* Fast Sales View - always rendered to keep hooks stable, hidden when not active */}
+      <div className={viewMode === "fast" ? "block" : "hidden"}>
+        <div className="relative">
+          <div className="absolute top-0 right-0 z-10 p-4">
+            <Button variant="outline" size="sm" onClick={toggleViewMode} className="gap-2">
+              <Store className="h-4 w-4" />
+              <span className="hidden sm:inline">Mode Standard</span>
+            </Button>
+          </div>
+          <FastSalesView />
         </div>
-        <div className="flex flex-wrap gap-2">
+      </div>
+
+      {/* Standard View - hidden when fast mode is active */}
+      <div className={viewMode === "standard" ? "block space-y-6" : "hidden"}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t("orders.title")}</h1>
+            <p className="text-muted-foreground">
+              {t("orders.subtitle")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={toggleViewMode}
@@ -683,7 +927,33 @@ export function OrdersView() {
             {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
             Export CSV
           </Button>
-          
+          <Button variant="outline" onClick={() => setDeliveryExportOpen(true)}>
+            <Truck className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Export livraison</span>
+            <span className="sm:hidden">Livraison</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleArchiveCompletedOrders}
+            disabled={isArchivingCompleted}
+          >
+            {isArchivingCompleted ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="mr-2 h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Archiver terminées</span>
+            <span className="sm:hidden">Archiver</span>
+          </Button>
+          {(currentUser.role === "gerant" || currentUser.role === "owner") && (
+            <Button
+              variant="outline"
+              onClick={() => setResetCounterDialogOpen(true)}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Reinitialiser compteur</span>
+            </Button>
+          )}
           <Button onClick={() => setNewOrderOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             {t("orders.new_order")}
@@ -776,7 +1046,12 @@ export function OrdersView() {
                       <div className="flex items-center gap-3">
                         <div className={`h-2 w-2 rounded-full ${statusConfig[order.status]?.color}`} />
                         <div>
-                          <p className="font-medium text-sm">{order.customerName}</p>
+                          <div className="flex items-center gap-2">
+                            {order.orderNumberDisplay && (
+                              <span className="font-mono text-xs text-muted-foreground">{order.orderNumberDisplay}</span>
+                            )}
+                            <p className="font-medium text-sm">{order.customerName}</p>
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {order.items.length} article(s) - {new Date(order.createdAt).toLocaleDateString("fr-TN")}
                           </p>
@@ -1228,7 +1503,11 @@ export function OrdersView() {
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
-                  Commande
+                  {selectedOrder.orderNumberDisplay ? (
+                    <span className="font-mono">{selectedOrder.orderNumberDisplay}</span>
+                  ) : (
+                    "Commande"
+                  )}
                   <Badge variant="outline" className={`${statusConfig[selectedOrder.status]?.color} text-white text-[10px]`}>
                     {statusConfig[selectedOrder.status]?.label}
                   </Badge>
@@ -1265,14 +1544,22 @@ export function OrdersView() {
                     <h4 className="text-sm font-medium">Livraison</h4>
                     <div className="rounded-lg border p-3 space-y-2">
                       {selectedOrder.gouvernorat && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Gouvernorat</span>
-                          <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Gouvernorat</span>
+                            <span className="font-medium">{selectedOrder.gouvernorat}</span>
+                          </div>
+                          {selectedOrder.delegation && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Delegation</span>
+                              <span className="font-medium">{selectedOrder.delegation}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Transporteur</span>
-                        <span className="font-medium">{selectedOrder.courier ? courierNames[selectedOrder.courier] || selectedOrder.courier : "-"}</span>
+                        <span className="font-medium">{selectedOrder.courier ? courierNameMap[selectedOrder.courier] || selectedOrder.courier : "-"}</span>
                       </div>
                       {selectedOrder.shippingCost > 0 && (
                         <div className="flex items-center justify-between text-sm">
@@ -1659,6 +1946,22 @@ export function OrdersView() {
 
                 {/* Actions */}
                 <div className="space-y-2">
+                  {selectedOrder.deliveryType === "delivery" && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={isApiExporting}
+                      onClick={handleExportToDeliveryApi}
+                    >
+                      {isApiExporting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Truck className="mr-2 h-4 w-4" />
+                      )}
+                      Exporter au transporteur (API)
+                    </Button>
+                  )}
+
                   {selectedOrder.status === "nouveau" && (
                     <Button className="w-full" disabled={actionLoading} onClick={() => handleStatusChange("en-preparation")}>
                       {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Package className="mr-2 h-4 w-4" />}
@@ -1680,15 +1983,25 @@ export function OrdersView() {
                         </Button>
                       )}
                       {selectedOrder.deliveryType === "delivery" ? (
-                        <Button
-                          variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
-                          className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
-                          disabled={actionLoading}
-                          onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
-                        >
-                          <Truck className="mr-2 h-4 w-4" />
-                          Expedier la commande
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setSendToDeliveryOpen(true)}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Envoyer au service de livraison
+                          </Button>
+                          <Button
+                            variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
+                            className={`w-full ${selectedOrder.paymentStatus !== "paid" ? "bg-transparent" : ""}`}
+                            disabled={actionLoading}
+                            onClick={() => handleStatusChange("en-livraison", "Commande expediee")}
+                          >
+                            <Truck className="mr-2 h-4 w-4" />
+                            Expedier la commande
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant={selectedOrder.paymentStatus === "paid" ? "default" : "outline"}
@@ -2099,13 +2412,157 @@ export function OrdersView() {
         </DialogContent>
       </Dialog>
 
-  {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
-  <UnifiedOrderDialog open={newOrderOpen} onOpenChange={setNewOrderOpen} onOrderCreated={() => mutate()} />
+        {/* Unified Order Dialog - combines QuickOrder + NewOrderDrawer */}
+        <UnifiedOrderDialog
+          open={newOrderOpen}
+          onOpenChange={handleNewOrderOpenChange}
+          initialData={newOrderPrefill}
+          onOrderCreated={handleNewOrderCreated}
+        />
 
-  {/* Keep old components for backward compatibility with other imports */}
-  <QuickOrder open={false} onOpenChange={() => {}} onOrderCreated={() => mutate()} />
-  <NewOrderDrawer open={false} onOpenChange={() => {}} onCreated={() => mutate()} />
+        <DeliveryExportDialog
+          open={deliveryExportOpen}
+          onOpenChange={setDeliveryExportOpen}
+          orders={orders}
+          onSuccess={() => mutate()}
+        />
 
-</div>
+        {/* Reset Counter Confirmation Dialog */}
+        <Dialog open={resetCounterDialogOpen} onOpenChange={setResetCounterDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reinitialiser le compteur de commandes</DialogTitle>
+              <DialogDescription>
+                Cette action remet le compteur a zero. La prochaine commande sera numerotee CMD-001. Les commandes existantes conservent leurs numeros.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={() => setResetCounterDialogOpen(false)}
+                disabled={resettingCounter}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleResetCounter}
+                disabled={resettingCounter}
+              >
+                {resettingCounter ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                )}
+                Confirmer la remise a zero
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Send to Delivery Provider Dialog */}
+        <SendToDeliveryDialog
+          open={sendToDeliveryOpen}
+          onOpenChange={setSendToDeliveryOpen}
+          order={selectedOrder ? {
+            id: selectedOrder.id,
+            order_number: selectedOrder.orderNumberDisplay,
+            client_name: selectedOrder.customerName,
+            client_phone: selectedOrder.customerPhone,
+            delivery_address: selectedOrder.customerAddress,
+            delivery_city: selectedOrder.gouvernorat,
+            delivery_postal_code: selectedOrder.delegation,
+            total: selectedOrder.total,
+            items: selectedOrder.items.map(item => ({
+              product_name: item.name,
+              name: item.name,
+              quantity: item.quantity,
+              unit_price: item.price,
+              price: item.price,
+            })),
+            notes: selectedOrder.notes,
+          } : null}
+          onSuccess={() => {
+            mutate()
+            setSendToDeliveryOpen(false)
+          }}
+        />
+
+        {/* Delete Order Confirmation Dialog */}
+        <Dialog open={deleteOrderDialogOpen} onOpenChange={setDeleteOrderDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Supprimer la commande
+              </DialogTitle>
+              <DialogDescription>
+                Êtes-vous certain de vouloir supprimer cette commande ?
+              </DialogDescription>
+            </DialogHeader>
+            
+            {orderToDelete && (
+              <div className="space-y-3 py-4">
+                <div className="rounded-lg bg-muted p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Numéro :</span>
+                    <span className="font-mono font-semibold">{orderToDelete.orderNumberDisplay || orderToDelete.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Client :</span>
+                    <span className="font-medium">{orderToDelete.customerName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total :</span>
+                    <span className="font-semibold">{orderToDelete.total.toLocaleString("fr-TN")} TND</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Statut :</span>
+                    <Badge variant="outline">{statusConfig[orderToDelete.status]?.label}</Badge>
+                  </div>
+                </div>
+                
+                {orderToDelete.status !== "nouveau" && (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+                    <p className="font-medium">⚠️ Cette commande ne peut pas être supprimée</p>
+                    <p className="text-xs mt-1">Seules les commandes en statut "Nouveau" peuvent être supprimées.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteOrderDialogOpen(false)
+                  setOrderToDelete(null)
+                }}
+                disabled={isDeleting}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteOrder}
+                disabled={isDeleting || !orderToDelete || orderToDelete.status !== "nouveau"}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Suppression...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Supprimer
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </>
   )
 }

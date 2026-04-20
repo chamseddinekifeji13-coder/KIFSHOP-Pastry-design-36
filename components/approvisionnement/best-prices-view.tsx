@@ -57,15 +57,16 @@ function PriceRow({
   const supplierPrices = new Map<string, { name: string; bestPrice: number; lastPrice: number; count: number }>()
   history.forEach((entry) => {
     const existing = supplierPrices.get(entry.supplierId)
+    const price = entry.unitPrice
     if (!existing) {
       supplierPrices.set(entry.supplierId, {
         name: entry.supplierName,
-        bestPrice: entry.unitPrice,
-        lastPrice: entry.unitPrice,
+        bestPrice: price,
+        lastPrice: price,
         count: 1,
       })
     } else {
-      existing.bestPrice = Math.min(existing.bestPrice, entry.unitPrice)
+      existing.bestPrice = Math.min(existing.bestPrice, price)
       existing.count++
     }
   })

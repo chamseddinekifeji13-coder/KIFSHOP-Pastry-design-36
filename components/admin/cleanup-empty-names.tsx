@@ -29,7 +29,9 @@ export function CleanupEmptyNames() {
       const data = await response.json()
 
       if (!response.ok) {
-        toast.error(data.error || "Erreur lors du nettoyage")
+        // Ensure error is always a string to avoid React #310
+        const errMsg = typeof data.error === "string" ? data.error : "Erreur lors du nettoyage"
+        toast.error(errMsg)
         return
       }
 

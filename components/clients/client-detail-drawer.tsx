@@ -77,11 +77,10 @@ export function ClientDetailDrawer({
     }
   }, [client, open])
 
-  if (!client || !localClient) return null
-
-  const cfg = statusConfig[localClient.status] || statusConfig.normal
+  const cfg = statusConfig[localClient?.status || "normal"] || statusConfig.normal
 
   const handleSaveNotes = async () => {
+    if (!localClient) return
     setSavingNotes(true)
     try {
       const ok = await updateClient(localClient.id, { notes })
@@ -117,6 +116,8 @@ export function ClientDetailDrawer({
       formattedDate: formatDate(order.createdAt),
     }))
   }, [orders])
+
+  if (!client || !localClient) return null
 
   return (
     <>

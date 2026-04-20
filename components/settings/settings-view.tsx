@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck } from "lucide-react"
+import { CreditCard, Store, Printer, Bell, Tags, Users, FileText, Loader2, Globe, RefreshCw, CheckCircle2, Download, Truck, Trash2, UploadCloud, Archive } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,7 +15,9 @@ import { ShopConfigDrawer } from "./shop-config-drawer"
 import { CategoriesDrawer } from "./categories-drawer"
 import { UsersDrawer } from "./users-drawer"
 import { DeliveryCompaniesSettings } from "./delivery-companies-settings"
+import { DeliveryProviderCredentialsSettings } from "./delivery-provider-credentials-settings"
 import { StatsResetSettings } from "./stats-reset-settings"
+import { ArchiveSettings } from "./archive-settings"
 import { ROLE_LABELS } from "@/lib/tenant-context"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -24,6 +26,13 @@ import {
 } from "@/lib/orders/invoice-actions"
 import { toast } from "sonner"
 import { useI18n, type Locale } from "@/lib/i18n/context"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export function SettingsView() {
   const { locale, setLocale } = useI18n()
@@ -32,9 +41,62 @@ export function SettingsView() {
   const [shopConfigOpen, setShopConfigOpen] = useState(false)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [usersOpen, setUsersOpen] = useState(false)
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false)
+  const [restoreFile, setRestoreFile] = useState<File | null>(null)
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [restoreProgress, setRestoreProgress] = useState(0)
 
   // Update check
-  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date">("idle")
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "updating" | "up-to-date" | "forcing">("idle")
+  const [serverVersion, setServerVersion] = useState<string | null>(null)
+  const [localVersion] = useState("v8-20260314-audit")
+
+  // Fetch server version on mount
+  useEffect(() => {
+    fetch('/api/version', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => setServerVersion(data.version))
+      .catch(() => setServerVersion(null))
+  }, [])
+
+  // Force complete cache clear and reload
+  const handleForceUpdate = useCallback(async () => {
+    setUpdateStatus("forcing")
+    toast("Nettoyage du cache en cours...", { duration: 2000 })
+    
+    try {
+      // 1. Clear all caches
+      if ("caches" in window) {
+        const cacheNames = await caches.keys()
+        await Promise.all(cacheNames.map(name => caches.delete(name)))
+      }
+      
+      // 2. Unregister service worker
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map(reg => reg.unregister()))
+      }
+      
+      // 3. Clear localStorage app data (keep auth)
+      const keysToKeep = ["supabase.auth.token", "sb-"]
+      Object.keys(localStorage).forEach(key => {
+        if (!keysToKeep.some(k => key.includes(k))) {
+          localStorage.removeItem(key)
+        }
+      })
+      
+      toast.success("Cache vide ! Rechargement...", { duration: 1500 })
+      
+      // 4. Hard reload
+      setTimeout(() => {
+        window.location.href = window.location.href.split("?")[0] + "?cache_bust=" + Date.now()
+      }, 1500)
+    } catch (err) {
+      console.error("Force update failed:", err)
+      toast.error("Erreur lors du nettoyage")
+      setUpdateStatus("idle")
+    }
+  }, [])
 
   const handleCheckUpdate = useCallback(async () => {
     if (!("serviceWorker" in navigator)) {
@@ -49,21 +111,32 @@ export function SettingsView() {
         setUpdateStatus("idle")
         return
       }
+      
+      // Force fetch the SW file to bypass any network cache
       await reg.update()
-      // Wait briefly for the update to be detected
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Wait for update to be detected
+      await new Promise(resolve => setTimeout(resolve, 2500))
+      
+      // Re-check registration state after update
+      const updatedReg = await navigator.serviceWorker.getRegistration()
 
-      if (reg.waiting) {
+      if (updatedReg?.waiting) {
         setUpdateStatus("updating")
         toast("Nouvelle version detectee ! Mise a jour en cours...", { duration: 3000 })
-        reg.waiting.postMessage({ type: "SKIP_WAITING" })
+        updatedReg.waiting.postMessage({ type: "SKIP_WAITING" })
         // The controllerchange listener in ServiceWorkerRegister will reload
-      } else if (reg.installing) {
+      } else if (updatedReg?.installing) {
         setUpdateStatus("updating")
         toast("Mise a jour en cours d'installation...", { duration: 3000 })
-        reg.installing.addEventListener("statechange", function handler() {
-          if (reg.installing?.state === "installed" || reg.waiting) {
-            reg.waiting?.postMessage({ type: "SKIP_WAITING" })
+        
+        // Wait for installation to complete
+        updatedReg.installing.addEventListener("statechange", function handler(this: ServiceWorker) {
+          if (this.state === "installed") {
+            const waitingSW = updatedReg.waiting
+            if (waitingSW) {
+              waitingSW.postMessage({ type: "SKIP_WAITING" })
+            }
           }
         })
       } else {
@@ -71,7 +144,8 @@ export function SettingsView() {
         toast.success("Vous etes deja sur la derniere version !")
         setTimeout(() => setUpdateStatus("idle"), 4000)
       }
-    } catch {
+    } catch (err) {
+      console.error("[v0] Update check failed:", err)
       toast.error("Erreur lors de la verification des mises a jour")
       setUpdateStatus("idle")
     }
@@ -112,6 +186,73 @@ export function SettingsView() {
       toast.error("Erreur lors de la sauvegarde")
     }
     setInvoiceSaving(false)
+  }
+
+  // Restore backup
+  const handleRestoreBackup = async () => {
+    if (!restoreFile) {
+      toast.error("Veuillez sélectionner un fichier JSON")
+      return
+    }
+
+    setIsRestoring(true)
+    setRestoreProgress(10)
+
+    try {
+      const fileContent = await restoreFile.text()
+      let backupData
+
+      try {
+        backupData = JSON.parse(fileContent)
+      } catch (e) {
+        toast.error("Format JSON invalide")
+        setIsRestoring(false)
+        return
+      }
+
+      setRestoreProgress(30)
+
+      const response = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          backup: backupData,
+          options: { mode: 'merge' }
+        }),
+      })
+
+      setRestoreProgress(70)
+
+      if (!response.ok) {
+        let errorMessage = 'Erreur lors de la restauration'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.message || errorMessage
+        } catch {
+          errorMessage = `Erreur HTTP ${response.status}`
+        }
+        throw new Error(errorMessage)
+      }
+
+      const result = await response.json()
+
+      if (!result.success && result.error) {
+        throw new Error(result.error)
+      }
+
+      setRestoreProgress(100)
+      toast.success("✅ Restauration réussie! Vos données ont été restaurées.")
+      setRestoreFile(null)
+      setRestoreDialogOpen(false)
+      setTimeout(() => window.location.reload(), 2000)
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de la restauration')
+    } finally {
+      setIsRestoring(false)
+    }
   }
 
   return (
@@ -227,9 +368,57 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
+        {/* Restore Backup - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <UploadCloud className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Restaurer les données</CardTitle>
+              </div>
+              <CardDescription>Importez une sauvegarde JSON pour restaurer vos données</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Cliquez sur le bouton ci-dessous pour restaurer vos articles, clients et fournisseurs à partir d'un fichier de sauvegarde.
+              </p>
+              <Button
+                onClick={() => setRestoreDialogOpen(true)}
+                className="w-full"
+              >
+                <UploadCloud className="h-4 w-4 mr-2" />
+                Restaurer une sauvegarde
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Delivery Companies - Owner & Gerant */}
         {(currentRole === "owner" || currentRole === "gerant") && (
           <DeliveryCompaniesSettings />
+        )}
+
+        {/* Delivery Provider API Settings - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <DeliveryProviderCredentialsSettings />
+        )}
+
+        {/* Archive Management - Owner & Gerant */}
+        {(currentRole === "owner" || currentRole === "gerant") && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Archive className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Archivage des Commandes</CardTitle>
+              </div>
+              <CardDescription>
+                Gestion automatique et manuelle de l'archivage des commandes terminées
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ArchiveSettings />
+            </CardContent>
+          </Card>
         )}
 
         {/* Users Management - Owner & Gerant */}
@@ -403,68 +592,6 @@ export function SettingsView() {
           </CardContent>
         </Card>
 
-        {/* Printer Settings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Printer className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Impression</CardTitle>
-            </div>
-            <CardDescription>Configuration des tickets et factures</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Impression automatique</p>
-                <p className="text-xs text-muted-foreground">Imprimer le ticket après chaque vente</p>
-              </div>
-              <Switch defaultChecked disabled={currentRole !== "owner" && currentRole !== "gerant"} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Inclure le logo</p>
-                <p className="text-xs text-muted-foreground">Afficher le logo sur les tickets</p>
-              </div>
-              <Switch defaultChecked disabled={currentRole !== "owner" && currentRole !== "gerant"} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Notifications */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base">Notifications</CardTitle>
-            </div>
-            <CardDescription>Alertes et rappels</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Alertes stock critique</p>
-                <p className="text-xs text-muted-foreground">Notification quand le stock est bas</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Nouvelles commandes</p>
-                <p className="text-xs text-muted-foreground">Notification pour chaque commande</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Rapport quotidien</p>
-                <p className="text-xs text-muted-foreground">Résumé des ventes par email</p>
-              </div>
-              <Switch />
-            </div>
-          </CardContent>
-        </Card>
-
-
         {/* Language Settings */}
         <Card>
           <CardHeader>
@@ -527,54 +654,84 @@ export function SettingsView() {
           <CardContent className="space-y-4">
             <div className="rounded-lg border p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Version actuelle</span>
-                <Badge variant="secondary" className="font-mono text-xs">v1.0.0</Badge>
+                <span className="text-sm text-muted-foreground">Version locale</span>
+                <Badge variant="secondary" className="font-mono text-xs">{localVersion}</Badge>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Version serveur</span>
+                <Badge 
+                  variant={serverVersion === localVersion ? "default" : "destructive"} 
+                  className="font-mono text-xs"
+                >
+                  {serverVersion || "..."}
+                </Badge>
+              </div>
+              {serverVersion && serverVersion !== localVersion && (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                  Une nouvelle version est disponible ! Cliquez sur {"\"Forcer MAJ\""} pour mettre a jour.
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Type</span>
                 <span className="text-sm font-medium">Progressive Web App</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Cache</span>
-                <span className="text-sm font-medium">v5</span>
-              </div>
             </div>
 
-            <Button
-              onClick={handleCheckUpdate}
-              disabled={updateStatus === "checking" || updateStatus === "updating"}
-              className="w-full gap-2"
-              variant={updateStatus === "up-to-date" ? "outline" : "default"}
-            >
-              {updateStatus === "checking" && (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Verification en cours...
-                </>
-              )}
-              {updateStatus === "updating" && (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Mise a jour en cours...
-                </>
-              )}
-              {updateStatus === "up-to-date" && (
-                <>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  Vous etes a jour !
-                </>
-              )}
-              {updateStatus === "idle" && (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  Verifier les mises a jour
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleCheckUpdate}
+                disabled={updateStatus === "checking" || updateStatus === "updating" || updateStatus === "forcing"}
+                className="flex-1 gap-2"
+                variant={updateStatus === "up-to-date" ? "outline" : "default"}
+              >
+                {updateStatus === "checking" && (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Verification...
+                  </>
+                )}
+                {updateStatus === "updating" && (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Mise a jour...
+                  </>
+                )}
+                {updateStatus === "up-to-date" && (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    A jour !
+                  </>
+                )}
+                {(updateStatus === "idle" || updateStatus === "forcing") && (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Verifier
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleForceUpdate}
+                disabled={updateStatus === "checking" || updateStatus === "updating" || updateStatus === "forcing"}
+                variant="destructive"
+                className="gap-2"
+              >
+                {updateStatus === "forcing" ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Nettoyage...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    Forcer MAJ
+                  </>
+                )}
+              </Button>
+            </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              L{"'"}application verifie automatiquement les mises a jour toutes les 60 secondes.
-              Utilisez ce bouton pour forcer une verification immediate.
+              {"\"Verifier\""} cherche une mise a jour. {"\"Forcer MAJ\""} vide le cache et recharge completement.
             </p>
           </CardContent>
         </Card>
@@ -584,6 +741,84 @@ export function SettingsView() {
       <ShopConfigDrawer open={shopConfigOpen} onOpenChange={setShopConfigOpen} />
       <CategoriesDrawer open={categoriesOpen} onOpenChange={setCategoriesOpen} />
       <UsersDrawer open={usersOpen} onOpenChange={setUsersOpen} />
+
+      {/* Restore Backup Dialog */}
+      <Dialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restaurer une sauvegarde</DialogTitle>
+            <DialogDescription>
+              Sélectionnez un fichier JSON de sauvegarde pour restaurer vos données
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* File input area */}
+            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition cursor-pointer"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                const file = e.dataTransfer.files?.[0]
+                if (file?.name.endsWith('.json')) {
+                  setRestoreFile(file)
+                }
+              }}
+            >
+              <input
+                type="file"
+                accept=".json"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="restore-file-input"
+                disabled={isRestoring}
+              />
+              <label htmlFor="restore-file-input" className="cursor-pointer block">
+                <UploadCloud className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <div className="text-sm font-medium">
+                  {restoreFile ? restoreFile.name : 'Déposez votre fichier JSON ici'}
+                </div>
+                <p className="text-xs text-muted-foreground">ou cliquez pour sélectionner</p>
+              </label>
+            </div>
+
+            {/* Progress bar */}
+            {isRestoring && (
+              <div className="space-y-2">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    style={{ width: `${restoreProgress}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-muted-foreground">
+                  Restauration: {restoreProgress}%
+                </p>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <Button
+                onClick={handleRestoreBackup}
+                disabled={!restoreFile || isRestoring}
+                className="flex-1"
+              >
+                {isRestoring ? 'Restauration en cours...' : 'Restaurer'}
+              </Button>
+              <Button
+                onClick={() => {
+                  setRestoreFile(null)
+                  setRestoreDialogOpen(false)
+                }}
+                variant="outline"
+                disabled={isRestoring}
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

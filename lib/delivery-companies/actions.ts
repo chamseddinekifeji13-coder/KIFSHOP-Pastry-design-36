@@ -1,6 +1,4 @@
-"use server"
-
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/client"
 
 export interface DeliveryCompany {
   id: string
@@ -11,13 +9,15 @@ export interface DeliveryCompany {
   website: string | null
   notes: string | null
   isActive: boolean
+  isDefault?: boolean
+  defaultShippingCost?: number
   createdAt: string
   updatedAt: string
 }
 
 // ─── Fetch Delivery Companies ────────────────────────────────────────────
 export async function fetchDeliveryCompanies(tenantId: string): Promise<DeliveryCompany[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("delivery_companies")
@@ -25,8 +25,15 @@ export async function fetchDeliveryCompanies(tenantId: string): Promise<Delivery
     .eq("tenant_id", tenantId)
     .order("name", { ascending: true })
 
+  // If table doesn't exist (error code PGRST116) or other DB error, return empty array
+  // This gracefully handles the case where the delivery_companies table hasn't been created yet
   if (error) {
-    console.error("Error fetching delivery companies:", error.message)
+    console.error("[v0] Error fetching delivery companies:", {
+      code: error.code,
+      message: error.message,
+      details: error.details
+    })
+    // Return empty array instead of throwing - allows UI to render without companies
     return []
   }
 
@@ -39,6 +46,8 @@ export async function fetchDeliveryCompanies(tenantId: string): Promise<Delivery
     website: c.website,
     notes: c.notes,
     isActive: c.is_active,
+    isDefault: c.is_default,
+    defaultShippingCost: c.default_shipping_cost,
     createdAt: c.created_at,
     updatedAt: c.updated_at,
   }))
@@ -46,7 +55,7 @@ export async function fetchDeliveryCompanies(tenantId: string): Promise<Delivery
 
 // ─── Fetch Active Delivery Companies (for dropdowns) ────────────────────────
 export async function fetchActiveDeliveryCompanies(tenantId: string): Promise<{ id: string; name: string }[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data, error } = await supabase
     .from("delivery_companies")
@@ -74,7 +83,7 @@ export async function createDeliveryCompany(
     notes?: string | null
   }
 ): Promise<DeliveryCompany | null> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const { data: row, error } = await supabase
     .from("delivery_companies")
@@ -122,7 +131,7 @@ export async function updateDeliveryCompany(
     isActive?: boolean
   }
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   const updateData: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -151,7 +160,7 @@ export async function updateDeliveryCompany(
 
 // ─── Delete Delivery Company ────────────────────────────────────────────
 export async function deleteDeliveryCompany(companyId: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   // Check if this company is used in any orders
   const { data: orders } = await supabase
@@ -194,4 +203,69 @@ export async function deleteDeliveryCompany(companyId: string, tenantId: string)
 // ─── Toggle Delivery Company Status ────────────────────────────────────────────
 export async function toggleDeliveryCompanyStatus(companyId: string, tenantId: string, isActive: boolean): Promise<boolean> {
   return updateDeliveryCompany(companyId, tenantId, { isActive })
+}
+
+// ─── Set Default Delivery Company ────────────────────────────────────────────
+export async function setDefaultDeliveryCompany(
+  companyId: string,
+  tenantId: string,
+  shippingCost: number = 0
+): Promise<boolean> {
+  const supabase = createClient()
+
+  // First, unset all others as default for this tenant
+  await supabase
+    .from("delivery_companies")
+    .update({
+      is_default: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", tenantId)
+
+  // Then set this one as default with the shipping cost
+  const { error } = await supabase
+    .from("delivery_companies")
+    .update({
+      is_default: true,
+      default_shipping_cost: shippingCost,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", companyId)
+    .eq("tenant_id", tenantId)
+
+  if (error) {
+    console.error("Error setting default delivery company:", error.message)
+    return false
+  }
+
+  return true
+}
+
+// ─── Fetch Default Delivery Company ────────────────────────────────────────────
+export async function fetchDefaultDeliveryCompany(tenantId: string): Promise<{ id: string; name: string; shippingCost: number } | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("delivery_companies")
+    .select("id, name, default_shipping_cost")
+    .eq("tenant_id", tenantId)
+    .eq("is_default", true)
+    .eq("is_active", true)
+    .limit(1)
+    .single()
+
+  if (error) {
+    if (error.code !== "PGRST116") {
+      console.error("Error fetching default delivery company:", error.message)
+    }
+    return null
+  }
+
+  return data
+    ? {
+        id: data.id,
+        name: data.name,
+        shippingCost: data.default_shipping_cost || 0,
+      }
+    : null
 }

@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useTenant } from "@/lib/tenant-context"
 import { useFinishedProducts, useOrders } from "@/hooks/use-tenant-data"
+import { updateFinishedProduct } from "@/lib/stocks/actions"
 import { toast } from "sonner"
 import { ProductEditDrawer } from "./product-edit-drawer"
 import { useI18n } from "@/lib/i18n/context"
@@ -37,10 +38,21 @@ export function BoutiqueView() {
   const onlineOrders = orders.filter((o: any) => o.source === "web" || o.source === "whatsapp" || o.source === "messenger" || o.source === "instagram" || o.source === "tiktok")
   const onlineRevenue = onlineOrders.reduce((sum: number, o: any) => sum + (o.total || 0), 0)
 
-  const handleTogglePublish = (product: any) => {
-    toast.success(product.isPublished ? "Produit masque" : "Produit publie", {
-      description: product.name,
-    })
+  const handleTogglePublish = async (product: any) => {
+    try {
+      const updatedProduct = {
+        ...product,
+        isPublished: !product.isPublished
+      }
+      await updateFinishedProduct(product.id, { isPublished: !product.isPublished })
+      mutate()
+      toast.success(updatedProduct.isPublished ? "Produit publie" : "Produit masque", {
+        description: product.name,
+      })
+    } catch (error) {
+      console.error('Failed to update product:', error)
+      toast.error("Erreur lors de la mise a jour du produit")
+    }
   }
 
   const handleEdit = (product: any) => {

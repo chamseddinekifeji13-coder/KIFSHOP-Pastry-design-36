@@ -37,6 +37,10 @@ export function PlatformProspectsView() {
     const [p, s] = await Promise.all([fetchPlatformProspects(), fetchProspectStats()])
     setProspects(p)
     setStats(s)
+    setDetailProspect((current) => {
+      if (!current) return null
+      return p.find((item) => item.id === current.id) || current
+    })
     setLoading(false)
   }
 
@@ -54,13 +58,16 @@ export function PlatformProspectsView() {
     })
   }, [prospects, search, filterCity, filterSource, filterStatus])
 
-  const handleStatusChange = async (id: string, status: ProspectStatus) => {
+  const handleStatusChange = async (id: string, status: ProspectStatus): Promise<boolean> => {
     const ok = await updatePlatformProspect(id, { status })
     if (ok) {
+      setDetailProspect((current) => (current && current.id === id ? { ...current, status } : current))
       toast.success(`Statut mis a jour: ${STATUS_LABELS[status]}`)
-      loadData()
+      await loadData()
+      return true
     } else {
       toast.error("Erreur lors de la mise a jour")
+      return false
     }
   }
 
@@ -172,13 +179,19 @@ export function PlatformProspectsView() {
                         </div>
                         <div className="flex items-center justify-between">
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0">{SOURCE_LABELS[p.source]}</Badge>
-                          {p.nextActionDate && (
+                          {(p.demoScheduledAt || p.nextActionDate) && (
                             <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                               <CalendarClock className="h-2.5 w-2.5" />
-                              {new Date(p.nextActionDate).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
+                              {new Date(p.demoScheduledAt || p.nextActionDate!).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
                             </span>
                           )}
                         </div>
+                        {(p.demoScheduledAt || p.demoContactPerson) && (
+                          <div className="rounded bg-purple-50 px-2 py-1 text-[10px] text-purple-700">
+                            {p.demoScheduledAt ? new Date(p.demoScheduledAt).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Demo planifiee"}
+                            {p.demoContactPerson ? ` - ${p.demoContactPerson}` : ""}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -232,12 +245,13 @@ export function PlatformProspectsView() {
                   <TableHead>Source</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead>Prochaine action</TableHead>
+                  <TableHead>Demo planifiee</TableHead>
                   <TableHead>Date creation</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Aucun prospect trouve</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Aucun prospect trouve</TableCell></TableRow>
                 ) : filtered.map(p => (
                   <TableRow key={p.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setDetailProspect(p)}>
                     <TableCell className="font-medium">{p.businessName}</TableCell>
@@ -258,6 +272,16 @@ export function PlatformProspectsView() {
                         <div>
                           <p className="text-xs">{p.nextAction}</p>
                           {p.nextActionDate && <p className="text-xs text-muted-foreground">{new Date(p.nextActionDate).toLocaleDateString("fr-FR")}</p>}
+                        </div>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {(p.demoScheduledAt || p.demoContactPerson) ? (
+                        <div>
+                          {p.demoScheduledAt && (
+                            <p className="text-xs">{new Date(p.demoScheduledAt).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                          )}
+                          {p.demoContactPerson && <p className="text-xs text-muted-foreground">{p.demoContactPerson}</p>}
                         </div>
                       ) : "-"}
                     </TableCell>

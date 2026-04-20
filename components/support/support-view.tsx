@@ -53,6 +53,7 @@ import {
   type TicketPriority,
   type TicketStatus,
 } from "@/lib/tickets/actions"
+import { toast } from "sonner"
 
 // ─── Status badge styling ──────────────────────────────────
 function StatusBadge({ status }: { status: TicketStatus }) {
@@ -97,6 +98,10 @@ function CreateTicketDialog({ onCreated }: { onCreated: () => void }) {
 
   async function handleSubmit() {
     if (!subject.trim() || !message.trim()) return
+    if (!currentTenant?.id || currentTenant.id === "__fallback__") {
+      console.error("Tenant non disponible pour creer un ticket")
+      return
+    }
     setSubmitting(true)
     try {
       await createTicket({
@@ -114,8 +119,10 @@ function CreateTicketDialog({ onCreated }: { onCreated: () => void }) {
       setPriority("normal")
       setMessage("")
       onCreated()
+      toast.success("Ticket créé avec succès")
     } catch (err) {
       console.error("Failed to create ticket:", err)
+      toast.error("Erreur lors de la création du ticket")
     } finally {
       setSubmitting(false)
     }
@@ -240,8 +247,10 @@ function TicketConversation({
       })
       setNewMessage("")
       await loadMessages()
+      toast.success("Message envoyé")
     } catch (err) {
       console.error("Failed to send message:", err)
+      toast.error("Erreur lors de l'envoi du message")
     } finally {
       setSending(false)
     }

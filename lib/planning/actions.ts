@@ -33,6 +33,8 @@ export interface ProductionPlan {
   createdBy: string | null
   createdByName: string | null
   materials: PlanMaterial[]
+  startedAt: string | null
+  completedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -98,6 +100,8 @@ export async function fetchProductionPlans(tenantId: string): Promise<Production
     createdBy: p.created_by,
     createdByName: p.created_by_name,
     materials: materialsByPlan.get(p.id) || [],
+    startedAt: p.started_at || null,
+    completedAt: p.completed_at || null,
     createdAt: p.created_at,
     updatedAt: p.updated_at,
   }))
@@ -253,6 +257,8 @@ export async function createProductionPlan(tenantId: string, data: {
     labLocationName: plan.lab_location_name, status: plan.status as PlanStatus,
     notes: plan.notes, createdBy: plan.created_by, createdByName: plan.created_by_name,
     materials: data.materials.map((m, i) => ({ ...m, id: `new-${i}`, productionPlanId: plan.id })),
+    startedAt: plan.started_at || null,
+    completedAt: plan.completed_at || null,
     createdAt: plan.created_at, updatedAt: plan.updated_at,
   }
 }
@@ -357,8 +363,14 @@ export async function refreshPlanStatus(planId: string): Promise<void> {
 // ─── Update plan status manually ───────────────────────────
 export async function updatePlanStatus(planId: string, status: PlanStatus): Promise<void> {
   const supabase = createClient()
+  const updateData: Record<string, string> = { status, updated_at: new Date().toISOString() }
+  if (status === "in_progress") {
+    updateData.started_at = new Date().toISOString()
+  } else if (status === "completed") {
+    updateData.completed_at = new Date().toISOString()
+  }
   await supabase.from("production_plans")
-    .update({ status, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq("id", planId)
 }
 

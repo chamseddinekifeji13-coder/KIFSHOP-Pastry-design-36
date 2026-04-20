@@ -214,19 +214,46 @@ export async function produceProduct(data: {
 
 ## 3. `lib/orders/actions.ts`
 
-### Actuel (Bloqué):
-```typescript
-export async function createOrder() {
-  // orders table n'existe pas!
-}
-```
+### ✅ STATUS: CORRECTED
 
-### À Corriger:
-✅ `orders` table maintenant créée
-✅ `finished_products` table maintenant créée
-✅ `stock_movements` table maintenant créée
+Les bugs critiques du processus de commande ont été identifiés et corrigés.
 
-**Code à ajouter:**
+**Bugs Corrigés:**
+1. ✅ `updatePaymentStatus()` - Utilisait des statuts invalides `"paiement-complet"` et `"paiement-partiel"`
+   - **Avant**: `to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel"`
+   - **Après**: `to_status: \`payment_\${paymentStatus}\``
+
+2. ✅ `recordPaymentCollection()` - Pas de validation des montants
+   - Ajoutée validation: `amount > 0`
+   - Ajoutée validation: `amount <= solde dû`
+   - Ajoutée validation: `orderId existe`
+
+3. ✅ `getCurrentActor()` - Appel API inutile côté client
+   - Supprimé le `fetch("/api/active-profile")` qui causait des délais
+   - Utilise maintenant juste l'auth Supabase directement
+
+4. ✅ `OrdersList` component - État statique en dur
+   - Remplacé par composant qui récupère les vraies données
+   - Ajoutée gestion d'erreurs et loading state
+   - Vraie suppression via API
+
+5. ✅ Status labels - Mis à jour pour correspondre aux vrais statuts
+   - `"paiement-complet"` → `"payment_paid"`
+   - `"paiement-partiel"` → `"payment_partial"`
+   - Ajouté `"payment_unpaid"`
+
+**Tables Utilisées (déjà créées):**
+✅ `orders` table
+✅ `payment_collections` table
+✅ `order_status_history` table
+✅ `finished_products` table (pour stock)
+✅ `stock_movements` table (pour historique stock)
+
+**État Actuel:**
+- Paiements sécurisés avec validation
+- Historique cohérent avec statuts valides
+- Performance améliorée (pas d'appels API inutiles)
+- Affichage correct des vraies données en caisse
 ```typescript
 export interface Order {
   id: string

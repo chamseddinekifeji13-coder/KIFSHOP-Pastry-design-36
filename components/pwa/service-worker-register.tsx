@@ -3,15 +3,16 @@
 import { useEffect, useCallback } from "react"
 import { toast } from "sonner"
 
+const SW_BUILD = process.env.NEXT_PUBLIC_SW_BUILD || "dev-local"
+const SW_SCRIPT_URL = `/sw.js?build=${encodeURIComponent(SW_BUILD)}`
+
 export function ServiceWorkerRegister() {
   const onUpdate = useCallback((reg: ServiceWorkerRegistration) => {
-    // On mobile, automatically apply the update instead of waiting for user action.
-    // This prevents mobile browsers from being stuck on a stale cached version.
     const waiting = reg.waiting
     if (!waiting) return
 
-    toast("Mise \u00e0 jour en cours...", {
-      description: "KIFSHOP se met \u00e0 jour automatiquement.",
+    toast("Mise a jour en cours...", {
+      description: "KIFSHOP se met a jour automatiquement.",
       duration: 3000,
     })
 
@@ -22,20 +23,50 @@ export function ServiceWorkerRegister() {
     if (!("serviceWorker" in navigator)) return
 
     let intervalId: ReturnType<typeof setInterval> | null = null
+    let visibilityChangeHandler: (() => void) | null = null
 
-    navigator.serviceWorker
-      .register("/sw.js", { updateViaCache: "none" })
-      .then((reg) => {
-        // Check for waiting worker on load — auto-activate
+    const registerSW = async () => {
+      try {
+        const expectedSwUrl = new URL(SW_SCRIPT_URL, window.location.origin).toString()
+
+        // Recovery step: unregister stale service workers so clients can migrate
+        // even when an old script is stuck behind intermediary caches.
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        for (const registration of registrations) {
+          const scriptUrl = registration.active?.scriptURL || registration.waiting?.scriptURL || registration.installing?.scriptURL || ""
+          const isKifshopSw = scriptUrl.includes("/sw.js")
+          let isStaleKifshopSw = false
+
+          if (isKifshopSw) {
+            try {
+              const parsed = new URL(scriptUrl)
+              const buildInRegistration = parsed.searchParams.get("build")
+              // Consider stale when build is missing/mismatched, or URL differs from current target URL.
+              isStaleKifshopSw = buildInRegistration !== SW_BUILD || scriptUrl !== expectedSwUrl
+            } catch {
+              isStaleKifshopSw = true
+            }
+          }
+
+          if (isStaleKifshopSw) {
+            await registration.unregister()
+          }
+        }
+
+        const reg = await navigator.serviceWorker.register(SW_SCRIPT_URL, {
+          updateViaCache: "none",
+          scope: "/"
+        })
+
         if (reg.waiting) {
           onUpdate(reg)
           return
         }
 
-        // Listen for new worker installing
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing
           if (!newWorker) return
+
           newWorker.addEventListener("statechange", () => {
             if (
               newWorker.state === "installed" &&
@@ -46,16 +77,28 @@ export function ServiceWorkerRegister() {
           })
         })
 
-        // Proactively check for SW updates every 60 seconds (important for mobile)
         intervalId = setInterval(() => {
           reg.update().catch(() => {})
-        }, 60 * 1000)
-      })
-      .catch((err) => {
-        console.warn("[SW] Registration failed:", err)
-      })
+        }, 30 * 1000)
 
-    // Reload when the new SW takes over
+        visibilityChangeHandler = () => {
+          if (document.visibilityState === "visible") {
+            reg.update().catch(() => {})
+          }
+        }
+        document.addEventListener("visibilitychange", visibilityChangeHandler)
+
+      } catch (err) {
+        // Service Worker registration failures are not critical
+        // The app continues to function normally without PWA capabilities
+        if (process.env.NODE_ENV === "development") {
+          console.log("[SW] Registration info:", err)
+        }
+      }
+    }
+
+    registerSW()
+
     let refreshing = false
     const onControllerChange = () => {
       if (refreshing) return
@@ -66,6 +109,9 @@ export function ServiceWorkerRegister() {
 
     return () => {
       if (intervalId) clearInterval(intervalId)
+      if (visibilityChangeHandler) {
+        document.removeEventListener("visibilitychange", visibilityChangeHandler)
+      }
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange)
     }
   }, [onUpdate])

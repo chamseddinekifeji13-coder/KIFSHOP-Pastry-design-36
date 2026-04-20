@@ -6,7 +6,7 @@
       "esnext"
     ],
     "allowJs": true,
-    "target": "ES6",
+    "target": "ES2020",
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
@@ -17,6 +17,9 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "noImplicitReturns": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
     "plugins": [
       {
         "name": "next"
@@ -25,6 +28,24 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/app/*": [
+        "./app/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/types/*": [
+        "./types/*"
+      ],
+      "@/utils/*": [
+        "./utils/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
       ]
     }
   },
@@ -36,6 +57,7 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "scripts/**"
   ]
 }

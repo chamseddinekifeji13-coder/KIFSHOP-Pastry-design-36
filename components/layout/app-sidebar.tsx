@@ -20,6 +20,11 @@ import {
   BarChart3,
   Megaphone,
   CreditCard,
+  Zap,
+  AlertTriangle,
+  FileText,
+  Eye,
+  HandCoins,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -79,6 +84,17 @@ const navigation = [
       { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
       { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },
+      { titleKey: "nav.delivery", fallback: "Livraison", href: "/livraison", icon: Truck },
+      { titleKey: "nav.packer", fallback: "Préparation", href: "/packer", icon: Package },
+    ],
+  },
+  {
+    titleKey: "nav.workflow",
+    fallback: "Workflow",
+    items: [
+      { titleKey: "nav.stock_alerts", fallback: "Alertes Stock", href: "/workflow/stock-alerts", icon: AlertTriangle },
+      { titleKey: "nav.procurement_orders", fallback: "Bons d'Appro", href: "/workflow/procurement-orders", icon: FileText },
+      { titleKey: "nav.traceability", fallback: "Traçabilité", href: "/workflow/traceability", icon: Eye },
     ],
   },
   {
@@ -86,6 +102,8 @@ const navigation = [
     fallback: "Finance",
     items: [
       { titleKey: "nav.treasury", fallback: "Tresorerie", href: "/tresorerie", icon: Wallet },
+      { titleKey: "nav.courier_collections", fallback: "Encaissements livreurs", href: "/tresorerie/courier-collections", icon: HandCoins },
+      { titleKey: "nav.pos80", fallback: "POS80", href: "/pos80", icon: Zap },
     ],
   },
   {
@@ -117,31 +135,34 @@ export function AppSidebar() {
   const filteredNavigation = navigation
     .map((group) => ({
       ...group,
-      title: t(group.titleKey) || group.fallback,
+      title: t(group.titleKey) !== group.titleKey ? t(group.titleKey) : group.fallback,
       items: group.items
         .filter((item) => canAccessRoute(currentRole, item.href))
-        .map((item) => ({ ...item, title: t(item.titleKey) || item.fallback })),
+        .map((item) => {
+          const translated = t(item.titleKey)
+          return { ...item, title: translated !== item.titleKey ? translated : item.fallback }
+        }),
     }))
     .filter((group) => group.items.length > 0)
 
   return (
     <Sidebar>
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
+      <SidebarHeader className="p-3">
+        <div className="flex items-center gap-3 rounded-xl border border-sidebar-border/80 bg-sidebar-accent/40 px-2.5 py-2">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-lg text-lg font-bold text-primary-foreground"
             style={{ backgroundColor: currentTenant.primaryColor }}
           >
             {currentTenant.logo}
           </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm leading-tight">
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-semibold text-sm leading-tight">
               {currentTenant.name}
             </span>
-            <div className="flex items-center gap-1.5 mt-1">
+            <div className="mt-1 flex items-center gap-1.5">
               <Badge
                 variant="secondary"
-                className="w-fit text-[10px] px-1.5 py-0"
+                className="w-fit border-sidebar-border bg-sidebar-primary/15 text-[10px] px-1.5 py-0 text-sidebar-foreground"
               >
                 {ROLE_LABELS[currentRole]}
               </Badge>
@@ -154,14 +175,17 @@ export function AppSidebar() {
 
       <SidebarContent>
         {filteredNavigation.map((group) => (
-          <SidebarGroup key={group.title}>
-            <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+          <SidebarGroup key={group.title} className="px-2 py-1.5">
+            <SidebarGroupLabel className="h-6 px-2 text-[10px] uppercase tracking-wider text-sidebar-foreground/55">
+              {group.title}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="gap-0.5">
                 {group.items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
+                      size="sm"
                       isActive={pathname === item.href}
                       tooltip={item.title}
                     >
@@ -182,19 +206,19 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
+            <div className="flex items-center gap-2 rounded-lg border border-sidebar-border/80 bg-sidebar-accent/30 px-2 py-1.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-xs font-medium">
                 {currentUser.initials}
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-medium truncate">{currentUser.name}</span>
                 {authUser?.email && (
-                  <span className="text-[10px] text-muted-foreground truncate">{authUser.email}</span>
+                  <span className="text-[10px] text-sidebar-foreground/65 truncate">{authUser.email}</span>
                 )}
-                <span className="text-[10px] text-muted-foreground">{ROLE_LABELS[currentRole]}</span>
+                <span className="text-[10px] text-sidebar-foreground/65">{ROLE_LABELS[currentRole]}</span>
               </div>
             </div>
           </SidebarMenuItem>

@@ -5,8 +5,11 @@ import { useSWRConfig } from "swr"
 import { KPICards } from "./kpi-cards"
 import { RevenueChart } from "./revenue-chart"
 import { AlertsPanel } from "./alerts-panel"
+import { RecentCollectionsPanel } from "./recent-collections-panel"
+import { CourierCollectionsPanel } from "./courier-collections-panel"
 import { OnlineSalesWidget } from "./online-sales-widget"
 import { BestDeliveryReport } from "./best-delivery-report"
+import { SyncStatusIndicator } from "./sync-status-indicator"
 import { useI18n } from "@/lib/i18n/context"
 import { useTenant } from "@/lib/tenant-context"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -28,7 +31,20 @@ export function DashboardView() {
     setIsRefreshing(true)
     const tenantId = currentTenant.id
     
-    // Invalider tous les caches lies au tenant
+    // Invalider les caches critiques du dashboard avec revalidation forcee
+    const keysToRefresh = [
+      `transactions-${tenantId}`,
+      `orders-${tenantId}`,
+      `raw-materials-${tenantId}`,
+      `notifications-${tenantId}`,
+      `critical-stock-${tenantId}`,
+      `payment-collections-${tenantId}`,
+    ]
+    
+    // Revalider chaque cle specifiquement pour une mise a jour immediate
+    await Promise.all(keysToRefresh.map(key => mutate(key)))
+    
+    // Aussi invalider tous les autres caches lies au tenant
     await mutate(
       (key) => typeof key === "string" && key.includes(tenantId),
       undefined,
@@ -36,17 +52,20 @@ export function DashboardView() {
     )
     
     // Petit delai pour montrer le feedback visuel
-    setTimeout(() => setIsRefreshing(false), 500)
+    setTimeout(() => setIsRefreshing(false), 600)
   }, [currentTenant.id, mutate])
 
   // Contenu réutilisable extrait pour éviter la duplication
   const OverviewContent = () => (
     <>
+      <SyncStatusIndicator />
       <KPICards />
       <div className="grid gap-6 lg:grid-cols-3">
         <RevenueChart />
         <div className="space-y-6">
           <AlertsPanel />
+          <RecentCollectionsPanel />
+          <CourierCollectionsPanel />
           <OnlineSalesWidget />
         </div>
       </div>

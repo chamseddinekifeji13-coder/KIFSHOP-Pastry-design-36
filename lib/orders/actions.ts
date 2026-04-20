@@ -1,4 +1,9 @@
 import { createClient } from "@/lib/supabase/client"
+import {
+  buildBestDeliveryExportRows,
+  filterOrdersForDeliveryExport,
+  type DeliveryExportStatusFilter,
+} from "./delivery-export"
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -24,6 +29,7 @@ export interface Order {
   deliveryType: "pickup" | "delivery"
   courier?: string
   gouvernorat?: string
+  delegation?: string
   trackingNumber?: string
   source: "whatsapp" | "messenger" | "phone" | "web" | "instagram" | "tiktok" | "comptoir"
   paymentStatus: "paid" | "unpaid" | "partial"
@@ -31,6 +37,7 @@ export interface Order {
   deliveryDate?: string
   estimatedDeliveryAt?: string
   deliveredAt?: string
+  readyAt?: string
   deliveryAddress?: string
   notes?: string
   // Offer fields
@@ -39,6 +46,11 @@ export interface Order {
   offerReason?: string
   discountPercent?: number
   discountAmount?: number
+  // Order numbering
+  orderNumber?: number
+  orderNumberDisplay?: string
+  isArchived?: boolean
+  archivedAt?: string
 }
 
 export interface StatusHistoryEntry {
@@ -82,6 +94,15 @@ export interface CreatePaymentCollectionData {
   collectedAt?: string
 }
 
+export interface DuplicateOrderWarning {
+  isDuplicate: boolean
+  existingOrderId?: string
+  existingOrderNumber?: string
+  customerName: string
+  total: number
+  createdAt: string
+}
+
 export interface CreateOrderData {
   tenantId: string
   customerName: string
@@ -103,6 +124,17 @@ export interface CreateOrderData {
   discountPercent?: number
 }
 
+async function getCurrentActor(
+  supabase: ReturnType<typeof createClient>,
+  fallbackUser?: { id?: string; email?: string | null; user_metadata?: { display_name?: string | null } } | null
+): Promise<{ actorId: string | null; actorName: string | null }> {
+  const authUser = fallbackUser ?? (await supabase.auth.getUser()).data.user
+  let actorId = authUser?.id || null
+  let actorName = authUser?.user_metadata?.display_name || authUser?.email || null
+
+  return { actorId, actorName }
+}
+
 // ─── Fetch Orders ─────────────────────────────────────────────
 
 // Helper function to map delivery status to order status
@@ -120,16 +152,26 @@ function mapDeliveryStatus(status: string): string {
   return statusMap[normalized] || "en-livraison"
 }
 
-export async function fetchOrders(tenantId: string): Promise<Order[]> {
+export async function fetchOrders(
+  tenantId: string,
+  options?: { includeArchived?: boolean },
+): Promise<Order[]> {
   const supabase = createClient()
   const orders: Order[] = []
+  const includeArchived = options?.includeArchived ?? false
 
   // Fetch from orders (unique source of truth)
-  const { data: quickOrders } = await supabase
+  let query = supabase
     .from("orders")
     .select("*")
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false })
+
+  if (!includeArchived) {
+    query = query.or("is_archived.is.null,is_archived.eq.false")
+  }
+
+  const { data: quickOrders } = await query
 
   if (quickOrders && quickOrders.length > 0) {
     quickOrders.forEach((o) => {
@@ -137,8 +179,8 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
       orders.push({
         id: o.id,
         tenantId: o.tenant_id,
-        customerName: o.client_name || o.customer_name || "",
-        customerPhone: o.phone || o.customer_phone || "",
+        customerName: o.customer_name || "",
+        customerPhone: o.customer_phone || "",
         customerAddress: o.customer_address || undefined,
         items: items.map((item: any) => ({
           id: item.id || "",
@@ -154,13 +196,15 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         deliveryType: o.delivery_type || "pickup",
         courier: o.courier || undefined,
         gouvernorat: o.gouvernorat || undefined,
+        delegation: o.delegation || undefined,
         trackingNumber: o.tracking_number || undefined,
         source: o.source || "comptoir",
         paymentStatus: o.payment_status || "unpaid",
         createdAt: o.created_at,
-        deliveryDate: undefined,
-        estimatedDeliveryAt: undefined,
+        deliveryDate: o.delivery_date || undefined,
+        estimatedDeliveryAt: o.estimated_delivery_at || undefined,
         deliveredAt: o.delivered_at || undefined,
+        readyAt: o.ready_at || undefined,
         deliveryAddress: o.customer_address || undefined,
         notes: o.notes || undefined,
         // Offer fields
@@ -169,45 +213,100 @@ export async function fetchOrders(tenantId: string): Promise<Order[]> {
         offerReason: o.offer_reason || undefined,
         discountPercent: o.discount_percent || 0,
         discountAmount: o.discount_amount || 0,
+        // Order numbering
+        orderNumber: o.order_number || undefined,
+        orderNumberDisplay: o.order_number_display || undefined,
+        isArchived: Boolean(o.is_archived),
+        archivedAt: o.archived_at || undefined,
       })
     })
   }
 
-  // Filtrer les commandes invalides (sans prix ET sans nom)
-  const validOrders = orders.filter(order => {
-    const hasValidTotal = order.total != null && order.total > 0
-    const hasCustomerName = order.customerName && order.customerName.trim() !== ""
-    // Garder si a un prix OU un nom client
-    return hasValidTotal || hasCustomerName
-  })
-
+  // Return all valid orders - don't filter them out
   // Sort by creation date descending
-  return validOrders.sort((a, b) => {
+  return orders.sort((a, b) => {
     const dateA = new Date(a.createdAt).getTime()
     const dateB = new Date(b.createdAt).getTime()
     return dateB - dateA
   })
 }
 
+export async function archiveCompletedOrders(
+  tenantId: string,
+  options?: { olderThanDays?: number },
+): Promise<{ archived: number }> {
+  const supabase = createClient()
+  const olderThanDays = Math.max(1, Math.floor(options?.olderThanDays ?? 14))
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: rows, error } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .in("status", ["livre", "annule"])
+    .lte("updated_at", cutoff)
+    .or("is_archived.is.null,is_archived.eq.false")
+
+  if (error) {
+    throw new Error(error.message || "Erreur lecture commandes a archiver")
+  }
+
+  const ids = (rows || []).map((r: any) => r.id).filter(Boolean)
+  if (ids.length === 0) {
+    return { archived: 0 }
+  }
+
+  const { error: updateError } = await supabase
+    .from("orders")
+    .update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("tenant_id", tenantId)
+    .in("id", ids)
+
+  if (updateError) {
+    throw new Error(updateError.message || "Erreur archivage commandes")
+  }
+
+  return { archived: ids.length }
+}
+
 // ─── Create Order ─────────────────────────────────────────────
 
-export async function createOrder(data: CreateOrderData): Promise<Order | null> {
+export interface CreateOrderResult {
+  success: boolean
+  order?: Order
+  duplicateWarning?: DuplicateOrderWarning
+  error?: string
+}
+
+/**
+ * Crée une commande avec support pour les doublons
+ * Si un doublon est détecté, retourne un avertissement au lieu de lever une erreur
+ * L'UI peut alors afficher un dialogue pour confirmer
+ */
+export async function createOrderWithDuplicateCheck(
+  data: CreateOrderData,
+  skipDuplicateCheck?: boolean
+): Promise<CreateOrderResult> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
 
   // Validation: nom client obligatoire
   if (!data.customerName || data.customerName.trim() === "") {
-    throw new Error("Le nom du client est obligatoire")
+    return { success: false, error: "Le nom du client est obligatoire" }
   }
 
   // Validation: au moins un article
   if (!data.items || data.items.length === 0) {
-    throw new Error("La commande doit contenir au moins un article")
+    return { success: false, error: "La commande doit contenir au moins un article" }
   }
 
-  // Get creator name from auth user
-  const creatorName = user.user_metadata?.display_name || user.email || null
+  const actor = await getCurrentActor(supabase, user)
+  const creatorName = actor.actorName
 
   const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
   const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
@@ -215,13 +314,42 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
 
   // Validation: total doit etre positif
   if (total <= 0) {
-    throw new Error("Le total de la commande doit etre superieur a 0")
+    return { success: false, error: "Le total de la commande doit etre superieur a 0" }
   }
-  const deposit = data.deposit || 0
 
+  // NOUVELLE LOGIQUE : Vérifier les doublons SAUF si skipDuplicateCheck est true
+  if (!skipDuplicateCheck) {
+    const duplicateWarning = await checkDuplicateOrder(supabase, data.tenantId, data.customerName, total)
+    if (duplicateWarning?.isDuplicate) {
+      // Retourner l'avertissement pour que l'UI l'affiche
+      return {
+        success: false,
+        error: "DUPLICATE_ORDER_DETECTED",
+        duplicateWarning,
+      }
+    }
+  }
+
+  // Créer la commande (logique originale)
+  const deposit = data.deposit || 0
   let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
   if (deposit >= total) paymentStatus = "paid"
   else if (deposit > 0) paymentStatus = "partial"
+
+  // Get next order number atomically
+  let orderNumber: number | null = null
+  let orderNumberDisplay: string | null = null
+  try {
+    const { data: counterData } = await supabase.rpc("get_next_order_number", {
+      p_tenant_id: data.tenantId,
+    })
+    if (counterData && counterData.length > 0) {
+      orderNumber = counterData[0].next_number
+      orderNumberDisplay = counterData[0].display_text
+    }
+  } catch (e) {
+    console.debug("Order numbering not available yet:", e)
+  }
 
   // Insert order
   const { data: order, error } = await supabase
@@ -243,12 +371,212 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
       payment_status: paymentStatus,
       delivery_date: data.deliveryDate || null,
       notes: data.notes || null,
+      confirmed_by_name: creatorName,
       // Offer fields
       order_type: data.orderType || "normal",
       offer_beneficiary: data.offerBeneficiary || null,
       offer_reason: data.offerReason || null,
       discount_percent: data.discountPercent || 0,
       discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
+      // Order numbering
+      ...(orderNumber ? { order_number: orderNumber, order_number_display: orderNumberDisplay } : {}),
+    })
+    .select()
+    .single()
+
+  if (error || !order) {
+    console.error("Error creating order:", error?.message)
+    return { success: false, error: "Erreur lors de la création de la commande" }
+  }
+
+  // Insert order items
+  const itemRows = data.items.map((item) => ({
+    order_id: order.id,
+    finished_product_id: item.productId || null,
+    name: item.name,
+    quantity: item.quantity,
+    unit_price: item.price,
+  }))
+
+  const { error: itemsError } = await supabase
+    .from("order_items")
+    .insert(itemRows)
+
+  if (itemsError) {
+    console.error("Error creating order items:", itemsError.message)
+  }
+
+  // Record initial status history
+  try {
+    await supabase.from("order_status_history").insert({
+      order_id: order.id,
+      tenant_id: data.tenantId,
+      from_status: null,
+      to_status: "nouveau",
+      changed_by: actor.actorId,
+      changed_by_name: creatorName,
+      note: "Commande creee",
+    })
+  } catch (histError: any) {
+    console.debug("Could not record status history:", histError.message)
+  }
+
+  const resultOrder: Order = {
+    id: order.id,
+    tenantId: order.tenant_id,
+    customerName: order.customer_name,
+    customerPhone: order.customer_phone || "",
+    customerAddress: order.customer_address || undefined,
+    items: data.items.map((i) => ({ ...i, productId: i.productId })),
+    total,
+    deposit,
+    shippingCost: shipping,
+    status: "nouveau",
+    deliveryType: order.delivery_type,
+    courier: order.courier || undefined,
+    gouvernorat: order.gouvernorat || undefined,
+    source: order.source,
+    paymentStatus,
+    createdAt: order.created_at,
+    deliveryDate: order.delivery_date || undefined,
+    notes: order.notes || undefined,
+    orderType: order.order_type || "normal",
+    offerBeneficiary: order.offer_beneficiary || undefined,
+    offerReason: order.offer_reason || undefined,
+    discountPercent: order.discount_percent || 0,
+    discountAmount: order.discount_amount || 0,
+    orderNumber: order.order_number || undefined,
+    orderNumberDisplay: order.order_number_display || undefined,
+  }
+
+  return { success: true, order: resultOrder }
+}
+
+/**
+ * Détecte si une commande est un doublon potentiel
+ * Critères : même client, même total, créée il y a moins de 5 minutes
+ */
+async function checkDuplicateOrder(
+  supabase: ReturnType<typeof createClient>,
+  tenantId: string,
+  customerName: string,
+  total: number
+): Promise<DuplicateOrderWarning | null> {
+  // Chercher une commande avec même client et même total créée récemment
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+
+  const { data: existing } = await supabase
+    .from("orders")
+    .select("id, customer_name, total, order_number_display, created_at, status")
+    .eq("tenant_id", tenantId)
+    .eq("customer_name", customerName)
+    .eq("total", total)
+    .gt("created_at", fiveMinutesAgo)
+    .eq("status", "nouveau") // Chercher seulement les commandes "nouveau"
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  if (existing && existing.length > 0) {
+    const dup = existing[0]
+    return {
+      isDuplicate: true,
+      existingOrderId: dup.id,
+      existingOrderNumber: dup.order_number_display,
+      customerName: dup.customer_name,
+      total: dup.total,
+      createdAt: dup.created_at,
+    }
+  }
+
+  return null
+}
+
+export async function createOrder(data: CreateOrderData): Promise<Order | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("Session expiree - veuillez vous reconnecter")
+
+  // Validation: nom client obligatoire
+  if (!data.customerName || data.customerName.trim() === "") {
+    throw new Error("Le nom du client est obligatoire")
+  }
+
+  // Validation: au moins un article
+  if (!data.items || data.items.length === 0) {
+    throw new Error("La commande doit contenir au moins un article")
+  }
+
+  const actor = await getCurrentActor(supabase, user)
+  const creatorName = actor.actorName
+
+  const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.price, 0)
+  const shipping = data.deliveryType === "delivery" ? (data.shippingCost || 0) : 0
+  const total = subtotal + shipping
+
+  // Validation: total doit etre positif
+  if (total <= 0) {
+    throw new Error("Le total de la commande doit etre superieur a 0")
+  }
+  const deposit = data.deposit || 0
+
+  let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
+  if (deposit >= total) paymentStatus = "paid"
+  else if (deposit > 0) paymentStatus = "partial"
+
+  // NOUVELLE LOGIQUE : Vérifier les doublons
+  const duplicateWarning = await checkDuplicateOrder(supabase, data.tenantId, data.customerName, total)
+  if (duplicateWarning?.isDuplicate) {
+    // Retourner un avertissement avec l'erreur pour que l'UI puisse l'afficher
+    const error = new Error("DUPLICATE_ORDER_WARNING") as any
+    error.code = "DUPLICATE_ORDER_WARNING"
+    error.duplicate = duplicateWarning
+    throw error
+  }
+
+  // Get next order number atomically
+  let orderNumber: number | null = null
+  let orderNumberDisplay: string | null = null
+  try {
+    const { data: counterData } = await supabase.rpc("get_next_order_number", {
+      p_tenant_id: data.tenantId,
+    })
+    if (counterData && counterData.length > 0) {
+      orderNumber = counterData[0].next_number
+      orderNumberDisplay = counterData[0].display_text
+    }
+  } catch (e) {
+    console.debug("Order numbering not available yet:", e)
+  }
+
+  // Insert order
+  const { data: order, error } = await supabase
+    .from("orders")
+    .insert({
+      tenant_id: data.tenantId,
+      customer_name: data.customerName,
+      customer_phone: data.customerPhone || null,
+      customer_address: data.customerAddress || null,
+      delivery_address: data.customerAddress || null,
+      total,
+      deposit,
+      shipping_cost: shipping,
+      status: "nouveau",
+      delivery_type: data.deliveryType,
+      courier: data.courier || null,
+      gouvernorat: data.gouvernorat || null,
+      source: data.source,
+      payment_status: paymentStatus,
+      delivery_date: data.deliveryDate || null,
+      notes: data.notes || null,
+      confirmed_by_name: creatorName,
+      // Offer fields
+      order_type: data.orderType || "normal",
+      offer_beneficiary: data.offerBeneficiary || null,
+      offer_reason: data.offerReason || null,
+      discount_percent: data.discountPercent || 0,
+      discount_amount: (total * ((data.discountPercent || 0) / 100)) || 0,
+      // Order numbering
+      ...(orderNumber ? { order_number: orderNumber, order_number_display: orderNumberDisplay } : {}),
     })
     .select()
     .single()
@@ -275,16 +603,21 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     console.error("Error creating order items:", itemsError.message)
   }
 
-  // Record initial status history (use active profile name if available)
-  await supabase.from("order_status_history").insert({
-    order_id: order.id,
-    tenant_id: data.tenantId,
-    from_status: null,
-    to_status: "nouveau",
-    changed_by: user.id,
-    changed_by_name: creatorName,
-    note: "Commande creee",
-  })
+  // Record initial status history (use active profile name if available) - handle gracefully if table doesn't exist
+  try {
+    await supabase.from("order_status_history").insert({
+      order_id: order.id,
+      tenant_id: data.tenantId,
+      from_status: null,
+      to_status: "nouveau",
+      changed_by: actor.actorId,
+      changed_by_name: creatorName,
+      note: "Commande creee",
+    })
+  } catch (histError: any) {
+    console.debug("Could not record status history:", histError.message)
+    // Don't fail order creation if status history table doesn't exist
+  }
 
   return {
     id: order.id,
@@ -311,6 +644,9 @@ export async function createOrder(data: CreateOrderData): Promise<Order | null> 
     offerReason: order.offer_reason || undefined,
     discountPercent: order.discount_percent || 0,
     discountAmount: order.discount_amount || 0,
+    // Order numbering
+    orderNumber: order.order_number || undefined,
+    orderNumberDisplay: order.order_number_display || undefined,
   }
 }
 
@@ -339,6 +675,10 @@ export async function updateOrderStatus(
     updated_at: new Date().toISOString(),
   }
 
+  if (newStatus === "pret") {
+    updates.ready_at = new Date().toISOString()
+  }
+
   if (newStatus === "livre") {
     updates.delivered_at = new Date().toISOString()
   }
@@ -354,16 +694,15 @@ export async function updateOrderStatus(
   }
 
   // Record status history
-  const { data: { user } } = await supabase.auth.getUser()
-  const changerName = user?.user_metadata?.display_name || user?.email || null
+  const actor = await getCurrentActor(supabase)
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: fromStatus,
     to_status: newStatus,
-    changed_by: user?.id || null,
-    changed_by_name: changerName,
+    changed_by: actor.actorId,
+    changed_by_name: actor.actorName,
     note: note || null,
   })
 
@@ -399,19 +738,19 @@ export async function updatePaymentStatus(
   }
 
   // Record as note in history
-  const { data: { user } } = await supabase.auth.getUser()
-  const updaterName = user?.user_metadata?.display_name || user?.email || null
+  const actor = await getCurrentActor(supabase)
+  
+  // Map payment status to a descriptive history note
+  const statusDescription = paymentStatus === "paid" ? "Paiement complet" : paymentStatus === "partial" ? "Paiement partiel" : "Non payé"
   
   await supabase.from("order_status_history").insert({
     order_id: orderId,
     tenant_id: tenantId,
     from_status: null,
-    to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
-    changed_by: user?.id || null,
-    changed_by_name: updaterName,
-    note: paymentStatus === "paid"
-      ? "Paiement complet enregistre"
-      : `Acompte de ${newDeposit} TND enregistre`,
+    to_status: `payment_${paymentStatus}`,
+    changed_by: actor.actorId,
+    changed_by_name: actor.actorName,
+    note: `${statusDescription}${newDeposit !== undefined ? ` - ${newDeposit} TND` : ""}`,
   })
 
   return true
@@ -517,6 +856,36 @@ export async function recordPaymentCollection(
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Validation: amount must be positive
+  if (!data.amount || data.amount <= 0) {
+    throw new Error("Le montant du paiement doit être supérieur à 0")
+  }
+
+  // Validation: orderId required
+  if (!data.orderId) {
+    throw new Error("Identifiant de commande manquant")
+  }
+
+  // Get order to check if payment won't exceed total due
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("total, deposit")
+    .eq("id", data.orderId)
+    .single()
+
+  if (orderError || !order) {
+    throw new Error("Commande non trouvée")
+  }
+
+  const orderTotal = Number(order.total || 0)
+  const currentDeposit = Number(order.deposit || 0)
+  const amountDue = orderTotal - currentDeposit
+
+  // Check that payment doesn't exceed amount due
+  if (data.amount > amountDue && amountDue > 0) {
+    throw new Error(`Le montant ne peut pas dépasser le solde dû (${amountDue} TND)`)
+  }
+
   // Insert payment collection record
   const { error } = await supabase.from("payment_collections").insert({
     order_id: data.orderId,
@@ -544,15 +913,6 @@ export async function recordPaymentCollection(
     .eq("order_id", data.orderId)
 
   const totalCollected = (allCollections || []).reduce((sum, p) => sum + Number(p.amount), 0)
-
-  // Get order total to determine payment status
-  const { data: order } = await supabase
-    .from("orders")
-    .select("total")
-    .eq("id", data.orderId)
-    .single()
-
-  const orderTotal = Number(order?.total || 0)
 
   let paymentStatus: "paid" | "unpaid" | "partial" = "unpaid"
   if (totalCollected >= orderTotal) paymentStatus = "paid"
@@ -590,18 +950,18 @@ export async function recordPaymentCollection(
     data.reference ? `(Ref: ${data.reference})` : null,
   ].filter(Boolean).join(" - ")
 
-  // Record in status history
-  const activeProfile = null // Profile tracking removed to avoid server-only imports in client contexts
+  // Record in status history with proper status prefix
   const recorderName = user?.user_metadata?.display_name || user?.email || null
+  const statusDescription = paymentStatus === "paid" ? "Paiement complet" : "Paiement partiel"
   
   await supabase.from("order_status_history").insert({
     order_id: data.orderId,
     tenant_id: data.tenantId,
     from_status: null,
-    to_status: paymentStatus === "paid" ? "paiement-complet" : "paiement-partiel",
+    to_status: `payment_${paymentStatus}`,
     changed_by: user?.id || null,
     changed_by_name: recorderName,
-    note: noteText,
+    note: `${statusDescription} - ${noteText}`,
   })
 
   return true
@@ -659,20 +1019,100 @@ export async function deletePaymentCollection(
 
 // ─── Delete Order ─────────────────────────────────────────────
 
-export async function deleteOrder(orderId: string): Promise<boolean> {
+export async function deleteOrder(orderId: string, tenantId?: string): Promise<{ success: boolean; message: string }> {
   const supabase = createClient()
 
-  const { error } = await supabase
+  // Vérifier le statut de la commande
+  const { data: order, error: fetchError } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .single()
+
+  if (fetchError || !order) {
+    return { success: false, message: "Commande non trouvée" }
+  }
+
+  // Vérifier que la commande est en statut "nouveau"
+  if (order.status !== "nouveau") {
+    return {
+      success: false,
+      message: `Impossible de supprimer. Statut actuel: ${order.status}. Seules les commandes en statut "nouveau" peuvent être supprimées.`
+    }
+  }
+
+  // Supprimer les articles de la commande d'abord
+  const { error: itemsError } = await supabase
+    .from("order_items")
+    .delete()
+    .eq("order_id", orderId)
+
+  if (itemsError) {
+    console.error("Error deleting order items:", itemsError.message)
+    return { success: false, message: "Erreur lors de la suppression des articles" }
+  }
+
+  // Supprimer l'historique de statut
+  try {
+    await supabase
+      .from("order_status_history")
+      .delete()
+      .eq("order_id", orderId)
+  } catch (e) {
+    console.debug("Could not delete status history:", e)
+  }
+
+  // Supprimer la commande
+  const { error: deleteError } = await supabase
     .from("orders")
     .delete()
     .eq("id", orderId)
 
-  if (error) {
-    console.error("Error deleting order:", error.message)
-    return false
+  if (deleteError) {
+    console.error("Error deleting order:", deleteError.message)
+    return { success: false, message: "Erreur lors de la suppression de la commande" }
   }
 
-  return true
+  return { success: true, message: "Commande supprimée avec succès" }
+}
+
+// ─── Order Counter Management ────────────────────────────────────
+
+export async function getOrderCounter(tenantId: string): Promise<{ currentCounter: number; lastResetAt: string | null } | null> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("order_counters")
+    .select("current_counter, last_reset_at")
+    .eq("tenant_id", tenantId)
+    .single()
+
+  if (error || !data) return null
+
+  return {
+    currentCounter: data.current_counter,
+    lastResetAt: data.last_reset_at,
+  }
+}
+
+export async function resetOrderCounter(tenantId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  try {
+    const { error } = await supabase.rpc("reset_order_counter", {
+      p_tenant_id: tenantId,
+    })
+
+    if (error) {
+      console.error("Error resetting order counter:", error.message)
+      return false
+    }
+
+    return true
+  } catch (e) {
+    console.error("Error resetting order counter:", e)
+    return false
+  }
 }
 
 // ─── CSV Export Functions ────────────────────────────────────────
@@ -699,7 +1139,7 @@ export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: st
   ]
 
   const data: any[][] = orders.map((order) => [
-    order.id.substring(0, 8),
+    order.orderNumberDisplay || order.id.substring(0, 8),
     order.customerName,
     order.customerPhone,
     order.customerAddress || "",
@@ -719,6 +1159,21 @@ export async function exportOrdersToCSV(tenantId: string): Promise<{ headers: st
   return { headers, data }
 }
 
+export async function exportDeliveryOrdersToBestDeliveryCSV(
+  tenantId: string,
+  options: {
+    statuses: DeliveryExportStatusFilter[]
+    includeAddress: boolean
+    onlyToday?: boolean
+  },
+): Promise<{ headers: string[]; data: string[][] }> {
+  const orders = await fetchOrders(tenantId)
+  const filtered = filterOrdersForDeliveryExport(orders, options.statuses, {
+    onlyToday: options.onlyToday ?? true,
+    timeZone: "Africa/Tunis",
+  })
+  return buildBestDeliveryExportRows(filtered, options.includeAddress)
+}
 function translateStatus(status: string): string {
   const map: Record<string, string> = {
     nouveau: "Nouveau",
@@ -726,6 +1181,7 @@ function translateStatus(status: string): string {
     pret: "Prêt",
     "en-livraison": "En livraison",
     livre: "Livré",
+    annule: "Annulé",
   }
   return map[status] || status
 }
@@ -750,4 +1206,287 @@ function translateSource(source: string): string {
     comptoir: "Comptoir",
   }
   return map[source] || source
+}
+
+// ──�� Fetch All Payment Collections (pour dashboard et KPIs) ───────────
+
+export interface PaymentCollectionWithOrder extends PaymentCollection {
+  orderCustomerName?: string
+  orderTotal?: number
+}
+
+export async function fetchAllPaymentCollections(tenantId: string): Promise<PaymentCollectionWithOrder[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select(`
+      *,
+      orders!inner(customer_name, total)
+    `)
+    .eq("tenant_id", tenantId)
+    .order("collected_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching all payment collections:", error.message)
+    return []
+  }
+
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    orderId: p.order_id,
+    tenantId: p.tenant_id,
+    amount: Number(p.amount),
+    paymentMethod: p.payment_method as PaymentMethod,
+    collectedBy: p.collected_by as CollectedBy,
+    collectorName: p.collector_name,
+    reference: p.reference,
+    notes: p.notes,
+    collectedAt: p.collected_at,
+    recordedByName: p.recorded_by_name,
+    createdAt: p.created_at,
+    orderCustomerName: p.orders?.customer_name,
+    orderTotal: p.orders?.total ? Number(p.orders.total) : undefined,
+  }))
+}
+
+// ─── Fonctions pour gérer les encaissements par livreur ───────────
+
+export interface CourierCollection {
+  id: string
+  orderId: string
+  orderNumberDisplay?: string
+  tenantId: string
+  amount: number
+  paymentMethod: PaymentMethod
+  collectorName: string
+  collectedAt: string
+  recordedByName?: string
+  verified: boolean
+  verifiedAt?: string
+  verifiedByName?: string
+  reference?: string
+  notes?: string
+}
+
+/**
+ * Récupère tous les encaissements par livreur NON VERIFIES
+ */
+export async function getUnverifiedCourierCollections(tenantId: string): Promise<CourierCollection[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select(`
+      id,
+      order_id,
+      tenant_id,
+      amount,
+      payment_method,
+      collector_name,
+      collected_at,
+      recorded_by_name,
+      reference,
+      notes,
+      verified,
+      verified_at,
+      verified_by_name,
+      orders!inner(customer_name, total, order_number_display)
+    `)
+    .eq("tenant_id", tenantId)
+    .eq("collected_by", "courier")
+    .eq("verified", false)
+    .order("collected_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching unverified courier collections:", error.message)
+    return []
+  }
+
+  return (data || []).map((p: any) => ({
+    id: p.id,
+    orderId: p.order_id,
+    orderNumberDisplay: typeof p.orders?.order_number_display === "string" ? p.orders.order_number_display : undefined,
+    tenantId: p.tenant_id,
+    amount: Number(p.amount),
+    paymentMethod: p.payment_method as PaymentMethod,
+    collectorName: p.collector_name,
+    collectedAt: p.collected_at,
+    recordedByName: p.recorded_by_name,
+    reference: p.reference,
+    notes: p.notes,
+    verified: p.verified,
+    verifiedAt: p.verified_at,
+    verifiedByName: p.verified_by_name,
+  }))
+}
+
+/**
+ * Approuve la réception d'un encaissement par livreur
+ */
+export async function approveCourierCollection(
+  paymentCollectionId: string,
+  tenantId: string
+): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const verifiedAt = new Date().toISOString()
+  const verifiedByName = user?.user_metadata?.display_name || user?.email || null
+
+  const { error } = await supabase
+    .from("payment_collections")
+    .update({
+      verified: true,
+      verified_at: verifiedAt,
+      verified_by_name: verifiedByName,
+    })
+    .eq("id", paymentCollectionId)
+    .eq("tenant_id", tenantId)
+
+  if (error) {
+    console.error("Error approving courier collection:", error.message)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Approuve tous les encaissements d'un livreur spécifique pour une date donnée
+ */
+export async function approveCourierCollectionsByDriver(
+  tenantId: string,
+  driverName: string,
+  approvalDate?: string
+): Promise<boolean> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const verifiedAt = new Date().toISOString()
+  const verifiedByName = user?.user_metadata?.display_name || user?.email || null
+  const dateFilter = approvalDate || new Date().toISOString().split("T")[0]
+
+  // Récupère tous les encaissements du livreur pour cette date
+  const { data: collections, error: fetchError } = await supabase
+    .from("payment_collections")
+    .select("id, collected_at")
+    .eq("tenant_id", tenantId)
+    .eq("collected_by", "courier")
+    .eq("collector_name", driverName)
+    .eq("verified", false)
+    .gte("collected_at", `${dateFilter}T00:00:00`)
+    .lt("collected_at", `${dateFilter}T23:59:59`)
+
+  if (fetchError) {
+    console.error("Error fetching courier collections:", fetchError.message)
+    return false
+  }
+
+  if (!collections || collections.length === 0) {
+    return true // Rien à approuver
+  }
+
+  // Approuve tous les encaissements trouvés
+  const { error: updateError } = await supabase
+    .from("payment_collections")
+    .update({
+      verified: true,
+      verified_at: verifiedAt,
+      verified_by_name: verifiedByName,
+    })
+    .in(
+      "id",
+      collections.map((c: any) => c.id)
+    )
+    .eq("tenant_id", tenantId)
+
+  if (updateError) {
+    console.error("Error approving courier collections:", updateError.message)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Récupère un résumé des encaissements par livreur (vérifiés vs non vérifiés)
+ */
+export async function getCourierCollectionsSummary(tenantId: string): Promise<{
+  unverifiedCount: number
+  unverifiedTotal: number
+  verifiedCount: number
+  verifiedTotal: number
+  byCourier: Record<
+    string,
+    {
+      unverifiedCount: number
+      unverifiedTotal: number
+      verifiedCount: number
+      verifiedTotal: number
+    }
+  >
+}> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("payment_collections")
+    .select("collector_name, amount, verified")
+    .eq("tenant_id", tenantId)
+    .eq("collected_by", "courier")
+
+  if (error) {
+    console.error("Error fetching courier collections summary:", error.message)
+    return {
+      unverifiedCount: 0,
+      unverifiedTotal: 0,
+      verifiedCount: 0,
+      verifiedTotal: 0,
+      byCourier: {},
+    }
+  }
+
+  const summary = {
+    unverifiedCount: 0,
+    unverifiedTotal: 0,
+    verifiedCount: 0,
+    verifiedTotal: 0,
+    byCourier: {} as Record<
+      string,
+      {
+        unverifiedCount: number
+        unverifiedTotal: number
+        verifiedCount: number
+        verifiedTotal: number
+      }
+    >,
+  }
+
+  for (const collection of data || []) {
+    const courier = collection.collector_name || "Non spécifié"
+    const amount = Number(collection.amount)
+
+    if (!summary.byCourier[courier]) {
+      summary.byCourier[courier] = {
+        unverifiedCount: 0,
+        unverifiedTotal: 0,
+        verifiedCount: 0,
+        verifiedTotal: 0,
+      }
+    }
+
+    if (collection.verified) {
+      summary.verifiedCount++
+      summary.verifiedTotal += amount
+      summary.byCourier[courier].verifiedCount++
+      summary.byCourier[courier].verifiedTotal += amount
+    } else {
+      summary.unverifiedCount++
+      summary.unverifiedTotal += amount
+      summary.byCourier[courier].unverifiedCount++
+      summary.byCourier[courier].unverifiedTotal += amount
+    }
+  }
+
+  return summary
 }

@@ -1,13 +1,13 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 import { getServerSession, requireRole } from "@/lib/active-profile"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    // ✅ Verify authentication and admin role
+    // Verify authentication and admin role
     const session = await requireRole("owner", "gerant")
 
-    const supabase = await createClient()
+    const supabase = createAdminClient()
 
     // ✅ Clean raw_materials with tenant isolation
     const { data: emptyRaw } = await supabase

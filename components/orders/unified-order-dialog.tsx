@@ -22,7 +22,6 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
-  ChevronsUpDown,
   Pencil,
   Check,
   X,
@@ -51,16 +50,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,8 +66,12 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
-import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
+import { fetchActiveDeliveryCompanies, fetchDefaultDeliveryCompany } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
+import { tunisiaLocations, gouvernorats, getDelegations } from "@/lib/tunisia-locations"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { ChevronDown } from "lucide-react"
 
 interface Product {
   id: string
@@ -91,20 +87,29 @@ interface OrderItemLocal {
   price: number
 }
 
+interface UnifiedOrderDialogInitialData {
+  fromProspectId?: string
+  customerName?: string
+  customerPhone?: string
+  source?: string
+  deliveryAt?: string
+  autoDocumentType?: "none" | "invoice" | "delivery_note"
+}
+
 interface UnifiedOrderDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onOrderCreated?: () => void
+  initialData?: UnifiedOrderDialogInitialData | null
+  onOrderCreated?: (result?: {
+    orderId?: string
+    fromProspectId?: string
+    autoDocumentType?: "none" | "invoice" | "delivery_note"
+  }) => void
 }
 
-const gouvernorats = [
-  "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
-  "Jendouba", "Kairouan", "Kasserine", "Kebili", "Le Kef", "Mahdia",
-  "La Manouba", "Medenine", "Monastir", "Nabeul", "Sfax", "Sidi Bouzid",
-  "Siliana", "Sousse", "Tataouine", "Tozeur", "Tunis", "Zaghouan",
-]
 
-export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: UnifiedOrderDialogProps) {
+
+export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initialData }: UnifiedOrderDialogProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
   const {
     client,
@@ -134,15 +139,22 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
   const [gouvernorat, setGouvernorat] = useState("")
+  const [delegation, setDelegation] = useState("")
   const [shippingCost, setShippingCost] = useState("0")
+  
+  // Combobox open states
+  const [gouvernoratOpen, setGouvernoratOpen] = useState(false)
+  const [delegationOpen, setDelegationOpen] = useState(false)
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
-  const [selectedProduct, setSelectedProduct] = useState("")
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productSearch, setProductSearch] = useState("")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+
+  // Mode toggle: 'fast' for quick sale, 'full' for complete order
+  const [orderMode, setOrderMode] = useState<"fast" | "full">("fast")
 
   // Products
   const [products, setProducts] = useState<Product[]>([])
@@ -159,6 +171,9 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   const [discountPercent, setDiscountPercent] = useState("")
 
   const phoneRef = useRef<HTMLInputElement>(null)
+  const normalizeSource = useCallback((value?: string) => {
+    return ["phone", "comptoir", "web", "facebook"].includes(value || "") ? (value as string) : "phone"
+  }, [])
 
   // Auto-focus phone input when dialog opens
   useEffect(() => {
@@ -213,6 +228,25 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     return () => { cancelled = true }
   }, [open, currentTenant.id, tenantLoading])
 
+  // Auto-fill default delivery company and shipping cost when couriers are loaded
+  useEffect(() => {
+    if (couriers.length > 0 && !courier && open) {
+      const autoFillDefaults = async () => {
+        try {
+          const defaultCompany = await fetchDefaultDeliveryCompany(currentTenant.id)
+          if (defaultCompany) {
+            // Use name instead of id - the Select component uses company names as values
+            setCourier(defaultCompany.name)
+            setShippingCost(defaultCompany.shippingCost.toString())
+          }
+        } catch (err) {
+          console.error("Error fetching default delivery company:", err)
+        }
+      }
+      autoFillDefaults()
+    }
+  }, [couriers, open, courier, currentTenant.id])
+
   // Validation téléphone Tunisien (8 chiffres)
   const isValidPhone = useMemo(
     () => /^\d{8}$/.test(phone.replace(/\s/g, "")),
@@ -243,6 +277,38 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
       handlePhoneLookup()
     }
   }
+
+  useEffect(() => {
+    if (!open || !initialData) return
+
+    const normalizedPhone = (initialData.customerPhone || "").replace(/\D/g, "").slice(-8)
+    const normalizedSource = normalizeSource(initialData.source)
+
+    if (normalizedPhone) setPhone(normalizedPhone)
+    if (initialData.customerName) {
+      setClientName(initialData.customerName)
+      setClientNameEdit(initialData.customerName)
+    }
+    setSource(normalizedSource)
+
+    if (initialData.deliveryAt) {
+      setDeliveryType("delivery")
+      setDeliveryDate(initialData.deliveryAt)
+      setOrderMode("full")
+    }
+  }, [open, initialData, normalizeSource])
+
+  useEffect(() => {
+    if (!open || !initialData?.customerPhone) return
+    const normalizedPhone = initialData.customerPhone.replace(/\D/g, "").slice(-8)
+    if (!/^\d{8}$/.test(normalizedPhone) || currentTenant.id === "__fallback__") return
+
+    const timer = setTimeout(() => {
+      void lookupClient(normalizedPhone, currentTenant.id)
+    }, 120)
+
+    return () => clearTimeout(timer)
+  }, [open, initialData?.customerPhone, lookupClient, currentTenant.id])
 
   // Edit client name
   const handleEditClientName = async () => {
@@ -285,22 +351,26 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
   }
 
   // Add item to order
-  const handleAddItem = useCallback((productId?: string) => {
-    const pid = productId || selectedProduct
-    if (!pid) return
-    const product = products.find(p => p.id === pid)
+  const handleAddItem = useCallback((productId: string) => {
+    const product = products.find(p => p.id === productId)
     if (!product) return
-    const existing = items.find(i => i.productId === pid)
+    const existing = items.find(i => i.productId === productId)
     if (existing) {
       setItems(items.map(i =>
-        i.productId === pid ? { ...i, quantity: i.quantity + 1 } : i
+        i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
       setItems([...items, { productId: product.id, name: product.name, quantity: 1, price: product.selling_price }])
     }
-    setSelectedProduct("")
-    setProductSearchOpen(false)
-  }, [selectedProduct, products, items])
+    setProductSearch("")
+  }, [products, items])
+  
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products
+    const search = productSearch.toLowerCase()
+    return products.filter(p => p.name.toLowerCase().includes(search))
+  }, [products, productSearch])
 
   // Remove item
   const handleRemoveItem = useCallback((productId: string) => {
@@ -383,6 +453,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
           deliveryType,
           courier: deliveryType === "delivery" ? courier : undefined,
           gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
+          delegation: deliveryType === "delivery" ? delegation : undefined,
           shippingCost: shipping,
           deliveryDate: deliveryDate || undefined,
           address: deliveryType === "delivery" ? clientAddress.trim() : undefined,
@@ -392,6 +463,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
           offerBeneficiary: offerBeneficiary.trim() || undefined,
           offerReason: offerReason.trim() || undefined,
           discountPercent: discountPercent ? Number(discountPercent) : undefined,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
         }),
       })
 
@@ -399,10 +471,15 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         const data = await res.json()
         throw new Error(data.error || "Erreur creation commande")
       }
+      const data = await res.json()
 
       setSuccess(true)
       toast.success("Commande enregistrée !")
-      onOrderCreated?.()
+      onOrderCreated?.({
+        orderId: data?.orderId,
+        fromProspectId: initialData?.fromProspectId,
+        autoDocumentType: initialData?.autoDocumentType || "none",
+      })
       // Close after delay
       setTimeout(() => {
         setPhone("")
@@ -418,8 +495,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         setShippingCost("")
         setDeliveryDate("")
         setItems([])
-        setSelectedProduct("")
-        setProductSearchOpen(false)
+        setProductSearch("")
         setNotes("")
         setSuccess(false)
         // Reset offer fields
@@ -427,6 +503,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
         setOfferBeneficiary("")
         setOfferReason("")
         setDiscountPercent("")
+        // Reset mode to fast
+        setOrderMode("fast")
         clearClient()
         onOpenChange(false)
       }, 1500)
@@ -435,7 +513,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     } finally {
       setSubmitting(false)
     }
-  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, clearClient, onOpenChange])
+  }, [client, isBlocked, hasExcessiveReturns, submitting, items, clientName, isNewClient, deliveryType, clientAddress, total, notes, source, courier, gouvernorat, shipping, deliveryDate, truecallerVerified, onOrderCreated, clearClient, onOpenChange, initialData?.fromProspectId, initialData?.autoDocumentType])
 
   // Close handler
   const handleClose = useCallback(() => {
@@ -449,11 +527,11 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setDeliveryType("pickup")
     setCourier("")
     setGouvernorat("")
+    setDelegation("")
     setShippingCost("")
     setDeliveryDate("")
     setItems([])
-    setSelectedProduct("")
-    setProductSearchOpen(false)
+    setProductSearch("")
     setNotes("")
     setSuccess(false)
     // Reset offer fields
@@ -461,6 +539,8 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
     setOfferBeneficiary("")
     setOfferReason("")
     setDiscountPercent("")
+    // Reset mode to fast on close
+    setOrderMode("fast")
     clearClient()
     onOpenChange(false)
   }, [clearClient, onOpenChange])
@@ -510,9 +590,9 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
           showCloseButton={false}
           className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
         >
-          <VisuallyHidden>
+          <VisuallyHidden.Root>
             <DialogTitle>Nouvelle Commande</DialogTitle>
-          </VisuallyHidden>
+          </VisuallyHidden.Root>
           {/* Header */}
           <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-6 text-primary-foreground shrink-0">
             <div className="flex items-center gap-3 mb-2">
@@ -522,14 +602,31 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
               <div>
                 <h2 className="text-lg font-semibold">Nouvelle Commande</h2>
                 <p className="text-sm text-primary-foreground/70">
-                  {client ? "Commande rapide par telephone" : "Rechercher ou creer un client"}
+                  {client ? (orderMode === "fast" ? "Mode vente rapide" : "Mode commande complète") : "Rechercher ou creer un client"}
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-xs text-primary-foreground/50">
-                {client ? "Client identifie" : "Etape 1: Recherche client"}
-              </span>
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant={orderMode === "fast" ? "default" : "outline"}
+                  onClick={() => setOrderMode("fast")}
+                  className={orderMode === "fast" ? "bg-white text-primary hover:bg-white" : "text-primary-foreground border-primary-foreground/30"}
+                  disabled={!client}
+                >
+                  ⚡ Mode Rapide
+                </Button>
+                <Button
+                  size="sm"
+                  variant={orderMode === "full" ? "default" : "outline"}
+                  onClick={() => setOrderMode("full")}
+                  className={orderMode === "full" ? "bg-white text-primary hover:bg-white" : "text-primary-foreground border-primary-foreground/30"}
+                  disabled={!client}
+                >
+                  ⚙️ Mode Complet
+                </Button>
+              </div>
               <span className="inline-flex items-center gap-1.5 bg-white/15 text-primary-foreground text-[11px] font-medium px-2.5 py-1 rounded-full">
                 <User className="h-3 w-3" />
                 {currentUser.name}
@@ -772,49 +869,62 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                       Articles
                     </div>
 
-                    {/* Product selector */}
-                    <div className="space-y-2">
-                      <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="w-full justify-between bg-card"
-                            disabled={loadingProducts}
-                          >
-                            {selectedProduct ? products.find(p => p.id === selectedProduct)?.name : "Ajouter un article..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-full p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Chercher un produit..." />
-                            <CommandEmpty>Aucun produit trouvé</CommandEmpty>
-                            <CommandGroup>
-                              <CommandList>
-                                {products.map(product => (
-                                  <CommandItem
-                                    key={product.id}
-                                    value={product.id}
-                                    onSelect={() => {
-                                      setSelectedProduct(product.id)
-                                      setProductSearchOpen(false)
-                                      handleAddItem(product.id)
-                                    }}
-                                  >
-                                    <div className="flex-1">
-                                      <div className="font-medium text-sm">{product.name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {product.selling_price.toFixed(3)} TND • Stock: {product.current_stock}
-                                      </div>
+                    {/* Product selector - inline search without Popover */}
+                    <div className="rounded-xl border bg-card p-3 space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                        <Input
+                          placeholder="Rechercher un produit..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                          disabled={loadingProducts}
+                        />
+                      </div>
+                      
+                      {loadingProducts ? (
+                        <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Chargement des produits...
+                        </div>
+                      ) : filteredProducts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2 text-center">
+                          {productSearch ? "Aucun produit trouve" : "Aucun produit disponible"}
+                        </p>
+                      ) : (
+                        <ScrollArea className="h-[160px]">
+                          <div className="space-y-1">
+                            {filteredProducts.slice(0, 20).map(product => {
+                              const inCart = items.find(i => i.productId === product.id)
+                              return (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => handleAddItem(product.id)}
+                                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/80 transition-colors text-left"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm truncate">{product.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {product.selling_price.toFixed(3)} TND
+                                      {product.current_stock <= 0 && (
+                                        <span className="ml-1 text-destructive">(Rupture)</span>
+                                      )}
                                     </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandList>
-                            </CommandGroup>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
+                                  </div>
+                                  {inCart ? (
+                                    <Badge className="bg-primary/10 text-primary text-xs shrink-0 ml-2">
+                                      {inCart.quantity}x
+                                    </Badge>
+                                  ) : (
+                                    <Plus className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
                     </div>
 
                     {/* Items list */}
@@ -871,7 +981,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                 )}
 
                 {/* ── SECTION: LIVRAISON ── */}
-                {client && (
+                {client && orderMode === "full" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       <Truck className="h-3.5 w-3.5" />
@@ -886,7 +996,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                           <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent noPortal={false}>
                             <SelectItem value="pickup">Retrait au comptoir</SelectItem>
                             <SelectItem value="delivery">Livraison</SelectItem>
                           </SelectContent>
@@ -895,6 +1005,88 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
 
                       {deliveryType === "delivery" && (
                         <>
+                          {/* Gouvernorat et Delegation */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Gouvernorat</Label>
+                              <Popover open={gouvernoratOpen} onOpenChange={setGouvernoratOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={gouvernoratOpen}
+                                    className="w-full justify-between bg-muted/50 border-0 font-normal"
+                                  >
+                                    {gouvernorat || "Choisir..."}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Rechercher..." />
+                                    <CommandList>
+                                      <CommandEmpty>Aucun resultat</CommandEmpty>
+                                      <CommandGroup>
+                                        {gouvernorats.map((g) => (
+                                          <CommandItem
+                                            key={g}
+                                            value={g}
+                                            onSelect={() => {
+                                              setGouvernorat(g)
+                                              setDelegation("")
+                                              setGouvernoratOpen(false)
+                                            }}
+                                          >
+                                            {g}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Delegation</Label>
+                              <Popover open={delegationOpen} onOpenChange={setDelegationOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={delegationOpen}
+                                    className="w-full justify-between bg-muted/50 border-0 font-normal"
+                                    disabled={!gouvernorat}
+                                  >
+                                    {delegation || (gouvernorat ? "Choisir..." : "Gouvernorat d'abord")}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Rechercher..." />
+                                    <CommandList>
+                                      <CommandEmpty>Aucun resultat</CommandEmpty>
+                                      <CommandGroup>
+                                        {getDelegations(gouvernorat).map((d) => (
+                                          <CommandItem
+                                            key={d}
+                                            value={d}
+                                            onSelect={() => {
+                                              setDelegation(d)
+                                              setDelegationOpen(false)
+                                            }}
+                                          >
+                                            {d}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </div>
+
                           {/* Address */}
                           <div className="space-y-2">
                             <Label className="text-xs font-medium">Adresse de livraison *</Label>
@@ -906,61 +1098,46 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                             />
                           </div>
 
-                          {/* Gouvernorat */}
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">Gouvernorat</Label>
-                            <Select value={gouvernorat} onValueChange={setGouvernorat}>
-                              <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
-                                <SelectValue placeholder="Selectionner..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {gouvernorats.map(g => (
-                                  <SelectItem key={g} value={g}>{g}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Courier */}
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">Coursier</Label>
-                            <Select value={courier} onValueChange={setCourier}>
-                              <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
-                                <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Selectionner..."} />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {couriers.length === 0 && !loadingCouriers && (
-                                  <SelectItem value="__none" disabled>
-                                    Aucun transporteur configure
-                                  </SelectItem>
-                                )}
-                                {couriers.map(c => (
-                                  <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Shipping cost */}
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">Frais de livraison</Label>
-                            <Input
-                              type="number"
-                              step="0.1"
-                              placeholder="0.000"
-                              value={shippingCost}
-                              onChange={(e) => setShippingCost(e.target.value)}
-                              className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 tabular-nums"
-                            />
+                          {/* Courier and Shipping cost */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Livreur</Label>
+                              <Select value={courier} onValueChange={setCourier}>
+                                <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
+                                  <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Selectionner..."} />
+                                </SelectTrigger>
+                                <SelectContent noPortal={false}>
+                                  {couriers.length === 0 && !loadingCouriers && (
+                                    <SelectItem value="__none" disabled>
+                                      Aucun livreur configure
+                                    </SelectItem>
+                                  )}
+                                  {couriers.map(c => (
+                                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Frais livraison (TND)</Label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                placeholder="0.000"
+                                value={shippingCost}
+                                onChange={(e) => setShippingCost(e.target.value)}
+                                className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 tabular-nums"
+                              />
+                            </div>
                           </div>
                         </>
                       )}
 
                       {/* Delivery date */}
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">Date de livraison</Label>
+                        <Label className="text-xs font-medium">Date et heure de livraison</Label>
                         <Input
-                          type="date"
+                          type="datetime-local"
                           value={deliveryDate}
                           onChange={(e) => setDeliveryDate(e.target.value)}
                           className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
@@ -971,7 +1148,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                 )}
 
                 {/* ── SECTION: DETAILS ── */}
-                {client && (
+                {client && orderMode === "full" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       <StickyNote className="h-3.5 w-3.5" />
@@ -986,7 +1163,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                           <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent noPortal={false}>
                             <SelectItem value="phone">Telephone</SelectItem>
                             <SelectItem value="comptoir">Comptoir</SelectItem>
                             <SelectItem value="web">Web</SelectItem>
@@ -1010,7 +1187,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                 )}
 
                 {/* ── SECTION: TYPE DE COMMANDE (OFFRE) ── */}
-                {client && (
+                {client && orderMode === "full" && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
                       <Gift className="h-3.5 w-3.5" />
@@ -1025,7 +1202,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated }: Unifi
                           <SelectTrigger className="bg-white border-0 focus:ring-1 focus:ring-amber-300">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent noPortal={false}>
                             <SelectItem value="normal">Commande normale</SelectItem>
                             <SelectItem value="offre_client">
                               <span className="flex items-center gap-2">

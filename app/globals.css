@@ -3,99 +3,106 @@
 
 /* KIFSHOP SaaS Theme */
 
-@custom-variant dark (&:is(.dark *));
-
-:root {
-  --background: oklch(0.98 0.005 90);
-  --foreground: oklch(0.25 0.02 90);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.25 0.02 90);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0.02 90);
-  --primary: oklch(0.52 0.1 145);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.75 0.12 55);
-  --secondary-foreground: oklch(0.25 0.02 90);
-  --muted: oklch(0.94 0.01 90);
-  --muted-foreground: oklch(0.5 0.02 90);
-  --accent: oklch(0.75 0.12 55);
-  --accent-foreground: oklch(0.25 0.02 90);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.88 0.01 90);
-  --input: oklch(0.88 0.01 90);
-  --ring: oklch(0.52 0.1 145);
-  --chart-1: oklch(0.52 0.1 145);
-  --chart-2: oklch(0.75 0.12 55);
-  --chart-3: oklch(0.6 0.15 30);
-  --chart-4: oklch(0.55 0.12 200);
-  --chart-5: oklch(0.65 0.1 320);
-  --radius: 0.5rem;
-  --warning: oklch(0.75 0.15 55);
-  --warning-foreground: oklch(0.25 0.02 90);
-  --success: oklch(0.52 0.1 145);
-  --success-foreground: oklch(0.98 0 0);
-  --sidebar: oklch(0.96 0.005 90);
-  --sidebar-foreground: oklch(0.25 0.02 90);
-  --sidebar-primary: oklch(0.52 0.1 145);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.92 0.02 90);
-  --sidebar-accent-foreground: oklch(0.25 0.02 90);
-  --sidebar-border: oklch(0.88 0.01 90);
-  --sidebar-ring: oklch(0.52 0.1 145);
-}
-
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
+  
+  /* Premium Luxury Palette - Colors */
+  --color-background: hsl(0 0% 99%);
+  --color-foreground: hsl(60 8% 10%);
+  --color-card: hsl(90 1% 98%);
+  --color-card-foreground: hsl(60 8% 10%);
+  --color-popover: hsl(90 1% 98%);
+  --color-popover-foreground: hsl(60 8% 10%);
+  
+  /* Primary: Rich Gold (#c6a55f) */
+  --color-primary: hsl(42 68% 62%);
+  --color-primary-foreground: hsl(0 0% 99%);
+  
+  /* Secondary: Charcoal Noir */
+  --color-secondary: hsl(60 5% 14%);
+  --color-secondary-foreground: hsl(0 0% 99%);
+  
+  /* Muted: Taupe Gray */
+  --color-muted: hsl(90 2% 90%);
+  --color-muted-foreground: hsl(60 3% 48%);
+  
+  /* Accent: Warm Cream */
+  --color-accent: hsl(90 3% 95%);
+  --color-accent-foreground: hsl(60 8% 10%);
+  
+  /* Status Colors */
+  --color-destructive: hsl(28 73% 58%);
+  --color-destructive-foreground: hsl(0 0% 99%);
+  --color-warning: hsl(70 56% 80%);
+  --color-warning-foreground: hsl(60 8% 10%);
+  --color-success: hsl(130 56% 58%);
+  --color-success-foreground: hsl(0 0% 99%);
+  
+  /* UI Elements */
+  --color-border: hsl(90 2% 92%);
+  --color-input: hsl(90 1% 96%);
+  --color-ring: hsl(42 68% 62%);
+  
+  /* Chart Colors - Luxury Palette */
+  --color-chart-1: hsl(42 68% 62%);
+  --color-chart-2: hsl(60 5% 14%);
+  --color-chart-3: hsl(130 56% 58%);
+  --color-chart-4: hsl(70 56% 80%);
+  --color-chart-5: hsl(28 73% 58%);
+  
+  /* Sidebar - Dark Luxury */
+  --color-sidebar: hsl(222 32% 14%);
+  --color-sidebar-foreground: hsl(210 30% 96%);
+  --color-sidebar-primary: hsl(42 76% 62%);
+  --color-sidebar-primary-foreground: hsl(222 32% 14%);
+  --color-sidebar-accent: hsl(222 24% 22%);
+  --color-sidebar-accent-foreground: hsl(210 30% 98%);
+  --color-sidebar-border: hsl(222 22% 28%);
+  --color-sidebar-ring: hsl(42 76% 62%);
+  
+  /* Border Radius */
+  --radius: 0.75rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
   * {
-    @apply border-border outline-ring/50;
+    outline: none;
   }
   body {
     @apply bg-background text-foreground;
+    min-height: var(--app-vh, 100svh);
+  }
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  #__next {
+    width: 100%;
+    max-width: 100%;
+  }
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+  html[data-orientation="landscape"] body {
+    min-height: var(--app-vh, 100vh);
   }
 }
 
@@ -142,6 +149,24 @@
   }
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(198, 165, 95, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(198, 165, 95, 0.5);
+  }
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 0.7s ease-out both;
 }
@@ -152,6 +177,14 @@
 
 .animate-bar-grow {
   animation: bar-grow 0.6s ease-out both;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
 }
 
 /* POS Touch-Friendly Styles */
@@ -214,4 +247,70 @@
 
 .animate-drawer-open {
   animation: drawer-open 0.3s ease-out;
+}
+
+/* Print Styles for Reports */
+@media print {
+  /* Hide non-essential elements */
+  header,
+  nav,
+  aside,
+  footer,
+  .sidebar,
+  .no-print,
+  button:not(.print-visible),
+  [data-sidebar],
+  [role="navigation"] {
+    display: none !important;
+  }
+
+  /* Reset page */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  /* Full width content */
+  main,
+  .main-content,
+  #revenue-report {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+  }
+
+  /* Cards styling for print */
+  .card,
+  [class*="Card"] {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Charts - ensure they print properly */
+  .recharts-wrapper {
+    width: 100% !important;
+    height: 250px !important;
+  }
+
+  /* Grid adjustments */
+  .grid {
+    display: grid !important;
+  }
+
+  /* Page settings */
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm;
+  }
+
+  /* Ensure colors print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }

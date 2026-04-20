@@ -121,10 +121,12 @@ const isFailedStatus = (status: string) => {
 export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryStats {
   const total = shipments.length
   
-  // Debug: log all statuses
-  const allStatuses = shipments.map(s => s.status).filter(Boolean)
-  console.log("[v0] All statuses in shipments:", allStatuses)
-  console.log("[v0] Total shipments:", total)
+  // Debug: log all statuses (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    const allStatuses = shipments.map(s => s.status).filter(Boolean)
+    console.debug("[v0] All statuses in shipments:", allStatuses)
+    console.debug("[v0] Total shipments:", total)
+  }
   
   const pending = shipments.filter((s) => isPendingStatus(s.status)).length
   const sent = shipments.filter((s) => s.status === "sent").length
@@ -133,7 +135,9 @@ export function calculateDeliveryStats(shipments: DeliveryShipment[]): DeliveryS
   const failed = shipments.filter((s) => isFailedStatus(s.status)).length
   const returned = shipments.filter((s) => isReturnedStatus(s.status)).length
 
-  console.log("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
+  if (process.env.NODE_ENV === 'development') {
+    console.debug("[v0] Delivery stats - delivered:", delivered, "returned:", returned, "failed:", failed)
+  }
 
   const completed = delivered + failed + returned
   const deliveryRate = completed > 0 ? (delivered / completed) * 100 : 0
@@ -270,6 +274,7 @@ export async function createShipment(data: CreateShipmentData): Promise<Delivery
     shipmentId: shipment.shipment_id,
     status: shipment.status as DeliveryStatus,
     notes: shipment.notes,
+    codAmount: shipment.cod_amount || 0,
     exportedAt: shipment.exported_at,
     responseData: shipment.response_data,
     errorMessage: shipment.error_message,
@@ -358,7 +363,7 @@ async function findOrCreateClientFromShipment(
       .single()
 
     if (!createError && newClient) {
-      console.log(`[v0] Created new client: ${newClient.name} (${phone})`)
+      console.debug(`[v0] Created new client: ${newClient.name} (${phone})`)
       return { clientId: newClient.id, clientName: newClient.name, wasCreated: true }
     } else {
       console.error("[v0] Failed to create client:", createError?.message)
@@ -846,26 +851,53 @@ function parseAndValidateDate(dateStr?: string): string | undefined {
   
   // If it's just a number or single character, it's invalid
   if (/^\d+$/.test(dateStr) && dateStr.length <= 2) {
-    console.log("[v0] Skipping invalid date:", dateStr)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug("[v0] Skipping invalid date:", dateStr)
+    }
     return undefined
   }
 
   try {
-    // Try parsing as ISO date or common formats
-    const date = new Date(dateStr)
-    
-    // Check if it's a valid date
-    if (isNaN(date.getTime())) {
-      console.log("[v0] Invalid date format:", dateStr)
-      return undefined
+    // Handle French/Excel style dates first: dd/mm/yyyy or dd-mm-yyyy
+    const frMatch = dateStr.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+    if (frMatch) {
+      const day = Number(frMatch[1])
+      const month = Number(frMatch[2])
+      const year = Number(frMatch[3])
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+        if (!Number.isNaN(date.getTime())) {
+          return date.toISOString()
+        }
+      }
     }
 
-    // Return ISO string for database storage
+    // Fallback to native parser for ISO and other valid formats
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug("[v0] Invalid date format:", dateStr)
+      }
+      return undefined
+    }
     return date.toISOString()
   } catch (e) {
-    console.log("[v0] Error parsing date:", dateStr, e)
+    if (process.env.NODE_ENV === 'development') {
+      console.debug("[v0] Error parsing date:", dateStr, e)
+    }
     return undefined
   }
+}
+
+function parseLocalizedNumber(value?: string): number | undefined {
+  if (!value) return undefined
+  const normalized = value
+    .replace(/"/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(",", ".")
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
 }
 
 export async function parseCSVContent(content: string): Promise<{
@@ -911,8 +943,6 @@ export async function parseCSVContent(content: string): Promise<{
     "date_d_enlevement": "pickupDate",
     "date livraison": "deliveryDate",
     "date_livraison": "deliveryDate",
-    "etat": "status",
-    "état": "status",
     // Standard columns
     "numero_commande": "orderNumber",
     "n_commande": "orderNumber",
@@ -924,7 +954,6 @@ export async function parseCSVContent(content: string): Promise<{
     "numero_suivi": "trackingNumber",
     "n_suivi": "trackingNumber",
     "tracking_number": "trackingNumber",
-    "client": "customerName",
     "nom_client": "customerName",
     "customer_name": "customerName",
     "telephone": "customerPhone",
@@ -1032,45 +1061,13 @@ export async function parseCSVContent(content: string): Promise<{
       ? values[columnIndices.trackingNumber]?.replace(/"/g, "").trim()
       : undefined
     
-    // Convert scientific notation to regular number if needed
-    if (trackingNumber && trackingNumber.includes("E")) {
-    try {
-      // Validate required fields
-      if (!row.customerName || row.customerName.trim() === "") {
-        result.errors.push({ row: i + 2, error: "Nom client manquant ou vide" })
-        result.failed++
-        continue
-      }
-
-      if (!row.customerPhone || row.customerPhone.trim() === "") {
-        result.errors.push({ row: i + 2, error: "Telephone client manquant" })
-        result.failed++
-        continue
-      }
-
-      // Check if any date is invalid
-      if (row.deliveryDate && isNaN(new Date(row.deliveryDate).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date livraison invalide: "${row.deliveryDate}"` })
-        result.failed++
-        continue
-      }
-
-      if (row.dateAdded && isNaN(new Date(row.dateAdded).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date ajoutee invalide: "${row.dateAdded}"` })
-        result.failed++
-        continue
-      }
-
-      if (row.pickupDate && isNaN(new Date(row.pickupDate).getTime())) {
-        result.errors.push({ row: i + 2, error: `Date retrait invalide: "${row.pickupDate}"` })
-        result.failed++
-        continue
-      }
-        const num = parseFloat(trackingNumber)
+    // Convert scientific notation to integer string (e.g. "1,08E+11", "1.08e+11")
+    if (trackingNumber && /[eE]/.test(trackingNumber)) {
+      const num = parseFloat(trackingNumber.replace(",", "."))
+      if (Number.isFinite(num)) {
         trackingNumber = Math.floor(num).toString()
-      } catch (e) {
-        // Keep as is if conversion fails
       }
+      // If NaN/Infinity, keep original trackingNumber — do not store "NaN"
     }
     
     // Best Delivery format: "Nom Telephone Adresse" in the Nom field
@@ -1111,6 +1108,12 @@ export async function parseCSVContent(content: string): Promise<{
       continue
     }
 
+    if (!customerPhone?.trim()) {
+      errors.push({ row: i + 1, error: "Telephone client manquant" })
+      continue
+    }
+    customerPhone = customerPhone.trim()
+
     const rawStatus = columnIndices.status !== undefined 
       ? values[columnIndices.status]?.toLowerCase().replace(/"/g, "").trim() 
       : "pending"
@@ -1119,9 +1122,9 @@ export async function parseCSVContent(content: string): Promise<{
 
     // Extract price if available
     const priceStr = columnIndices.price !== undefined
-      ? values[columnIndices.price]?.replace(/"/g, "").trim()
+      ? values[columnIndices.price]
       : undefined
-    const price = priceStr ? parseFloat(priceStr) : undefined
+    const price = parseLocalizedNumber(priceStr)
 
     // Validation: prix doit être > 0 (conforme à la logique métier)
     if (price === undefined || price === null || price <= 0) {
@@ -1131,9 +1134,38 @@ export async function parseCSVContent(content: string): Promise<{
 
     // Extract fees if available
     const feesStr = columnIndices.fees !== undefined
-      ? values[columnIndices.fees]?.replace(/"/g, "").trim()
+      ? values[columnIndices.fees]
       : undefined
-    const fees = feesStr ? parseFloat(feesStr) : undefined
+    const fees = parseLocalizedNumber(feesStr)
+
+    const deliveryDateRaw =
+      columnIndices.deliveryDate !== undefined
+        ? values[columnIndices.deliveryDate]?.replace(/"/g, "").trim()
+        : undefined
+    const dateAddedRaw =
+      columnIndices.dateAdded !== undefined
+        ? values[columnIndices.dateAdded]?.replace(/"/g, "").trim()
+        : undefined
+    const pickupDateRaw =
+      columnIndices.pickupDate !== undefined
+        ? values[columnIndices.pickupDate]?.replace(/"/g, "").trim()
+        : undefined
+
+    const deliveryDate = deliveryDateRaw ? parseAndValidateDate(deliveryDateRaw) : undefined
+    if (deliveryDateRaw && !deliveryDate) {
+      errors.push({ row: i + 1, error: `Date livraison invalide: "${deliveryDateRaw}"` })
+      continue
+    }
+    const dateAdded = dateAddedRaw ? parseAndValidateDate(dateAddedRaw) : undefined
+    if (dateAddedRaw && !dateAdded) {
+      errors.push({ row: i + 1, error: `Date ajoutee invalide: "${dateAddedRaw}"` })
+      continue
+    }
+    const pickupDate = pickupDateRaw ? parseAndValidateDate(pickupDateRaw) : undefined
+    if (pickupDateRaw && !pickupDate) {
+      errors.push({ row: i + 1, error: `Date retrait invalide: "${pickupDateRaw}"` })
+      continue
+    }
 
     rows.push({
       orderNumber: columnIndices.orderNumber !== undefined 
@@ -1149,15 +1181,9 @@ export async function parseCSVContent(content: string): Promise<{
       notes: columnIndices.notes !== undefined 
         ? values[columnIndices.notes]?.replace(/"/g, "") 
         : undefined,
-      deliveryDate: columnIndices.deliveryDate !== undefined 
-        ? parseAndValidateDate(values[columnIndices.deliveryDate]?.replace(/"/g, "").trim())
-        : undefined,
-      dateAdded: columnIndices.dateAdded !== undefined
-        ? parseAndValidateDate(values[columnIndices.dateAdded]?.replace(/"/g, "").trim())
-        : undefined,
-      pickupDate: columnIndices.pickupDate !== undefined
-        ? parseAndValidateDate(values[columnIndices.pickupDate]?.replace(/"/g, "").trim())
-        : undefined,
+      deliveryDate,
+      dateAdded,
+      pickupDate,
     })
   }
 
@@ -1235,11 +1261,11 @@ export async function parseXMLContent(content: string): Promise<{
         }
 
         const status = statusMap[statusStr.toLowerCase()] || "pending"
-        const price = priceStr ? parseFloat(priceStr) : undefined
-        const fees = feesStr ? parseFloat(feesStr) : undefined
+        const price = parseLocalizedNumber(priceStr)
+        const fees = parseLocalizedNumber(feesStr)
 
         // Parse delivery date
-        let deliveryDate: Date | undefined
+        let deliveryDate: string | undefined
         if (deliveryDateStr) {
           deliveryDate = parseAndValidateDate(deliveryDateStr)
           if (!deliveryDate) {
@@ -1252,10 +1278,10 @@ export async function parseXMLContent(content: string): Promise<{
           trackingNumber,
           customerName,
           customerPhone,
-          customerAddress,
+          customerAddress: customerAddress || "",
           price,
           fees,
-          status,
+          status: status as DeliveryStatus,
           deliveryDate,
           notes,
           orderNumber,
@@ -1277,6 +1303,8 @@ export async function importDeliveryReport(
   syncClients: boolean = false
 ): Promise<ImportResult> {
   const supabase = createClient()
+  const { data } = await supabase.auth.getUser()
+  const user = data?.user ?? null
 
   const result: ImportResult = {
     total: rows.length,
@@ -1321,6 +1349,7 @@ export async function importDeliveryReport(
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
+    const normalizedCustomerPhone = row.customerPhone?.trim() || ""
 
     // Skip if this row is a duplicate within the file
     if (duplicatesInFile.has(i)) {
@@ -1329,6 +1358,12 @@ export async function importDeliveryReport(
         row: i + 2,
         error: "Doublon detecte dans le fichier (ligne ignoree)",
       })
+      continue
+    }
+
+    if (!normalizedCustomerPhone) {
+      result.errors.push({ row: i + 2, error: "Telephone client manquant" })
+      result.failed++
       continue
     }
 
@@ -1360,22 +1395,32 @@ export async function importDeliveryReport(
 
       // Priority 3: Check by customer name + phone + EXACT delivery date (same day only)
       // Un client fidele peut commander plusieurs fois - seule la MEME DATE compte comme doublon
-      if (!existingShipment && row.customerName && row.customerPhone && row.deliveryDate) {
+      if (!existingShipment && row.customerName && normalizedCustomerPhone && row.deliveryDate) {
         // Only match if exact same delivery date (same day)
-        const deliveryDateStr = row.deliveryDate.toISOString().split('T')[0]
-        const nextDay = new Date(row.deliveryDate)
-        nextDay.setDate(nextDay.getDate() + 1)
-        
-        const { data } = await supabase
-          .from("best_delivery_shipments")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .ilike("customer_name", row.customerName)
-          .eq("customer_phone", row.customerPhone)
-          .gte("exported_at", deliveryDateStr)
-          .lt("exported_at", nextDay.toISOString().split('T')[0])
-          .single()
-        existingShipment = data
+        // deliveryDate is an ISO string from parseAndValidateDate(); guard invalid strings
+        const deliveryIso = row.deliveryDate.trim()
+        const dayStart = new Date(deliveryIso)
+        if (Number.isNaN(dayStart.getTime())) {
+          // Skip day-based duplicate lookup; import continues without this match
+        } else {
+          const deliveryDateStr = deliveryIso.includes("T")
+            ? deliveryIso.split("T")[0]
+            : deliveryIso.slice(0, 10)
+          const nextDay = new Date(dayStart)
+          nextDay.setDate(nextDay.getDate() + 1)
+          const nextDayStr = nextDay.toISOString().split("T")[0]
+
+          const { data } = await supabase
+            .from("best_delivery_shipments")
+            .select("id")
+            .eq("tenant_id", tenantId)
+            .ilike("customer_name", row.customerName)
+            .eq("customer_phone", normalizedCustomerPhone)
+            .gte("exported_at", deliveryDateStr)
+            .lt("exported_at", nextDayStr)
+            .single()
+          existingShipment = data
+        }
       }
 
       if (existingShipment) {
@@ -1384,7 +1429,7 @@ export async function importDeliveryReport(
           .from("best_delivery_shipments")
           .update({
             customer_name: row.customerName,
-            customer_phone: row.customerPhone || null,
+            customer_phone: normalizedCustomerPhone || null,
             customer_address: row.customerAddress,
             status: row.status,
             cod_amount: row.price || 0,
@@ -1442,7 +1487,7 @@ export async function importDeliveryReport(
             .insert({
               tenant_id: tenantId,
               customer_name: row.customerName,
-              customer_phone: row.customerPhone || null,
+              customer_phone: normalizedCustomerPhone || null,
               customer_address: row.customerAddress,
               total: row.price || 0,
               deposit: row.status === "delivered" ? (row.price || 0) : 0,
@@ -1455,6 +1500,7 @@ export async function importDeliveryReport(
               payment_status: row.status === "delivered" ? "paid" : "unpaid",
               notes: row.notes ? `[Best Delivery] ${row.notes}` : "[Best Delivery Import]",
               delivered_at: row.status === "delivered" && row.deliveryDate ? row.deliveryDate : null,
+              created_by: user?.id ?? null,
             })
             .select("id")
             .single()
@@ -1476,7 +1522,7 @@ export async function importDeliveryReport(
             order_id: orderId,
             order_number: row.orderNumber || null,
             customer_name: row.customerName,
-            customer_phone: row.customerPhone || null,
+            customer_phone: normalizedCustomerPhone || null,
             customer_address: row.customerAddress,
             tracking_number: row.trackingNumber || null,
             status: row.status,

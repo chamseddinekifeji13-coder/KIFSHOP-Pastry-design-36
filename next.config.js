@@ -1,9 +1,24 @@
+const path = require("path")
+const buildStamp =
+  process.env.SW_BUILD_ID ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.VERCEL_DEPLOYMENT_ID ||
+  "dev-local"
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next.js 16: Turbopack par defaut
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+  
   reactStrictMode: true,
-  swcMinify: true,
+  compress: true,
+  productionBrowserSourceMaps: false, // Disable source maps in production for security
+  typescript: {
+    ignoreBuildErrors: false,
+  },
   images: {
-    unoptimized: process.env.NODE_ENV === 'development',
     remotePatterns: [
       {
         protocol: 'https',
@@ -17,32 +32,25 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'img.shields.io',
       },
-    ],
-  },
-  typescript: {
-    ignoreBuildErrors: process.env.IGNORE_BUILD_ERRORS === 'true',
-  },
-  headers: async () => {
-    return [
       {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-        ],
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
       },
-    ]
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'github.com',
+      },
+    ],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
+  env: {
+    NEXT_PUBLIC_SW_BUILD: buildStamp,
   },
 }
 
-export default nextConfig
+module.exports = nextConfig

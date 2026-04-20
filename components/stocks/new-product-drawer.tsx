@@ -1,17 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package, Image as ImageIcon, Loader2 } from "lucide-react"
+import { Save, Plus, X, Trash2, CakeSlice, FlaskConical, Scale, Package, Image as ImageIcon, Loader2, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, usePackaging } from "@/hooks/use-tenant-data"
 import { addFinishedProduct, addRecipe, setProductPackaging } from "@/lib/stocks/actions"
@@ -37,9 +34,10 @@ interface PackagingLine {
 interface NewProductDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) {
+export function NewProductDrawer({ open, onOpenChange, onSuccess }: NewProductDrawerProps) {
   const { currentTenant } = useTenant()
   const { data: rawMaterials = [] } = useRawMaterials()
   const { data: categories = [] } = useCategories()
@@ -68,10 +66,10 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
   const [selectedMaterial, setSelectedMaterial] = useState("")
   const [ingredientQty, setIngredientQty] = useState("")
 
-  // Packaging state
   const [packagingLines, setPackagingLines] = useState<PackagingLine[]>([])
   const [selectedPackaging, setSelectedPackaging] = useState("")
   const [packagingQty, setPackagingQty] = useState("1")
+  const [soldByWeight, setSoldByWeight] = useState(false)
 
   const allCategories = [...categories.map((c: Category) => c.name), ...customCategories]
   const units = ["plateau", "pièce", "pcs", "boîte", "coffret", "pot", "kg", "g"]
@@ -152,9 +150,6 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setPrice("")
     setInitialQty("")
     setDescription("")
-    setImageUrl("")
-    setImageFile(null)
-    setImagePreview("")
     setHasRecipe(true)
     setYieldQty("1")
     setYieldUnit("")
@@ -164,6 +159,11 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setPackagingLines([])
     setSelectedPackaging("")
     setPackagingQty("1")
+    setSoldByWeight(false)
+    setImageFile(null)
+    setImagePreview("")
+    setImageUrl("")
+    setUploadingImage(false)
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,7 +251,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     setSaving(true)
     try {
       // Find categoryId from category name
-      const categoryObj = categories.find((c: any) => c.name === category)
+      const categoryObj = categories.find((c: Category) => c.name === category)
       const product = await addFinishedProduct(currentTenant.id, {
         name: name.trim(),
         categoryId: categoryObj?.id,
@@ -262,6 +262,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
         minStock: 0,
         description: description.trim() || undefined,
         imageUrl: imageUrl || undefined,
+        soldByWeight,
       })
 
       if (hasRecipe && product) {
@@ -271,7 +272,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           category,
           yieldQuantity: validateNumber(yieldQty, 1),
           yieldUnit: yieldUnit || unit,
-          ingredients: ingredients.map((ing: any) => ({
+          ingredients: ingredients.map(ing => ({
             rawMaterialId: ing.materialId,
             quantity: validateNumber(ing.quantity),
             unit: ing.unit,
@@ -292,9 +293,18 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           ? `"${name}" avec sa fiche technique (${ingredients.length} ingrédients)`
           : `"${name}" sans recette`,
       })
-      mutate((key: any) => typeof key === "string" && key.includes("finished-products"))
-      mutate((key: any) => typeof key === "string" && key.includes("recipes"))
+      mutate((key: string) => typeof key === "string" && key.includes("finished-products"))
+      mutate((key: string) => typeof key === "string" && key.includes("recipes"))
+      
+      // Revalidate SWR cache for dashboard
+      mutate((key: string) => typeof key === "string" && (
+        key.includes("finished-products") || 
+        key.includes("critical-stock") ||
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+      
       resetForm()
+      onSuccess?.()
       onOpenChange(false)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ""
@@ -313,7 +323,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
     }
   }
 
-  const availableMaterials = rawMaterials.filter((m: any) => !ingredients.some((i: any) => i.materialId === m.id))
+  const availableMaterials = rawMaterials.filter((m: RawMaterial) => !ingredients.some(i => i.materialId === m.id))
 
   return (
 <Dialog open={open} onOpenChange={onOpenChange}>
@@ -353,20 +363,34 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                     </div>
                   ) : (
                     <div className="flex gap-1.5">
-                      <Select value={category} onValueChange={setCategory}>
-                        <SelectTrigger id="category" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                        <SelectContent>{allCategories.map((c: string) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>
-                      </Select>
+                      <select
+                        id="category"
+                        className="h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 text-sm"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                      >
+                        <option value="">Choisir</option>
+                        {allCategories.map((c: string) => (<option key={c} value={c}>{c}</option>))}
+                      </select>
                       <Button size="icon" variant="outline" onClick={() => setShowNewCategory(true)} className="shrink-0 rounded-lg" aria-label="Ajouter une catégorie"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
                     </div>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="unit" className="text-xs font-medium">Unité *</Label>
-                  <Select value={unit} onValueChange={(v: string) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
-                    <SelectTrigger id="unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                    <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
-                  </Select>
+                  <select
+                    id="unit"
+                    className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                    value={unit}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setUnit(v)
+                      if (!yieldUnit) setYieldUnit(v)
+                    }}
+                  >
+                    <option value="">Choisir</option>
+                    {units.map((u) => (<option key={u} value={u}>{u}</option>))}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -380,6 +404,17 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                   <Input id="initial-qty" type="number" placeholder="0" value={initialQty} onChange={(e) => setInitialQty(e.target.value)}
                     className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                 </div>
+              </div>
+              {/* Switch Vendu au poids */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <div className="flex items-center gap-3">
+                  <Scale className="h-5 w-5 text-amber-600" />
+                  <div>
+                    <Label className="text-sm font-medium text-amber-900">Vendu au poids (kg)</Label>
+                    <p className="text-xs text-amber-700">Activer si le prix est calculé par kilogramme</p>
+                  </div>
+                </div>
+                <Switch checked={soldByWeight} onCheckedChange={setSoldByWeight} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-xs font-medium">Description (optionnel)</Label>
@@ -443,8 +478,8 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                   </Button>
                 )}
                 {imageUrl && (
-                  <div className="text-xs text-green-600 flex items-center gap-1">
-                    <Plus className="h-3 w-3" />
+                  <div className="text-xs text-green-600 flex items-center gap-1.5 bg-green-50 px-2 py-1.5 rounded-lg">
+                    <Check className="h-3.5 w-3.5" />
                     Image uploadée avec succès
                   </div>
                 )}
@@ -464,27 +499,44 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
             </div>
             {hasRecipe ? (
               <div className="rounded-xl border bg-card p-4 space-y-4 shadow-sm">
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-2">
+                  <p className="text-xs text-amber-800">
+                    Définissez les ingrédients nécessaires pour produire une quantité donnée du produit fini.
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="yield-qty" className="text-xs font-medium">Rendement</Label>
-                    <Input id="yield-qty" type="number" placeholder="Ex: 20" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
+                    <Label htmlFor="yield-qty" className="text-xs font-medium">Rendement de la recette</Label>
+                    <Input id="yield-qty" type="number" min="1" step="1" placeholder="1" value={yieldQty} onChange={(e) => setYieldQty(e.target.value)}
                       className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
+                    <p className="text-[10px] text-muted-foreground">Combien d&apos;unités cette recette produit</p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unité rendement</Label>
-                    <Select value={yieldUnit} onValueChange={setYieldUnit}>
-                      <SelectTrigger id="yield-unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                      <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
-                    </Select>
+                    <Label htmlFor="yield-unit" className="text-xs font-medium">Unité de rendement</Label>
+                    <select
+                      id="yield-unit"
+                      className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                      value={yieldUnit}
+                      onChange={(e) => setYieldUnit(e.target.value)}
+                    >
+                      <option value="">{unit || "Choisir"}</option>
+                      {units.map((u) => (<option key={u} value={u}>{u}</option>))}
+                    </select>
+                    <p className="text-[10px] text-muted-foreground">Par défaut : unité du produit</p>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="border-t pt-4 space-y-2">
                   <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingrédient</Label>
                   <div className="flex gap-2">
-                    <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
-                      <SelectTrigger id="material" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matière première" /></SelectTrigger>
-                      <SelectContent>{availableMaterials.map((m: RawMaterial) => (<SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>))}</SelectContent>
-                    </Select>
+                    <select
+                      id="material"
+                      className="h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 text-sm"
+                      value={selectedMaterial}
+                      onChange={(e) => setSelectedMaterial(e.target.value)}
+                    >
+                      <option value="">Matière première</option>
+                      {availableMaterials.map((m: RawMaterial) => (<option key={m.id} value={m.id}>{m.name} ({m.unit})</option>))}
+                    </select>
                     <Input type="number" step="0.01" placeholder="Qte" value={ingredientQty} onChange={(e) => setIngredientQty(e.target.value)}
                       className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                     <Button size="icon" variant="outline" onClick={addIngredient} className="shrink-0 rounded-lg" aria-label="Ajouter un ingrédient"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
@@ -531,16 +583,18 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
               <div className="space-y-2">
                 <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un emballage</Label>
                 <div className="flex gap-2">
-                  <Select value={selectedPackaging} onValueChange={setSelectedPackaging}>
-                    <SelectTrigger className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir un emballage" /></SelectTrigger>
-                    <SelectContent>
-                      {availablePackaging.map((p: any) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.price.toLocaleString("fr-TN")} TND/{p.unit})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    className="h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 text-sm"
+                    value={selectedPackaging}
+                    onChange={(e) => setSelectedPackaging(e.target.value)}
+                  >
+                    <option value="">Choisir un emballage</option>
+                    {availablePackaging.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.price.toLocaleString("fr-TN")} TND/{p.unit})
+                      </option>
+                    ))}
+                  </select>
                   <Input type="number" min="1" step="1" placeholder="Qte" value={packagingQty} onChange={(e) => setPackagingQty(e.target.value)}
                     className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                   <Button size="icon" variant="outline" onClick={addPackagingLine} className="shrink-0 rounded-lg" title="Ajouter cet emballage" aria-label="Ajouter cet emballage"><Plus className="h-4 w-4" /></Button>
@@ -572,7 +626,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  Aucun emballage associe. Le cout d&apos;emballage ne sera pas inclus dans le prix de revient.
+                  Aucun emballage associé. Le coût d&apos;emballage ne sera pas inclus dans le prix de revient.
                 </div>
               )}
             </div>
@@ -583,7 +637,7 @@ export function NewProductDrawer({ open, onOpenChange }: NewProductDrawerProps) 
           <Button variant="outline" className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>Annuler</Button>
           <Button className="flex-1 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-md" onClick={handleSubmit} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? "Creation..." : "Creer le produit"}
+            {saving ? "Création..." : "Créer le produit"}
           </Button>
         </div>
       </DialogContent>

@@ -6,12 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createRawMaterial } from "@/lib/stocks/actions"
 import { useStorageLocations } from "@/hooks/use-tenant-data"
-import { BarcodeInput } from "@/components/ui/barcode-input"
+import { useSWRConfig } from "swr"
 
 const UNITS = [
   { value: "kg", label: "Kilogrammes (kg)" },
@@ -31,6 +30,7 @@ interface NewRawMaterialDrawerProps {
 
 export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMaterialDrawerProps) {
   const { currentTenant } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const { data: storageLocations } = useStorageLocations()
   const [saving, setSaving] = useState(false)
   
@@ -41,7 +41,6 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
   const [minStock, setMinStock] = useState("5")
   const [pricePerUnit, setPricePerUnit] = useState("")
   const [supplier, setSupplier] = useState("")
-  const [barcode, setBarcode] = useState("")
   const [storageLocationId, setStorageLocationId] = useState("")
 
   const activeLocations = (storageLocations || []).filter(l => l.isActive)
@@ -53,7 +52,6 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
     setMinStock("5")
     setPricePerUnit("")
     setSupplier("")
-    setBarcode("")
     setStorageLocationId("")
   }
 
@@ -94,11 +92,18 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
         minStock: validateNumber(minStock, 5),
         pricePerUnit: validateNumber(pricePerUnit),
         supplier: supplier.trim() || undefined,
-        barcode: barcode.trim() || undefined,
         storageLocationId: storageLocationId || undefined,
       })
       if (result) {
         toast.success("Matière première ajoutée", { description: name.trim() })
+        
+        // Revalidate SWR cache for dashboard
+        globalMutate((key) => typeof key === "string" && (
+          key.includes("raw-materials") || 
+          key.includes("critical-stock") ||
+          key.includes(currentTenant.id)
+        ), undefined, { revalidate: true })
+        
         resetForm()
         onOpenChange(false)
         onSuccess?.()
@@ -155,14 +160,16 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="unit" className="text-xs text-muted-foreground">Unité *</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger id="unit" className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  id="unit"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                >
+                  {UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="supplier" className="text-xs text-muted-foreground">Fournisseur</Label>
@@ -170,25 +177,22 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="barcode" className="text-xs text-muted-foreground">Code-barres</Label>
-                <BarcodeInput id="barcode" value={barcode} onChange={setBarcode} />
-              </div>
+            <div className="grid grid-cols-1 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="location" className="text-xs text-muted-foreground flex items-center gap-1">
                   <MapPin className="h-3 w-3" aria-hidden="true" /> Emplacement *
                 </Label>
-                <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                  <SelectTrigger id="location" className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}>
-                    <SelectValue placeholder="Choisir un dépôt (obligatoire)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeLocations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  id="location"
+                  className={`h-9 w-full rounded-md border bg-background px-3 text-sm ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : "border-input"}`}
+                  value={storageLocationId}
+                  onChange={(e) => setStorageLocationId(e.target.value)}
+                >
+                  <option value="">Choisir un dépôt (obligatoire)</option>
+                  {activeLocations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

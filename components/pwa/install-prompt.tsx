@@ -32,6 +32,7 @@ function isDismissed(): boolean {
 export function InstallPrompt() {
   const [show, setShow] = useState(false)
   const [hasPrompt, setHasPrompt] = useState(false)
+  const [showTvFallback, setShowTvFallback] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Show banner after a short delay (5s instead of 30s)
@@ -45,6 +46,8 @@ export function InstallPrompt() {
 
     // Already installed
     if (window.matchMedia("(display-mode: standalone)").matches) return
+
+    const isLikelyAndroidTv = /android|aft|googletv|smart-tv|tv/i.test(navigator.userAgent)
 
     // If the global prompt was captured before mount (e.g. route change)
     if (globalDeferredPrompt && !isDismissed()) {
@@ -62,6 +65,16 @@ export function InstallPrompt() {
     }
 
     window.addEventListener("beforeinstallprompt", handler)
+
+    // Android TV browsers frequently do not fire beforeinstallprompt.
+    // Show a manual fallback card so users can still install.
+    if (isLikelyAndroidTv && !globalDeferredPrompt && !isDismissed()) {
+      timerRef.current = setTimeout(() => {
+        setShowTvFallback(true)
+        setShow(true)
+      }, 5000)
+    }
+
     return () => {
       window.removeEventListener("beforeinstallprompt", handler)
       if (timerRef.current) clearTimeout(timerRef.current)
@@ -85,6 +98,7 @@ export function InstallPrompt() {
 
   const handleDismiss = () => {
     setShow(false)
+    setShowTvFallback(false)
     try {
       localStorage.setItem(DISMISS_KEY, Date.now().toString())
     } catch {
@@ -92,7 +106,7 @@ export function InstallPrompt() {
     }
   }
 
-  if (!show || !hasPrompt) return null
+  if (!show || (!hasPrompt && !showTvFallback)) return null
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm animate-in slide-in-from-bottom-4 duration-500">
@@ -103,17 +117,40 @@ export function InstallPrompt() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Installer KIFSHOP</p>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              {"Accédez à KIFSHOP depuis votre écran d'accueil, même hors connexion."}
-            </p>
-            <div className="flex gap-2 mt-3">
-              <Button size="sm" className="h-8 text-xs" onClick={handleInstall}>
-                Installer
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={handleDismiss}>
-                Plus tard
-              </Button>
-            </div>
+            {showTvFallback ? (
+              <>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {"Sur Android TV: ouvrez le menu du navigateur puis choisissez \"Installer l'application\" ou \"Ajouter à l'écran d'accueil\"."}
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => window.open("/dashboard", "_self")}
+                  >
+                    Ouvrir l'app
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={handleDismiss}>
+                    Plus tard
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  {"Accédez à KIFSHOP depuis votre écran d'accueil, même hors connexion."}
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <Button size="sm" className="h-8 text-xs" onClick={handleInstall}>
+                    Installer
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-8 text-xs text-muted-foreground" onClick={handleDismiss}>
+                    Plus tard
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
           <button onClick={handleDismiss} className="shrink-0 p-1 rounded-md text-muted-foreground/50 hover:text-muted-foreground transition-colors" aria-label="Fermer">
             <X className="h-4 w-4" aria-hidden="true" />

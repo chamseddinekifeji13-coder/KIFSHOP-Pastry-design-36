@@ -6,6 +6,8 @@ import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { InstallPrompt } from '@/components/pwa/install-prompt'
 import { OfflineIndicator } from '@/components/pwa/offline-indicator'
 import { AuthHashHandler } from '@/components/auth/auth-hash-handler'
+import { OrientationSync } from '@/components/layout/orientation-sync'
+import { ErrorBoundary } from "@/components/error-boundary"
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -77,24 +79,36 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: '/favicon.jpg', sizes: 'any', type: 'image/jpeg' },
       { url: '/icons/icon-192x192.jpg', sizes: '192x192', type: 'image/jpeg' },
       { url: '/icons/icon-512x512.jpg', sizes: '512x512', type: 'image/jpeg' },
     ],
     apple: [
       { url: '/icons/icon-192x192.jpg', sizes: '192x192', type: 'image/jpeg' },
     ],
+    shortcut: ['/favicon.jpg'],
   },
   other: {
-    'google-site-verification': '',
+    'google-site-verification': 'zLDCklZO1e4RWP56O1KJgjgmVcQcIOMsOo2UQAxn_ew',
+    'msvalidate.01': 'A_REMPLACER_PAR_VOTRE_CODE_BING',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 }
 
 export const viewport: Viewport = {
-  themeColor: '#4A7C59',
+  themeColor: '#c6a55f',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 }
 
 export default function RootLayout({
@@ -154,12 +168,15 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
-        <OfflineIndicator />
-        <AuthHashHandler />
-        {children}
-        <InstallPrompt />
-        <ServiceWorkerRegister />
-        <Analytics />
+        <ErrorBoundary>
+          <OrientationSync />
+          <OfflineIndicator />
+          <AuthHashHandler />
+          {children}
+          <InstallPrompt />
+          <ServiceWorkerRegister />
+          <Analytics />
+        </ErrorBoundary>
       </body>
     </html>
   )

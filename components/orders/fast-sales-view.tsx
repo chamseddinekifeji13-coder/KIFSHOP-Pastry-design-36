@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import {
   Phone, Search, User, Plus, Minus, Trash2,
   ShoppingBag, Truck, Store, Check, Loader2,
-  Clock, Star, AlertTriangle, Ban, Crown,
-  Zap, ArrowRight, X, MapPin, ChevronsUpDown
+  Clock, AlertTriangle, Ban, Crown,
+  Zap, X, Pencil, MapPin, ChevronDown
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -19,23 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Label } from "@/components/ui/label"
+import { WeightInputDialog } from "./weight-input-dialog"
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
+import { useSWRConfig } from "swr"
 import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
+import { tunisiaLocations, gouvernorats, getDelegations } from "@/lib/tunisia-locations"
 import { toast } from "sonner"
 
 interface Product {
@@ -43,6 +36,7 @@ interface Product {
   name: string
   selling_price: number
   current_stock: number
+  sold_by_weight?: boolean
 }
 
 interface OrderItem {
@@ -52,15 +46,11 @@ interface OrderItem {
   price: number
 }
 
-const gouvernorats = [
-  "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
-  "Jendouba", "Kairouan", "Kasserine", "Kebili", "Le Kef", "Mahdia",
-  "La Manouba", "Medenine", "Monastir", "Nabeul", "Sfax", "Sidi Bouzid",
-  "Siliana", "Sousse", "Tataouine", "Tozeur", "Tunis", "Zaghouan",
-]
+
 
 export function FastSalesView() {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const {
     client,
     isLoading: clientLoading,
@@ -76,9 +66,11 @@ export function FastSalesView() {
   // State
   const [phone, setPhone] = useState("")
   const [clientName, setClientName] = useState("")
+  const [editingName, setEditingName] = useState(false)
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
   const [gouvernorat, setGouvernorat] = useState("")
+  const [delegation, setDelegation] = useState("")
   const [address, setAddress] = useState("")
   const [shippingCost, setShippingCost] = useState("")
   const [items, setItems] = useState<OrderItem[]>([])
@@ -86,6 +78,12 @@ export function FastSalesView() {
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [lastOrderId, setLastOrderId] = useState<string | null>(null)
+  const [weightDialogOpen, setWeightDialogOpen] = useState(false)
+  const [selectedProductForWeight, setSelectedProductForWeight] = useState<Product | null>(null)
+  
+  // Combobox open states
+  const [gouvernoratOpen, setGouvernoratOpen] = useState(false)
+  const [delegationOpen, setDelegationOpen] = useState(false)
 
   // Data
   const [products, setProducts] = useState<Product[]>([])
@@ -105,7 +103,7 @@ export function FastSalesView() {
         const supabase = createSupabaseClient()
         const { data } = await supabase
           .from("finished_products")
-          .select("id, name, selling_price, current_stock")
+          .select("id, name, selling_price, current_stock, sold_by_weight")
           .eq("tenant_id", currentTenant.id)
           .order("name")
 
@@ -114,6 +112,7 @@ export function FastSalesView() {
             ...p,
             selling_price: Number(p.selling_price),
             current_stock: Number(p.current_stock),
+            sold_by_weight: p.sold_by_weight || false,
           })))
         }
 
@@ -160,7 +159,10 @@ export function FastSalesView() {
       const result = await lookupClient(cleanPhone, currentTenant.id)
       if (result?.name) {
         setClientName(result.name)
+      } else {
+        setClientName("")
       }
+      setEditingName(false)
     } catch {
       toast.error("Erreur lors de la recherche du client")
     }
@@ -168,20 +170,53 @@ export function FastSalesView() {
 
   // Add product to cart
   const handleAddProduct = (product: Product) => {
-    const existing = items.find(i => i.productId === product.id)
-    if (existing) {
-      setItems(items.map(i =>
-        i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i
-      ))
+    if (product.sold_by_weight) {
+      // If sold by weight, show weight dialog
+      setSelectedProductForWeight(product)
+      setWeightDialogOpen(true)
     } else {
-      setItems([...items, {
-        productId: product.id,
-        name: product.name,
-        quantity: 1,
-        price: product.selling_price
-      }])
+      // If sold by unit, add normally
+      const existing = items.find(i => i.productId === product.id)
+      if (existing) {
+        setItems(items.map(i =>
+          i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i
+        ))
+      } else {
+        setItems([...items, {
+          productId: product.id,
+          name: product.name,
+          quantity: 1,
+          price: product.selling_price
+        }])
+      }
     }
     setProductFilter("")
+  }
+
+  // Handle weight input confirmation
+  const handleWeightConfirm = (weightInKg: number, totalPrice: number) => {
+    if (!selectedProductForWeight) return
+
+    const existing = items.find(i => i.productId === selectedProductForWeight.id)
+    if (existing) {
+      // Update quantity (store weight) and price
+      setItems(items.map(i =>
+        i.productId === selectedProductForWeight.id
+          ? { ...i, quantity: i.quantity + weightInKg, price: totalPrice }
+          : i
+      ))
+    } else {
+      // Add new item with weight as quantity
+      setItems([...items, {
+        productId: selectedProductForWeight.id,
+        name: `${selectedProductForWeight.name} (${weightInKg.toFixed(3)} kg)`,
+        quantity: weightInKg,
+        price: totalPrice
+      }])
+    }
+
+    setSelectedProductForWeight(null)
+    setWeightDialogOpen(false)
   }
 
   // Update quantity
@@ -220,8 +255,11 @@ export function FastSalesView() {
 
     setSubmitting(true)
     try {
-      // Update client name if new
-      if (isNewClient && clientName.trim()) {
+      // Update client name if new OR if name was edited
+      const shouldUpdateName = (isNewClient && clientName.trim()) || 
+        (editingName && clientName.trim() && clientName.trim() !== client.name)
+      
+      if (shouldUpdateName) {
         const supabase = createSupabaseClient()
         await supabase
           .from("clients")
@@ -245,8 +283,10 @@ export function FastSalesView() {
           deliveryType,
           courier: deliveryType === "delivery" ? courier : undefined,
           gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
+          delegation: deliveryType === "delivery" ? delegation : undefined,
           shippingCost: shipping,
           address: deliveryType === "delivery" ? address.trim() : undefined,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
         }),
       })
 
@@ -258,6 +298,13 @@ export function FastSalesView() {
       const result = await res.json()
       setLastOrderId(result.orderId)
       toast.success("Commande enregistree !")
+      
+      // Revalidate SWR cache to sync dashboard
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("orders") || 
+        key.includes("transactions") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
       
       // Reset for next order
       handleReset()
@@ -272,9 +319,11 @@ export function FastSalesView() {
   const handleReset = () => {
     setPhone("")
     setClientName("")
+    setEditingName(false)
     setDeliveryType("pickup")
     setCourier("")
     setGouvernorat("")
+    setDelegation("")
     setAddress("")
     setShippingCost("")
     setItems([])
@@ -373,13 +422,52 @@ export function FastSalesView() {
                     </Badge>
                   </div>
 
-                  {isNewClient && (
-                    <Input
-                      placeholder="Nom du client"
-                      value={clientName}
-                      onChange={(e) => setClientName(e.target.value)}
-                      className="h-12 text-lg touch-target mt-2"
-                    />
+                  {/* Nom du client - visible si nouveau OU sans nom OU en mode edition */}
+                  {(isNewClient || !client.name || editingName) ? (
+                    <div className="mt-2 space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        Nom du client {isNewClient && <span className="text-destructive">*</span>}
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Ex: Mohamed Ben Ali"
+                          value={clientName}
+                          onChange={(e) => setClientName(e.target.value)}
+                          className="h-12 text-lg touch-target flex-1"
+                          autoFocus={editingName}
+                        />
+                        {editingName && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-12 w-12 shrink-0"
+                            onClick={() => {
+                              setEditingName(false)
+                              setClientName(client.name || "")
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {isNewClient && (
+                        <p className="text-xs text-muted-foreground">Nouveau client - le nom sera enregistre</p>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-1 h-8 text-xs text-muted-foreground hover:text-foreground -ml-1"
+                      onClick={() => {
+                        setClientName(client.name || "")
+                        setEditingName(true)
+                      }}
+                    >
+                      <Pencil className="h-3 w-3 mr-1.5" />
+                      Modifier le nom
+                    </Button>
                   )}
 
                   {isBlocked && (
@@ -488,40 +576,117 @@ export function FastSalesView() {
                   </div>
 
                   {deliveryType === "delivery" && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Select value={gouvernorat} onValueChange={setGouvernorat}>
-                        <SelectTrigger className="h-12 touch-target">
-                          <SelectValue placeholder="Gouvernorat" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {gouvernorats.map(g => (
-                            <SelectItem key={g} value={g}>{g}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={courier} onValueChange={setCourier}>
-                        <SelectTrigger className="h-12 touch-target">
-                          <SelectValue placeholder="Livreur" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {couriers.map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-3">
+                      {/* Gouvernorat et Delegation */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Gouvernorat</Label>
+                          <Popover open={gouvernoratOpen} onOpenChange={setGouvernoratOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={gouvernoratOpen}
+                                className="w-full justify-between bg-muted/50 border-0 font-normal h-12 touch-target"
+                              >
+                                {gouvernorat || "Choisir..."}
+                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Rechercher..." />
+                                <CommandList>
+                                  <CommandEmpty>Aucun resultat</CommandEmpty>
+                                  <CommandGroup>
+                                    {gouvernorats.map((g) => (
+                                      <CommandItem
+                                        key={g}
+                                        value={g}
+                                        onSelect={() => {
+                                          setGouvernorat(g)
+                                          setDelegation("")
+                                          setGouvernoratOpen(false)
+                                        }}
+                                      >
+                                        {g}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs font-medium">Delegation</Label>
+                          <Popover open={delegationOpen} onOpenChange={setDelegationOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={delegationOpen}
+                                className="w-full justify-between bg-muted/50 border-0 font-normal h-12 touch-target"
+                                disabled={!gouvernorat}
+                              >
+                                {delegation || (gouvernorat ? "Choisir..." : "Gouvernorat d'abord")}
+                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Rechercher..." />
+                                <CommandList>
+                                  <CommandEmpty>Aucun resultat</CommandEmpty>
+                                  <CommandGroup>
+                                    {getDelegations(gouvernorat).map((d) => (
+                                      <CommandItem
+                                        key={d}
+                                        value={d}
+                                        onSelect={() => {
+                                          setDelegation(d)
+                                          setDelegationOpen(false)
+                                        }}
+                                      >
+                                        {d}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+
+                      {/* Address */}
                       <Input
-                        placeholder="Adresse"
+                        placeholder="Adresse de livraison"
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        className="h-12 touch-target col-span-2"
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Frais livraison"
-                        value={shippingCost}
-                        onChange={(e) => setShippingCost(e.target.value)}
                         className="h-12 touch-target"
                       />
+
+                      {/* Courier and Shipping cost */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <Select value={courier} onValueChange={setCourier}>
+                          <SelectTrigger className="h-12 touch-target">
+                            <SelectValue placeholder="Livreur" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {couriers.map(c => (
+                              <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          placeholder="Frais livraison"
+                          value={shippingCost}
+                          onChange={(e) => setShippingCost(e.target.value)}
+                          className="h-12 touch-target"
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -652,6 +817,17 @@ export function FastSalesView() {
           </Card>
         </div>
       </div>
+
+      {/* Weight input dialog for products sold by weight */}
+      {selectedProductForWeight && (
+        <WeightInputDialog
+          open={weightDialogOpen}
+          onOpenChange={setWeightDialogOpen}
+          productName={selectedProductForWeight.name}
+          pricePerKg={selectedProductForWeight.selling_price}
+          onConfirm={handleWeightConfirm}
+        />
+      )}
     </div>
   )
 }

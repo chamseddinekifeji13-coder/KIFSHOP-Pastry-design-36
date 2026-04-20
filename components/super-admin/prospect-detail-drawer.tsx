@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -16,19 +16,21 @@ import {
   STATUS_LABELS, STATUS_COLORS, SOURCE_LABELS, PIPELINE_ORDER,
 } from "@/lib/super-admin/prospect-types"
 import { toast } from "sonner"
+import { CrmInteractionsPanel } from "./crm-interactions-panel"
 
 interface ProspectDetailDrawerProps {
   prospect: PlatformProspect
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdated: () => void
-  onStatusChange: (id: string, status: ProspectStatus) => void
+  onStatusChange: (id: string, status: ProspectStatus) => Promise<boolean>
 }
 
 export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, onStatusChange }: ProspectDetailDrawerProps) {
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [statusUpdating, setStatusUpdating] = useState<ProspectStatus | null>(null)
 
   // Edit fields
   const [businessName, setBusinessName] = useState(prospect.businessName)
@@ -41,6 +43,23 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
   const [notes, setNotes] = useState(prospect.notes || "")
   const [nextAction, setNextAction] = useState(prospect.nextAction || "")
   const [nextActionDate, setNextActionDate] = useState(prospect.nextActionDate ? prospect.nextActionDate.split("T")[0] : "")
+  const [demoScheduledAt, setDemoScheduledAt] = useState(prospect.demoScheduledAt ? prospect.demoScheduledAt.slice(0, 16) : "")
+  const [demoContactPerson, setDemoContactPerson] = useState(prospect.demoContactPerson || "")
+
+  useEffect(() => {
+    setBusinessName(prospect.businessName)
+    setOwnerName(prospect.ownerName || "")
+    setPhone(prospect.phone || "")
+    setEmail(prospect.email || "")
+    setCity(prospect.city || "")
+    setAddress(prospect.address || "")
+    setSource(prospect.source)
+    setNotes(prospect.notes || "")
+    setNextAction(prospect.nextAction || "")
+    setNextActionDate(prospect.nextActionDate ? prospect.nextActionDate.split("T")[0] : "")
+    setDemoScheduledAt(prospect.demoScheduledAt ? prospect.demoScheduledAt.slice(0, 16) : "")
+    setDemoContactPerson(prospect.demoContactPerson || "")
+  }, [prospect])
 
   const nextStatus = (): ProspectStatus | null => {
     const idx = PIPELINE_ORDER.indexOf(prospect.status)
@@ -62,6 +81,8 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
       notes: notes.trim(),
       nextAction: nextAction.trim(),
       nextActionDate: nextActionDate || "",
+      demoScheduledAt: demoScheduledAt || "",
+      demoContactPerson: demoContactPerson.trim(),
     })
     setSaving(false)
     if (ok) {
@@ -87,13 +108,24 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
     }
   }
 
-  const handleAdvance = () => {
+  const handleAdvance = async () => {
     const ns = nextStatus()
-    if (ns) onStatusChange(prospect.id, ns)
+    if (!ns) return
+    setStatusUpdating(ns)
+    try {
+      await onStatusChange(prospect.id, ns)
+    } finally {
+      setStatusUpdating(null)
+    }
   }
 
-  const handleMarkLost = () => {
-    onStatusChange(prospect.id, "perdu")
+  const handleMarkLost = async () => {
+    setStatusUpdating("perdu")
+    try {
+      await onStatusChange(prospect.id, "perdu")
+    } finally {
+      setStatusUpdating(null)
+    }
   }
 
   return (
@@ -122,15 +154,32 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
           {prospect.status !== "converti" && prospect.status !== "perdu" && (
             <div className="flex flex-wrap gap-2">
               {nextStatus() && (
-                <Button size="sm" className="bg-[#4A7C59] hover:bg-[#3d6649] text-white" onClick={handleAdvance}>
-                  <ArrowRight className="h-4 w-4 mr-1" /> Avancer a &quot;{STATUS_LABELS[nextStatus()!]}&quot;
+                <Button
+                  size="sm"
+                  className="bg-[#4A7C59] hover:bg-[#3d6649] text-white"
+                  onClick={handleAdvance}
+                  disabled={!!statusUpdating}
+                >
+                  {statusUpdating === nextStatus()
+                    ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Mise a jour...</>
+                    : <><ArrowRight className="h-4 w-4 mr-1" /> Avancer a &quot;{STATUS_LABELS[nextStatus()!]}&quot;</>
+                  }
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={() => setEditing(!editing)}>
                 <Edit2 className="h-4 w-4 mr-1" /> {editing ? "Annuler" : "Modifier"}
               </Button>
-              <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={handleMarkLost}>
-                Marquer comme perdu
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:bg-destructive/10"
+                onClick={handleMarkLost}
+                disabled={!!statusUpdating}
+              >
+                {statusUpdating === "perdu"
+                  ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Mise a jour...</>
+                  : "Marquer comme perdu"
+                }
               </Button>
             </div>
           )}
@@ -182,6 +231,26 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                   <Label>Prochaine action</Label>
                   <Input value={nextAction} onChange={(e) => setNextAction(e.target.value)} />
                 </div>
+                {prospect.status === "demo_planifiee" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Jour/heure demo</Label>
+                      <Input
+                        type="datetime-local"
+                        value={demoScheduledAt}
+                        onChange={(e) => setDemoScheduledAt(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Personne pour la demo</Label>
+                      <Input
+                        placeholder="Ex: Mme Ben Ali"
+                        value={demoContactPerson}
+                        onChange={(e) => setDemoContactPerson(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-2 md:col-span-2">
                   <Label>Notes</Label>
                   <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -241,12 +310,24 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                     return (
                       <div key={s} className="flex items-center gap-1">
                         <button
-                          onClick={() => onStatusChange(prospect.id, s)}
+                          onClick={async () => {
+                            if (statusUpdating) return
+                            setStatusUpdating(s)
+                            try {
+                              await onStatusChange(prospect.id, s)
+                            } finally {
+                              setStatusUpdating(null)
+                            }
+                          }}
+                          disabled={!!statusUpdating}
                           className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
                             isCurrent ? STATUS_COLORS[s] : isPast ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                          }`}
+                          } ${statusUpdating ? "opacity-70 cursor-not-allowed" : ""}`}
                         >
-                          {STATUS_LABELS[s]}
+                          <span className="inline-flex items-center gap-1">
+                            {statusUpdating === s && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {STATUS_LABELS[s]}
+                          </span>
                         </button>
                         {i < PIPELINE_ORDER.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
                       </div>
@@ -280,6 +361,36 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                 </>
               )}
 
+              {(prospect.demoScheduledAt || prospect.demoContactPerson) && (
+                <>
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Demo planifiee</h3>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-1">
+                      {prospect.demoScheduledAt && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Jour/heure: </span>
+                          {new Date(prospect.demoScheduledAt).toLocaleString("fr-FR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+                      {prospect.demoContactPerson && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Personne: </span>
+                          <strong>{prospect.demoContactPerson}</strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               {/* Notes */}
               {prospect.notes && (
                 <>
@@ -290,6 +401,11 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdated, 
                   <Separator />
                 </>
               )}
+
+              {/* Interactions History */}
+              <CrmInteractionsPanel prospectId={prospect.id} prospectName={prospect.businessName} />
+
+              <Separator />
 
               {/* Meta */}
               <div className="flex items-center justify-between text-xs text-muted-foreground">

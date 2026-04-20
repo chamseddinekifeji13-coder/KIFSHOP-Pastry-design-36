@@ -401,7 +401,7 @@ export function CampaignLanding() {
               <Link href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 Accueil
               </Link>
-              <Link href="/auth/sign-up" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/auth/sign-up?fresh=1" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 Inscription
               </Link>
               <Link href="/auth/sign-in" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

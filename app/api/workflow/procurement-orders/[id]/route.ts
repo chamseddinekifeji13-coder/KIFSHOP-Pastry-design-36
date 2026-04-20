@@ -1,0 +1,121 @@
+import { NextRequest, NextResponse } from "next/server"
+import { createClient, getTenantIdFromUser } from "@/lib/supabase/server"
+
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
+async function logWorkflowAction(
+  entityType: string,
+  entityId: string,
+  action: string,
+  oldStatus: string | undefined,
+  newStatus: string | undefined,
+  details: Record<string, unknown>,
+  tenantId: string,
+  userId: string,
+  supabase: SupabaseServerClient
+): Promise<void> {
+  try {
+    await supabase.from("workflow_audit_log").insert({
+      tenant_id: tenantId,
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      old_status: oldStatus,
+      new_status: newStatus,
+      details,
+      performed_by: userId,
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error("Error logging workflow action:", msg)
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const tenantId = await getTenantIdFromUser()
+    if (!tenantId) {
+      return NextResponse.json({ error: "Tenant ID not found" }, { status: 400 })
+    }
+
+    const body = await request.json()
+    const { orderId, status } = body
+
+    if (!orderId || !status) {
+      return NextResponse.json(
+        { error: "orderId and status are required" },
+        { status: 400 }
+      )
+    }
+
+    const { data: order, error: getError } = await supabase
+      .from("bon_approvisionnement")
+      .select("*")
+      .eq("id", orderId)
+      .eq("tenant_id", tenantId)
+      .single()
+
+    if (getError) {
+      throw new Error(getError.message)
+    }
+
+    if (!order) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    const updateData: Record<string, unknown> = {
+      status,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (status === "validated") {
+      updateData.validated_by = user.id
+      updateData.validated_at = new Date().toISOString()
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from("bon_approvisionnement")
+      .update(updateData)
+      .eq("id", orderId)
+      .select()
+
+    if (updateError) {
+      throw new Error(updateError.message)
+    }
+
+    await logWorkflowAction(
+      "bon_approvisionnement",
+      orderId,
+      String(status).toLowerCase(),
+      order.status as string | undefined,
+      String(status),
+      { changed_fields: Object.keys(updateData) },
+      tenantId,
+      user.id,
+      supabase
+    )
+
+    return NextResponse.json(updated?.[0], { status: 200 })
+  } catch (error) {
+    console.error("[Update Bon Approvisionnement API Error]", error)
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Internal server error",
+      },
+      { status: 500 }
+    )
+  }
+}

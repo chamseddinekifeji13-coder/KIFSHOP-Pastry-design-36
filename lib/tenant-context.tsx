@@ -12,7 +12,7 @@ type AuthUser = {
 }
 
 // ─── User Roles ───────────────────────────────────────────────
-export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "owner"
+export type UserRole = "gerant" | "vendeur" | "magasinier" | "achat" | "caissier" | "patissier" | "emballeur" | "livreur" | "owner"
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   owner: "Proprietaire",
@@ -22,19 +22,23 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   achat: "Achat",
   caissier: "Caissier",
   patissier: "Patissier",
+  emballeur: "Emballeur",
+  livreur: "Livreur",
 }
 
-export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier"]
+export const ALL_ROLES: UserRole[] = ["owner", "gerant", "vendeur", "magasinier", "achat", "caissier", "patissier", "emballeur", "livreur"]
 
 // ─── Route access per role ────────────────────────────────────
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
-  owner: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
-  gerant: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/tresorerie", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
+  owner: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/workflow", "/tresorerie", "/pos80", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
+  gerant: ["/dashboard", "/commandes", "/clients", "/canaux", "/stocks", "/inventaire", "/approvisionnement", "/workflow", "/tresorerie", "/pos80", "/production", "/boutique", "/prospects", "/performance", "/campagnes", "/parametres", "/support"],
   vendeur: ["/commandes", "/clients", "/canaux", "/prospects", "/support"],
-  magasinier: ["/stocks", "/inventaire", "/support"],
-  achat: ["/approvisionnement", "/support"],
-  caissier: ["/tresorerie", "/support"],
+  magasinier: ["/stocks", "/inventaire", "/workflow", "/support"],
+  achat: ["/approvisionnement", "/workflow", "/support"],
+  caissier: ["/tresorerie", "/treasury/courier-collections", "/treasury/pos80-sync", "/pos80", "/support"],
   patissier: ["/production", "/support"],
+  emballeur: ["/packer", "/support"],
+  livreur: ["/livraison", "/support"],
 }
 
 export function canAccessRoute(role: UserRole, pathname: string): boolean {
@@ -77,8 +81,11 @@ export interface Tenant {
   id: string
   name: string
   logo: string
+  logoUrl?: string
   primaryColor: string
   subscription: TenantSubscription
+  address?: string
+  phone?: string
 }
 
 export interface TenantState {
@@ -89,6 +96,7 @@ export interface TenantState {
   tenants: Tenant[]
   authUser: AuthUser | null
   isLoading: boolean
+  isAuthenticated: boolean // New: true if user is authenticated with Supabase Auth
   isSuspended: boolean
   isTrialExpired: boolean
   trialDaysLeft: number
@@ -173,12 +181,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        // Get tenant data
-        const { data: tenantData } = await supabase
-          .from("tenants")
-          .select("*")
-          .eq("id", tenantUser.tenant_id)
-          .single()
+        // Fetch tenant and team members in parallel to reduce initial load latency.
+        const [{ data: tenantData }, { data: teamMembers }] = await Promise.all([
+          supabase
+            .from("tenants")
+            .select("*")
+            .eq("id", tenantUser.tenant_id)
+            .single(),
+          supabase
+            .from("tenant_users")
+            .select("id, user_id, role, display_name, pin")
+            .eq("tenant_id", tenantUser.tenant_id)
+            .order("created_at", { ascending: true }),
+        ])
 
         if (tenantData) {
           // Get subscription with plan limits
@@ -236,13 +251,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         // Don't set currentUser here yet — we need to check the active profile cookie first
         // to avoid overwriting an employee's session with the owner profile
 
-        // Load all team members for this tenant BEFORE setting isLoading to false
-        const { data: teamMembers } = await supabase
-          .from("tenant_users")
-          .select("id, user_id, role, display_name, pin")
-          .eq("tenant_id", tenantUser.tenant_id)
-          .order("created_at", { ascending: true })
-
         if (teamMembers && teamMembers.length > 0) {
           const allUsers: AppUser[] = teamMembers.map((m) => {
             const name = m.display_name || "Utilisateur"
@@ -257,42 +265,44 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           })
           setUsers(allUsers)
 
-          // Check if there's an active profile cookie (set by PIN verification)
-          // This restores the correct employee profile after page reload
-          try {
-            const sessionRes = await fetch("/api/session")
-            if (sessionRes.ok) {
-              const sessionData = await sessionRes.json()
-              if (sessionData.activeProfileId) {
-                const activeUser = allUsers.find((u) => u.id === sessionData.activeProfileId)
-                if (activeUser) {
-                  setCurrentUser(activeUser)
-                } else {
-                  // Active profile not found in team, fall back to owner
-                  const ownerProfile = allUsers.find((u) => u.role === "owner")
-                  if (ownerProfile && appUser.role === "owner") {
-                    setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
-                  }
-                }
-              } else {
-                // No active profile cookie, set to owner
-                const ownerProfile = allUsers.find((u) => u.role === "owner")
-                if (ownerProfile && appUser.role === "owner") {
-                  setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
-                }
-              }
-            } else {
-              // Session API failed, fall back to owner
-              const ownerProfile = allUsers.find((u) => u.role === "owner")
-              if (ownerProfile && appUser.role === "owner") {
-                setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
-              }
-            }
-          } catch {
-            // Network error, fall back to owner
+          const setOwnerProfile = () => {
             const ownerProfile = allUsers.find((u) => u.role === "owner")
             if (ownerProfile && appUser.role === "owner") {
               setCurrentUser({ ...appUser, id: ownerProfile.id, dbId: ownerProfile.dbId })
+              return
+            }
+            // Fallback to first available profile when owner is not found.
+            setCurrentUser(allUsers[0])
+          }
+
+          // Avoid extra session API call for single-profile tenants.
+          const shouldTrySessionRestore =
+            allUsers.length > 1 || allUsers.some((u) => Boolean(u.pin))
+
+          if (!shouldTrySessionRestore) {
+            setOwnerProfile()
+          } else {
+            // Check if there's an active profile cookie (set by PIN verification)
+            // This restores the correct employee profile after page reload.
+            try {
+              const sessionRes = await fetch("/api/session")
+              if (sessionRes.ok) {
+                const sessionData = await sessionRes.json()
+                if (sessionData.activeProfileId) {
+                  const activeUser = allUsers.find((u) => u.id === sessionData.activeProfileId)
+                  if (activeUser) {
+                    setCurrentUser(activeUser)
+                  } else {
+                    setOwnerProfile()
+                  }
+                } else {
+                  setOwnerProfile()
+                }
+              } else {
+                setOwnerProfile()
+              }
+            } catch {
+              setOwnerProfile()
             }
           }
         } else {
@@ -345,15 +355,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const removeUser = useCallback((id: string) => {
-    // Prevent removing the currently active user
-    setCurrentUser((current) => {
-      if (id === current.id) return current
-      return current
-    })
     setUsers((prev) => {
-      // Only remove if it's not the current user (checked by comparing with prev)
-      const target = prev.find((u) => u.id === id)
-      if (!target) return prev
+      // Only remove if it's not the current user
+      if (prev.length > 0 && prev[0].id === id) {
+        // Don't remove the currently active user
+        return prev
+      }
       return prev.filter((u) => u.id !== id)
     })
   }, [])
@@ -393,6 +400,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     ? Math.max(0, Math.ceil((new Date(sub.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0
 
+  // Check if user is authenticated with Supabase Auth
+  const isAuthenticated = authUser !== null
+
   return (
     <TenantContext.Provider
       value={{
@@ -403,6 +413,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         tenants,
         authUser,
         isLoading,
+        isAuthenticated,
         isSuspended,
         isTrialExpired,
         trialDaysLeft,
@@ -429,16 +440,31 @@ const SSR_FALLBACK: TenantState = {
   tenants: [FALLBACK_TENANT],
   authUser: null,
   isLoading: true,
+  isAuthenticated: false,
   isSuspended: false,
   isTrialExpired: false,
   trialDaysLeft: 0,
-  setCurrentTenant: () => {},
-  setCurrentUser: () => {},
-  addUser: () => {},
-  updateUser: () => {},
-  removeUser: () => {},
-  reloadUsers: async () => {},
-  signOut: async () => {},
+  setCurrentTenant: () => {
+    // Placeholder for SSR
+  },
+  setCurrentUser: () => {
+    // Placeholder for SSR
+  },
+  addUser: () => {
+    // Placeholder for SSR
+  },
+  updateUser: () => {
+    // Placeholder for SSR
+  },
+  removeUser: () => {
+    // Placeholder for SSR
+  },
+  reloadUsers: async () => {
+    // Placeholder for SSR
+  },
+  signOut: async () => {
+    // Placeholder for SSR
+  },
 }
 
 export function useTenant() {

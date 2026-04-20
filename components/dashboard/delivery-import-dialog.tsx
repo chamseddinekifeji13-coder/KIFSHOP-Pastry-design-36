@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { toast } from "sonner"
 
 import {
   Dialog,
@@ -43,7 +44,6 @@ import {
   ClipboardPaste,
   FileUp,
 } from "lucide-react"
-import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import {
   parseCSVContent,
@@ -246,11 +246,11 @@ export function DeliveryImportDialog({
   }
 
   const downloadTemplate = () => {
-    // Template matching Best Delivery format exactly
-    const template = `Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
-104807639707;mariem 23232024 *;53.8;2026-02-02;0000-00-00 00:00:00;2026-02-03 16:35:10;Livrée
-104807907553;azza 22919861 nahj hbib thamer;53.8;2026-02-02;0000-00-00 00:00:00;2026-02-03 19:37:43;Livrée
-104812017823;HANIN TLILI 54434722 CENTER;30.900;2026-02-02;0000-00-00 00:00:00;2026-02-07 10:10:38;Retour Expéditeur`
+    // Template aligned with the current Excel export format.
+    const template = `Code;Client;Téléphone;Etat;Prix;Frais;Date
+109710000000;Meriem;20597328;Retour;27,9;4;12/03/2026
+110070000000;Emna;29482297;Retour;37;4;15/03/2026
+110020000000;Nada;25005374;Livré;32;9;15/03/2026`
 
     const blob = new Blob([template], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
@@ -346,8 +346,8 @@ export function DeliveryImportDialog({
                     placeholder="Collez vos donnees CSV ici...
 
 Exemple:
-Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
-104807639707;mariem 23232024 *;53.8;2026-02-02;0000-00-00;2026-02-03;Livrée"
+Code;Client;Téléphone;Etat;Prix;Frais;Date
+109710000000;Meriem;20597328;Retour;27,9;4;12/03/2026"
                     className="min-h-[120px] max-h-[40vh] font-mono text-xs"
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
@@ -401,11 +401,11 @@ Code;Nom;Prix;Date d'ajout;Date d'enlèvement;Date livraison;Etat
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                <strong>Format Best Delivery:</strong> Code, Nom, Prix, Date d{"'"}ajout, Date d{"'"}enlevement, Date livraison, Etat
+                <strong>Format Best Delivery (Excel):</strong> Code, Client, Téléphone, Etat, Prix, Frais, Date
                 <br />
                 <strong>Statuts reconnus:</strong> Livree, Retour Expediteur, En cours, Ramasse, Annule, En attente
                 <br />
-                <span className="text-muted-foreground">Le telephone sera extrait automatiquement du champ Nom.</span>
+                <span className="text-muted-foreground">Formats prix/date acceptes: 27,9 ou 27.9 et 12/03/2026 ou 2026-03-12.</span>
               </AlertDescription>
             </Alert>
           </div>

@@ -180,6 +180,38 @@ export async function createPurchaseOrder(tenantId: string, data: {
     items: data.items.map((i, idx) => ({ id: `new-${idx}`, ...i })), createdAt: row.created_at }
 }
 
+export async function syncPurchaseOrderTotal(orderId: string, tenantId: string): Promise<boolean> {
+  const supabase = createClient()
+  
+  // Fetch all items for this order
+  const { data: items, error: itemsError } = await supabase
+    .from("purchase_order_items")
+    .select("quantity, unit_price")
+    .eq("purchase_order_id", orderId)
+  
+  if (itemsError || !items) {
+    console.error("Error fetching items:", itemsError?.message)
+    return false
+  }
+  
+  // Recalculate total
+  const newTotal = items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
+  
+  // Update the order total
+  const { error: updateError } = await supabase
+    .from("purchase_orders")
+    .update({ total: newTotal })
+    .eq("id", orderId)
+    .eq("tenant_id", tenantId)
+  
+  if (updateError) {
+    console.error("Error updating order total:", updateError.message)
+    return false
+  }
+  
+  return true
+}
+
 // ─── Supplier Price History (RPC) ─────────────────────────────
 
 export interface PriceHistoryEntry {
@@ -371,7 +403,7 @@ export async function createPurchaseInvoice(tenantId: string, data: {
     totalTva: Number(row.total_tva), totalTtc: Number(row.total_ttc),
     notes: row.notes, validatedBy: row.validated_by,
     validatedAt: row.validated_at, createdBy: row.created_by,
-    items: items.map((i, idx) => ({ id: `new-${idx}`, invoiceId: row.id, ...i })),
+    items: items.map((i, idx) => ({ id: `new-${idx}`, invoiceId: row.id, ...i, rawMaterialId: i.rawMaterialId ?? null, packagingId: i.packagingId ?? null, consumableId: i.consumableId ?? null })),
     createdAt: row.created_at,
   }
 }
@@ -652,7 +684,7 @@ export async function createDeliveryNote(tenantId: string, data: {
     supplierName: row.supplier_name, deliveryDate: row.delivery_date,
     status: row.status, notes: row.notes, validatedBy: row.validated_by,
     validatedAt: row.validated_at, createdBy: row.created_by,
-    items: data.items.map((i, idx) => ({ id: `new-${idx}`, deliveryNoteId: row.id, ...i, remark: i.remark || null })),
+    items: data.items.map((i, idx) => ({ id: `new-${idx}`, deliveryNoteId: row.id, ...i, remark: i.remark || null, rawMaterialId: i.rawMaterialId ?? null, packagingId: i.packagingId ?? null, consumableId: i.consumableId ?? null })),
     createdAt: row.created_at,
   }
 }

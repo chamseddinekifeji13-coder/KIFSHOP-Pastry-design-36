@@ -23,10 +23,12 @@ import {
   Minus,
   Trash2,
   ShieldCheck,
-  ChevronsUpDown,
+  Pencil,
+  X,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { showError, showSuccess, showWarning } from "@/lib/error-messages"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -44,20 +46,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import { Badge } from "@/components/ui/badge"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,8 +61,13 @@ import {
 import { useTenant } from "@/lib/tenant-context"
 import { useClientStatus } from "@/hooks/use-client-status"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
-import { fetchActiveDeliveryCompanies } from "@/lib/delivery-companies/actions"
+import { fetchActiveDeliveryCompanies, fetchDefaultDeliveryCompany } from "@/lib/delivery-companies/actions"
 import { toast } from "sonner"
+import { useSWRConfig } from "swr"
+import { tunisiaLocations, gouvernorats, getDelegations } from "@/lib/tunisia-locations"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { ChevronDown } from "lucide-react"
 
 interface Product {
   id: string
@@ -94,15 +89,11 @@ interface QuickOrderProps {
   onOrderCreated?: () => void
 }
 
-const gouvernorats = [
-  "Ariana", "Beja", "Ben Arous", "Bizerte", "Gabes", "Gafsa",
-  "Jendouba", "Kairouan", "Kasserine", "Kebili", "Le Kef", "Mahdia",
-  "La Manouba", "Medenine", "Monastir", "Nabeul", "Sfax", "Sidi Bouzid",
-  "Siliana", "Sousse", "Tataouine", "Tozeur", "Tunis", "Zaghouan",
-]
+
 
 export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderProps) {
   const { currentTenant, currentUser, isLoading: tenantLoading } = useTenant()
+  const { mutate: globalMutate } = useSWRConfig()
   const {
     client,
     isLoading: clientLoading,
@@ -122,17 +113,22 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   // New client fields
   const [clientName, setClientName] = useState("")
   const [clientAddress, setClientAddress] = useState("")
+  const [editingName, setEditingName] = useState(false)
 
   // Order fields
   const [source, setSource] = useState<string>("phone")
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup")
   const [courier, setCourier] = useState("")
   const [gouvernorat, setGouvernorat] = useState("")
+  const [delegation, setDelegation] = useState("")
   const [shippingCost, setShippingCost] = useState("")
+  
+  // Combobox open states
+  const [gouvernoratOpen, setGouvernoratOpen] = useState(false)
+  const [delegationOpen, setDelegationOpen] = useState(false)
   const [deliveryDate, setDeliveryDate] = useState("")
   const [items, setItems] = useState<OrderItemLocal[]>([])
-  const [selectedProduct, setSelectedProduct] = useState("")
-  const [productSearchOpen, setProductSearchOpen] = useState(false)
+  const [productSearch, setProductSearch] = useState("")
   const [notes, setNotes] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -218,6 +214,25 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     }
   }, [open, currentTenant.id, tenantLoading])
 
+  // Auto-fill default delivery company and shipping cost when couriers are loaded
+  useEffect(() => {
+    if (couriers.length > 0 && !courier && open) {
+      const autoFillDefaults = async () => {
+        try {
+          const defaultCompany = await fetchDefaultDeliveryCompany(currentTenant.id)
+          if (defaultCompany) {
+            // Use name - the Select component uses company names as values
+            setCourier(defaultCompany.name)
+            setShippingCost(defaultCompany.shippingCost.toString())
+          }
+        } catch (err) {
+          console.error("Error fetching default delivery company:", err)
+        }
+      }
+      autoFillDefaults()
+    }
+  }, [couriers, open, courier, currentTenant.id])
+
   const handlePhoneLookup = useCallback(async () => {
     const cleanPhone = phone.replace(/\s/g, "").trim()
     if (cleanPhone.length < 4) return
@@ -227,10 +242,13 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       const result = await lookupClient(cleanPhone, currentTenant.id)
       if (result && result.name) {
         setClientName(result.name)
+      } else {
+        setClientName("")
       }
+      setEditingName(false)
     } catch (err) {
       console.error("Erreur recherche client:", err)
-      toast.error("Erreur lors de la recherche du client")
+      showError(err, "Recherche client")
     }
   }, [phone, currentTenant.id, lookupClient])
 
@@ -241,22 +259,26 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     }
   }
 
-  const handleAddItem = (productId?: string) => {
-    const pid = productId || selectedProduct
-    if (!pid) return
-    const product = products.find(p => p.id === pid)
+  const handleAddItem = (productId: string) => {
+    const product = products.find(p => p.id === productId)
     if (!product) return
-    const existing = items.find(i => i.productId === pid)
+    const existing = items.find(i => i.productId === productId)
     if (existing) {
       setItems(items.map(i =>
-        i.productId === pid ? { ...i, quantity: i.quantity + 1 } : i
+        i.productId === productId ? { ...i, quantity: i.quantity + 1 } : i
       ))
     } else {
       setItems([...items, { productId: product.id, name: product.name, quantity: 1, price: product.selling_price }])
     }
-    setSelectedProduct("")
-    setProductSearchOpen(false)
+    setProductSearch("")
   }
+  
+  // Filter products based on search
+  const filteredProducts = useMemo(() => {
+    if (!productSearch.trim()) return products
+    const search = productSearch.toLowerCase()
+    return products.filter(p => p.name.toLowerCase().includes(search))
+  }, [products, productSearch])
 
   const handleUpdateQuantity = (productId: string, delta: number) => {
     setItems(prev =>
@@ -287,26 +309,29 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
   const handleSubmit = async () => {
     if (!client || isBlocked || hasExcessiveReturns || submitting) return
     if (items.length === 0) {
-      toast.error("Veuillez ajouter au moins un article")
+      showWarning("Panier vide", "Veuillez ajouter au moins un article a la commande.")
       return
     }
     if (total <= 0) {
-      toast.error("Le total de la commande doit être supérieur à 0")
+      showWarning("Total invalide", "Le total de la commande doit etre superieur a 0.")
       return
     }
     if (isNewClient && !clientName.trim()) {
-      toast.error("Veuillez entrer le nom du client")
+      showWarning("Nom requis", "Veuillez saisir le nom du client pour continuer.")
       return
     }
     if (deliveryType === "delivery" && !clientAddress.trim()) {
-      toast.error("Veuillez entrer l'adresse de livraison")
+      showWarning("Adresse requise", "Veuillez saisir l'adresse de livraison.")
       return
     }
 
     setSubmitting(true)
     try {
-      // Update client name if new
-      if (isNewClient && clientName.trim()) {
+      // Update client name if new OR if editing an existing client's name
+      const shouldUpdateName = (isNewClient && clientName.trim()) ||
+        (editingName && clientName.trim() && clientName.trim() !== client.name)
+
+      if (shouldUpdateName) {
         const supabase = createSupabaseClient()
         const { error: updateError } = await supabase
           .from("clients")
@@ -335,10 +360,12 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
           deliveryType,
           courier: deliveryType === "delivery" ? courier : undefined,
           gouvernorat: deliveryType === "delivery" ? gouvernorat : undefined,
+          delegation: deliveryType === "delivery" ? delegation : undefined,
           shippingCost: shipping,
           deliveryDate: deliveryDate || undefined,
           address: deliveryType === "delivery" ? clientAddress.trim() : undefined,
           truecallerVerified,
+          items: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price })),
         }),
       })
 
@@ -349,10 +376,18 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
 
       setSuccess(true)
       toast.success("Commande enregistree !")
+      
+      // Revalidate SWR cache to sync dashboard
+      globalMutate((key) => typeof key === "string" && (
+        key.includes("orders") || 
+        key.includes("transactions") || 
+        key.includes(currentTenant.id)
+      ), undefined, { revalidate: true })
+      
       onOrderCreated?.()
       setTimeout(() => handleClose(), 1500)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur creation commande")
+      showError(err, "Creation commande")
     } finally {
       setSubmitting(false)
     }
@@ -363,15 +398,16 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
     setTruecallerVerified(false)
     setClientName("")
     setClientAddress("")
+    setEditingName(false)
     setSource("phone")
     setDeliveryType("pickup")
     setCourier("")
     setGouvernorat("")
+    setDelegation("")
     setShippingCost("")
     setDeliveryDate("")
     setItems([])
-    setSelectedProduct("")
-    setProductSearchOpen(false)
+    setProductSearch("")
     setNotes("")
     setSuccess(false)
     setSubmitting(false)
@@ -607,17 +643,58 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                     </div>
                   )}
 
-                  {/* New client extra fields */}
-                  {isNewClient && client && (
+                  {/* Client name and address fields - visible for all clients */}
+                  {client && (
                     <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
                       <div className="space-y-2">
-                        <Label className="text-xs font-medium">Nom du client *</Label>
-                        <Input
-                          placeholder="Ex: Mohamed Ben Ali"
-                          value={clientName}
-                          onChange={(e) => setClientName(e.target.value)}
-                          className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
-                        />
+                        <Label className="text-xs font-medium flex items-center justify-between">
+                          <span>
+                            Nom du client
+                            {isNewClient && <span className="text-red-600 ml-0.5">*</span>}
+                            {!isNewClient && !client.name && <span className="text-red-600 ml-0.5">*</span>}
+                          </span>
+                          {!isNewClient && client.name && !editingName && (
+                            <button
+                              type="button"
+                              onClick={() => { setClientName(client.name || ""); setEditingName(true) }}
+                              className="flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-normal transition-colors"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Modifier
+                            </button>
+                          )}
+                        </Label>
+                        {(isNewClient || !client.name || editingName) ? (
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Ex: Mohamed Ben Ali"
+                              value={clientName}
+                              onChange={(e) => setClientName(e.target.value)}
+                              autoFocus={editingName}
+                              className="bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30 flex-1"
+                            />
+                            {editingName && (
+                              <button
+                                type="button"
+                                onClick={() => { setEditingName(false); setClientName(client.name || "") }}
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors shrink-0"
+                                title="Annuler"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-2 rounded-lg bg-muted/50 text-sm text-foreground">
+                            {client.name}
+                          </div>
+                        )}
+                        {isNewClient && (
+                          <p className="text-xs text-muted-foreground">Nouveau client — le nom sera enregistre</p>
+                        )}
+                        {!isNewClient && !client.name && (
+                          <p className="text-xs text-amber-600">Ce client n&apos;a pas encore de nom — ajoutez-en un</p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label className="text-xs font-medium">Adresse</Label>
@@ -682,18 +759,86 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                       </div>
                       {deliveryType === "delivery" && (
                         <>
-                          <div className="space-y-2">
-                            <Label className="text-xs font-medium">Gouvernorat</Label>
-                            <Select value={gouvernorat} onValueChange={setGouvernorat}>
-                              <SelectTrigger className="bg-muted/50 border-0">
-                                <SelectValue placeholder="Choisir le gouvernorat" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {gouvernorats.map(g => (
-                                  <SelectItem key={g} value={g}>{g}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                          {/* Gouvernorat et Delegation */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Gouvernorat</Label>
+                              <Popover open={gouvernoratOpen} onOpenChange={setGouvernoratOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={gouvernoratOpen}
+                                    className="w-full justify-between bg-muted/50 border-0 font-normal"
+                                  >
+                                    {gouvernorat || "Choisir..."}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Rechercher..." />
+                                    <CommandList>
+                                      <CommandEmpty>Aucun resultat</CommandEmpty>
+                                      <CommandGroup>
+                                        {gouvernorats.map((g) => (
+                                          <CommandItem
+                                            key={g}
+                                            value={g}
+                                            onSelect={() => {
+                                              setGouvernorat(g)
+                                              setDelegation("") // Reset delegation when gouvernorat changes
+                                              setGouvernoratOpen(false)
+                                            }}
+                                          >
+                                            {g}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-medium">Delegation</Label>
+                              <Popover open={delegationOpen} onOpenChange={setDelegationOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={delegationOpen}
+                                    className="w-full justify-between bg-muted/50 border-0 font-normal"
+                                    disabled={!gouvernorat}
+                                  >
+                                    {delegation || (gouvernorat ? "Choisir..." : "Gouvernorat d'abord")}
+                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[200px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Rechercher..." />
+                                    <CommandList>
+                                      <CommandEmpty>Aucun resultat</CommandEmpty>
+                                      <CommandGroup>
+                                        {getDelegations(gouvernorat).map((d) => (
+                                          <CommandItem
+                                            key={d}
+                                            value={d}
+                                            onSelect={() => {
+                                              setDelegation(d)
+                                              setDelegationOpen(false)
+                                            }}
+                                          >
+                                            {d}
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-xs font-medium">
@@ -709,7 +854,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-2">
-                              <Label className="text-xs font-medium">Transporteur</Label>
+                              <Label className="text-xs font-medium">Livreur</Label>
                               <Select value={courier} onValueChange={setCourier}>
                                 <SelectTrigger className="bg-muted/50 border-0">
                                   <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Choisir"} />
@@ -717,7 +862,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                                 <SelectContent>
                                   {couriers.length === 0 && !loadingCouriers && (
                                     <SelectItem value="__none" disabled>
-                                      Aucun transporteur configure
+                                      Aucun livreur configure
                                     </SelectItem>
                                   )}
                                   {couriers.map(c => (
@@ -729,7 +874,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                               </Select>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-xs font-medium">Frais (TND)</Label>
+                              <Label className="text-xs font-medium">Frais livraison (TND)</Label>
                               <Input
                                 type="number"
                                 placeholder="0"
@@ -753,65 +898,60 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
                       Articles
                     </div>
                     <div className="rounded-xl border bg-card p-4 space-y-3 shadow-sm">
+                      {/* Product search - inline without Popover */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                        <Input
+                          placeholder="Rechercher un produit..."
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          className="pl-9 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30"
+                          disabled={loadingProducts}
+                        />
+                      </div>
+                      
                       {loadingProducts ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                           Chargement...
                         </div>
-                      ) : products.length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-4 text-center">Aucun produit disponible.</p>
+                      ) : filteredProducts.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-2 text-center">
+                          {productSearch ? "Aucun produit trouve" : "Aucun produit disponible"}
+                        </p>
                       ) : (
-                        <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={productSearchOpen}
-                              className="w-full justify-between bg-muted/50 border-0 font-normal h-10"
-                            >
-                              <span className="truncate text-muted-foreground">
-                                <Search className="h-3.5 w-3.5 inline mr-2" />
-                                Rechercher un article...
-                              </span>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder="Tapez pour chercher..." />
-                              <CommandList>
-                                <CommandEmpty>Aucun produit trouve.</CommandEmpty>
-                                <CommandGroup>
-                                  {products.map(product => (
-                                    <CommandItem
-                                      key={product.id}
-                                      value={product.name}
-                                      onSelect={() => handleAddItem(product.id)}
-                                      className="cursor-pointer"
-                                    >
-                                      <div className="flex items-center justify-between w-full gap-2">
-                                        <div className="flex flex-col min-w-0">
-                                          <span className="text-sm font-medium truncate">{product.name}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {product.selling_price.toLocaleString("fr-TN")} TND
-                                            {product.current_stock <= 0 && (
-                                              <span className="ml-1 text-destructive">(Rupture)</span>
-                                            )}
-                                          </span>
-                                        </div>
-                                        {items.some(i => i.productId === product.id) && (
-                                          <Badge className="bg-primary/10 text-primary text-xs shrink-0">
-                                            {items.find(i => i.productId === product.id)?.quantity}x
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                        <ScrollArea className="h-[140px]">
+                          <div className="space-y-1">
+                            {filteredProducts.slice(0, 15).map(product => {
+                              const inCart = items.find(i => i.productId === product.id)
+                              return (
+                                <button
+                                  key={product.id}
+                                  type="button"
+                                  onClick={() => handleAddItem(product.id)}
+                                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-muted/80 transition-colors text-left"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm truncate">{product.name}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {product.selling_price.toFixed(3)} TND
+                                      {product.current_stock <= 0 && (
+                                        <span className="ml-1 text-destructive">(Rupture)</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {inCart ? (
+                                    <Badge className="bg-primary/10 text-primary text-xs shrink-0 ml-2">
+                                      {inCart.quantity}x
+                                    </Badge>
+                                  ) : (
+                                    <Plus className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </ScrollArea>
                       )}
 
                       {items.length > 0 && (

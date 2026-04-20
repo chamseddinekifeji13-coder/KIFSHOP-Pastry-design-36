@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ChefHat, BarChart3, ShoppingCart, Package } from "lucide-react"
+import Image from "next/image"
+import { Cake, Sparkles } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Connexion - KIFSHOP Pastry Logiciel Gestion Patisserie Tunisie",
@@ -21,64 +22,112 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh">
-      {/* Left panel - Branded illustration (hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#1a2e23] flex-col items-center justify-center p-12">
-        {/* Pattern overlay */}
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-        {/* Gradient orbs */}
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-[#4A7C59]/20 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-48 w-48 rounded-full bg-[#7dba94]/10 blur-3xl" />
-
-        <div className="relative z-10 flex flex-col items-center text-center max-w-md">
+    <div className="min-h-svh flex flex-col lg:flex-row bg-gradient-to-br from-amber-50 via-white to-orange-50">
+      {/* Left side - Branding with light theme */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
+        <div className="absolute top-20 -left-20 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 -right-20 w-80 h-80 bg-orange-200/30 rounded-full blur-3xl" />
+        
+        {/* Content */}
+        <div className="relative flex flex-col justify-between p-12 w-full">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 mb-10">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A7C59] text-white">
-              <ChefHat className="h-6 w-6" />
+          <Link href="/" className="inline-flex items-center gap-3 group w-fit">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
+              <Cake className="h-6 w-6" />
             </div>
-            <span className="text-2xl font-bold text-white">
-              KIFSHOP <span className="font-normal text-[#7dba94]">Pastry</span>
-            </span>
+            <div className="flex flex-col">
+              <span className="text-2xl font-bold text-foreground tracking-tight">
+                KIFSHOP <span className="font-light text-primary">Pastry</span>
+              </span>
+              <span className="text-xs text-muted-foreground">Gestion Patisserie Pro</span>
+            </div>
           </Link>
-
-          {/* Tagline */}
-          <h2 className="text-3xl font-bold text-white text-balance leading-tight mb-4">
-            Gerez votre patisserie en toute simplicite
-          </h2>
-          <p className="text-white/60 leading-relaxed mb-10 text-pretty">
-            Stocks, production, commandes, facturation et tresorerie — tout en un pour votre activite.
-          </p>
-
-          {/* Feature highlights */}
-          <div className="grid grid-cols-2 gap-4 w-full">
-            {[
-              { icon: Package, label: "Gestion stocks" },
-              { icon: ChefHat, label: "Production" },
-              { icon: ShoppingCart, label: "Commandes" },
-              { icon: BarChart3, label: "Tableau de bord" },
-            ].map((feat) => (
-              <div
-                key={feat.label}
-                className="flex items-center gap-3 rounded-xl bg-white/5 border border-white/10 px-4 py-3"
-              >
-                <feat.icon className="h-4 w-4 text-[#7dba94] shrink-0" />
-                <span className="text-sm text-white/80">{feat.label}</span>
+          
+          {/* Center content with illustration */}
+          <div className="flex-1 flex flex-col items-center justify-center">
+            {/* Decorative pastry image */}
+            <div className="relative w-80 h-80 mb-8">
+              <Image
+                src="https://images.unsplash.com/photo-1558326567-98ae2405596b?q=80&w=800&auto=format&fit=crop"
+                alt="Patisserie"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover rounded-3xl shadow-2xl shadow-primary/10"
+                priority
+              />
+              {/* Floating badge */}
+              <div className="absolute -bottom-4 -right-4 bg-white rounded-2xl shadow-xl p-4 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">+150 patisseries</div>
+                  <div className="text-xs text-muted-foreground">nous font confiance</div>
+                </div>
               </div>
-            ))}
+            </div>
+            
+            {/* Main text */}
+            <div className="text-center max-w-md">
+              <h1 className="text-3xl xl:text-4xl font-bold text-foreground leading-tight mb-4">
+                Simplifiez la gestion de votre patisserie
+              </h1>
+              <p className="text-muted-foreground leading-relaxed">
+                Stocks, production, commandes et tresorerie reunis dans une interface intuitive et elegante.
+              </p>
+            </div>
+            
+            {/* Stats pills */}
+            <div className="flex items-center gap-4 mt-8">
+              <div className="bg-white rounded-full px-5 py-2.5 shadow-sm border border-border/50 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-sm font-medium text-foreground">100% Tunisien</span>
+              </div>
+              <div className="bg-white rounded-full px-5 py-2.5 shadow-sm border border-border/50 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-primary" />
+                <span className="text-sm font-medium text-foreground">Support 24/7</span>
+              </div>
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="text-sm text-muted-foreground">
+            &copy; 2026 KIFSHOP Pastry. Tous droits reserves.
           </div>
         </div>
       </div>
 
-      {/* Right panel - Form area */}
-      <div className="flex flex-1 items-center justify-center bg-background p-4 lg:p-8">
-        <div className="w-full max-w-sm">
-          {children}
+      {/* Right side - Form with white card */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Mobile logo */}
+          <div className="flex flex-col items-center mb-10 lg:hidden">
+            <Link href="/" className="inline-flex items-center gap-3 group">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <Cake className="h-7 w-7" />
+              </div>
+            </Link>
+            <h1 className="text-2xl font-bold text-foreground mt-4">
+              KIFSHOP <span className="font-light text-primary">Pastry</span>
+            </h1>
+          </div>
+          
+          {/* Form card */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-black/5 border border-border/50 p-8 lg:p-10">
+            {children}
+          </div>
+          
+          {/* Additional info below card */}
+          <div className="mt-6 text-center text-sm text-muted-foreground">
+            <p>En vous connectant, vous acceptez nos</p>
+            <p>
+              <Link href="/terms" className="text-primary hover:underline">Conditions d{"'"}utilisation</Link>
+              {" "}et{" "}
+              <Link href="/privacy" className="text-primary hover:underline">Politique de confidentialite</Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>

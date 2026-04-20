@@ -3,7 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
-import type { ProspectStatus, PlatformProspect, ProspectStats } from "@/lib/super-admin/prospect-types"
+import type { ProspectSource, ProspectStatus, PlatformProspect, ProspectStats } from "@/lib/super-admin/prospect-types"
 
 async function requireSuperAdmin() {
   const supabase = await createClient()
@@ -36,6 +36,8 @@ export async function fetchPlatformProspects(): Promise<PlatformProspect[]> {
     notes: (p.notes as string) || null,
     nextAction: (p.next_action as string) || null,
     nextActionDate: (p.next_action_date as string) || null,
+    demoScheduledAt: (p.demo_scheduled_at as string) || null,
+    demoContactPerson: (p.demo_contact_person as string) || null,
     convertedTenantId: (p.converted_tenant_id as string) || null,
     createdAt: p.created_at as string,
     updatedAt: p.updated_at as string,
@@ -73,7 +75,7 @@ export async function fetchProspectStats(): Promise<ProspectStats> {
 export async function createPlatformProspect(data: {
   businessName: string; ownerName?: string; phone?: string; email?: string;
   city?: string; address?: string; source: ProspectSource; notes?: string;
-  nextAction?: string; nextActionDate?: string
+  nextAction?: string; nextActionDate?: string; demoScheduledAt?: string; demoContactPerson?: string
 }): Promise<PlatformProspect | null> {
   const { supabase } = await requireSuperAdmin()
   const { data: row, error } = await supabase.from("platform_prospects").insert({
@@ -87,6 +89,8 @@ export async function createPlatformProspect(data: {
     notes: data.notes || null,
     next_action: data.nextAction || null,
     next_action_date: data.nextActionDate || null,
+    demo_scheduled_at: data.demoScheduledAt || null,
+    demo_contact_person: data.demoContactPerson || null,
   }).select("*").single()
 
   if (error || !row) { console.error("Error creating prospect:", error?.message); return null }
@@ -96,6 +100,7 @@ export async function createPlatformProspect(data: {
     phone: row.phone, email: row.email, city: row.city, address: row.address,
     source: row.source, status: row.status, notes: row.notes,
     nextAction: row.next_action, nextActionDate: row.next_action_date,
+    demoScheduledAt: row.demo_scheduled_at, demoContactPerson: row.demo_contact_person,
     convertedTenantId: row.converted_tenant_id, createdAt: row.created_at, updatedAt: row.updated_at,
   }
 }
@@ -104,7 +109,7 @@ export async function createPlatformProspect(data: {
 export async function updatePlatformProspect(id: string, data: Partial<{
   businessName: string; ownerName: string; phone: string; email: string;
   city: string; address: string; source: ProspectSource; status: ProspectStatus;
-  notes: string; nextAction: string; nextActionDate: string; convertedTenantId: string
+  notes: string; nextAction: string; nextActionDate: string; demoScheduledAt: string; demoContactPerson: string; convertedTenantId: string
 }>): Promise<boolean> {
   const { supabase } = await requireSuperAdmin()
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -118,7 +123,9 @@ export async function updatePlatformProspect(id: string, data: Partial<{
   if (data.status !== undefined) updates.status = data.status
   if (data.notes !== undefined) updates.notes = data.notes
   if (data.nextAction !== undefined) updates.next_action = data.nextAction
-  if (data.nextActionDate !== undefined) updates.next_action_date = data.nextActionDate
+  if (data.nextActionDate !== undefined) updates.next_action_date = data.nextActionDate || null
+  if (data.demoScheduledAt !== undefined) updates.demo_scheduled_at = data.demoScheduledAt || null
+  if (data.demoContactPerson !== undefined) updates.demo_contact_person = data.demoContactPerson || null
   if (data.convertedTenantId !== undefined) updates.converted_tenant_id = data.convertedTenantId
 
   const { error } = await supabase.from("platform_prospects").update(updates).eq("id", id)

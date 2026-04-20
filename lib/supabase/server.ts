@@ -14,11 +14,20 @@ import { cookies } from 'next/headers'
  * NEVER expose this client to the browser.
  */
 export function createAdminClient() {
-  return createSupabaseClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  
+  if (!url) {
+    throw new Error('Missing Supabase URL')
+  }
+  
+  if (!serviceKey) {
+    throw new Error('Missing Supabase Service Role Key')
+  }
+  
+  return createSupabaseClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  })
 }
 
 export async function createClient() {
@@ -46,4 +55,30 @@ export async function createClient() {
       },
     },
   )
+}
+
+export async function getTenantIdFromUser() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const { data: tenantUser, error: tenantError } = await supabase
+    .from("tenant_users")
+    .select("tenant_id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .single()
+
+  if (tenantError || !tenantUser?.tenant_id) {
+    return null
+  }
+
+  return typeof tenantUser.tenant_id === "string"
+    ? tenantUser.tenant_id.trim()
+    : String(tenantUser.tenant_id)
 }

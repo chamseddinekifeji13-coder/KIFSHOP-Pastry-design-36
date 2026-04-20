@@ -82,7 +82,11 @@ export function ChangePinDialog({ open, onOpenChange, force = false }: ChangePin
       })
 
       if (!result.success) {
-        setError(result.error || "Erreur lors de la modification du PIN")
+        // Ensure error is always a string to avoid React #310
+        const errMsg = typeof result.error === "string" 
+          ? result.error 
+          : "Erreur lors de la modification du PIN"
+        setError(errMsg)
         return
       }
 

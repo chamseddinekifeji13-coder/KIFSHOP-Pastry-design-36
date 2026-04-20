@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Printer, Usb, CheckCircle, XCircle, Settings, RefreshCw, DoorOpen, Wifi, Monitor, Cpu } from "lucide-react"
+import { Printer, Usb, CheckCircle, XCircle, Settings, RefreshCw, DoorOpen, Wifi, Monitor, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -18,8 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { ThermalPrinter, getPrinter } from "@/lib/thermal-printer"
-
-const BRIDGE_URL = "http://localhost:7731"
+import { getQZTrayService, diagnoseQZTray, type QZState } from "@/lib/qz-tray-service"
 
 interface PrinterSettingsProps {
   onPrinterConnected?: (connected: boolean) => void
@@ -28,27 +27,65 @@ interface PrinterSettingsProps {
 export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
   const [isSupported, setIsSupported] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
-  const [printerMode, setPrinterMode] = useState<"usb" | "network" | "windows" | "bridge">(() => {
+  const [printerMode, setPrinterMode] = useState<"usb" | "network" | "windows" | "qz-tray">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("printer-mode") as "usb" | "network" | "windows" | "bridge") || "bridge"
+      const saved = localStorage.getItem("printer-mode") as "usb" | "network" | "windows" | "qz-tray" | "bridge"
+      // Migrate old "bridge" mode to "qz-tray"
+      if (saved === "bridge") return "qz-tray"
+      return saved || "qz-tray"
     }
-    return "bridge"
+    return "qz-tray"
   })
   const [deviceInfo, setDeviceInfo] = useState<{ name: string; vendorId: number; productId: number } | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [debugLogs, setDebugLogs] = useState<string[]>([])
 
-  // Bridge mode settings
-  const [bridgeAvailable, setBridgeAvailable] = useState(false)
-  const [bridgePrinters, setBridgePrinters] = useState<string[]>([])
-  const [selectedBridgePrinter, setSelectedBridgePrinter] = useState(() => {
+  // QZ Tray state
+  const [qzState, setQzState] = useState<QZState>({
+    connected: false,
+    printers: [],
+    selectedPrinter: null,
+    version: null,
+  })
+
+  // Capture console logs for debugging
+  useEffect(() => {
+    const originalLog = console.log
+    const originalError = console.error
+    
+    const captureLog = (...args: any[]) => {
+      const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')
+      if (msg.includes('[QZ Tray]') || msg.includes('[v0]')) {
+        setDebugLogs(prev => [...prev.slice(-20), msg])
+      }
+      originalLog(...args)
+    }
+    
+    const captureError = (...args: any[]) => {
+      const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')
+      if (msg.includes('[QZ Tray]') || msg.includes('[v0]')) {
+        setDebugLogs(prev => [...prev.slice(-20), '❌ ' + msg])
+      }
+      originalError(...args)
+    }
+    
+    console.log = captureLog
+    console.error = captureError
+    
+    return () => {
+      console.log = originalLog
+      console.error = originalError
+    }
+  }, [])
+  const [isCheckingQZ, setIsCheckingQZ] = useState(false)
+  const [selectedQZPrinter, setSelectedQZPrinter] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("bridge-printer-name") || ""
+      return localStorage.getItem("qz-printer-name") || ""
     }
     return ""
   })
-  const [isCheckingBridge, setIsCheckingBridge] = useState(false)
 
   // Network printer settings
   const [printerIp, setPrinterIp] = useState(() => {
@@ -72,107 +109,239 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
       setDeviceInfo(printer.getDeviceInfo())
     }
 
-    // Auto-check bridge if in bridge mode
-    const savedMode = localStorage.getItem("printer-mode") || "bridge"
-    if (savedMode === "bridge") {
-      checkBridgeStatus()
+    // Subscribe to QZ Tray state changes
+    const qzService = getQZTrayService()
+    const unsubscribe = qzService.subscribe(setQzState)
+
+    // Auto-check QZ Tray silently at mount (without error toasts)
+    const savedMode = localStorage.getItem("printer-mode") || "qz-tray"
+    if (savedMode === "qz-tray" || savedMode === "bridge") {
+      // Silent check - don't show errors on initial load
+      silentQZTrayCheck()
     }
 
-    // If bridge was active, mark as connected
-    if (savedMode === "bridge" && localStorage.getItem("bridge-printer-name")) {
+    // If QZ Tray was active, mark as connected
+    if ((savedMode === "qz-tray" || savedMode === "bridge") && localStorage.getItem("qz-printer-name")) {
       setIsConnected(true)
     }
     if ((savedMode === "windows" || savedMode === "network") && localStorage.getItem("printer-mode") === savedMode) {
       setIsConnected(true)
     }
+
+    return () => unsubscribe()
   }, [])
 
-  // ──── Bridge mode ────────────────────────────────────────
+  // ──── QZ Tray mode ────────────────────────────────────────
 
-  const checkBridgeStatus = async () => {
-    setIsCheckingBridge(true)
+  // Silent check - used at mount, shows success toast if connected
+  const silentQZTrayCheck = async () => {
+    console.debug("[v0] Silent QZ Tray check starting...")
     try {
-      const res = await fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(2000) })
-      if (res.ok) {
-        setBridgeAvailable(true)
-        // Load printers list
-        const printersRes = await fetch(`${BRIDGE_URL}/printers`, { signal: AbortSignal.timeout(3000) })
-        if (printersRes.ok) {
-          const data = await printersRes.json()
-          setBridgePrinters(data.printers || [])
+      const qzService = getQZTrayService()
+      console.debug("[v0] QZ Service obtained, attempting connection...")
+      
+      const connected = await qzService.connect()
+      console.debug("[v0] QZ Tray connection result:", connected)
+      
+      if (connected) {
+        const state = qzService.getState()
+        console.debug("[v0] QZ State:", JSON.stringify(state))
+        setQzState(state)
+        setIsConnected(true)
+        console.debug("[v0] QZ Tray auto-connected with", state.printers.length, "printers")
+        
+        // Show success notification when auto-detected
+        const savedPrinter = localStorage.getItem("qz-printer-name")
+        console.debug("[v0] Saved printer from localStorage:", savedPrinter)
+        
+        if (savedPrinter && state.printers.includes(savedPrinter)) {
+          toast.success(`QZ Tray detecte - ${savedPrinter}`, {
+            description: "Imprimante thermique prete",
+            duration: 3000,
+          })
+        } else if (state.printers.length > 0) {
+          toast.info(`QZ Tray detecte - ${state.printers.length} imprimante(s)`, {
+            description: "Selectionnez une imprimante dans les parametres",
+            duration: 4000,
+          })
         }
       } else {
-        setBridgeAvailable(false)
+        console.debug("[v0] QZ Tray connection returned false")
       }
-    } catch {
-      setBridgeAvailable(false)
-    } finally {
-      setIsCheckingBridge(false)
+    } catch (error: any) {
+      // Silent - don't show errors on initial mount
+      console.debug("[v0] QZ Tray not available at startup:", error?.message || error)
     }
   }
 
-  const handleSaveBridgeSettings = () => {
-    if (!selectedBridgePrinter) {
+  // Run full diagnostic
+  const runDiagnostic = async () => {
+    console.debug("[v0] Running QZ Tray diagnostic...")
+    toast.info("Diagnostic en cours...", { duration: 2000 })
+    
+    const result = await diagnoseQZTray()
+    
+    const lines = [
+      `Bibliotheque: ${result.libraryLoaded ? "OK" : "NON"}`,
+      `WebSocket: ${result.websocketAvailable ? "OK" : "NON"}`,
+      `Connecte: ${result.connected ? "OUI" : "NON"}`,
+      `Imprimantes: ${result.printers.length || 0}`,
+      `Version: ${result.version || "N/A"}`,
+    ]
+    
+    if (result.error) {
+      lines.push(`Erreur: ${result.error}`)
+    }
+    
+    const message = lines.join("\n")
+    console.debug("[v0] Diagnostic result:\n" + message)
+    
+    if (result.connected && result.printers.length > 0) {
+      toast.success("QZ Tray fonctionne!", {
+        description: `${result.printers.length} imprimante(s) trouvee(s)`,
+        duration: 5000,
+      })
+    } else if (result.libraryLoaded && !result.connected) {
+      toast.error("QZ Tray n'est pas connecte", {
+        description: "Verifiez que QZ Tray est lance sur votre PC (icone dans la barre des taches)",
+        duration: 8000,
+      })
+    } else {
+      toast.error("Probleme avec QZ Tray", {
+        description: result.error || "Bibliotheque non chargee",
+        duration: 8000,
+      })
+    }
+    
+    // Add to debug logs
+    setDebugLogs(prev => [...prev, `[DIAGNOSTIC] ${message.replace(/\n/g, " | ")}`])
+  }
+
+  const checkQZTrayStatus = async () => {
+    setIsCheckingQZ(true)
+    console.debug("[v0] Starting QZ Tray check...")
+    try {
+      const qzService = getQZTrayService()
+      console.debug("[v0] QZ Service initialized")
+      
+      const connected = await qzService.connect()
+      console.debug("[v0] QZ Tray connection result:", connected)
+      
+      if (connected) {
+        const state = qzService.getState()
+        console.debug("[v0] QZ State after connect:", state)
+        setQzState(state)
+        toast.success(`QZ Tray connecté! ${state.printers.length} imprimante(s) trouvée(s)`)
+      } else {
+        console.debug("[v0] QZ Tray connection failed")
+        toast.error(
+          "QZ Tray non disponible",
+          {
+            description: "1. Téléchargez QZ Tray depuis qz.io/download\n2. Installez et lancez l'application\n3. Cliquez à nouveau sur Vérifier",
+            duration: 8000,
+          }
+        )
+      }
+    } catch (error: any) {
+      console.error("[v0] QZ Tray check error:", error)
+      const errorMsg = error?.message || "Impossible de se connecter"
+      
+      // Check for common error patterns
+      if (errorMsg.includes("Unable to establish connection") || 
+          errorMsg.includes("WebSocket") ||
+          errorMsg.includes("ECONNREFUSED") ||
+          errorMsg.includes("n'est pas lancé") || 
+          errorMsg.includes("not running")) {
+        toast.error(
+          "QZ Tray n'est pas accessible",
+          {
+            description: "Assurez-vous que QZ Tray est lancé et visible dans la barre des tâches Windows (près de l'horloge)",
+            duration: 8000,
+          }
+        )
+      } else if (errorMsg.includes("Timeout") || errorMsg.includes("timeout")) {
+        toast.error(
+          "QZ Tray ne répond pas",
+          {
+            description: "QZ Tray met du temps à répondre. Essayez de redémarrer QZ Tray et réessayez.",
+            duration: 6000,
+          }
+        )
+      } else if (errorMsg.includes("certificate") || errorMsg.includes("security")) {
+        toast.error(
+          "Erreur de sécurité QZ Tray",
+          {
+            description: "Redémarrez QZ Tray et acceptez les permissions si demandé",
+            duration: 6000,
+          }
+        )
+      } else {
+        toast.error(
+          "Erreur de connexion QZ Tray",
+          {
+            description: errorMsg,
+            duration: 6000,
+          }
+        )
+      }
+    } finally {
+      setIsCheckingQZ(false)
+    }
+  }
+
+  const handleSaveQZSettings = () => {
+    if (!selectedQZPrinter) {
       toast.error("Veuillez sélectionner une imprimante")
       return
     }
-    localStorage.setItem("bridge-printer-name", selectedBridgePrinter)
-    localStorage.setItem("printer-mode", "bridge")
-    setPrinterMode("bridge")
+    const qzService = getQZTrayService()
+    qzService.selectPrinter(selectedQZPrinter)
+    localStorage.setItem("printer-mode", "qz-tray")
+    setPrinterMode("qz-tray")
     setIsConnected(true)
     onPrinterConnected?.(true)
-    toast.success(`Imprimante "${selectedBridgePrinter}" configurée en mode Bridge!`)
+    toast.success(`Imprimante "${selectedQZPrinter}" configurée via QZ Tray!`)
     setDialogOpen(false)
   }
 
-  const handleTestBridgePrint = async () => {
-    const printerName = selectedBridgePrinter || localStorage.getItem("bridge-printer-name")
+  const handleTestQZPrint = async () => {
+    const printerName = selectedQZPrinter || localStorage.getItem("qz-printer-name")
     if (!printerName) {
       toast.error("Sélectionnez d'abord une imprimante")
       return
     }
     setIsTesting(true)
     try {
-      const res = await fetch(`${BRIDGE_URL}/print`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "test_print", printerName }),
-        signal: AbortSignal.timeout(8000),
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast.success("Test d'impression envoyé à " + printerName)
-      } else {
-        toast.error("Erreur: " + data.error)
+      const qzService = getQZTrayService()
+      if (!qzService.isConnected()) {
+        await qzService.connect()
       }
+      qzService.selectPrinter(printerName)
+      await qzService.testPrint()
+      toast.success("Test d'impression envoyé à " + printerName)
     } catch (e: any) {
-      toast.error("Bridge non disponible: " + e.message)
+      toast.error("Erreur: " + e.message)
     } finally {
       setIsTesting(false)
     }
   }
 
-  const handleTestBridgeDrawer = async () => {
-    const printerName = selectedBridgePrinter || localStorage.getItem("bridge-printer-name")
+  const handleTestQZDrawer = async () => {
+    const printerName = selectedQZPrinter || localStorage.getItem("qz-printer-name")
     if (!printerName) {
       toast.error("Sélectionnez d'abord une imprimante")
       return
     }
     try {
-      const res = await fetch(`${BRIDGE_URL}/print`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "open_drawer", printerName }),
-        signal: AbortSignal.timeout(5000),
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast.success("Tiroir-caisse ouvert!")
-      } else {
-        toast.error("Erreur: " + data.error)
+      const qzService = getQZTrayService()
+      if (!qzService.isConnected()) {
+        await qzService.connect()
       }
+      qzService.selectPrinter(printerName)
+      await qzService.openDrawer()
+      toast.success("Tiroir-caisse ouvert!")
     } catch (e: any) {
-      toast.error("Bridge non disponible: " + e.message)
+      toast.error("Erreur: " + e.message)
     }
   }
 
@@ -243,6 +412,7 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
     }
     localStorage.setItem("printer-ip", printerIp)
     localStorage.setItem("printer-port", printerPort)
+    localStorage.setItem("printer-mode", "network")
     setPrinterMode("network")
     setIsConnected(true)
     onPrinterConnected?.(true)
@@ -332,14 +502,14 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
         </DialogHeader>
 
         <Tabs value={printerMode} onValueChange={(v: string) => {
-          setPrinterMode(v as "usb" | "network" | "windows" | "bridge")
+          setPrinterMode(v as "usb" | "network" | "windows" | "qz-tray")
           localStorage.setItem("printer-mode", v)
-          if (v === "bridge") checkBridgeStatus()
+          if (v === "qz-tray") checkQZTrayStatus()
         }} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="bridge" className="gap-1 text-xs">
-              <Cpu className="h-3.5 w-3.5" />
-              Bridge
+            <TabsTrigger value="qz-tray" className="gap-1 text-xs">
+              <Zap className="h-3.5 w-3.5" />
+              QZ Tray
             </TabsTrigger>
             <TabsTrigger value="windows" className="gap-1 text-xs">
               <Monitor className="h-3.5 w-3.5" />
@@ -355,69 +525,71 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
             </TabsTrigger>
           </TabsList>
 
-          {/* ══ BRIDGE MODE (RECOMMENDED) ══════════════════════════════ */}
-          <TabsContent value="bridge" className="space-y-3 mt-3">
-            <Card className={bridgeAvailable ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}>
+          {/* ══ QZ TRAY MODE (RECOMMENDED) ══════════════════════════════ */}
+          <TabsContent value="qz-tray" className="space-y-3 mt-3">
+            <Card className={qzState.connected ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}>
               <CardContent className="pt-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${bridgeAvailable ? "bg-emerald-100" : "bg-amber-100"}`}>
-                      {bridgeAvailable
+                    <div className={`p-2 rounded-full ${qzState.connected ? "bg-emerald-100" : "bg-amber-100"}`}>
+                      {qzState.connected
                         ? <CheckCircle className="h-5 w-5 text-emerald-600" />
                         : <XCircle className="h-5 w-5 text-amber-600" />
                       }
                     </div>
                     <div>
                       <p className="font-medium text-sm">
-                        {bridgeAvailable ? "Bridge Local Actif" : "Bridge Non Disponible"}
+                        {qzState.connected ? "QZ Tray Connecté" : "QZ Tray Non Disponible"}
                       </p>
-                      <p className="text-xs text-muted-foreground">localhost:7731</p>
+                      <p className="text-xs text-muted-foreground">
+                        {qzState.connected && qzState.version ? `Version ${qzState.version}` : "localhost:8181"}
+                      </p>
                     </div>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={checkBridgeStatus}
-                    disabled={isCheckingBridge}
+                    onClick={checkQZTrayStatus}
+                    disabled={isCheckingQZ}
                     className="gap-1.5"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isCheckingBridge ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${isCheckingQZ ? "animate-spin" : ""}`} />
                     Vérifier
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {bridgeAvailable && (
+            {qzState.connected && (
               <>
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Sélectionner l&apos;imprimante POS80</Label>
                   <select
                     title="Sélectionner l'imprimante"
                     aria-label="Sélectionner l'imprimante"
-                    value={selectedBridgePrinter}
-                    onChange={(e) => setSelectedBridgePrinter(e.target.value)}
+                    value={selectedQZPrinter}
+                    onChange={(e) => setSelectedQZPrinter(e.target.value)}
                     className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                   >
                     <option value="">-- Choisir une imprimante --</option>
-                    {bridgePrinters.map((p) => (
+                    {qzState.printers.map((p) => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
                 </div>
 
-                <Button onClick={handleSaveBridgeSettings} className="w-full gap-2">
+                <Button onClick={handleSaveQZSettings} className="w-full gap-2">
                   <CheckCircle className="h-4 w-4" />
                   Utiliser cette imprimante
                 </Button>
 
-                {selectedBridgePrinter && (
+                {selectedQZPrinter && (
                   <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" onClick={handleTestBridgePrint} disabled={isTesting} className="gap-1.5 text-xs">
+                    <Button variant="outline" onClick={handleTestQZPrint} disabled={isTesting} className="gap-1.5 text-xs">
                       {isTesting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
                       Test impression
                     </Button>
-                    <Button variant="outline" onClick={handleTestBridgeDrawer} className="gap-1.5 text-xs">
+                    <Button variant="outline" onClick={handleTestQZDrawer} className="gap-1.5 text-xs">
                       <DoorOpen className="h-3.5 w-3.5" />
                       Ouvrir tiroir
                     </Button>
@@ -426,25 +598,107 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
               </>
             )}
 
-            {!bridgeAvailable && (
+            {isCheckingQZ && (
               <Card className="border-blue-200 bg-blue-50">
-                <CardContent className="pt-4 space-y-2">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-3">
+                    <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />
+                    <div>
+                      <p className="font-medium text-sm text-blue-800">Recherche de QZ Tray...</p>
+                      <p className="text-xs text-blue-600">Vérification des ports 8181, 8282, 8383, 8484</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {!qzState.connected && !isCheckingQZ && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="pt-4 space-y-3">
                   <h4 className="font-semibold text-sm text-blue-800">
-                    🚀 Mode recommandé pour POS80 avec imprimante intégrée
+                    Mode recommandé pour POS80
                   </h4>
                   <p className="text-xs text-blue-700">
-                    Le Print Bridge est un petit serveur local qui s'installe UNE SEULE FOIS
-                    sur votre caisse et permet l'impression automatique + ouverture du tiroir à chaque vente.
+                    QZ Tray est une application gratuite qui permet l&apos;impression directe sur imprimante thermique
+                    sans popup, avec ouverture automatique du tiroir-caisse.
                   </p>
-                  <div className="text-xs text-blue-700 space-y-1">
-                    <p className="font-medium">Installation (une seule fois):</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-1">
-                      <li>Ouvrez un terminal dans le dossier <code className="bg-blue-100 px-1 rounded">print-bridge/</code></li>
-                      <li>Tapez: <code className="bg-blue-100 px-1 rounded">npm install</code></li>
-                      <li>Tapez: <code className="bg-blue-100 px-1 rounded">node server.js</code></li>
-                      <li>Ou double-cliquez <code className="bg-blue-100 px-1 rounded">start-bridge.bat</code></li>
-                      <li>Revenez ici et cliquez <strong>Vérifier</strong></li>
+                  
+                  <div className="bg-white/70 rounded-lg p-3 space-y-2">
+                    <p className="font-semibold text-xs text-blue-800">Installation (une seule fois):</p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-xs text-blue-700 ml-1">
+                      <li>
+                        <a href="https://qz.io/download/" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-blue-900">
+                          Téléchargez QZ Tray
+                        </a> (gratuit)
+                      </li>
+                      <li>Installez l&apos;application sur votre PC (clic droit → Administrateur)</li>
+                      <li>Lancez QZ Tray depuis le <strong>menu Démarrer</strong></li>
+                      <li>Une icône apparaîtra dans la <strong>barre des tâches</strong></li>
+                      <li>Cliquez sur <strong>Vérifier</strong> ci-dessus</li>
                     </ol>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <a
+                      href="https://qz.io/download/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      <Zap className="h-4 w-4" />
+                      Télécharger QZ Tray
+                    </a>
+                  </div>
+                  
+                  <p className="text-xs text-blue-600 text-center">
+                    QZ Tray est déjà installé? Lancez-le depuis le menu Démarrer puis cliquez Vérifier
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+{/* Diagnostic and Help Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={runDiagnostic}
+                className="gap-1.5 text-xs"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Diagnostic
+              </Button>
+              <a
+                href="/QZ_TRAY_SETUP.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs border rounded-md hover:bg-accent"
+              >
+                Guide de config
+              </a>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setDebugLogs([])}
+                className="text-xs text-slate-500"
+              >
+                Effacer logs
+              </Button>
+            </div>
+
+                  {/* Debug Logs */}
+                  {debugLogs.length > 0 && (
+              <Card className="border-slate-300 bg-slate-100">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs text-slate-700">Logs de débogage (derniers 20)</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-2 px-3 pb-3">
+                  <div className="bg-slate-900 text-slate-100 p-2.5 rounded-md font-mono text-xs space-y-1 max-h-40 overflow-y-auto">
+                    {debugLogs.map((log, idx) => (
+                      <div key={idx} className={log.startsWith('❌') ? 'text-red-300' : log.includes('Connected') ? 'text-green-300' : 'text-slate-300'}>
+                        {log}
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -465,7 +719,7 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
                     </div>
                     <div>
                       <p className="font-medium text-sm">Mode Windows (impression via popup)</p>
-                      <p className="text-xs text-muted-foreground text-amber-600">⚠ Tiroir-caisse non supporté</p>
+                      <p className="text-xs text-muted-foreground text-amber-600">Tiroir-caisse non supporté</p>
                     </div>
                   </div>
                   <Button size="sm" onClick={handleSetWindowsMode} variant={printerMode === "windows" && isConnected ? "outline" : "default"}>
@@ -485,8 +739,8 @@ export function PrinterSettings({ onPrinterConnected }: PrinterSettingsProps) {
             <Card className="bg-amber-50 border-amber-200">
               <CardContent className="pt-3">
                 <p className="text-xs text-amber-700">
-                  Ce mode affiche une fenêtre popup à chaque vente pour sélectionner l'imprimante.
-                  Le <strong>tiroir-caisse ne s'ouvre pas</strong> automatiquement. Utilisez le mode <strong>Bridge</strong> pour un fonctionnement complet.
+                  Ce mode affiche une fenêtre popup à chaque vente pour sélectionner l&apos;imprimante.
+                  Le <strong>tiroir-caisse ne s&apos;ouvre pas</strong> automatiquement. Utilisez le mode <strong>QZ Tray</strong> pour un fonctionnement complet.
                 </p>
               </CardContent>
             </Card>

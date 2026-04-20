@@ -71,7 +71,7 @@ export function FeaturesSection() {
     <section id="features" className="bg-background py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-6">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-[#4A7C59]">
+          <p className="text-sm font-semibold uppercase tracking-widest text-primary">
             Fonctionnalites
           </p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground text-balance sm:text-4xl">
@@ -86,11 +86,11 @@ export function FeaturesSection() {
           {features.map((f, i) => (
             <div
               key={f.title}
-              className="group rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:border-[#4A7C59]/40 hover:shadow-lg hover:-translate-y-1 animate-fade-in-up"
+              className="group rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-1 animate-fade-in-up"
               style={{ animationDelay: `${i * 0.06}s` }}
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-[#4A7C59]/10 text-[#4A7C59] transition-all duration-300 group-hover:bg-[#4A7C59] group-hover:text-white group-hover:shadow-md group-hover:shadow-[#4A7C59]/20">
-                <f.icon className="h-5 w-5 transition-transform duration-300 group-hover:scale-110" />
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-background group-hover:shadow-md group-hover:shadow-primary/30">
+                <f.icon className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
               </div>
               <h3 className="text-base font-semibold text-foreground">{f.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.desc}</p>

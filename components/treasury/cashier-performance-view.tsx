@@ -1,37 +1,38 @@
 "use client"
 
 import { useMemo, useState } from 'react'
-import useSWR from 'swr'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Calendar } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Calendar, RefreshCw, Loader2 } from 'lucide-react'
+import { useCashierStats } from '@/hooks/use-tenant-data'
 
 export function CashierPerformanceView() {
   const [startDate, setStartDate] = useState(
     new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const { data: cashierStats } = useSWR(
-    `/api/treasury/cashier-stats?startDate=${startDate}&endDate=${endDate}`,
-    (url: string) => fetch(url).then(res => res.json())
-  )
-
-  const stats = useMemo(() => {
-    if (!cashierStats?.data) return []
-    return cashierStats.data
-  }, [cashierStats])
+  // Use the same Supabase browser client pattern as useTransactions
+  const { data: stats, error, isLoading, mutate } = useCashierStats(startDate, endDate)
 
   const totalCollected = useMemo(() => {
-    return stats.reduce((sum, s: any) => sum + (s.totalAmount || 0), 0)
+    return (stats || []).reduce((sum, s) => sum + (s.totalAmount || 0), 0)
   }, [stats])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await mutate()
+    setIsRefreshing(false)
+  }
 
   return (
     <div className="space-y-6">
       <Card className="p-4">
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-end">
           <div>
             <label className="text-sm text-gray-600">Date début</label>
             <Input
@@ -48,7 +49,23 @@ export function CashierPerformanceView() {
               onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
+          <Button
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoading}
+            className="gap-2 h-10"
+          >
+            {isRefreshing || isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            Actualiser
+          </Button>
         </div>
+        {error && (
+          <p className="text-sm text-red-600 mt-2">Erreur de chargement des données</p>
+        )}
       </Card>
 
       <Card className="p-6">
@@ -70,14 +87,21 @@ export function CashierPerformanceView() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {stats.length === 0 ? (
+              {isLoading && !stats ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    Chargement...
+                  </TableCell>
+                </TableRow>
+              ) : !stats || stats.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-gray-500 py-8">
                     Aucune donnée pour cette période
                   </TableCell>
                 </TableRow>
               ) : (
-                stats.map((stat: any) => (
+                stats.map((stat) => (
                   <TableRow key={stat.cashierId}>
                     <TableCell className="font-medium">{stat.cashierName}</TableCell>
                     <TableCell className="text-right">{stat.totalTransactions}</TableCell>

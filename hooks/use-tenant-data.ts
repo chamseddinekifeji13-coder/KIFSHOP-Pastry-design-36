@@ -2,11 +2,11 @@ import useSWR from "swr"
 import { useTenant } from "@/lib/tenant-context"
 import { fetchRawMaterials, fetchFinishedProducts, fetchCategories, fetchStockMovements, fetchPackaging, fetchConsumables, fetchStorageLocations } from "@/lib/stocks/actions"
 import { fetchProspects, fetchDueReminders } from "@/lib/prospects/actions"
-import { fetchTransactions } from "@/lib/treasury/actions"
+import { fetchTransactions, fetchRevenueReport, fetchCashierStats } from "@/lib/treasury/actions"
 import { fetchSuppliers, fetchPurchaseOrders, fetchSupplierPriceHistory, fetchPurchaseInvoices, fetchDeliveryNotes } from "@/lib/approvisionnement/actions"
 import { fetchRecipes, fetchProductionRuns } from "@/lib/production/actions"
 import { fetchInventorySessions } from "@/lib/inventory/actions"
-import { fetchOrders } from "@/lib/orders/actions"
+import { fetchOrders, fetchAllPaymentCollections } from "@/lib/orders/actions"
 import { fetchNotifications } from "@/lib/notifications/actions"
 import { getCriticalStock } from "@/lib/stocks/notifications"
 import { fetchProductionPlans } from "@/lib/planning/actions"
@@ -71,7 +71,44 @@ export function useStockMovements(limit = 50) {
 }
 
 export function useTransactions() {
-  return useTenantQuery("transactions", fetchTransactions)
+  // Rafraichit chaque 5 secondes pour maintenir la synchronisation en temps reel
+  // Combine avec revalidateOnFocus et revalidateOnReconnect du app-shell pour une synchronisation correcte
+  return useTenantQuery("transactions", fetchTransactions, { 
+    refreshInterval: 5000,          // 5s pour une synchronisation rapide
+    dedupingInterval: 500,          // Deduplique toutes les 500ms pour eviter les appels redondants
+  })
+}
+
+export function useRevenueReport(reportType: 'daily' | 'monthly' | 'annual' = 'daily') {
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const tenantId = currentTenant.id
+  const isFallback = tenantId === "__fallback__"
+
+  return useSWR(
+    !tenantLoading && !isFallback ? `revenue-report-${reportType}-${tenantId}` : null,
+    () => fetchRevenueReport(tenantId, reportType),
+    {
+      ...DEFAULT_SWR_CONFIG,
+      refreshInterval: 5000,
+      dedupingInterval: 500,
+    }
+  )
+}
+
+export function useCashierStats(startDate?: string, endDate?: string) {
+  const { currentTenant, isLoading: tenantLoading } = useTenant()
+  const tenantId = currentTenant.id
+  const isFallback = tenantId === "__fallback__"
+
+  return useSWR(
+    !tenantLoading && !isFallback ? `cashier-stats-${startDate}-${endDate}-${tenantId}` : null,
+    () => fetchCashierStats(tenantId, startDate, endDate),
+    {
+      ...DEFAULT_SWR_CONFIG,
+      refreshInterval: 5000,
+      dedupingInterval: 500,
+    }
+  )
 }
 
 export function useSuppliers() {
@@ -95,7 +132,14 @@ export function useInventorySessions() {
 }
 
 export function useOrders() {
-  return useTenantQuery("orders", fetchOrders)
+  return useTenantQuery("orders", fetchOrders, { refreshInterval: 10000 })  // Rafraichit toutes les 10s pour le dashboard
+}
+
+export function usePaymentCollections() {
+  return useTenantQuery("payment-collections", fetchAllPaymentCollections, { 
+    refreshInterval: 5000,  // Rafraichit toutes les 5s pour synchroniser avec les encaissements
+    dedupingInterval: 500,
+  })
 }
 
 export function useProspects() {

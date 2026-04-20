@@ -7,19 +7,12 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Loader2, ChefHat } from "lucide-react"
+import { Loader2, Mail, Lock, ArrowRight, AlertCircle, Eye, EyeOff } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -38,11 +31,9 @@ export default function LoginPage() {
 
       if (error) {
         if (error.message === "Email not confirmed") {
-          setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception (et les spams) pour le lien de confirmation.")
+          setError("Votre email n'est pas encore confirme. Verifiez votre boite de reception.")
         } else if (error.message === "Invalid login credentials") {
           setError("Email ou mot de passe incorrect.")
-        } else if (error.message.includes("unexpected")) {
-          setError("Erreur de connexion au serveur. Veuillez reessayer dans quelques instants.")
         } else {
           setError(error.message)
         }
@@ -51,41 +42,44 @@ export default function LoginPage() {
       }
 
       if (!data?.user) {
-        setError("Erreur inattendue : aucune donnee utilisateur recue.")
+        setError("Erreur inattendue.")
         setLoading(false)
         return
       }
 
-      // Redirect super admins to their dashboard
       const isSuperAdmin = data.user?.user_metadata?.is_super_admin === true
       router.push(isSuperAdmin ? "/super-admin" : "/dashboard")
       router.refresh()
-    } catch (err) {
-      setError("Impossible de contacter le serveur. Verifiez votre connexion internet et reessayez.")
+    } catch {
+      setError("Impossible de contacter le serveur.")
       setLoading(false)
     }
   }
 
   return (
-    <Card className="w-full max-w-sm border-0 shadow-none lg:border lg:shadow-sm">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4A7C59] text-white lg:hidden">
-          <ChefHat className="h-6 w-6" />
+    <div className="w-full">
+      {/* Header */}
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-foreground mb-2">Connexion</h2>
+        <p className="text-muted-foreground">
+          Entrez vos identifiants pour acceder a votre espace
+        </p>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-start gap-3 rounded-lg bg-destructive/10 border border-destructive/20 p-4 mb-6">
+          <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+          <p className="text-sm text-destructive">{error}</p>
         </div>
-        <CardTitle className="text-xl font-bold text-balance">KIFSHOP <span className="font-normal text-[#4A7C59]">Pastry</span></CardTitle>
-        <CardDescription>
-          Connectez-vous a votre espace de gestion
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleLogin}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+      )}
+
+      {/* Form */}
+      <form onSubmit={handleLogin} className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               id="email"
               type="email"
@@ -94,47 +88,95 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="email"
+              className="pl-12 h-14 text-base rounded-xl border-input bg-background"
             />
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Link
-                href="/auth/forgot-password"
-                className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-              >
-                Mot de passe oublie ?
-              </Link>
-            </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Mot de passe</Label>
+            <Link
+              href="/auth/forgot-password"
+              className="text-sm text-primary hover:underline"
+            >
+              Oublie ?
+            </Link>
+          </div>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Votre mot de passe"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
+              className="pl-12 pr-12 h-14 text-base rounded-xl border-input bg-background"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Se connecter
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            {"Pas encore de compte ? "}
-            <Link href="/auth/sign-up" className="text-primary underline-offset-4 hover:underline">
-              Creer un compte
-            </Link>
-          </p>
-          <Link
-            href="/"
-            className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
-          >
-            Retour a la page d{"'"}accueil
-          </Link>
-        </CardFooter>
+        </div>
+
+        <Button 
+          type="submit" 
+          className="w-full h-14 rounded-xl text-base font-semibold" 
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Connexion...
+            </>
+          ) : (
+            <>
+              Se connecter
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </>
+          )}
+        </Button>
       </form>
-    </Card>
+
+      {/* Recovery options */}
+      <div className="mt-8 space-y-3 border-t pt-6">
+        <p className="text-sm text-center text-muted-foreground">
+          Vous avez oublie votre code PIN ?
+        </p>
+        <Link href="/auth/forgot-pin" className="w-full">
+          <Button variant="outline" className="w-full h-12 rounded-xl">
+            Recuperer votre PIN
+          </Button>
+        </Link>
+      </div>
+
+      {/* Footer */}
+      <div className="mt-8 text-center">
+        <p className="text-muted-foreground">
+          Pas encore de compte ?{" "}
+          <Link 
+            href="/auth/sign-up" 
+            className="font-semibold text-primary hover:underline"
+          >
+            Creer un compte
+          </Link>
+        </p>
+      </div>
+      
+      <div className="mt-6 text-center">
+        <Link
+          href="/"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Retour a l{"'"}accueil
+        </Link>
+      </div>
+    </div>
   )
 }

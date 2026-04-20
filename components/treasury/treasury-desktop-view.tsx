@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Wallet, Plus, Loader2 } from "lucide-react"
+import { ArrowUpCircle, ArrowDownCircle, TrendingUp, Wallet, Plus, Loader2, Lock } from "lucide-react"
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,13 +15,15 @@ import { CashSessionManagement } from "./cash-session-management"
 import { QuickOrderCollection } from "./quick-order-collection"
 import { RevenueReportsView } from "./revenue-reports-view"
 import { CashierPerformanceView } from "./cashier-performance-view"
+import { DailyClosureDialog } from "./daily-closure-dialog"
 import { useI18n } from "@/lib/i18n/context"
 import { PinProtected } from "@/components/ui/pin-protected"
 
 export function TreasuryDesktopView() {
   const { t } = useI18n()
-  const { data: transactions, isLoading, mutate } = useTransactions()
+  const { data: transactions, isLoading, error, mutate } = useTransactions()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [closureOpen, setClosureOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("overview")
 
   const allTransactions = transactions || []
@@ -48,9 +51,20 @@ export function TreasuryDesktopView() {
           <h1 className="text-2xl font-bold tracking-tight">{t("treasury.title")}</h1>
           <p className="text-muted-foreground">{t("treasury.subtitle")}</p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />{t("treasury.new_transaction")}
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href="/tresorerie/courier-collections">
+              Encaissements livreurs
+            </Link>
+          </Button>
+          <Button variant="outline" onClick={() => setClosureOpen(true)} className="gap-2">
+            <Lock className="h-4 w-4" />
+            Clôture Journée
+          </Button>
+          <Button onClick={() => setDrawerOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />{t("treasury.new_transaction")}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -271,6 +285,7 @@ export function TreasuryDesktopView() {
       </Tabs>
 
       <NewTransactionDrawer open={drawerOpen} onOpenChange={setDrawerOpen} onSuccess={() => mutate()} />
+      <DailyClosureDialog open={closureOpen} onOpenChange={setClosureOpen} onSuccess={() => mutate()} />
     </div>
   )
 }

@@ -441,16 +441,15 @@ export function AdminArticlesList() {
               <div className="text-muted-foreground">{"→"}</div>
               <div className="flex-1">
                 <Label className="text-xs text-muted-foreground">Nouvelle unite</Label>
-                <Select value={newUnit} onValueChange={setNewUnit}>
-                  <SelectTrigger className="mt-1 h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AVAILABLE_UNITS.map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={newUnit}
+                  onChange={(e) => setNewUnit(e.target.value)}
+                >
+                  {AVAILABLE_UNITS.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
@@ -479,7 +478,7 @@ export function AdminArticlesList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer cet article ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Vous allez supprimer {"\""}{deletingArticle?.name}{"\""} ({TYPE_LABELS[deletingArticle?.type || ""]})
+              Vous allez supprimer {"\""}{deletingArticle?.name}{"\""} ({deletingArticle?.type ? TYPE_LABELS[deletingArticle.type] : "Article"})
               de la patisserie {"\""}{deletingArticle?.tenant_name}{"\""}.
               Cette action supprimera aussi tous les mouvements de stock et les liens de recettes associes.
               Cette action est irreversible.
