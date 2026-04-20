@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
@@ -153,25 +152,29 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="type" className="text-xs text-muted-foreground">Type</Label>
-                <Select value={type} onValueChange={setType}>
-                  <SelectTrigger id="type"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PACKAGING_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  id="type"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                >
+                  {PACKAGING_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="unit" className="text-xs text-muted-foreground">Unité</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger id="unit"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  id="unit"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                >
+                  {UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -191,21 +194,19 @@ export function NewPackagingDrawer({ open, onOpenChange, onSuccess }: NewPackagi
                 <MapPin className="h-3 w-3" aria-hidden="true" /> 
                 Dépôt / Emplacement *
               </Label>
-              <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                <SelectTrigger 
-                  id="location"
-                  className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}
-                >
-                  <SelectValue placeholder="Choisir un dépôt (obligatoire)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeLocations.map((loc) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                id="location"
+                className={`h-9 w-full rounded-md border bg-background px-3 text-sm ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : "border-input"}`}
+                value={storageLocationId}
+                onChange={(e) => setStorageLocationId(e.target.value)}
+              >
+                <option value="">Choisir un dépôt (obligatoire)</option>
+                {activeLocations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

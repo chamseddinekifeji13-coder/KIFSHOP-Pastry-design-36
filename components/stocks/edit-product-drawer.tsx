@@ -8,9 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -254,16 +251,16 @@ export function EditProductDrawer({ product, open, onOpenChange, onSave }: EditP
 
             <div className="space-y-2">
               <Label htmlFor="edit-unit" className="text-xs font-medium">Unité *</Label>
-              <Select value={unit} onValueChange={setUnit}>
-                <SelectTrigger id="edit-unit" className="bg-muted/50 border-0">
-                  <SelectValue placeholder="Choisir" />
-                </SelectTrigger>
-                <SelectContent>
-                  {UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>{u}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                id="edit-unit"
+                className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+              >
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">

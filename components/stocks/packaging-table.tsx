@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Packaging } from "@/lib/stocks/actions"
 import { updatePackaging } from "@/lib/stocks/actions"
 import { toast } from "sonner"
@@ -203,16 +202,18 @@ export function PackagingTable({ items, onItemClick }: PackagingTableProps) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-unit">Unité</Label>
-            <Select value={editUnit} onValueChange={setEditUnit}>
-              <SelectTrigger id="edit-unit"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pcs">pcs</SelectItem>
-                <SelectItem value="unité">unité</SelectItem>
-                <SelectItem value="kg">kg</SelectItem>
-                <SelectItem value="rouleau">rouleau</SelectItem>
-                <SelectItem value="mètre">mètre</SelectItem>
-              </SelectContent>
-            </Select>
+            <select
+              id="edit-unit"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={editUnit}
+              onChange={(e) => setEditUnit(e.target.value)}
+            >
+              <option value="pcs">pcs</option>
+              <option value="unité">unité</option>
+              <option value="kg">kg</option>
+              <option value="rouleau">rouleau</option>
+              <option value="mètre">mètre</option>
+            </select>
           </div>
         </div>
         <DialogFooter>

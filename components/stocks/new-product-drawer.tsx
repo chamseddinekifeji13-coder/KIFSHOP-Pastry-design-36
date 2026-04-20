@@ -9,9 +9,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
 import { useTenant } from "@/lib/tenant-context"
 import { useRawMaterials, useCategories, usePackaging } from "@/hooks/use-tenant-data"
 import { addFinishedProduct, addRecipe, setProductPackaging } from "@/lib/stocks/actions"
@@ -366,20 +363,34 @@ export function NewProductDrawer({ open, onOpenChange, onSuccess }: NewProductDr
                     </div>
                   ) : (
                     <div className="flex gap-1.5">
-                      <Select value={category} onValueChange={setCategory}>
-                        <SelectTrigger id="category" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                        <SelectContent>{allCategories.map((c: string) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>
-                      </Select>
+                      <select
+                        id="category"
+                        className="h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 text-sm"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                      >
+                        <option value="">Choisir</option>
+                        {allCategories.map((c: string) => (<option key={c} value={c}>{c}</option>))}
+                      </select>
                       <Button size="icon" variant="outline" onClick={() => setShowNewCategory(true)} className="shrink-0 rounded-lg" aria-label="Ajouter une catégorie"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
                     </div>
                   )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="unit" className="text-xs font-medium">Unité *</Label>
-                  <Select value={unit} onValueChange={(v: string) => { setUnit(v); if (!yieldUnit) setYieldUnit(v) }}>
-                    <SelectTrigger id="unit" className="bg-muted/50 border-0"><SelectValue placeholder="Choisir" /></SelectTrigger>
-                    <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
-                  </Select>
+                  <select
+                    id="unit"
+                    className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                    value={unit}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setUnit(v)
+                      if (!yieldUnit) setYieldUnit(v)
+                    }}
+                  >
+                    <option value="">Choisir</option>
+                    {units.map((u) => (<option key={u} value={u}>{u}</option>))}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -502,20 +513,30 @@ export function NewProductDrawer({ open, onOpenChange, onSuccess }: NewProductDr
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="yield-unit" className="text-xs font-medium">Unité de rendement</Label>
-                    <Select value={yieldUnit} onValueChange={setYieldUnit}>
-                      <SelectTrigger id="yield-unit" className="bg-muted/50 border-0"><SelectValue placeholder={unit || "Choisir"} /></SelectTrigger>
-                      <SelectContent>{units.map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent>
-                    </Select>
+                    <select
+                      id="yield-unit"
+                      className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                      value={yieldUnit}
+                      onChange={(e) => setYieldUnit(e.target.value)}
+                    >
+                      <option value="">{unit || "Choisir"}</option>
+                      {units.map((u) => (<option key={u} value={u}>{u}</option>))}
+                    </select>
                     <p className="text-[10px] text-muted-foreground">Par défaut : unité du produit</p>
                   </div>
                 </div>
                 <div className="border-t pt-4 space-y-2">
                   <Label htmlFor="material" className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un ingrédient</Label>
                   <div className="flex gap-2">
-                    <Select value={selectedMaterial} onValueChange={setSelectedMaterial}>
-                      <SelectTrigger id="material" className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Matière première" /></SelectTrigger>
-                      <SelectContent>{availableMaterials.map((m: RawMaterial) => (<SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>))}</SelectContent>
-                    </Select>
+                    <select
+                      id="material"
+                      className="h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 text-sm"
+                      value={selectedMaterial}
+                      onChange={(e) => setSelectedMaterial(e.target.value)}
+                    >
+                      <option value="">Matière première</option>
+                      {availableMaterials.map((m: RawMaterial) => (<option key={m.id} value={m.id}>{m.name} ({m.unit})</option>))}
+                    </select>
                     <Input type="number" step="0.01" placeholder="Qte" value={ingredientQty} onChange={(e) => setIngredientQty(e.target.value)}
                       className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                     <Button size="icon" variant="outline" onClick={addIngredient} className="shrink-0 rounded-lg" aria-label="Ajouter un ingrédient"><Plus className="h-4 w-4" aria-hidden="true" /></Button>
@@ -562,16 +583,18 @@ export function NewProductDrawer({ open, onOpenChange, onSuccess }: NewProductDr
               <div className="space-y-2">
                 <Label className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">Ajouter un emballage</Label>
                 <div className="flex gap-2">
-                  <Select value={selectedPackaging} onValueChange={setSelectedPackaging}>
-                    <SelectTrigger className="flex-1 bg-muted/50 border-0"><SelectValue placeholder="Choisir un emballage" /></SelectTrigger>
-                    <SelectContent>
-                      {availablePackaging.map((p: any) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.price.toLocaleString("fr-TN")} TND/{p.unit})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <select
+                    className="h-9 flex-1 rounded-md border border-input bg-muted/50 px-3 text-sm"
+                    value={selectedPackaging}
+                    onChange={(e) => setSelectedPackaging(e.target.value)}
+                  >
+                    <option value="">Choisir un emballage</option>
+                    {availablePackaging.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.price.toLocaleString("fr-TN")} TND/{p.unit})
+                      </option>
+                    ))}
+                  </select>
                   <Input type="number" min="1" step="1" placeholder="Qte" value={packagingQty} onChange={(e) => setPackagingQty(e.target.value)}
                     className="w-20 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary/30" />
                   <Button size="icon" variant="outline" onClick={addPackagingLine} className="shrink-0 rounded-lg" title="Ajouter cet emballage" aria-label="Ajouter cet emballage"><Plus className="h-4 w-4" /></Button>

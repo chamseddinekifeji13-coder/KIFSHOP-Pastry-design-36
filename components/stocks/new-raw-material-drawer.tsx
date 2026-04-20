@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
 import { createRawMaterial } from "@/lib/stocks/actions"
@@ -161,14 +160,16 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="unit" className="text-xs text-muted-foreground">Unité *</Label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger id="unit" className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  id="unit"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={unit}
+                  onChange={(e) => setUnit(e.target.value)}
+                >
+                  {UNITS.map((u) => (
+                    <option key={u.value} value={u.value}>{u.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="supplier" className="text-xs text-muted-foreground">Fournisseur</Label>
@@ -181,16 +182,17 @@ export function NewRawMaterialDrawer({ open, onOpenChange, onSuccess }: NewRawMa
                 <Label htmlFor="location" className="text-xs text-muted-foreground flex items-center gap-1">
                   <MapPin className="h-3 w-3" aria-hidden="true" /> Emplacement *
                 </Label>
-                <Select value={storageLocationId} onValueChange={setStorageLocationId}>
-                  <SelectTrigger id="location" className={`w-full ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : ""}`}>
-                    <SelectValue placeholder="Choisir un dépôt (obligatoire)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {activeLocations.map((loc) => (
-                      <SelectItem key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  id="location"
+                  className={`h-9 w-full rounded-md border bg-background px-3 text-sm ${!storageLocationId || storageLocationId === "none" ? "border-destructive/50" : "border-input"}`}
+                  value={storageLocationId}
+                  onChange={(e) => setStorageLocationId(e.target.value)}
+                >
+                  <option value="">Choisir un dépôt (obligatoire)</option>
+                  {activeLocations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

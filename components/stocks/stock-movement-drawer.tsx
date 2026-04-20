@@ -6,13 +6,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { useTenant } from "@/lib/tenant-context"
@@ -338,12 +331,14 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   const renderReasonSelect = (options: string[]) => (
     <div className="space-y-2">
       <Label className="text-xs font-medium">Motif</Label>
-      <Select value={reason} onValueChange={setReason}>
-        <SelectTrigger className="bg-muted/50 border-0"><SelectValue placeholder="Selectionner un motif" /></SelectTrigger>
-        <SelectContent>
-          {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      <select
+        className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      >
+        <option value="">Selectionner un motif</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
     </div>
   )
 
@@ -353,20 +348,18 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     return (
       <div className="space-y-2">
         <Label className="text-xs font-medium">{label}</Label>
-        <Select value={value} onValueChange={onChange}>
-          <SelectTrigger className="bg-muted/50 border-0 w-full min-w-0">
-            <span className="truncate block text-left">
-              {value ? (filtered.find((l) => l.id === value)?.name || "Choisir un emplacement") : "Choisir un emplacement"}
-            </span>
-          </SelectTrigger>
-          <SelectContent>
-            {filtered.map((loc) => (
-              <SelectItem key={loc.id} value={loc.id}>
-                <span className="truncate">{loc.name}{loc.designation ? ` - ${loc.designation}` : ""}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <select
+          className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">Choisir un emplacement</option>
+          {filtered.map((loc) => (
+            <option key={loc.id} value={loc.id}>
+              {loc.name}{loc.designation ? ` - ${loc.designation}` : ""}
+            </option>
+          ))}
+        </select>
       </div>
     )
   }
@@ -500,37 +493,33 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
                   </div>
                   <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
                     <div className="min-w-0">
-                      <Select value={fromLocationId} onValueChange={setFromLocationId}>
-                        <SelectTrigger className="bg-muted/50 border-0 w-full min-w-0">
-                          <span className="truncate block text-left">
-                            {fromLocationId ? (activeLocations.find((l) => l.id === fromLocationId)?.name || "Source") : "Source"}
-                          </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {activeLocations.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              <span className="truncate">{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <select
+                        className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                        value={fromLocationId}
+                        onChange={(e) => setFromLocationId(e.target.value)}
+                      >
+                        <option value="">Source</option>
+                        {activeLocations.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <ArrowLeftRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <Select value={toLocationId} onValueChange={setToLocationId}>
-                        <SelectTrigger className="bg-muted/50 border-0 w-full min-w-0">
-                          <span className="truncate block text-left">
-                            {toLocationId ? (activeLocations.filter((l) => l.id !== fromLocationId).find((l) => l.id === toLocationId)?.name || "Destination") : "Destination"}
-                          </span>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              <span className="truncate">{loc.name}{loc.designation ? ` (${loc.designation})` : ""}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <select
+                        className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
+                        value={toLocationId}
+                        onChange={(e) => setToLocationId(e.target.value)}
+                      >
+                        <option value="">Destination</option>
+                        {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
