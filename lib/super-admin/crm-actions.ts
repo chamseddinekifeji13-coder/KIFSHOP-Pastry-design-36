@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import {
   CrmInteraction,
@@ -26,7 +26,8 @@ async function requireSuperAdmin() {
     redirect("/dashboard")
   }
 
-  return { supabase, user }
+  const adminClient = createAdminClient()
+  return { supabase: adminClient, user }
 }
 
 // =====================================================
@@ -140,7 +141,7 @@ export async function fetchReminders(options?: {
     .from("crm_reminders")
     .select(`
       *,
-      prospects:prospect_id (business_name)
+      platform_prospects:prospect_id (business_name)
     `)
     .order("reminder_date", { ascending: true })
   
@@ -183,7 +184,7 @@ export async function fetchReminders(options?: {
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    prospectName: row.prospects?.business_name
+    prospectName: row.platform_prospects?.business_name
   }))
 }
 
@@ -275,7 +276,7 @@ export async function fetchQuotes(prospectId?: string): Promise<CrmQuote[]> {
     .from("crm_quotes")
     .select(`
       *,
-      prospects:prospect_id (business_name),
+      platform_prospects:prospect_id (business_name),
       crm_quote_items (*)
     `)
     .order("created_at", { ascending: false })
@@ -317,7 +318,7 @@ export async function fetchQuotes(prospectId?: string): Promise<CrmQuote[]> {
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    prospectName: row.prospects?.business_name,
+    prospectName: row.platform_prospects?.business_name,
     items: (row.crm_quote_items || []).map((item: any) => ({
       id: item.id,
       quoteId: item.quote_id,
@@ -555,9 +556,9 @@ export async function fetchCrmStats(): Promise<CrmStats> {
     { data: prospects },
     { data: quotes }
   ] = await Promise.all([
-    supabase.from("prospects").select("*", { count: "exact", head: true }),
-    supabase.from("prospects").select("*", { count: "exact", head: true }).not("status", "in", "(converti,perdu)"),
-    supabase.from("prospects").select("*", { count: "exact", head: true }).eq("status", "converti").gte("updated_at", startOfMonth),
+    supabase.from("platform_prospects").select("*", { count: "exact", head: true }),
+    supabase.from("platform_prospects").select("*", { count: "exact", head: true }).not("status", "in", "(converti,perdu)"),
+    supabase.from("platform_prospects").select("*", { count: "exact", head: true }).eq("status", "converti").gte("updated_at", startOfMonth),
     supabase.from("crm_reminders").select("*", { count: "exact", head: true }).eq("status", "pending").gte("reminder_date", now.toISOString()),
     supabase.from("crm_reminders").select("*", { count: "exact", head: true }).eq("status", "pending").lt("reminder_date", now.toISOString()),
     supabase.from("crm_quotes").select("*", { count: "exact", head: true }),
@@ -565,7 +566,7 @@ export async function fetchCrmStats(): Promise<CrmStats> {
     supabase.from("crm_quotes").select("*", { count: "exact", head: true }).eq("status", "accepted"),
     supabase.from("crm_interactions").select("id").gte("created_at", startOfWeek),
     supabase.from("crm_activity_log").select("*").order("created_at", { ascending: false }).limit(10),
-    supabase.from("prospects").select("status, source, expected_value, created_at"),
+    supabase.from("platform_prospects").select("status, source, created_at"),
     supabase.from("crm_quotes").select("total, status, created_at")
   ])
   

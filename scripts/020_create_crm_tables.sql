@@ -6,7 +6,7 @@
 -- =====================================================
 CREATE TABLE IF NOT EXISTS crm_interactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  prospect_id UUID NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
+  prospect_id UUID NOT NULL REFERENCES platform_prospects(id) ON DELETE CASCADE,
   type TEXT NOT NULL CHECK (type IN ('call', 'email', 'meeting', 'demo', 'whatsapp', 'note', 'other')),
   direction TEXT CHECK (direction IN ('inbound', 'outbound')),
   subject TEXT,
@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_crm_interactions_created_at ON crm_interactions(c
 -- =====================================================
 CREATE TABLE IF NOT EXISTS crm_reminders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  prospect_id UUID NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
+  prospect_id UUID NOT NULL REFERENCES platform_prospects(id) ON DELETE CASCADE,
   interaction_id UUID REFERENCES crm_interactions(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   description TEXT,
@@ -58,7 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_crm_reminders_assigned ON crm_reminders(assigned_
 CREATE TABLE IF NOT EXISTS crm_quotes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quote_number TEXT NOT NULL UNIQUE,
-  prospect_id UUID NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
+  prospect_id UUID NOT NULL REFERENCES platform_prospects(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'sent', 'viewed', 'accepted', 'rejected', 'expired', 'negotiating')),
@@ -139,7 +139,7 @@ ON CONFLICT DO NOTHING;
 -- =====================================================
 CREATE TABLE IF NOT EXISTS crm_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  prospect_id UUID NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
+  prospect_id UUID NOT NULL REFERENCES platform_prospects(id) ON DELETE CASCADE,
   quote_id UUID REFERENCES crm_quotes(id) ON DELETE SET NULL,
   name TEXT NOT NULL,
   file_url TEXT NOT NULL,
@@ -176,7 +176,7 @@ ADD COLUMN IF NOT EXISTS assigned_to UUID REFERENCES auth.users(id);
 -- =====================================================
 CREATE TABLE IF NOT EXISTS crm_activity_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  prospect_id UUID NOT NULL REFERENCES prospects(id) ON DELETE CASCADE,
+  prospect_id UUID NOT NULL REFERENCES platform_prospects(id) ON DELETE CASCADE,
   activity_type TEXT NOT NULL,
   description TEXT NOT NULL,
   metadata JSONB,
