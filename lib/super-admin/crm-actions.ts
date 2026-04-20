@@ -589,18 +589,27 @@ export async function fetchCrmStats(): Promise<CrmStats> {
   const avgDealSize = acceptedQuotes && acceptedQuotes > 0
     ? totalRevenue / acceptedQuotes
     : 0
+
+  const getExpectedValue = (row: { expected_value?: string | number | null }) => {
+    const raw = row.expected_value
+    if (typeof raw === "number") return raw
+    if (typeof raw === "string") return parseFloat(raw) || 0
+    return 0
+  }
   
   // Pipeline value (expected value of active prospects)
   const pipelineValue = (prospects || [])
     .filter(p => !["converti", "perdu"].includes(p.status))
-    .reduce((sum, p) => sum + (parseFloat(p.expected_value) || 0), 0)
+    .reduce((sum, p) => sum + getExpectedValue(p as { expected_value?: string | number | null }), 0)
   
   // Prospects by stage
   const stages = ["nouveau", "contacte", "interesse", "demo_planifiee", "negociation", "converti", "perdu"]
   const prospectsByStage = stages.map(stage => ({
     stage,
     count: (prospects || []).filter(p => p.status === stage).length,
-    value: (prospects || []).filter(p => p.status === stage).reduce((sum, p) => sum + (parseFloat(p.expected_value) || 0), 0)
+    value: (prospects || [])
+      .filter(p => p.status === stage)
+      .reduce((sum, p) => sum + getExpectedValue(p as { expected_value?: string | number | null }), 0)
   }))
   
   // Top sources
