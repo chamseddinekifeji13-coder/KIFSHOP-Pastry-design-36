@@ -6,7 +6,9 @@ ALTER TABLE public.prospects
   ADD COLUMN IF NOT EXISTS event_date timestamptz,
   ADD COLUMN IF NOT EXISTS quote_status text DEFAULT 'non_demande',
   ADD COLUMN IF NOT EXISTS quote_amount numeric(12,3),
-  ADD COLUMN IF NOT EXISTS quote_notes text;
+  ADD COLUMN IF NOT EXISTS quote_notes text,
+  ADD COLUMN IF NOT EXISTS quote_budget numeric(12,3),
+  ADD COLUMN IF NOT EXISTS quote_items jsonb DEFAULT '[]'::jsonb;
 
 DO $$
 BEGIN

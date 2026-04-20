@@ -39,6 +39,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   const [eventType, setEventType] = useState<EventType | "none">("none")
   const [eventDate, setEventDate] = useState("")
   const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("non_demande")
+  const [quoteBudget, setQuoteBudget] = useState("")
   const [quoteAmount, setQuoteAmount] = useState("")
   const [quoteNotes, setQuoteNotes] = useState("")
 
@@ -50,7 +51,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
   function resetForm() {
     setName(""); setPhone(""); setSource("instagram"); setMessage("")
     setNotes(""); setReminderDate(""); setRawText(""); setExtracted([])
-    setEventType("none"); setEventDate(""); setQuoteStatus("non_demande"); setQuoteAmount(""); setQuoteNotes("")
+    setEventType("none"); setEventDate(""); setQuoteStatus("non_demande"); setQuoteBudget(""); setQuoteAmount(""); setQuoteNotes("")
   }
 
   async function handleManualSubmit() {
@@ -65,6 +66,7 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
       eventType: eventType === "none" ? undefined : eventType,
       eventDate: eventDate || undefined,
       quoteStatus: quoteStatus || undefined,
+      quoteBudget: quoteBudget ? parseFloat(quoteBudget) : undefined,
       quoteAmount: quoteAmount ? parseFloat(quoteAmount) : undefined,
       quoteNotes: quoteNotes.trim() || undefined,
       reminderAt: reminderDate ? new Date(reminderDate).toISOString() : undefined,
@@ -202,9 +204,16 @@ export function NewProspectDrawer({ open, onOpenChange, onSuccess }: NewProspect
                       </Select>
                     </div>
                     <div className="space-y-2">
+                      <Label className="text-xs">Budget client (TND)</Label>
+                      <Input type="number" min="0" step="0.001" value={quoteBudget} onChange={(e) => setQuoteBudget(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
                       <Label className="text-xs">Montant devis (TND)</Label>
                       <Input type="number" min="0" step="0.001" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} />
                     </div>
+                    <div />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Notes devis</Label>

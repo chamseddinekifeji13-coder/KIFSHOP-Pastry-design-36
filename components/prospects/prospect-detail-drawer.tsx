@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Loader2, Trash2, Phone, MessageCircle, Instagram, Globe, Users, Bell, BellOff, ShoppingCart, ArrowRight, Calendar, StickyNote, CheckCircle2, XCircle, Clock } from "lucide-react"
+import { Loader2, Trash2, Phone, MessageCircle, Instagram, Globe, Users, Bell, BellOff, ShoppingCart, ArrowRight, Calendar, StickyNote, CheckCircle2, XCircle, Clock, Plus, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -43,6 +43,23 @@ const statusSteps: { key: Prospect["status"]; label: string; color: string }[] =
   { key: "converti", label: "Converti", color: "bg-green-500" },
 ]
 
+type QuoteItem = Prospect["quoteItems"][number]
+type QuoteCategory = QuoteItem["category"]
+type QuoteUnit = QuoteItem["unit"]
+
+const categoryLabels: Record<QuoteCategory, string> = {
+  pf: "Produit fini",
+  boisson: "Boisson",
+  autre: "Autre",
+}
+
+const unitLabels: Record<QuoteUnit, string> = {
+  pieces: "Pieces",
+  kg: "Kg",
+  litres: "Litres",
+  bouteilles: "Bouteilles",
+}
+
 interface Props {
   prospect: Prospect
   open: boolean
@@ -58,8 +75,10 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
   const [eventType, setEventType] = useState<"none" | "fete" | "mariage">(prospect.eventType || "none")
   const [eventDate, setEventDate] = useState(prospect.eventDate ? prospect.eventDate.split("T")[0] : "")
   const [quoteStatus, setQuoteStatus] = useState<Prospect["quoteStatus"]>(prospect.quoteStatus || "non_demande")
+  const [quoteBudget, setQuoteBudget] = useState(prospect.quoteBudget ? String(prospect.quoteBudget) : "")
   const [quoteAmount, setQuoteAmount] = useState(prospect.quoteAmount ? String(prospect.quoteAmount) : "")
   const [quoteNotes, setQuoteNotes] = useState(prospect.quoteNotes || "")
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>(prospect.quoteItems || [])
   const [saving, setSaving] = useState(false)
   const [showDeleteAlert, setShowDeleteAlert] = useState(false)
   const SourceIcon = sourceIcons[prospect.source] || Users
@@ -73,9 +92,47 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
     setEventType(prospect.eventType || "none")
     setEventDate(prospect.eventDate ? prospect.eventDate.split("T")[0] : "")
     setQuoteStatus(prospect.quoteStatus || "non_demande")
+    setQuoteBudget(prospect.quoteBudget ? String(prospect.quoteBudget) : "")
     setQuoteAmount(prospect.quoteAmount ? String(prospect.quoteAmount) : "")
     setQuoteNotes(prospect.quoteNotes || "")
+    setQuoteItems(prospect.quoteItems || [])
   }, [prospect])
+
+  useEffect(() => {
+    const computed = quoteItems.reduce((sum, item) => sum + (item.lineTotal || 0), 0)
+    setQuoteAmount(computed > 0 ? computed.toFixed(3) : "")
+  }, [quoteItems])
+
+  const addQuoteItem = () => {
+    setQuoteItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        category: "pf",
+        label: "",
+        unit: "pieces",
+        quantity: 1,
+        unitPrice: 0,
+        lineTotal: 0,
+      },
+    ])
+  }
+
+  const removeQuoteItem = (id: string) => {
+    setQuoteItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const updateQuoteItem = (id: string, patch: Partial<QuoteItem>) => {
+    setQuoteItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+        const next = { ...item, ...patch }
+        const qty = Number(next.quantity) || 0
+        const unitPrice = Number(next.unitPrice) || 0
+        return { ...next, lineTotal: qty * unitPrice }
+      }),
+    )
+  }
 
   async function handleStatusChange(status: Prospect["status"]) {
     setSaving(true)
@@ -99,8 +156,10 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
       eventType: eventType === "none" ? null : eventType,
       eventDate: eventDate || null,
       quoteStatus,
+      quoteBudget: quoteBudget ? parseFloat(quoteBudget) : null,
       quoteAmount: quoteAmount ? parseFloat(quoteAmount) : null,
       quoteNotes: quoteNotes.trim() || null,
+      quoteItems,
     })
     setSaving(false)
     if (ok) { toast.success("Devis et suivi enregistres"); onUpdate() }
@@ -259,9 +318,102 @@ export function ProspectDetailDrawer({ prospect, open, onOpenChange, onUpdate, o
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-[11px]">Montant devis (TND)</Label>
-                    <Input type="number" min="0" step="0.001" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} />
+                    <Label className="text-[11px]">Budget client (TND)</Label>
+                    <Input type="number" min="0" step="0.001" value={quoteBudget} onChange={(e) => setQuoteBudget(e.target.value)} />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Montant devis (TND)</Label>
+                    <Input type="number" min="0" step="0.001" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} readOnly />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px]">Composition du devis</Label>
+                    <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={addQuoteItem}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      Ajouter article
+                    </Button>
+                  </div>
+                  {quoteItems.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Ajoutez les PF/boissons pour calculer le devis automatiquement.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {quoteItems.map((item) => (
+                        <div key={item.id} className="rounded-lg border p-2 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <Select value={item.category} onValueChange={(v) => updateQuoteItem(item.id, { category: v as QuoteCategory })}>
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pf">{categoryLabels.pf}</SelectItem>
+                                <SelectItem value="boisson">{categoryLabels.boisson}</SelectItem>
+                                <SelectItem value="autre">{categoryLabels.autre}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              className="h-8"
+                              placeholder="Article (ex: Entremet framboise)"
+                              value={item.label}
+                              onChange={(e) => updateQuoteItem(item.id, { label: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <Select value={item.unit} onValueChange={(v) => updateQuoteItem(item.id, { unit: v as QuoteUnit })}>
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pieces">{unitLabels.pieces}</SelectItem>
+                                <SelectItem value="kg">{unitLabels.kg}</SelectItem>
+                                <SelectItem value="litres">{unitLabels.litres}</SelectItem>
+                                <SelectItem value="bouteilles">{unitLabels.bouteilles}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              className="h-8"
+                              type="number"
+                              min="0"
+                              step="0.001"
+                              value={item.quantity}
+                              onChange={(e) => updateQuoteItem(item.id, { quantity: parseFloat(e.target.value || "0") })}
+                            />
+                            <Input
+                              className="h-8"
+                              type="number"
+                              min="0"
+                              step="0.001"
+                              value={item.unitPrice}
+                              onChange={(e) => updateQuoteItem(item.id, { unitPrice: parseFloat(e.target.value || "0") })}
+                            />
+                            <div className="h-8 rounded-md border bg-muted/40 px-2 flex items-center justify-between text-xs">
+                              <span>{item.lineTotal.toFixed(3)} TND</span>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-red-500"
+                                onClick={() => removeQuoteItem(item.id)}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="rounded-md bg-muted/40 p-2 text-xs flex items-center justify-between">
+                    <span>Total calcule</span>
+                    <strong>{(quoteItems.reduce((sum, item) => sum + (item.lineTotal || 0), 0)).toFixed(3)} TND</strong>
+                  </div>
+                  {quoteBudget && (
+                    <div className={`rounded-md p-2 text-xs ${parseFloat(quoteAmount || "0") > parseFloat(quoteBudget) ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>
+                      {parseFloat(quoteAmount || "0") > parseFloat(quoteBudget)
+                        ? `Depassement budget: ${(parseFloat(quoteAmount || "0") - parseFloat(quoteBudget)).toFixed(3)} TND`
+                        : `Reste budget: ${(parseFloat(quoteBudget) - parseFloat(quoteAmount || "0")).toFixed(3)} TND`}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[11px]">Notes devis</Label>

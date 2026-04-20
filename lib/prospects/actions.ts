@@ -16,6 +16,16 @@ export interface Prospect {
   quoteStatus: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
   quoteAmount: number | null
   quoteNotes: string | null
+  quoteBudget: number | null
+  quoteItems: Array<{
+    id: string
+    category: "pf" | "boisson" | "autre"
+    label: string
+    unit: "pieces" | "kg" | "litres" | "bouteilles"
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
   reminderAt: string | null
   reminderDismissed: boolean
   convertedOrderId: string | null
@@ -38,6 +48,8 @@ function mapRow(r: any): Prospect {
     quoteStatus: r.quote_status || "non_demande",
     quoteAmount: r.quote_amount,
     quoteNotes: r.quote_notes,
+    quoteBudget: r.quote_budget,
+    quoteItems: Array.isArray(r.quote_items) ? r.quote_items : [],
     reminderAt: r.reminder_at,
     reminderDismissed: r.reminder_dismissed,
     convertedOrderId: r.converted_order_id,
@@ -84,6 +96,16 @@ export async function createProspect(tenantId: string, data: {
   quoteStatus?: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
   quoteAmount?: number
   quoteNotes?: string
+  quoteBudget?: number
+  quoteItems?: Array<{
+    id: string
+    category: "pf" | "boisson" | "autre"
+    label: string
+    unit: "pieces" | "kg" | "litres" | "bouteilles"
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
   reminderAt?: string
 }): Promise<Prospect | null> {
   const supabase = createClient()
@@ -99,6 +121,8 @@ export async function createProspect(tenantId: string, data: {
     quote_status: data.quoteStatus || "non_demande",
     quote_amount: data.quoteAmount ?? null,
     quote_notes: data.quoteNotes || null,
+    quote_budget: data.quoteBudget ?? null,
+    quote_items: data.quoteItems ?? [],
     reminder_at: data.reminderAt || null,
   }).select().single()
   if (error || !row) { console.error("Error creating prospect:", error?.message); return null }
@@ -145,6 +169,16 @@ export async function updateProspectCommercialDetails(id: string, data: {
   quoteStatus?: "non_demande" | "a_preparer" | "envoye" | "accepte" | "refuse"
   quoteAmount?: number | null
   quoteNotes?: string | null
+  quoteBudget?: number | null
+  quoteItems?: Array<{
+    id: string
+    category: "pf" | "boisson" | "autre"
+    label: string
+    unit: "pieces" | "kg" | "litres" | "bouteilles"
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }> | null
 }): Promise<boolean> {
   const supabase = createClient()
   const updates: Record<string, unknown> = {
@@ -155,6 +189,8 @@ export async function updateProspectCommercialDetails(id: string, data: {
   if (data.quoteStatus !== undefined) updates.quote_status = data.quoteStatus
   if (data.quoteAmount !== undefined) updates.quote_amount = data.quoteAmount
   if (data.quoteNotes !== undefined) updates.quote_notes = data.quoteNotes
+  if (data.quoteBudget !== undefined) updates.quote_budget = data.quoteBudget
+  if (data.quoteItems !== undefined) updates.quote_items = data.quoteItems ?? []
 
   const { error } = await supabase.from("prospects").update(updates).eq("id", id)
   if (error) { console.error("Error updating prospect commercial details:", error.message); return false }
