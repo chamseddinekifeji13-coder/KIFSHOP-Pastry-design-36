@@ -310,7 +310,7 @@ export default function SignUpPage() {
               <Label className="text-sm">Type de business</Label>
               <Select value={businessType} onValueChange={setBusinessType}>
                 <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent noPortal={true}>
                   <SelectItem value="atelier">Atelier</SelectItem>
                   <SelectItem value="boutique">Boutique</SelectItem>
                   <SelectItem value="maison">Travail a domicile</SelectItem>
@@ -322,7 +322,7 @@ export default function SignUpPage() {
               <Label className="text-sm">Commandes / jour</Label>
               <Select value={estimatedDailyOrders} onValueChange={setEstimatedDailyOrders}>
                 <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent noPortal={true}>
                   <SelectItem value="0-5">0-5</SelectItem>
                   <SelectItem value="6-15">6-15</SelectItem>
                   <SelectItem value="16-30">16-30</SelectItem>
@@ -334,7 +334,7 @@ export default function SignUpPage() {
               <Label className="text-sm">Taille d'equipe</Label>
               <Select value={teamSize} onValueChange={setTeamSize}>
                 <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent noPortal={true}>
                   <SelectItem value="1-2">1-2</SelectItem>
                   <SelectItem value="3-5">3-5</SelectItem>
                   <SelectItem value="6-10">6-10</SelectItem>

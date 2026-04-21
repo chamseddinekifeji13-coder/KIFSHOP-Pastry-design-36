@@ -84,7 +84,9 @@
     @apply bg-background text-foreground;
     min-height: var(--app-vh, 100svh);
   }
-  html,
+  html {
+    width: 100%;
+  }
   body {
     width: 100%;
     max-width: 100%;
