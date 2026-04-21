@@ -401,7 +401,7 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess, resumeSessio
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col gap-0 overflow-y-auto [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
+        <SheetContent className="w-full sm:max-w-2xl p-0 flex flex-col gap-0 [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100">
           <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm"><ClipboardCheck className="h-5 w-5" /></div>
@@ -458,7 +458,7 @@ export function NewInventoryDrawer({ open, onOpenChange, onSuccess, resumeSessio
                 </div>
               )}
 
-              <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+              <div className="rounded-xl border bg-card shadow-sm">
                 <TabsContent value="mp" className="mt-0">{renderTable(mpItems)}</TabsContent>
                 <TabsContent value="pf" className="mt-0">{renderTable(pfItems)}</TabsContent>
               </div>

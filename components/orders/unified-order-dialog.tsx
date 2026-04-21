@@ -587,7 +587,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent
           showCloseButton={false}
-          className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
+          className="sm:max-w-lg p-0 gap-0 flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
         >
           <VisuallyHidden.Root>
             <DialogTitle>Nouvelle Commande</DialogTitle>
@@ -995,7 +995,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                           <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent noPortal={false}>
+                          <SelectContent>
                             <SelectItem value="pickup">Retrait au comptoir</SelectItem>
                             <SelectItem value="delivery">Livraison</SelectItem>
                           </SelectContent>
@@ -1105,7 +1105,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                                 <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                                   <SelectValue placeholder={loadingCouriers ? "Chargement..." : "Selectionner..."} />
                                 </SelectTrigger>
-                                <SelectContent noPortal={false}>
+                                <SelectContent>
                                   {couriers.length === 0 && !loadingCouriers && (
                                     <SelectItem value="__none" disabled>
                                       Aucun livreur configure
@@ -1162,7 +1162,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                           <SelectTrigger className="bg-muted/50 border-0 focus:ring-1 focus:ring-primary/30">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent noPortal={false}>
+                          <SelectContent>
                             <SelectItem value="phone">Telephone</SelectItem>
                             <SelectItem value="comptoir">Comptoir</SelectItem>
                             <SelectItem value="web">Web</SelectItem>
@@ -1201,7 +1201,7 @@ export function UnifiedOrderDialog({ open, onOpenChange, onOrderCreated, initial
                           <SelectTrigger className="bg-white border-0 focus:ring-1 focus:ring-amber-300">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent noPortal={false}>
+                          <SelectContent>
                             <SelectItem value="normal">Commande normale</SelectItem>
                             <SelectItem value="offre_client">
                               <span className="flex items-center gap-2">

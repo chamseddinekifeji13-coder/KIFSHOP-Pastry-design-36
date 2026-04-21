@@ -3,6 +3,13 @@
 import { useState, useEffect, useMemo, useTransition, useCallback } from "react"
 import { Plus, Minus, ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, Package, Loader2, Search, MapPin, Warehouse } from "lucide-react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -331,14 +338,16 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
   const renderReasonSelect = (options: string[]) => (
     <div className="space-y-2">
       <Label className="text-xs font-medium">Motif</Label>
-      <select
-        className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-      >
-        <option value="">Selectionner un motif</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+      <Select value={reason} onValueChange={setReason}>
+        <SelectTrigger className="bg-muted/50 border-0">
+          <SelectValue placeholder="Selectionner un motif" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 
@@ -348,18 +357,18 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
     return (
       <div className="space-y-2">
         <Label className="text-xs font-medium">{label}</Label>
-        <select
-          className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value="">Choisir un emplacement</option>
-          {filtered.map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {loc.name}{loc.designation ? ` - ${loc.designation}` : ""}
-            </option>
-          ))}
-        </select>
+        <Select value={value} onValueChange={onChange}>
+          <SelectTrigger className="bg-muted/50 border-0">
+            <SelectValue placeholder="Choisir un emplacement" />
+          </SelectTrigger>
+          <SelectContent>
+            {filtered.map((loc) => (
+              <SelectItem key={loc.id} value={loc.id}>
+                {loc.name}{loc.designation ? ` - ${loc.designation}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     )
   }
@@ -417,7 +426,7 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
 
   return (
 <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v) }}>
-    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 overflow-hidden [&>button[data-slot=dialog-close]]:absolute [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:opacity-80 [&>button[data-slot=dialog-close]]:hover:opacity-100 [&>button[data-slot=dialog-close]]:z-50">
+    <DialogContent className="sm:max-w-2xl md:max-w-3xl max-h-[90vh] p-0 flex flex-col gap-0 [&>button[data-slot=dialog-close]]:absolute [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:opacity-80 [&>button[data-slot=dialog-close]]:hover:opacity-100 [&>button[data-slot=dialog-close]]:z-50">
         {/* Header */}
         <div className="bg-gradient-to-br from-primary to-primary/80 px-6 py-8 text-primary-foreground">
           <div className="flex items-center gap-3 mb-3">
@@ -493,33 +502,33 @@ export function StockMovementDrawer({ open, onOpenChange, item }: StockMovementD
                   </div>
                   <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
                     <div className="min-w-0">
-                      <select
-                        className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
-                        value={fromLocationId}
-                        onChange={(e) => setFromLocationId(e.target.value)}
-                      >
-                        <option value="">Source</option>
-                        {activeLocations.map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={fromLocationId} onValueChange={setFromLocationId}>
+                        <SelectTrigger className="bg-muted/50 border-0 h-9">
+                          <SelectValue placeholder="Source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeLocations.map((loc) => (
+                            <SelectItem key={loc.id} value={loc.id}>
+                              {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <ArrowLeftRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <select
-                        className="h-9 w-full rounded-md border border-input bg-muted/50 px-3 text-sm"
-                        value={toLocationId}
-                        onChange={(e) => setToLocationId(e.target.value)}
-                      >
-                        <option value="">Destination</option>
-                        {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <Select value={toLocationId} onValueChange={setToLocationId}>
+                        <SelectTrigger className="bg-muted/50 border-0 h-9">
+                          <SelectValue placeholder="Destination" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {activeLocations.filter((l) => l.id !== fromLocationId).map((loc) => (
+                            <SelectItem key={loc.id} value={loc.id}>
+                              {loc.name}{loc.designation ? ` (${loc.designation})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>

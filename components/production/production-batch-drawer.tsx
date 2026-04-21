@@ -97,7 +97,7 @@ export function ProductionBatchDrawer({ open, onOpenChange, preselectedRecipeId 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden">
+      <SheetContent className="w-full sm:max-w-lg flex flex-col">
         <div className="space-y-4">
           <div>
             <div className="flex items-center gap-2 mb-2">

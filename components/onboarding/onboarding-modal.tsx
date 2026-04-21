@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import { useOnboarding } from "@/lib/onboarding-context"
 import { useTenant } from "@/lib/tenant-context"
 import { cn } from "@/lib/utils"
@@ -89,14 +90,11 @@ export function OnboardingModal() {
 
   return (
     <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-        {/* Progress bar */}
-        <div className="h-1 bg-muted">
-          <div 
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-          />
-        </div>
+      <DialogContent className="sm:max-w-lg p-0">
+        <Progress 
+          value={((currentStep + 1) / steps.length) * 100} 
+          className="h-1 rounded-none bg-muted" 
+        />
 
         <div className="p-6">
           {/* Step indicator */}

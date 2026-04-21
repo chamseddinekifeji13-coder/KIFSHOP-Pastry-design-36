@@ -215,7 +215,7 @@ export function ProductionPlanner() {
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Nouveau plan de production</DialogTitle>
             <DialogDescription>Selectionnez une recette et le systeme calculera automatiquement les besoins en matieres premieres</DialogDescription>
@@ -536,7 +536,7 @@ function PlanDetailDialog({ plan, onClose, onRefresh }: { plan: ProductionPlan; 
 
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between gap-3">
             <div>

@@ -456,7 +456,7 @@ export function QuickOrder({ open, onOpenChange, onOrderCreated }: QuickOrderPro
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent
           showCloseButton={false}
-          className="sm:max-w-lg p-0 gap-0 overflow-hidden flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
+          className="sm:max-w-lg p-0 gap-0 flex flex-col max-h-[90vh] [&>button]:top-4 [&>button]:right-4 [&>button]:text-white [&>button]:opacity-80 [&>button]:hover:opacity-100"
         >
           <VisuallyHidden.Root>
             <DialogTitle>Commande rapide</DialogTitle>
