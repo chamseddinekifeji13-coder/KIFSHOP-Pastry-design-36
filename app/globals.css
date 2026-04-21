@@ -106,6 +106,22 @@
   }
 }
 
+/* Global Fix for Radix UI Portals & Dropdowns on PC */
+[data-radix-portal] {
+  z-index: 12000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure Popper wrappers also respect stacking and interactivity */
+[data-radix-popper-content-wrapper] {
+  z-index: 12000 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
 /* PIN shake animation */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
