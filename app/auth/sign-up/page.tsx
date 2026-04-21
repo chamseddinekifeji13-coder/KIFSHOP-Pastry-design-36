@@ -391,11 +391,13 @@ export default function SignUpPage() {
           <input
             type="text"
             name="company_website"
+            title="Website"
             value={honeyPot}
             onChange={(e) => setHoneyPot(e.target.value)}
             className="hidden"
             tabIndex={-1}
             autoComplete="off"
+            aria-hidden="true"
           />
           <label className="flex items-start gap-2 text-sm cursor-pointer">
             <Checkbox

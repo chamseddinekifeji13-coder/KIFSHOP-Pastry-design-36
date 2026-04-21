@@ -119,6 +119,20 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
+        <style dangerouslySetInnerHTML={{ __html: `
+          [data-radix-portal] { 
+            z-index: 15000 !important; 
+            opacity: 1 !important; 
+            visibility: visible !important; 
+            pointer-events: auto !important; 
+          }
+          [data-radix-popper-content-wrapper] { 
+            z-index: 15000 !important; 
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+          }
+        ` }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
