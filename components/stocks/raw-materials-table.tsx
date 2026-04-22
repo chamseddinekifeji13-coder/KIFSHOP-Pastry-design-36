@@ -224,34 +224,37 @@ export function RawMaterialsTable({ materials, storageLocations, onItemClick, on
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-unit">Unité</Label>
-              <select
-                id="edit-unit"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={editUnit}
-                onChange={(e) => setEditUnit(e.target.value)}
-              >
-                <option value="kg">kg</option>
-                <option value="g">g</option>
-                <option value="L">L</option>
-                <option value="mL">mL</option>
-                <option value="pcs">pcs</option>
-                <option value="sachets">sachets</option>
-                <option value="unité">unité</option>
-              </select>
+              <Select value={editUnit} onValueChange={setEditUnit}>
+                <SelectTrigger id="edit-unit" className="h-9 w-full">
+                  <SelectValue placeholder="Unité" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kg">kg</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                  <SelectItem value="L">L</SelectItem>
+                  <SelectItem value="mL">mL</SelectItem>
+                  <SelectItem value="pcs">pcs</SelectItem>
+                  <SelectItem value="sachets">sachets</SelectItem>
+                  <SelectItem value="unité">unité</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-location">Dépôt</Label>
-              <select
-                id="edit-location"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={editLocationId}
-                onChange={(e) => setEditLocationId(e.target.value)}
+              <Select 
+                value={editLocationId || "none"} 
+                onValueChange={(val) => setEditLocationId(val === "none" ? "" : val)}
               >
-                <option value="none">Non assigné</option>
-                {(storageLocations || []).filter(l => l.isActive).map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
+                <SelectTrigger id="edit-location" className="h-9 w-full">
+                  <SelectValue placeholder="Choisir un dépôt" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Non assigné</SelectItem>
+                  {(storageLocations || []).filter(l => l.isActive).map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
