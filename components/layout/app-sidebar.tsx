@@ -25,6 +25,7 @@ import {
   FileText,
   Eye,
   HandCoins,
+  ScanBarcode,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -81,6 +82,7 @@ const navigation = [
     fallback: "Operations",
     items: [
       { titleKey: "nav.stocks", fallback: "Stocks", href: "/stocks", icon: Package },
+      { titleKey: "nav.labels", fallback: "Etiquettes", href: "/etiquettes", icon: ScanBarcode },
       { titleKey: "nav.inventory", fallback: "Inventaire", href: "/inventaire", icon: ClipboardCheck },
       { titleKey: "nav.production", fallback: "Production", href: "/production", icon: ChefHat },
       { titleKey: "nav.supply", fallback: "Approvisionnement", href: "/approvisionnement", icon: Truck },

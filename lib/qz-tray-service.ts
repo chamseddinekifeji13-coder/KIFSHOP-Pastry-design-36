@@ -759,6 +759,37 @@ class QZTrayService {
       throw new Error(`Erreur test: ${error.message}`)
     }
   }
+
+  // Print HTML content via QZ Tray (useful for label layouts with barcodes)
+  async printHtml(html: string, options?: { copies?: number; jobName?: string }): Promise<boolean> {
+    if (!this.isConnected() || !this.state.selectedPrinter) {
+      throw new Error("QZ Tray non connecte ou imprimante non selectionnee")
+    }
+
+    if (!html.trim()) {
+      throw new Error("Aucun contenu a imprimer")
+    }
+
+    try {
+      const config = this.qz.configs.create(this.state.selectedPrinter, {
+        copies: Math.max(1, Number(options?.copies || 1)),
+        jobName: options?.jobName || "KIFSHOP - Etiquettes",
+      })
+
+      await this.qz.print(config, [{
+        type: "pixel",
+        format: "html",
+        flavor: "plain",
+        data: html,
+      }])
+
+      if (QZ_DEBUG) console.log("[QZ Tray] HTML printed successfully")
+      return true
+    } catch (error: any) {
+      console.error("[QZ Tray] HTML print error:", error)
+      throw new Error(`Erreur impression HTML: ${error.message}`)
+    }
+  }
 }
 
 // Singleton instance
